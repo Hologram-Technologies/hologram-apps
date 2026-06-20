@@ -15,7 +15,11 @@
 const RMS_EPS_DEFAULT = 1e-6, ROPE_BASE_DEFAULT = 10000;
 
 // archs known to be the dense family this synthesizer reproduces faithfully.
-const DENSE_FAMILY = new Set(["llama", "qwen2", "qwen3", "mistral", "minicpm", "phi3"]);
+// bitnet (BitNet b1.58) is dense attention + SwiGLU FFN with two EXTRA sub-norms
+// (attn_sub_norm before wo, ffn_sub_norm before ffn_down) and optional per-linear
+// ternary weight-scales — handled inline below. (src/models/bitnet.cpp)
+const DENSE_FAMILY = new Set(["llama", "qwen2", "qwen3", "mistral", "minicpm", "phi3", "bitnet"]);
+const BITNET_FAMILY = new Set(["bitnet"]);
 
 // Gemma family — dense attention but a distinct skeleton (gemma3.cpp): embedding
 // ×√n_embd, QK-norm, GeGLU FFN, FOUR norms/layer (pre+post on attn and ffn),
@@ -95,6 +99,7 @@ export function synthesizeGraph(plan) {
 
   const qkvBias = has("blk.0.attn_q.bias");
   const qkNorm = has("blk.0.attn_q_norm.weight");
+  const bitnet = BITNET_FAMILY.has(arch);             // BitNet b1.58: + attn/ffn sub-norms
   const tied = !has("output.weight");                 // lm_head shares tok_embd
   const lmHeadName = tied ? "token_embd.weight" : "output.weight";
   const outBias = has("output.bias");
@@ -234,6 +239,8 @@ export function synthesizeGraph(plan) {
       attrs: { n_head, n_head_kv, head_dim } };
     if (qkvBias) { qkv.w.bq = ref(p + "attn_q.bias"); qkv.w.bk = ref(p + "attn_k.bias"); qkv.w.bv = ref(p + "attn_v.bias"); }
     if (qkNorm) { qkv.w.q_norm = ref(p + "attn_q_norm.weight"); qkv.w.k_norm = ref(p + "attn_k_norm.weight"); qkv.attrs.qk_norm_eps = eps; }
+    // BitNet optional ternary weight-scales (TENSOR_NOT_REQUIRED, scalar per linear)
+    if (bitnet && has(p + "attn_q.scale")) { qkv.w.wq_s = ref(p + "attn_q.scale"); qkv.w.wk_s = ref(p + "attn_k.scale"); qkv.w.wv_s = ref(p + "attn_v.scale"); }
     ops.push(qkv);
     // RoPE (NEOX) on Q and K
     ops.push({ op: "rope", target: `l${il}.Q`, attrs: { n_rot, type: "neox", freq_base, freq_scale } });
@@ -242,6 +249,10 @@ export function synthesizeGraph(plan) {
     const attn = { op: "attn", out: `l${il}.attn_out`, in: { q: `l${il}.Q`, k: `l${il}.K`, v: `l${il}.V` },
       w: { wo: ref(p + "attn_output.weight") }, attrs: { n_head, n_head_kv, head_dim, scale, causal: true } };
     if (has(p + "attn_output.bias")) attn.w.bo = ref(p + "attn_output.bias");
+    if (bitnet) {  // attn_sub_norm (RMS) on the attention output before wo; optional wo scale
+      attn.w.attn_sub_norm = ref(p + "attn_sub_norm.weight"); attn.attrs.subEps = eps;
+      if (has(p + "attn_output.scale")) attn.w.wo_s = ref(p + "attn_output.scale");
+    }
     ops.push(attn);
     // residual
     ops.push({ op: "add", out: `l${il}.ffn_inp`, in: [`l${il}.attn_out`, il === 0 ? "h" : `l${il - 1}.out`] });
@@ -263,8 +274,13 @@ export function synthesizeGraph(plan) {
       ops.push(moe);
     } else {
       // SwiGLU ffn: down( silu(gate(x)) * up(x) )
-      ops.push({ op: "ffn_swiglu", out: `l${il}.ffn_out`, in: `l${il}.ffn_norm`,
-        w: { gate: ref(p + "ffn_gate.weight"), up: ref(p + "ffn_up.weight"), down: ref(p + "ffn_down.weight") }, attrs: { act: "silu" } });
+      const ffn = { op: "ffn_swiglu", out: `l${il}.ffn_out`, in: `l${il}.ffn_norm`,
+        w: { gate: ref(p + "ffn_gate.weight"), up: ref(p + "ffn_up.weight"), down: ref(p + "ffn_down.weight") }, attrs: { act: "silu" } };
+      if (bitnet) {  // ffn_sub_norm (RMS) on the swiglu activation before ffn_down; optional scales
+        ffn.w.ffn_sub_norm = ref(p + "ffn_sub_norm.weight"); ffn.attrs.subEps = eps;
+        if (has(p + "ffn_gate.scale")) { ffn.w.gate_s = ref(p + "ffn_gate.scale"); ffn.w.up_s = ref(p + "ffn_up.scale"); ffn.w.down_s = ref(p + "ffn_down.scale"); }
+      }
+      ops.push(ffn);
     }
     // residual
     ops.push({ op: "add", out: `l${il}.out`, in: [`l${il}.ffn_out`, `l${il}.ffn_inp`] });
@@ -277,7 +293,7 @@ export function synthesizeGraph(plan) {
 
   // collect resolved weights actually used
   const weights = {}; for (const n of used) weights[n] = W[n];
-  const stats = { n_layer, n_embd, n_head, n_head_kv, head_dim, n_rot, eps, freq_base, qkvBias, qkNorm, tied, ops: ops.length, weightsUsed: used.size };
+  const stats = { n_layer, n_embd, n_head, n_head_kv, head_dim, n_rot, eps, freq_base, qkvBias, qkNorm, bitnet, tied, ops: ops.length, weightsUsed: used.size };
   if (moeCfg) Object.assign(stats, { n_expert, n_expert_used, normW: moeCfg.normW, wScale: w_scale, sharedExpert: moeCfg.shared });
   return { arch, family: moeCfg ? "moe" : "dense", ops, weights, stats };
 }

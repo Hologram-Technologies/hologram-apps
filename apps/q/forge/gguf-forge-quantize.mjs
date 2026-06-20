@@ -324,9 +324,32 @@ export function quantizeRowQ6K(x, k, imatrix = null) {
   return out;
 }
 
+// quantize_row_tq2_0_ref (:2313). Block 66 B: qs[64] (2 bits/elem) + d:f16. BitNet
+// ternary: d = amax; each weight → lroundf(x·id)+1 ∈ {0,1,2} packed 4/byte. `roundf`
+// here is lroundf semantics (ties away from zero). No imatrix (quant_weights unused).
+export function quantizeRowTq2_0(x, k) {
+  const nb = k / QK_K, out = new Uint8Array(nb * 66), dv = new DataView(out.buffer);
+  for (let i = 0; i < nb; i++) {
+    const xo = i * QK_K, bp = i * 66;
+    let amax = 0.0;
+    for (let j = 0; j < QK_K; j++) { const a = fabsf(x[xo + j]); if (a > amax) amax = a; }
+    const d = amax, id = d ? fr(1.0 / d) : 0.0;
+    dv.setUint16(bp + 64, f32ToF16(d), true);
+    for (let j = 0; j < 64; j += 32) {        // two halves; each consumes 4*32 inputs
+      const xh = xo + (j === 0 ? 0 : 128);
+      for (let m = 0; m < 32; m++) {
+        let q = 0;
+        for (let n = 0; n < 4; n++) { const xi = roundf(fr(x[xh + m + n * 32] * id)) + 1; q += (xi & 3) << (2 * n); }
+        out[bp + j + m] = q & 0xff;
+      }
+    }
+  }
+  return out;
+}
+
 // Dispatch by ggml type id (basic, round-to-nearest; no imatrix yet — S2).
 export const quantizeRow = {
-  8: quantizeRowQ8_0, 2: quantizeRowQ4_0, 6: quantizeRowQ5_0, 12: quantizeRowQ4K, 14: quantizeRowQ6K,
+  8: quantizeRowQ8_0, 2: quantizeRowQ4_0, 6: quantizeRowQ5_0, 12: quantizeRowQ4K, 14: quantizeRowQ6K, 35: quantizeRowTq2_0,
 };
 
 // ── S3: κ-native model factory ──

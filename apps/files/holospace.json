@@ -46,7 +46,7 @@
       "p": "A file explorer where every object is a self-verifying UOR object: its name IS its content address (Law L1), and a tampered byte re-derives to a different κ and is refused (Law L5)."
     },
     {
-      "p": "Serverless and fully private browse the OS's content-addressed graph, every holospace's sealed closure, and the OS-wide runtime, with O(1) content-addressed lookup. Your Home is a real, writable OPFS namespace."
+      "p": "Serverless browse the OS's content-addressed graph, every holospace's sealed closure, and the OS-wide runtime, with O(1) content-addressed lookup. Your Home is a real, writable OPFS namespace, kept private on this device; the wider content-addressed graph is addressable by its κ (a κ is an address, not a secret)."
     },
     {
       "ul": [

@@ -25,6 +25,9 @@ export const SEALED = [
   "gguf-forge-tokenizer.mjs",
   "gguf-forge-gpupack.mjs",
   "gguf-forge-kvcache.mjs",
+  "gguf-forge-turboquant.mjs",
+  "gguf-forge-lora-train.mjs",
+  "gguf-forge-lora-graph.mjs",
   "gguf-forge-whisper.mjs",
   // GPU witness pages
   "gpu/index.html",

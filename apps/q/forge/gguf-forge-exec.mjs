@@ -119,6 +119,10 @@ function ropeHeads(vec, pos, nRot, freqBase, headDim) {
   return out;
 }
 
+// BitNet ternary weight-scale: the {1} scalar from build_lora_mm's scale arg.
+function scalarOf(store, w, load) { return getRow(store, w, 0, load)[0]; }
+function scaleVec(vec, s) { for (let i = 0; i < vec.length; i++) vec[i] = fr(vec[i] * s); return vec; }
+
 // Per-head RMSNorm over each head_dim slice with a shared weight (QK-norm).
 function normHeads(vec, weight, eps, headDim) {
   const nHeads = vec.length / headDim, out = new Float32Array(vec.length);
@@ -177,6 +181,8 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           let q = addBias(matvec(store, W(op.w.wq), x, load), W(op.w.bq), store, load);
           let k = addBias(matvec(store, W(op.w.wk), x, load), W(op.w.bk), store, load);
           const v = addBias(matvec(store, W(op.w.wv), x, load), W(op.w.bv), store, load);
+          // BitNet ternary weight-scales (build_lora_mm scale arg): scalar per linear.
+          if (op.w.wq_s) { scaleVec(q, scalarOf(store, W(op.w.wq_s), load)); scaleVec(k, scalarOf(store, W(op.w.wk_s), load)); scaleVec(v, scalarOf(store, W(op.w.wv_s), load)); }
           // optional per-head QK-norm (qwen3 / Gemma3): RMSNorm over each head's
           // head_dim slice with a shared weight. (gemma3.cpp:53,61)
           if (op.w.q_norm) {
@@ -215,7 +221,12 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           // K4 SWA eviction: drop the K/V that just fell out of the window (pos−swa) — it
           // is masked for every future query, so memory stays O(n_swa) with no output change.
           if (swa && pos - swa >= 0) { Kc[il][pos - swa] = null; Vc[il][pos - swa] = null; }
-          env.set(op.out, addBias(matvec(store, W(op.w.wo), ctx, load), W(op.w.bo), store, load));
+          // BitNet attn_sub_norm: RMSNorm on the attention output BEFORE wo (bitnet.cpp:54).
+          let attnCtx = ctx;
+          if (op.w.attn_sub_norm) attnCtx = rmsNorm(ctx, getRow(store, W(op.w.attn_sub_norm), 0, load), op.attrs.subEps ?? eps);
+          let attnOut = addBias(matvec(store, W(op.w.wo), attnCtx, load), W(op.w.bo), store, load);
+          if (op.w.wo_s) scaleVec(attnOut, scalarOf(store, W(op.w.wo_s), load));
+          env.set(op.out, attnOut);
           break;
         }
         case "add":
@@ -224,8 +235,13 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
         case "ffn_swiglu": {
           const x = env.get(op.in);
           const g = matvec(store, W(op.w.gate), x, load), u = matvec(store, W(op.w.up), x, load);
-          const act = op.attrs?.act === "gelu" ? geglu(g, u) : swiglu(g, u); // Gemma: GeGLU
-          env.set(op.out, matvec(store, W(op.w.down), act, load));
+          if (op.w.gate_s) { scaleVec(g, scalarOf(store, W(op.w.gate_s), load)); scaleVec(u, scalarOf(store, W(op.w.up_s), load)); }
+          let act = op.attrs?.act === "gelu" ? geglu(g, u) : swiglu(g, u); // Gemma: GeGLU
+          // BitNet ffn_sub_norm: RMSNorm on the activation BEFORE ffn_down (bitnet.cpp:88).
+          if (op.w.ffn_sub_norm) act = rmsNorm(act, getRow(store, W(op.w.ffn_sub_norm), 0, load), op.attrs.subEps ?? eps);
+          let ffnOut = matvec(store, W(op.w.down), act, load);
+          if (op.w.down_s) scaleVec(ffnOut, scalarOf(store, W(op.w.down_s), load));
+          env.set(op.out, ffnOut);
           break;
         }
         case "ffn_moe": {
