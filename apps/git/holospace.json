@@ -1,0 +1,77 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloGit",
+  "name": "Holo Git",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A self-hosted git forge issues, pull requests and merges, serverless.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "git-object-format",
+      "gitea-api",
+      "holo-git-holospace"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloGit"
+    ]
+  },
+  "shared": [
+    "favicon.png",
+    "holo-collab.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "loader": "git.html",
+  "description": [
+    {
+      "p": "Hosting code and collaborating shouldn't depend on a central server."
+    },
+    {
+      "p": "Git objects live on the content-addressed store, issues and pull requests are conflict-free replicated types, and clone/fetch/push run over a content-blind relay."
+    },
+    {
+      "ul": [
+        "Real git objects (sha1 + sha256)",
+        "Issues and PRs as conflict-free replicated data",
+        "Open a PR on one peer, merge on another",
+        "No server"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "RevisionControl"
+  ],
+  "keywords": [
+    "git",
+    "forge",
+    "repository",
+    "issues",
+    "pull request",
+    "gitea"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/git",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Serverless multiuser forge: git transfer by κ, CvRDT issues/PRs, 3-way merge."
+    }
+  ],
+  "accent": "#609926"
+}

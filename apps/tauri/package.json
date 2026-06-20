@@ -1,0 +1,18 @@
+{
+  "name": "hologram-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hologram native host a Tauri v2 shell that boots the content-addressed OS from holo:// (no Chrome, no CORS).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "make-dist": "node make-dist.mjs",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "pin-release": "node pin-release.mjs",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

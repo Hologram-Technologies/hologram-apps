@@ -1,0 +1,81 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloOS",
+  "name": "Hologram OS",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A real Debian GNU/Linux system, booted in a browser tab.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "conforms": {
+    "specs": [
+      "web-platform"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloOS"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-theme.js",
+    "xterm/addon-clipboard.js",
+    "xterm/addon-fit.js",
+    "xterm/addon-search.js",
+    "xterm/addon-unicode11.js",
+    "xterm/addon-web-links.js",
+    "xterm/addon-webgl.js",
+    "xterm/xterm.css",
+    "xterm/xterm.js"
+  ],
+  "engines": [],
+  "loader": "os.html",
+  "description": [
+    {
+      "p": "A real Linux shell shouldn't need an install, a VM manager, or a server."
+    },
+    {
+      "p": "A genuine Debian userland boots on an emulated machine running entirely in the browser, with a filesystem that persists."
+    },
+    {
+      "ul": [
+        "A real Debian rootfs apt, bash, coreutils",
+        "A persistent, writable filesystem",
+        "No install, no server",
+        "A genuine shell, not an emulation"
+      ]
+    }
+  ],
+  "categories": [
+    "System",
+    "Education",
+    "TerminalEmulator"
+  ],
+  "keywords": [
+    "linux",
+    "debian",
+    "terminal",
+    "shell",
+    "bash",
+    "unix"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://hologram.os/apps/os",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Debian arm64 userland on the in-browser emulator, with a persistent κ-store filesystem."
+    }
+  ],
+  "accent": "#a6e22e"
+}

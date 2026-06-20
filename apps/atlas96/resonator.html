@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Atlas 96 Resonator · the 12,288-cell instrument</title>
+<style>
+  :root{ --bg:#05070b; --panel:#0d1117ee; --line:#1f2730; --ink:#e6edf3; --dim:#8b949e;
+         --accent:#46d3c5; --gold:#e8a93c; --ok:#3fb950; --bad:#f85149; --warn:#d29922; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); overflow:hidden;
+    font:var(--holo-text-sm, 1rem)/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  /* ── overlays (zen mode fades the chrome away while you play) ── */
+  .hud{ position:fixed; z-index:5; pointer-events:none; transition:opacity .5s ease; }
+  .hud > *{ pointer-events:auto; }
+  body.zen .hud{ opacity:0; }
+  body.zen .hud > *{ pointer-events:none; }
+  body.zen{ cursor:none; }
+  @media (prefers-reduced-motion: reduce){ .hud{ transition:none; } #proof{ transition:none; } #boot{ transition:none; } }
+  #top{ top:14px; left:16px; display:flex; flex-direction:column; gap:6px; max-width:min(520px,72vw); }
+  #top h1{ margin:0; font-size:18px; letter-spacing:.2px; font-weight:650; }
+  #top h1 b{ color:var(--accent); font-weight:650; }
+  #top .sub{ color:var(--dim); font-size:var(--holo-text-sm, 1rem); }
+  .badge{ display:inline-flex; align-items:center; gap:8px; padding:5px 11px; width:max-content; max-width:100%;
+    border:1px solid var(--line); border-radius:999px; font-size:var(--holo-text-sm, 1rem); background:var(--panel); }
+  .dot{ width:9px; height:9px; flex:none; border-radius:50%; background:var(--warn); }
+  .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(63,185,80,.16); }
+  .dot.bad{ background:var(--bad); box-shadow:0 0 0 4px rgba(248,81,73,.16); }
+  #actions{ top:14px; right:16px; display:flex; gap:8px; }
+  button.ctl{ font:inherit; font-size:var(--holo-text-sm, 1rem); cursor:pointer; background:var(--panel); color:var(--ink);
+    border:1px solid var(--line); border-radius:9px; padding:7px 12px; }
+  button.ctl:hover{ border-color:var(--accent); }
+  button.ctl[aria-pressed="true"]{ border-color:var(--accent); color:var(--accent); }
+  #bottom{ bottom:16px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:14px;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:10px 16px; backdrop-filter:blur(8px); }
+  .dimbtns{ display:flex; gap:4px; }
+  .dimbtns button{ font:inherit; font-size:var(--holo-text-sm, 1rem); cursor:pointer; background:transparent; color:var(--dim);
+    border:1px solid var(--line); border-radius:8px; padding:5px 10px; }
+  .dimbtns button.on{ color:var(--accent); border-color:var(--accent); }
+  #bottom label{ color:var(--dim); font-size:var(--holo-text-sm, 1rem); }
+  #bottom input[type=range]{ width:130px; accent-color:var(--accent); }
+  #stats{ bottom:16px; right:16px; text-align:right; color:var(--dim); font-size:var(--holo-text-sm, 1rem); }
+  #stats .truth{ color:var(--ok); } #stats .truth.off{ color:var(--warn); }
+  #stats .tier{ color:var(--accent); }
+  #spectrum{ bottom:16px; left:16px; width:min(300px,30vw); height:64px; display:none;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+  #tip{ position:fixed; z-index:8; display:none; background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; padding:6px 10px; font-size:var(--holo-text-sm, 1rem); pointer-events:none; max-width:330px; }
+  #tip .k{ color:var(--dim); }
+  /* ── proof drawer ── */
+  #proof{ position:fixed; z-index:7; top:0; right:0; height:100%; width:min(430px,92vw); overflow:auto;
+    background:#0a0e14f5; border-left:1px solid var(--line); padding:18px 20px 28px; transform:translateX(102%);
+    transition:transform .28s ease; }
+  #proof.open{ transform:none; }
+  #proof h2{ font-size:var(--holo-text-sm, 1rem); text-transform:uppercase; letter-spacing:.12em; color:var(--dim); margin:14px 0 8px; }
+  #proof .q{ border-left:3px solid var(--gold); padding:6px 0 6px 12px; color:var(--ink); font-style:italic; }
+  #proof .q small{ color:var(--dim); font-style:normal; }
+  #proof p{ font-size:var(--holo-text-sm, 1rem); }
+  .checks{ display:flex; flex-direction:column; gap:7px; margin:10px 0; }
+  .checks div{ display:flex; gap:9px; align-items:baseline; font-size:var(--holo-text-sm, 1rem); }
+  .checks .dot{ position:relative; top:1px; }
+  .checks .kk{ color:var(--dim); word-break:break-all; }
+  .proofbtns{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
+  #tamperOut{ font-size:var(--holo-text-sm, 1rem); margin-top:8px; color:var(--dim); }
+  #tamperOut b.bad{ color:var(--bad); } #tamperOut b.ok{ color:var(--ok); }
+  .foot{ color:var(--dim); font-size:var(--holo-text-sm, 1rem); border-top:1px solid var(--line); margin-top:16px; padding-top:10px; }
+  /* ── boot overlay ── */
+  #boot{ position:fixed; inset:0; z-index:20; display:flex; flex-direction:column; gap:14px;
+    align-items:center; justify-content:center; background:var(--bg); transition:opacity .6s ease; }
+  #boot h1{ font-size:22px; margin:0; font-weight:650; } #boot h1 b{ color:var(--accent); }
+  #boot .st{ color:var(--dim); font-size:var(--holo-text-sm, 1rem); }
+  #bar{ width:min(340px,70vw); height:4px; border-radius:2px; background:var(--line); overflow:hidden; }
+  #bar i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--gold)); }
+  #help{ position:fixed; z-index:9; inset:0; display:none; background:#05070bd9; }
+  #help .card{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--panel);
+    border:1px solid var(--line); border-radius:14px; padding:20px 26px; max-width:min(500px,90vw); }
+  #help dt{ color:var(--accent); float:left; clear:left; width:130px; font-size:var(--holo-text-sm, 1rem); }
+  #help dd{ margin:0 0 7px 140px; color:var(--dim); font-size:var(--holo-text-sm, 1rem); }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="boot">
+  <h1>Atlas <b>96</b> Resonator</h1>
+  <div class="st" id="bootSt">fetching the sealed Φ-Atlas-12288 object…</div>
+  <div id="bar"><i id="barFill"></i></div>
+  <div class="st" style="opacity:.7">every artifact of this structure is a content address</div>
+</div>
+
+<div class="hud" id="top">
+  <h1>Atlas <b>96</b> Resonator</h1>
+  <div class="sub">T² = ℤ₄₈ × ℤ₂₅₆ · 12,288 cells · 96 resonance classes pull it, compress it, pluck it, hear it</div>
+  <span class="badge"><span class="dot" id="dot"></span><span id="badge">deriving…</span></span>
+</div>
+
+<div class="hud" id="actions">
+  <button class="ctl" id="soundBtn" aria-pressed="false">🔇 sonify</button>
+  <button class="ctl" id="resBtn" title="render resolution">res auto</button>
+  <button class="ctl" id="fsBtn" title="fullscreen">⛶</button>
+  <button class="ctl" id="proofBtn" aria-pressed="false">proof</button>
+  <button class="ctl" id="resetBtn">reset</button>
+  <button class="ctl" id="helpBtn">?</button>
+</div>
+
+<div class="hud" id="bottom">
+  <div class="dimbtns" id="dimBtns">
+    <button data-d="1">1D</button><button data-d="2">2D</button>
+    <button data-d="3" class="on">3D</button><button data-d="4">4D</button>
+  </div>
+  <input type="range" id="dimSlider" min="1" max="4" step="0.001" value="3" aria-label="dimension morph">
+  <label>squeeze <input type="range" id="squeeze" min="0.45" max="1.55" step="0.01" value="1"></label>
+</div>
+
+<canvas id="spectrum" class="hud" width="600" height="128"></canvas>
+<div class="hud" id="stats"></div>
+<div id="tip"></div>
+
+<div id="proof">
+  <h2>The decidable answer</h2>
+  <div class="q">“Since a torus has a simple analytical description, how do we know the model didn’t just
+    classify the shape and apply the math formula? Did the 3D mesh actually capture the specific,
+    irregular artifacts?” <small> the right question to ask of any generated structure</small></div>
+  <p>Here that question has a <b>proof</b>, not an argument. The smooth torus is the formula shown as the
+    gray ghost below. Everything that departs from it every kink in a fiber, every hole in the weave 
+    is a byte of <span class="mono">SHA-256(κ ‖ Φ(p,b))</span>: the content address of the sealed atlas
+    object, applied to each of its 12,288 cells. Even the engine that classifies those cells is compiled
+    in this tab, from the verbatim upstream source, by Holo Forge. Nothing is inferred from a picture.
+    Everything either re-derives here, or is refused:</p>
+  <div class="checks" id="checks"></div>
+  <h2>Try to break it</h2>
+  <div class="proofbtns">
+    <button class="ctl" id="ghostBtn" aria-pressed="false">ghost: the bare formula</button>
+    <button class="ctl" id="tamperBtn">tamper 1 byte → ?</button>
+  </div>
+  <p id="ghostNote" style="display:none">The gray lattice is the parametric torus all a formula can say.
+    The amber whiskers are the residuals the formula cannot produce: <span id="resStat" class="mono"></span>.
+    They are not noise; re-derive them from κ and they come back byte-identical.</p>
+  <div id="tamperOut"></div>
+  <h2>Method, inverted</h2>
+  <p>Image → mesh is <i>inference</i>: plausible, unverifiable. Here the arrow points the other way:
+    structure = <span class="mono">f(κ)</span>, sealed in a
+    <a href="resonator.receipt.jsonld" target="_blank" rel="noopener" style="color:var(--accent)">PROV-O receipt</a>
+    that re-derives its own identity (Law L5). The artifacts are not style. They are the data.</p>
+  <div class="foot" id="proofFoot">0 free parameters · 0 RNG calls · derivation runs in this tab</div>
+</div>
+
+<div id="help"><div class="card">
+  <h2 style="margin-top:0">Playing the Resonator</h2>
+  <dl>
+    <dt>drag a node</dt><dd>grab one cell and pull the weave follows</dd>
+    <dt>shift + drag</dt><dd>grab the whole structure (soft field)</dd>
+    <dt>double-click</dt><dd>pluck a fiber hear its R96 class (96-EDO)</dd>
+    <dt>drag space</dt><dd>orbit · wheel zooms</dd>
+    <dt>squeeze</dt><dd>compress / stretch the whole torus it buckles and sings</dd>
+    <dt>1D 2D 3D 4D</dt><dd>morph the SAME 12,288 cells: cycle → sheet → torus → Clifford torus in S³</dd>
+    <dt>sonify</dt><dd>strain per resonance class → 96 microtonal partials (220·2^(c/96) Hz)</dd>
+    <dt>res</dt><dd>render resolution: auto (adapts to your hardware) · native · 8K supersample</dd>
+    <dt>⛶</dt><dd>fullscreen immersion the chrome fades while you play</dd>
+  </dl>
+  <div style="text-align:right"><button class="ctl" id="helpClose">close</button></div>
+</div></div>
+
+<script type="module">
+// ── Atlas 96 Resonator — the 12,288-cell boundary as a physical, audible, multi-dimensional
+//    instrument. 100% rooted: topology (48×256 torus), classes (R96 = b%96), coordinates (Φ),
+//    geometry artifacts (SHA-256 of the sealed object's κ per cell), sonification (ℤ₉₆ → 96-EDO),
+//    truth (≙ conservation: budget = 0). 100% browser-native: the atlas engine is COMPILED IN
+//    THIS TAB by Holo Forge from the verbatim upstream C (receipt-verified); the structure is
+//    derived once, content-addressed, and REBOUND O(1) by κ on every later visit (with a full
+//    background re-derivation so the proof stays absolute); physics + rendering live on the GPU
+//    (WebGPU compute tier, WebGL2 fallback) at up to 8K, adapting to the hardware's headroom.
+import { address, verify, jcs, sha256hex } from "./forge/holo-object.js";
+import { compile, VERSION as FORGE_VERSION } from "./forge/holo-forge.mjs";
+import * as AG from "./resonator-geometry.js";
+import { createGpuEngine } from "./resonator-gpu.js";
+
+const $ = (id) => document.getElementById(id);
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const enc = new TextEncoder();
+const kOf = async (u8) => "did:holo:sha256:" + await sha256hex(u8);
+const N = AG.CELLS, TAU = Math.PI * 2;
+
+// ─────────────────────────────── boot: fetch · compile · verify · derive ─────────────────────
+const bootSt = $("bootSt"), barFill = $("barFill");
+const setBoot = (t, f) => { bootSt.textContent = t; if (f != null) barFill.style.width = (f * 100).toFixed(1) + "%"; };
+
+const [atlas, receipt, moduleBytes, srcBuf, forgeReceipt, compilerBytes] = await Promise.all([
+  fetch("atlas-12288.uor.jsonld").then((r) => r.json()),
+  fetch("resonator.receipt.jsonld").then((r) => r.json()),
+  fetch("resonator-geometry.js").then((r) => r.arrayBuffer()).then((b) => new Uint8Array(b)),
+  fetch("vendor/atlas-12288/ffi/c/minimal_wrapper.c").then((r) => r.arrayBuffer()),
+  fetch("forge/atlas12288.forge.jsonld").then((r) => r.json()),
+  fetch("forge/holo-forge.mjs").then((r) => r.arrayBuffer()).then((b) => new Uint8Array(b)),
+]);
+
+// ── the NATIVE engine: compile the verbatim upstream C in THIS tab with Holo Forge, and verify
+//    the whole κ-transform against the sealed build receipt (κ source ⊕ compiler ⊕ flags → κ artifact)
+setBoot("compiling the atlas engine Holo Forge…", 0.04);
+let X = null, engineOk = false;
+try {
+  const FLAGS = { lang: "holo-c", target: "wasm-core-2.0", optimize: false };
+  const { wasm } = compile(new TextDecoder().decode(srcBuf));
+  ({ instance: { exports: X } } = await WebAssembly.instantiate(wasm, {}));
+  const inputs = {
+    source: (await kOf(new Uint8Array(srcBuf))) === forgeReceipt["prov:used"]?.["@id"],
+    compiler: (await kOf(compilerBytes)) === forgeReceipt["hosc:tool"]?.["@id"],
+    flags: (await kOf(enc.encode(jcs(FLAGS)))) === forgeReceipt["hosc:flags"],
+    artifact: (await kOf(wasm)) === forgeReceipt["prov:generated"]?.["@id"],
+  };
+  engineOk = Object.values(inputs).every(Boolean) && await verify(forgeReceipt);
+} catch (e) { console.error("[forge engine]", e); }
+const classTable = new Uint8Array(256);
+for (let b = 0; b < 256; b++) classTable[b] = X ? X.lean_uor_r96_classify_minimal(b) : b % 96;
+const classOf = (i) => classTable[i & 0xff];
+const phiOf = (p, b) => X ? X.lean_uor_phi_encode_minimal(p, b) : AG.phiEncode(p, b);
+const truthZero = (q) => X ? X.lean_uor_truth_zero_minimal(q) === 1 : q === 0;
+
+// ── the structure: derive once → content-address → O(1) rebind by κ on every later visit ──
+const structKappa = receipt["prov:generated"]["@id"], structHex = structKappa.split(":").pop();
+async function opfs() { try { return await navigator.storage.getDirectory(); } catch { return null; } }
+async function loadCachedDNA() { try { const d = await opfs(); const f = await d.getFileHandle(`resonator-${structHex}.dna`);
+  return new Uint8Array(await (await f.getFile()).arrayBuffer()); } catch { return null; } }
+async function saveCachedDNA(bytes) { try { const d = await opfs(); const f = await d.getFileHandle(`resonator-${structHex}.dna`, { create: true });
+  const w = await f.createWritable(); await w.write(bytes); await w.close(); } catch {} }
+
+let dna, rebound = false;
+{
+  setBoot("rebinding structure by κ…", 0.08);
+  const cached = await loadCachedDNA();
+  if (cached && (await kOf(cached)) === structKappa) { dna = cached; rebound = true; }   // O(1): one hash, no derivation
+  else {
+    dna = await AG.deriveDNA(atlas.id, (f) => setBoot(`Φ-addressing the boundary ${Math.round(f * N).toLocaleString()} / 12,288 cells`, 0.08 + f * 0.84));
+    saveCachedDNA(dna);
+  }
+}
+
+// ── the five live checks (Law L5) — the proof panel renders these ──
+setBoot("re-deriving identities…", 0.95);
+const proof = {
+  object: (await verify(atlas)) && receipt["a12:atlasObject"] === atlas.id,
+  derivation: (await kOf(moduleBytes)) === receipt["hosr:derivation"],
+  structure: (await kOf(dna)) === structKappa,
+  receipt: await verify(receipt),
+  engine: engineOk,
+};
+const proofOk = Object.values(proof).every(Boolean);
+$("dot").className = "dot " + (proofOk ? "ok" : "bad");
+$("badge").innerHTML = proofOk
+  ? `re-derives ✓ 5/5${rebound ? " · rebound O(1)" : ""} · <span class="mono" style="color:var(--dim)">${structKappa.slice(0, 28)}…</span>`
+  : "identity mismatch ✗";
+
+function renderChecks(extra = "") {
+  const CHECKS = [
+    ["the sealed atlas object re-derives its own did", proof.object, atlas.id],
+    [rebound ? `structure rebound O(1) by κ · bytes match the receipt${extra}` : "12,288-cell structure DNA re-derived here · κ matches the receipt", proof.structure, structKappa],
+    ["the derivation module's bytes match the pinned κ", proof.derivation, receipt["hosr:derivation"]],
+    ["the PROV-O receipt re-derives its own did", proof.receipt, receipt.id],
+    [`the atlas engine compiled IN THIS TAB by Holo Forge ${FORGE_VERSION} re-derives the sealed build receipt`, proof.engine, forgeReceipt["prov:generated"]?.["@id"] || ""],
+  ];
+  $("checks").innerHTML = CHECKS.map(([t, ok, k]) =>
+    `<div><span class="dot ${ok ? "ok" : "bad"}"></span><span>${t}<br><span class="kk mono">${String(k).slice(0, 44)}…</span></span></div>`).join("");
+}
+renderChecks();
+$("proofFoot").textContent = `0 free parameters · 0 RNG calls · ${receipt["hosr:fibers"].toLocaleString()} fibers · ${receipt["hosr:holes"].toLocaleString()} holes all decided by address bytes`;
+
+// on an O(1) rebind, ALSO re-derive everything in the background, so the proof stays absolute
+let fullDerive = Promise.resolve(!rebound);
+if (rebound) fullDerive = new Promise((res) => setTimeout(async () => {
+  const fresh = await AG.deriveDNA(atlas.id);
+  let same = fresh.length === dna.length; if (same) for (let i = 0; i < fresh.length; i++) if (fresh[i] !== dna[i]) { same = false; break; }
+  renderChecks(same ? " · re-derived all 12,288 cells in the background ✓" : " · BACKGROUND RE-DERIVATION MISMATCH ✗");
+  res(same);
+}, 1800));
+
+// ───────────────────────────────────── structure ─────────────────────────────────────────────
+const projector = AG.makeProjector(dna);
+const edgesInfo = AG.buildEdges(dna);
+const SPACING = TAU * AG.TORUS_R / AG.BYTES;
+
+// per-node base color: gold faces the hole, white outside; class-tinted; thickness-lit
+const colors = new Float32Array(N * 4);                  // rgb + sprite size (the GPU tier's layout)
+for (let i = 0; i < N; i++) {
+  const p = i >> 8, b = i & 0xff, c = classOf(i), o = i * 8, q = i * 4;
+  const warm = Math.pow((1 + Math.cos(TAU * p / AG.PAGES)) / 2, 1.25);
+  const lit = 0.62 + (dna[o + 3] / 255) * 0.55;
+  const tint = (c / 96 - 0.5) * 0.10;
+  colors[q] = (0.92 + warm * 0.10) * lit;
+  colors[q + 1] = (0.94 - warm * 0.27 + tint * 0.4) * lit;
+  colors[q + 2] = (1.00 - warm * 0.80 - tint) * lit;
+  colors[q + 3] = 1.6 + (dna[o + 3] / 255) * 1.4;
+  if (p === 0 && b < 96) { colors[q] = 0.55; colors[q + 1] = 1.05; colors[q + 2] = 1.0; colors[q + 3] = 4.6; }
+}
+
+// ──────────────────────────── tier: WebGPU compute, WebGL2 fallback ──────────────────────────
+const cv = $("gl");
+const forceGL = new URLSearchParams(location.search).get("tier") === "gl";
+setBoot("waking the hardware…", 0.97);
+let gpu = null;
+if (!forceGL) { try { gpu = await createGpuEngine({ canvas: cv, dna, buildEdges: AG.buildEdges, classOf, colors, cells: N }); }
+  catch (e) { console.warn("[webgpu unavailable]", e); gpu = null; } }
+const TIER = gpu ? "webgpu" : "webgl2";
+
+// ── resolution: adapt to the hardware's real headroom; supersample to 8K on demand ──
+let resMode = "auto";                                     // auto · native · 8k
+let autoScale = Math.min(devicePixelRatio || 1, 2);
+let scaleNow = 0, frameEMA = 16.7, maxBack = 8192;
+function wantScale() {
+  if (resMode === "8k") return Math.max(7680 / innerWidth, 4320 / innerHeight);
+  if (resMode === "native") return devicePixelRatio || 1;
+  return autoScale;
+}
+function applyScale() {
+  const s = Math.min(wantScale(), maxBack / Math.max(innerWidth, innerHeight));
+  if (Math.abs(s - scaleNow) < 0.02) return;
+  scaleNow = s;
+  const w = Math.round(innerWidth * s), h = Math.round(innerHeight * s);
+  if (gpu) gpu.resize(w, h);
+  else { cv.width = w; cv.height = h; gl.viewport(0, 0, cv.width, cv.height); }
+  VW = cv.width; VH = cv.height;
+}
+$("resBtn").addEventListener("click", () => {
+  resMode = resMode === "auto" ? "native" : resMode === "native" ? "8k" : "auto";
+  $("resBtn").textContent = "res " + (resMode === "8k" ? "8K" : resMode);
+  applyScale();
+});
+
+// ─────────────────────────────────── WebGL2 fallback tier ────────────────────────────────────
+let gl = null, lineProg, sprProg, lineVAO, ghostVAO, sprVAO, lineBuf, lineData, ghostBuf, ghostData, ghostEdges, sprBuf, sprData;
+let VW = 0, VH = 0;
+let edges, shear, E = edgesInfo.render.length / 2;
+const pos = gpu ? null : new Float32Array(N * 3), prev = gpu ? null : new Float32Array(N * 3);
+const rest = new Float32Array(N * 3);
+let restLen, shearLen, edgeWidth;
+const strainN = gpu ? null : new Float32Array(N);
+
+function initGL2() {
+  gl = cv.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "high-performance" });
+  if (!gl) { setBoot("neither WebGPU nor WebGL2 is available in this browser", 0); throw new Error("no gpu api"); }
+  maxBack = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), gl.getParameter(gl.MAX_TEXTURE_SIZE));
+  const mk = (vs, fs) => { const c = (t, s) => { const h = gl.createShader(t); gl.shaderSource(h, s); gl.compileShader(h);
+      if (!gl.getShaderParameter(h, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(h)); return h; };
+    const pr = gl.createProgram(); gl.attachShader(pr, c(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, c(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); return pr; };
+  const LINE_VS = `#version 300 es
+  layout(location=0) in vec3 aA; layout(location=1) in vec3 aB;
+  layout(location=2) in vec3 aCol; layout(location=3) in float aGlow; layout(location=4) in float aW;
+  uniform mat4 uMVP; uniform vec2 uVP; uniform float uWMul;
+  out vec3 vCol; out float vGlow; out float vY;
+  const vec2 C[6]=vec2[6](vec2(0.,-1.),vec2(1.,-1.),vec2(1.,1.),vec2(0.,-1.),vec2(1.,1.),vec2(0.,1.));
+  void main(){
+    vec2 c=C[gl_VertexID];
+    vec4 ca=uMVP*vec4(aA,1.), cb=uMVP*vec4(aB,1.);
+    if(ca.w<0.05&&cb.w<0.05){ gl_Position=vec4(0.,0.,-3.,1.); vCol=vec3(0.); vGlow=0.; vY=1.; return; }
+    ca.w=max(ca.w,0.05); cb.w=max(cb.w,0.05);
+    vec2 sa=ca.xy/ca.w*uVP*0.5, sb=cb.xy/cb.w*uVP*0.5;
+    vec2 d=sb-sa; float L=max(length(d),1e-4); vec2 nrm=vec2(-d.y,d.x)/L;
+    vec4 cc=mix(ca,cb,c.x);
+    float w=aW*uWMul*(1.0+aGlow*1.5);
+    cc.xy+=nrm*(c.y*w)/(uVP*0.5)*cc.w;
+    gl_Position=cc; vCol=aCol; vGlow=aGlow; vY=c.y;
+  }`;
+  const LINE_FS = `#version 300 es
+  precision highp float;
+  in vec3 vCol; in float vGlow; in float vY; out vec4 o;
+  uniform float uAMul;
+  void main(){
+    float t=1.0-abs(vY); float a=uAMul*t*t;
+    vec3 col=vCol*(1.0+vGlow*1.9)+vec3(0.42,0.34,0.2)*vGlow;
+    o=vec4(col*a,1.0);
+  }`;
+  const SPR_VS = `#version 300 es
+  layout(location=0) in vec3 aP; layout(location=1) in vec3 aCol; layout(location=2) in float aS;
+  uniform mat4 uMVP; uniform vec2 uVP; uniform float uSMul;
+  out vec3 vCol; out vec2 vUV;
+  const vec2 C[6]=vec2[6](vec2(-1.,-1.),vec2(1.,-1.),vec2(1.,1.),vec2(-1.,-1.),vec2(1.,1.),vec2(-1.,1.));
+  void main(){
+    vec2 c=C[gl_VertexID];
+    vec4 cc=uMVP*vec4(aP,1.);
+    if(cc.w<0.05){ gl_Position=vec4(0.,0.,-3.,1.); vCol=vec3(0.); vUV=vec2(2.); return; }
+    cc.xy+=c*(aS*uSMul)/(uVP*0.5)*cc.w;
+    gl_Position=cc; vCol=aCol; vUV=c;
+  }`;
+  const SPR_FS = `#version 300 es
+  precision highp float;
+  in vec3 vCol; in vec2 vUV; out vec4 o;
+  void main(){
+    float d=length(vUV);
+    float a=pow(max(0.,1.-d),2.2)+pow(max(0.,1.-d*1.6),6.)*0.9;
+    o=vec4(vCol*a,1.0);
+  }`;
+  lineProg = mk(LINE_VS, LINE_FS); sprProg = mk(SPR_VS, SPR_FS);
+  gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  lineVAO = gl.createVertexArray(); ghostVAO = gl.createVertexArray(); sprVAO = gl.createVertexArray();
+  const lineAttribs = (buf) => { gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    for (const [loc, sz, off] of [[0, 3, 0], [1, 3, 12], [2, 3, 24], [3, 1, 36], [4, 1, 40]]) {
+      gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, sz, gl.FLOAT, false, 44, off); gl.vertexAttribDivisor(loc, 1); } };
+  glStructure = () => {
+    lineData = new Float32Array(E * 11);
+    gl.bindVertexArray(lineVAO);
+    if (!lineBuf) lineBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferData(gl.ARRAY_BUFFER, lineData.byteLength, gl.DYNAMIC_DRAW);
+    lineAttribs(lineBuf);
+    gl.bindVertexArray(null);
+  };
+  const g = [];
+  for (let i = 0; i < N; i++) { const p = i >> 8, b = i & 0xff;
+    g.push(i, (p << 8) | ((b + 1) & 0xff), i, (((p + 1) % AG.PAGES) << 8) | b); }
+  ghostEdges = new Uint32Array(g);
+  ghostData = new Float32Array((ghostEdges.length / 2 + Math.ceil(N / 8)) * 11);
+  gl.bindVertexArray(ghostVAO);
+  ghostBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ghostBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, ghostData.byteLength, gl.DYNAMIC_DRAW);
+  lineAttribs(ghostBuf);
+  gl.bindVertexArray(null);
+  sprData = new Float32Array(N * 7);
+  gl.bindVertexArray(sprVAO);
+  sprBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, sprBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, sprData.byteLength, gl.DYNAMIC_DRAW);
+  for (const [loc, sz, off] of [[0, 3, 0], [1, 3, 12], [2, 1, 24]]) {
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, sz, gl.FLOAT, false, 28, off); gl.vertexAttribDivisor(loc, 1); }
+  gl.bindVertexArray(null);
+}
+let glStructure = () => {};
+
+function setStructure(d) {
+  if (gpu) { gpu.setStructure(d); return; }
+  ({ render: edges, shear } = AG.buildEdges(d));
+  E = edges.length / 2;
+  restLen = new Float32Array(E); shearLen = new Float32Array(shear.length / 2);
+  edgeWidth = new Float32Array(E);
+  for (let e = 0; e < E; e++) {
+    const a = edges[e * 2], b = edges[e * 2 + 1];
+    edgeWidth[e] = 0.8 + ((d[a * 8 + 3] + d[b * 8 + 3]) / 510) * 1.5;
+  }
+  glStructure();
+}
+
+// ─────────────────────────────────────── camera ──────────────────────────────────────────────
+const cam = { yaw: 0.6, pitch: 0.42, dist: 470, fov: 50 * Math.PI / 180 };
+let zoomF = 1;
+const DIM_DIST = (d) => { const t = [880, 650, 470, 660];
+  const k = Math.min(2, Math.max(0, Math.floor(d) - 1)), f = Math.min(1, Math.max(0, d - 1 - k));
+  return t[k] + (t[k + 1] - t[k]) * f; };
+let camPos = [0, 0, 0], fwd = [0, 0, -1], right = [1, 0, 0], up = [0, 1, 0];
+const MVP = new Float32Array(16);
+const norm3 = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+function updCamera() {
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  camPos = [cam.dist * cp * sy, cam.dist * sp, cam.dist * cp * cy];
+  const f = fwd = norm3([-camPos[0], -camPos[1], -camPos[2]]);
+  right = norm3(cross(f, [0, 1, 0])); up = cross(right, f);
+  const aspect = VW / VH, t = 1 / Math.tan(cam.fov / 2), near = 4, far = 4000;
+  const R = right, U = up, e = camPos;
+  const V = [R[0], U[0], -f[0], 0, R[1], U[1], -f[1], 0, R[2], U[2], -f[2], 0,
+             -(R[0] * e[0] + R[1] * e[1] + R[2] * e[2]), -(U[0] * e[0] + U[1] * e[1] + U[2] * e[2]),
+             f[0] * e[0] + f[1] * e[1] + f[2] * e[2], 1];
+  const P = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, 2 * far * near / (near - far), 0];
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    MVP[c * 4 + r] = P[r] * V[c * 4] + P[4 + r] * V[c * 4 + 1] + P[8 + r] * V[c * 4 + 2] + P[12 + r] * V[c * 4 + 3];
+}
+function rayFrom(px, py) {
+  const nx = (px / innerWidth) * 2 - 1, ny = 1 - (py / innerHeight) * 2;
+  const t = Math.tan(cam.fov / 2), a = innerWidth / innerHeight;
+  return norm3([fwd[0] + right[0] * t * a * nx + up[0] * t * ny,
+                fwd[1] + right[1] * t * a * nx + up[1] * t * ny,
+                fwd[2] + right[2] * t * a * nx + up[2] * t * ny]);
+}
+const posAt = gpu ? (i) => [gpu.state.posMirror[i * 4], gpu.state.posMirror[i * 4 + 1], gpu.state.posMirror[i * 4 + 2]]
+                  : (i) => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
+function projectNode(i) {
+  const [x, y, z] = posAt(i);
+  const cw = MVP[3] * x + MVP[7] * y + MVP[11] * z + MVP[15];
+  if (cw < 0.05) return null;
+  const cx = (MVP[0] * x + MVP[4] * y + MVP[8] * z + MVP[12]) / cw;
+  const cyy = (MVP[1] * x + MVP[5] * y + MVP[9] * z + MVP[13]) / cw;
+  return [(cx + 1) / 2 * innerWidth, (1 - cyy) / 2 * innerHeight, cw];
+}
+
+// ─────────────────────────────────────── physics ─────────────────────────────────────────────
+let dim = 3, dimTarget = 3, a4 = 0, b4 = 0, squeeze = 1;
+let grab = -1, grabT = [0, 0, 0], fieldGrab = false, fieldPrev = null, hoverIdx = -1;
+let budget = 50;
+
+function advanceMorph() {
+  dim += (dimTarget - dim) * 0.04;
+  if (dim > 3.001 && !RM) { a4 += 0.0035 * Math.min(1, dim - 3); b4 += 0.0021 * Math.min(1, dim - 3); }
+}
+function computeRest() { projector(rest, dim, a4, b4, true); }
+function gpuParams(now, exposure, ghost) {
+  const fd = (fieldGrab && fieldPrev) ? [grabT[0] - fieldPrev[0], grabT[1] - fieldPrev[1], grabT[2] - fieldPrev[2]] : [0, 0, 0];
+  const cap = 38, l = Math.hypot(...fd);
+  if (l > cap) { fd[0] *= cap / l; fd[1] *= cap / l; fd[2] *= cap / l; }
+  if (fieldGrab) fieldPrev = [...grabT];
+  return { dim, a4, b4, squeeze, grab: fieldGrab ? -1 : grab, grabT, fieldGrab, fieldDelta: fd,
+    mvp: MVP, time: RM ? 0 : now * 0.0014, spacing: SPACING, exposure, ghost, dpr: scaleNow };
+}
+
+// CPU tier (WebGL2 fallback) — identical model, on the main thread
+function recomputeLens() {
+  for (let e = 0; e < E; e++) { const a = edges[e * 2] * 3, b = edges[e * 2 + 1] * 3;
+    restLen[e] = Math.hypot(rest[a] - rest[b], rest[a + 1] - rest[b + 1], rest[a + 2] - rest[b + 2]); }
+  for (let e = 0; e < shear.length / 2; e++) { const a = shear[e * 2] * 3, b = shear[e * 2 + 1] * 3;
+    shearLen[e] = Math.hypot(rest[a] - rest[b], rest[a + 1] - rest[b + 1], rest[a + 2] - rest[b + 2]); }
+}
+function satisfy(idx, lens, k) {
+  for (let e = 0; e < lens.length; e++) {
+    const a = idx[e * 2] * 3, b = idx[e * 2 + 1] * 3;
+    let dx = pos[b] - pos[a], dy = pos[b + 1] - pos[a + 1], dz = pos[b + 2] - pos[a + 2];
+    const L = Math.hypot(dx, dy, dz) || 1e-6, diff = (L - lens[e]) / L * k * 0.5;
+    dx *= diff; dy *= diff; dz *= diff;
+    pos[a] += dx; pos[a + 1] += dy; pos[a + 2] += dz;
+    pos[b] -= dx; pos[b + 1] -= dy; pos[b + 2] -= dz;
+  }
+}
+function physStep() {
+  computeRest(); recomputeLens();
+  for (let s = 0; s < 2; s++) {
+    for (let i = 0; i < N; i++) {
+      const o = i * 3;
+      let vx = (pos[o] - prev[o]) * 0.9855, vy = (pos[o + 1] - prev[o + 1]) * 0.9855, vz = (pos[o + 2] - prev[o + 2]) * 0.9855;
+      const sp = Math.hypot(vx, vy, vz);
+      if (sp > 14) { const f = 14 / sp; vx *= f; vy *= f; vz *= f; }
+      prev[o] = pos[o]; prev[o + 1] = pos[o + 1]; prev[o + 2] = pos[o + 2];
+      pos[o] += vx + (rest[o] * squeeze - pos[o]) * 0.02;
+      pos[o + 1] += vy + (rest[o + 1] * squeeze - pos[o + 1]) * 0.02;
+      pos[o + 2] += vz + (rest[o + 2] * squeeze - pos[o + 2]) * 0.02;
+    }
+    satisfy(edges, restLen, 0.42);
+    satisfy(shear, shearLen, 0.2);
+    if (grab >= 0 && !fieldGrab) { const o = grab * 3;
+      pos[o] += (grabT[0] - pos[o]) * 0.55; pos[o + 1] += (grabT[1] - pos[o + 1]) * 0.55; pos[o + 2] += (grabT[2] - pos[o + 2]) * 0.55; }
+  }
+  if (grab >= 0 && fieldGrab && fieldPrev) {
+    const dx = grabT[0] - fieldPrev[0], dy = grabT[1] - fieldPrev[1], dz = grabT[2] - fieldPrev[2];
+    const cap = 38, l = Math.hypot(dx, dy, dz);
+    const f = l > cap ? cap / l : 1, R2 = 2 * 95 * 95;
+    for (let i = 0; i < N; i++) { const o = i * 3;
+      const d2 = (pos[o] - grabT[0]) ** 2 + (pos[o + 1] - grabT[1]) ** 2 + (pos[o + 2] - grabT[2]) ** 2;
+      const w = Math.exp(-d2 / R2) * 0.6 * f;
+      pos[o] += dx * w; pos[o + 1] += dy * w; pos[o + 2] += dz * w; }
+    fieldPrev = [...grabT];
+  }
+  let bsum = 0;
+  for (let i = 0; i < N; i++) { const o = i * 3;
+    const d = Math.hypot(pos[o] - rest[o] * squeeze, pos[o + 1] - rest[o + 1] * squeeze, pos[o + 2] - rest[o + 2] * squeeze);
+    strainN[i] = d; bsum += d; }
+  return bsum / N / SPACING;
+}
+function pluck(i, dir) {
+  const [x, y, z] = posAt(i);
+  const d = dir || norm3([x - camPos[0], y - camPos[1], z - camPos[2]]);
+  if (gpu) gpu.pluck(i, d, 16);
+  else for (let k = -2; k <= 2; k++) {
+    const j = ((i + k) % N + N) % N, jo = j * 3, w = 1 - Math.abs(k) * 0.3;
+    prev[jo] -= d[0] * 16 * w; prev[jo + 1] -= d[1] * 16 * w; prev[jo + 2] -= d[2] * 16 * w;
+  }
+  ping(classOf(i), (i >> 8) / (AG.PAGES - 1) * 2 - 1);
+}
+
+// ─────────────────────────────────── sonification ────────────────────────────────────────────
+let AC = null, master = null, voiceG = [], soundOn = false;
+const classEnergy = new Float32Array(96), classCnt = new Int32Array(96);
+for (let i = 0; i < N; i++) classCnt[classOf(i)]++;
+function buildSynth(ctx) {
+  const m = ctx.createGain(); m.gain.value = 0;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -28; comp.ratio.value = 14;
+  m.connect(comp); comp.connect(ctx.destination);
+  const gains = [];
+  for (let c = 0; c < 96; c++) {
+    const osc = ctx.createOscillator(); osc.type = "sine"; osc.frequency.value = AG.classFreq(c);
+    const g = ctx.createGain(); g.gain.value = 0;
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    osc.connect(g); pan ? (g.connect(pan), pan.connect(m), pan.pan.value = (c / 95) * 1.2 - 0.6) : g.connect(m);
+    osc.start(); gains.push(g);
+  }
+  return { m, gains };
+}
+function toggleSound(on) {
+  soundOn = on ?? !soundOn;
+  $("soundBtn").setAttribute("aria-pressed", String(soundOn));
+  $("soundBtn").textContent = soundOn ? "🔊 sonify" : "🔇 sonify";
+  $("spectrum").style.display = soundOn ? "block" : "none";
+  if (soundOn && !AC) { AC = new AudioContext(); ({ m: master, gains: voiceG } = buildSynth(AC)); }
+  if (AC) { AC.resume(); master.gain.setTargetAtTime(soundOn ? 0.5 : 0, AC.currentTime, 0.1); }
+}
+function ping(c, pan) {
+  if (!soundOn || !AC) return;
+  const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+  o.type = "triangle"; o.frequency.value = AG.classFreq(c) * 2;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+  const p = AC.createStereoPanner ? AC.createStereoPanner() : null;
+  o.connect(g); p ? (g.connect(p), p.pan.value = pan, p.connect(master)) : g.connect(master);
+  o.start(t); o.stop(t + 0.75);
+}
+let lastAudio = 0;
+function updateAudio(now) {
+  if (now - lastAudio < 33) return; lastAudio = now;
+  if (gpu) { for (let c = 0; c < 96; c++) {
+      const e = Math.max(0, gpu.state.classBins[c] / classCnt[c] / SPACING - 0.02);
+      classEnergy[c] = Math.min(1, e * 1.5); } }
+  else {
+    classEnergy.fill(0);
+    for (let i = 0; i < N; i++) classEnergy[classOf(i)] += strainN[i];
+    for (let c = 0; c < 96; c++) {
+      const e = Math.max(0, classEnergy[c] / classCnt[c] / SPACING - 0.02);
+      classEnergy[c] = Math.min(1, e * 1.5); }
+  }
+  if (soundOn && AC) { const t = AC.currentTime;
+    for (let c = 0; c < 96; c++)
+      voiceG[c].gain.setTargetAtTime(Math.pow(classEnergy[c], 1.6) * 0.085, t, classEnergy[c] > voiceG[c].gain.value ? 0.05 : 0.22); }
+  if (soundOn) drawSpectrum();
+}
+function drawSpectrum() {
+  const c2 = $("spectrum").getContext("2d"), W = 600, H = 128;
+  c2.clearRect(0, 0, W, H);
+  for (let c = 0; c < 96; c++) {
+    const h = Math.pow(classEnergy[c], 0.7) * (H - 14);
+    c2.fillStyle = `hsl(${Math.round((c / 96) * 320)} 75% ${42 + classEnergy[c] * 30}%)`;
+    c2.fillRect(c * (W / 96) + 1, H - 8 - h, W / 96 - 2, h + 2);
+  }
+  c2.fillStyle = "#8b949e"; c2.font = "20px ui-monospace";
+  c2.fillText("R96 → 96-EDO · 220·2^(c/96) Hz", 8, 22);
+}
+async function sonifyTest() {
+  const ctx = new OfflineAudioContext(2, 22050, 44100);
+  const { m, gains } = buildSynth(ctx);
+  m.gain.value = 0.5;
+  for (let c = 0; c < 96; c += 12) gains[c].gain.value = 0.08;
+  const buf = await ctx.startRendering();
+  const d = buf.getChannelData(0); let s = 0;
+  for (let i = 0; i < d.length; i++) s += d[i] * d[i];
+  return Math.sqrt(s / d.length);
+}
+
+// ─────────────────────────────────────── input ───────────────────────────────────────────────
+let dragging = false, orbiting = false, lastPX = 0, lastPY = 0, lastInteract = 0;
+function pickNode(px, py, maxPx = 30) {
+  let best = -1, bd = maxPx * maxPx;
+  for (let i = 0; i < N; i++) {
+    const pr = projectNode(i); if (!pr) continue;
+    const d = (pr[0] - px) ** 2 + (pr[1] - py) ** 2;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+function grabTargetFrom(px, py) {
+  const [x, y, z] = posAt(grab), ray = rayFrom(px, py);
+  const depth = (x - camPos[0]) * fwd[0] + (y - camPos[1]) * fwd[1] + (z - camPos[2]) * fwd[2];
+  const t = depth / (ray[0] * fwd[0] + ray[1] * fwd[1] + ray[2] * fwd[2]);
+  grabT = [camPos[0] + ray[0] * t, camPos[1] + ray[1] * t, camPos[2] + ray[2] * t];
+}
+function wake() { lastInteract = performance.now(); document.body.classList.remove("zen"); }
+cv.addEventListener("pointerdown", (e) => {
+  cv.setPointerCapture(e.pointerId);
+  dragging = true; lastPX = e.clientX; lastPY = e.clientY; wake();
+  const hit = pickNode(e.clientX, e.clientY, e.shiftKey ? 90 : 30);
+  if (hit >= 0) { grab = hit; fieldGrab = e.shiftKey; grabTargetFrom(e.clientX, e.clientY); fieldPrev = [...grabT]; orbiting = false; }
+  else { orbiting = true; grab = -1; }
+});
+cv.addEventListener("pointermove", (e) => {
+  wake();
+  if (dragging) {
+    if (grab >= 0) grabTargetFrom(e.clientX, e.clientY);
+    else if (orbiting) { cam.yaw += -(e.clientX - lastPX) * 0.005;
+      cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + (e.clientY - lastPY) * 0.004)); }
+    lastPX = e.clientX; lastPY = e.clientY;
+  } else hover(e.clientX, e.clientY);
+});
+const endDrag = () => { dragging = false; orbiting = false; grab = -1; fieldGrab = false; fieldPrev = null; };
+cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
+cv.addEventListener("dblclick", (e) => { const hit = pickNode(e.clientX, e.clientY, 34); if (hit >= 0) pluck(hit, rayFrom(e.clientX, e.clientY)); });
+cv.addEventListener("wheel", (e) => { e.preventDefault(); wake();
+  zoomF = Math.max(0.3, Math.min(3.2, zoomF * Math.exp(e.deltaY * 0.0011))); }, { passive: false });
+let lastHover = 0;
+function hover(px, py) {
+  const now = performance.now(); if (now - lastHover < 90) return; lastHover = now;
+  hoverIdx = pickNode(px, py, 22);
+  const tip = $("tip");
+  if (hoverIdx < 0) { tip.style.display = "none"; cv.style.cursor = "default"; return; }
+  const i = hoverIdx, p = i >> 8, b = i & 0xff, c = classOf(i), o = i * 8;
+  let hex = ""; for (let k = 0; k < 8; k++) hex += dna[o + k].toString(16).padStart(2, "0");
+  tip.innerHTML = `<span class="mono">Φ(${p},${b}) = ${phiOf(p, b)}</span> · R96[<b style="color:var(--accent)">${c}</b>]
+    · <span class="k">${AG.classFreq(c).toFixed(1)} Hz</span><br><span class="k mono">dna ${hex} ← SHA-256(κ ‖ Φ)</span>`;
+  tip.style.display = "block";
+  tip.style.left = Math.min(innerWidth - 348, px + 16) + "px"; tip.style.top = (py + 14) + "px";
+  cv.style.cursor = "grab";
+}
+addEventListener("keydown", (e) => {
+  wake();
+  if (e.key === "r" || e.key === "R") resetAll();
+  if (e.key === "?") $("help").style.display = "block";
+  if (e.key === "f" || e.key === "F") toggleFs();
+  if (e.key === "Escape") { $("help").style.display = "none"; $("proof").classList.remove("open"); }
+  for (const d of [1, 2, 3, 4]) if (e.key === String(d)) setDim(d);
+});
+addEventListener("resize", () => { scaleNow = 0; applyScale(); });
+
+// ─────────────────────────────────────── UI wiring ───────────────────────────────────────────
+function setDim(d) {
+  dimTarget = d; $("dimSlider").value = String(d);
+  for (const b of $("dimBtns").children) b.classList.toggle("on", +b.dataset.d === Math.round(d));
+}
+$("dimBtns").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setDim(+b.dataset.d); });
+$("dimSlider").addEventListener("input", (e) => { dimTarget = +e.target.value;
+  for (const b of $("dimBtns").children) b.classList.toggle("on", +b.dataset.d === Math.round(dimTarget)); });
+$("squeeze").addEventListener("input", (e) => { squeeze = +e.target.value; wake(); });
+$("soundBtn").addEventListener("click", () => toggleSound());
+$("resetBtn").addEventListener("click", resetAll);
+$("proofBtn").addEventListener("click", () => { const open = !$("proof").classList.contains("open");
+  $("proof").classList.toggle("open", open); $("proofBtn").setAttribute("aria-pressed", String(open)); });
+$("helpBtn").addEventListener("click", () => $("help").style.display = "block");
+$("helpClose").addEventListener("click", () => $("help").style.display = "none");
+const toggleFs = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
+$("fsBtn").addEventListener("click", toggleFs);
+function resetAll() {
+  squeeze = 1; $("squeeze").value = "1"; zoomF = 1;
+  computeRest();
+  if (gpu) gpu.seed(rest);
+  else { pos.set(rest); prev.set(rest); }
+}
+// zen mode: the chrome melts away while you play
+setInterval(() => {
+  const idleFor = performance.now() - lastInteract;
+  const busyUI = $("proof").classList.contains("open") || $("help").style.display === "block";
+  document.body.classList.toggle("zen", !RM && !busyUI && idleFor > 3500);
+}, 600);
+
+// ── ghost (the bare formula) + tamper (the refusal) ──
+let ghostOn = false;
+$("ghostBtn").addEventListener("click", () => {
+  ghostOn = !ghostOn; $("ghostBtn").setAttribute("aria-pressed", String(ghostOn));
+  $("ghostNote").style.display = ghostOn ? "block" : "none";
+  if (ghostOn) { let s = 0; for (let i = 0; i < N * 8; i += 8)
+      s += Math.abs(dna[i] - 128) + Math.abs(dna[i + 1] - 128) + Math.abs(dna[i + 2] - 128);
+    $("resStat").textContent = `mean |residual| ${(s / (3 * N) / 127 * AG.JITTER_AMP).toFixed(2)} units across 12,288 cells`; }
+});
+let tampering = false;
+async function tamper() {
+  if (tampering) return null; tampering = true;
+  const btn = $("tamperBtn"); btn.textContent = "re-deriving from the tampered object…";
+  const clone = JSON.parse(JSON.stringify(atlas));
+  clone["dcterms:title"] = clone["dcterms:title"].replace("Φ", "Ψ");      // ONE codepoint
+  const refused = !(await verify(clone));                                  // Law L5: refuse
+  const trueId = await address(clone);
+  const tdna = await AG.deriveDNA(trueId, (f) => { btn.textContent = `re-deriving… ${Math.round(f * 100)}%`; });
+  let changed = 0;
+  for (let i = 0; i < N; i++) { let diff = false;
+    for (let k = 0; k < 8; k++) if (tdna[i * 8 + k] !== dna[i * 8 + k]) { diff = true; break; }
+    if (diff) changed++; }
+  const dot = $("dot"), badge = $("badge"), prevBadge = badge.innerHTML;
+  setStructure(tdna); dot.className = "dot bad";
+  badge.innerHTML = `tampered: identity mismatch ✗ · <b>${changed.toLocaleString()}/12,288</b> cells differ refused`;
+  $("tamperOut").innerHTML = `Ψ for Φ one codepoint. Result: <b class="bad">identity mismatch (refused)</b> ·
+    <b>${changed.toLocaleString()} / 12,288</b> cells re-derive differently · the weave you just saw rearrange
+    is the impostor's. A parametric torus would shrug; a content-addressed one <b class="ok">refuses</b>.`;
+  setTimeout(() => { setStructure(dna); dot.className = "dot " + (proofOk ? "ok" : "bad");
+    badge.innerHTML = prevBadge; btn.textContent = "tamper 1 byte → ?"; tampering = false; }, 4200);
+  return { refused, changed };
+}
+$("tamperBtn").addEventListener("click", tamper);
+
+// ─────────────────────────────── render (WebGL2 fallback tier) ───────────────────────────────
+const colR = new Float32Array(N), colG = new Float32Array(N), colB = new Float32Array(N);
+function fillBuffers(now) {
+  const tw = RM ? 0 : now * 0.0014;
+  for (let i = 0; i < N; i++) {
+    const s = Math.min(1, strainN[i] / SPACING * 0.9);
+    const shimmer = RM ? 1 : 0.93 + 0.07 * Math.sin(tw * (0.6 + dna[i * 8 + 4] / 300) + dna[i * 8 + 4]);
+    const k = (1 + s * 1.1) * shimmer, q = i * 4;
+    colR[i] = colors[q] * k + s * 0.35; colG[i] = colors[q + 1] * k + s * 0.28; colB[i] = colors[q + 2] * k + s * 0.18;
+  }
+  for (let e = 0; e < E; e++) {
+    const a = edges[e * 2], b = edges[e * 2 + 1], ao = a * 3, bo = b * 3, o = e * 11;
+    lineData[o] = pos[ao]; lineData[o + 1] = pos[ao + 1]; lineData[o + 2] = pos[ao + 2];
+    lineData[o + 3] = pos[bo]; lineData[o + 4] = pos[bo + 1]; lineData[o + 5] = pos[bo + 2];
+    lineData[o + 6] = (colR[a] + colR[b]) * 0.5; lineData[o + 7] = (colG[a] + colG[b]) * 0.5; lineData[o + 8] = (colB[a] + colB[b]) * 0.5;
+    const dx = pos[ao] - pos[bo], dy = pos[ao + 1] - pos[bo + 1], dz = pos[ao + 2] - pos[bo + 2];
+    const L = Math.hypot(dx, dy, dz);
+    lineData[o + 9] = Math.min(1, Math.abs(L / (restLen[e] || 1) - 1) * 9);
+    lineData[o + 10] = edgeWidth[e];
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, lineData);
+  for (let i = 0; i < N; i++) { const o = i * 7, q = i * 4;
+    sprData[o] = pos[i * 3]; sprData[o + 1] = pos[i * 3 + 1]; sprData[o + 2] = pos[i * 3 + 2];
+    sprData[o + 3] = colR[i]; sprData[o + 4] = colG[i]; sprData[o + 5] = colB[i];
+    sprData[o + 6] = colors[q + 3] * (1 + Math.min(1.4, strainN[i] / SPACING)); }
+  gl.bindBuffer(gl.ARRAY_BUFFER, sprBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, sprData);
+}
+const ghostRest = new Float32Array(N * 3);
+function fillGhost() {
+  projector(ghostRest, dim, a4, b4, false);
+  const GE = ghostEdges.length / 2; let o = 0;
+  for (let e = 0; e < GE; e++) {
+    const a = ghostEdges[e * 2] * 3, b = ghostEdges[e * 2 + 1] * 3;
+    ghostData[o] = ghostRest[a] * squeeze; ghostData[o + 1] = ghostRest[a + 1] * squeeze; ghostData[o + 2] = ghostRest[a + 2] * squeeze;
+    ghostData[o + 3] = ghostRest[b] * squeeze; ghostData[o + 4] = ghostRest[b + 1] * squeeze; ghostData[o + 5] = ghostRest[b + 2] * squeeze;
+    ghostData[o + 6] = 0.30; ghostData[o + 7] = 0.33; ghostData[o + 8] = 0.38;
+    ghostData[o + 9] = 0; ghostData[o + 10] = 0.7; o += 11;
+  }
+  for (let i = 0; i < N; i += 8) {
+    ghostData[o] = ghostRest[i * 3] * squeeze; ghostData[o + 1] = ghostRest[i * 3 + 1] * squeeze; ghostData[o + 2] = ghostRest[i * 3 + 2] * squeeze;
+    ghostData[o + 3] = pos[i * 3]; ghostData[o + 4] = pos[i * 3 + 1]; ghostData[o + 5] = pos[i * 3 + 2];
+    ghostData[o + 6] = 0.95; ghostData[o + 7] = 0.62; ghostData[o + 8] = 0.12;
+    ghostData[o + 9] = 0; ghostData[o + 10] = 1.0; o += 11;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, ghostBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, ghostData);
+}
+function draw(ex) {
+  gl.clearColor(0.012, 0.02, 0.035, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const setU = (pr) => { gl.useProgram(pr);
+    gl.uniformMatrix4fv(gl.getUniformLocation(pr, "uMVP"), false, MVP);
+    gl.uniform2f(gl.getUniformLocation(pr, "uVP"), VW, VH); };
+  if (ghostOn) { setU(lineProg);
+    gl.uniform1f(gl.getUniformLocation(lineProg, "uWMul"), scaleNow);
+    gl.uniform1f(gl.getUniformLocation(lineProg, "uAMul"), 0.18);
+    gl.bindVertexArray(ghostVAO);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, ghostData.length / 11); }
+  setU(lineProg); gl.bindVertexArray(lineVAO);
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uWMul"), 5.6 * scaleNow);   // halo pass
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uAMul"), 0.12 * ex);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, E);
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uWMul"), 1.7 * scaleNow);   // core pass
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uAMul"), 1.0 * ex);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, E);
+  setU(sprProg); gl.bindVertexArray(sprVAO);
+  gl.uniform1f(gl.getUniformLocation(sprProg, "uSMul"), scaleNow * (0.6 + 0.4 * ex));
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, N);
+  gl.bindVertexArray(null);
+}
+
+// ─────────────────────────────────────── main loop ───────────────────────────────────────────
+if (!gpu) { initGL2(); setStructure(dna); }
+applyScale();
+computeRest();
+{
+  const seed = new Float32Array(N * 3);
+  for (let i = 0; i < N * 3; i++) seed[i] = RM ? rest[i] : rest[i] * 0.5;    // bloom in from the core
+  if (gpu) gpu.seed(seed);
+  else { pos.set(seed); prev.set(seed); }
+}
+
+let exposure = 0, frames = 0, fps = 0, lastFpsT = performance.now(), lastT = performance.now();
+const truthFmt = () => truthZero(budget < 0.02 ? 0 : Math.max(1, Math.round(budget * 50)))
+  ? `<span class="truth">truth · budget = 0 ✓</span>`
+  : `<span class="truth off">budget = ${budget.toFixed(3)} · conserving…</span>`;
+let paused = false;
+function frame(now) {
+  if (paused) { lastT = now; requestAnimationFrame(frame); return; }
+  const dt = Math.min(100, now - lastT); lastT = now;
+  frameEMA = frameEMA * 0.92 + dt * 0.08;
+  if (resMode === "auto" && frames % 45 === 44) {                            // use the headroom
+    if (frameEMA > 19 && autoScale > 0.5) { autoScale *= 0.86; applyScale(); }
+    else if (frameEMA < 10.5 && autoScale < Math.max(devicePixelRatio || 1, 2)) { autoScale *= 1.1; applyScale(); }
+  }
+  if (!dragging && !RM && now - lastInteract > 9000) cam.yaw += 0.0012;
+  cam.dist += (DIM_DIST(dim) * zoomF - cam.dist) * 0.06;
+  updCamera();
+  advanceMorph();
+  exposure += (Math.min(1, 1 / (1 + budget * 0.6)) - exposure) * 0.05;
+  const ex = RM ? Math.min(1, 1 / (1 + budget * 0.6)) : exposure;
+  if (gpu) { gpu.frame(gpuParams(now, ex, ghostOn)); budget = gpu.state.budget; }
+  else { budget = physStep(); fillBuffers(now); if (ghostOn) fillGhost(); draw(ex); }
+  updateAudio(now);
+  frames++;
+  if (now - lastFpsT > 800) { fps = Math.round(frames * 1000 / (now - lastFpsT)); frames = 0; lastFpsT = now;
+    $("stats").innerHTML = `${truthFmt()}<br>` +
+      `<span class="tier">${gpu ? "WebGPU · " + gpu.gpu : "WebGL2 · CPU physics"}</span> · ${cv.width}×${cv.height} · ${fps} fps<br>` +
+      `12,288 cells · ${(edgesInfo.render.length / 2).toLocaleString()} fibers · ${receipt["hosr:holes"].toLocaleString()} holes · ` +
+      `engine: Holo Forge ${engineOk ? "✓" : "✗"}`; }
+  requestAnimationFrame(frame);
+}
+$("boot").style.opacity = "0";
+setTimeout(() => $("boot").remove(), RM ? 0 : 650);
+lastInteract = performance.now();
+{ // deep links from the showcase: ?dim=4 lands in the Clifford torus, ?proof=1 opens the drawer
+  const q = new URLSearchParams(location.search);
+  const d = +q.get("dim"); if (d >= 1 && d <= 4) setDim(d);
+  if (q.get("proof") === "1") { $("proof").classList.add("open"); $("proofBtn").setAttribute("aria-pressed", "true"); }
+}
+requestAnimationFrame(frame);
+
+// ── witness API (headless proof; not a UI surface) ──
+window.__resonator = {
+  ready: true, proof, proofOk, tier: TIER, rebound, fullDerive,
+  engine: { native: engineOk, compiler: FORGE_VERSION },
+  counts: { cells: N, fibers: edgesInfo.render.length / 2, holes: receipt["hosr:holes"] },
+  budget: () => budget,
+  step: async (n = 1) => {
+    if (gpu) { budget = await gpu.step(gpuParams(performance.now(), 1, false), n); return budget; }
+    for (let k = 0; k < n; k++) budget = physStep(); return budget;
+  },
+  pluck: (i) => pluck(i),
+  setDim, sonifyTest, tamper,
+  setRes: (m) => { resMode = m; $("resBtn").textContent = "res " + (m === "8k" ? "8K" : m); applyScale(); },
+  canvasSize: () => [cv.width, cv.height],
+  structureKappa: structKappa,
+  pause: (v) => { paused = !!v; },
+  readPos: () => gpu ? gpu.readPos() : Promise.resolve(null),
+  peek: () => { const stride = gpu ? 4 : 3, arr = gpu ? gpu.state.posMirror : pos;
+    let mx = 0, nan = 0, sum = 0;
+    for (let i = 0; i < N; i++) { const x = arr[i * stride], y = arr[i * stride + 1], z = arr[i * stride + 2];
+      if (!Number.isFinite(x + y + z)) { nan++; continue; }
+      const r = Math.hypot(x, y, z); sum += r; if (r > mx) mx = r; }
+    return { maxR: +mx.toFixed(1), meanR: +(sum / N).toFixed(1), nan }; },
+};
+</script>
+<!-- Holo UI — upstream canonical UI engine + token contract (ADR-0030/0057): the holospace shell's
+     canonical UI parameters (text-size floor, palette, density, accent) propagate to this instance. -->
+<link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+<script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+</body>
+</html>

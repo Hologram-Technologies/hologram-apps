@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "hOp-0.8.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:f6a5ff28105ce16a34b7c18270ee31feebbcfd01fd71822060351df47046a686"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:5aaf1efe2386b7025315b2b5c7d4fd5e2dba4b842e20bd0f6cdfac7d23e38e20",
+  "blocks": [
+    "did:holo:sha256:f1f73fbd7b027432ea4361110d7335a1f97ddcdb28cb4df9d00ddd437127004b",
+    "did:holo:sha256:85431be443b4bd7440984ad0a03a6c8d6331b86548d1ce9b737e10e934e80e24",
+    "did:holo:sha256:826af3cc94f60d8a480dd2146f3a3f3f86be2478033b9d9bb53a3537ddfdc8b1",
+    "did:holo:sha256:49e6885f183f64d392d104635f61b3e451ea416e44ee4e0d5df376854b2e2ec3",
+    "did:holo:sha256:487f6acfe2001a2cfe16ee307cf49abe2f66272ede04924e45ddc1727481d4ef",
+    "did:holo:sha256:238d7a75d4cf2b7be3a88bd0cd290abea131bf97de617f6bbbd82d746108952a"
+  ]
+}

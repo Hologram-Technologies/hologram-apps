@@ -1,0 +1,84 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloBrc",
+  "name": "Holo BRC Miner",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Mine, send and explore real BrowserCoin wallet, miner and explorer in one.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "CommunicationApplication",
+  "conforms": {
+    "specs": [
+      "brcminer",
+      "brc"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloBrc"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.css",
+    "holo-theme.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "brcminer.html",
+  "description": [
+    {
+      "p": "Owning and mining a live coin should not need an install, an extension or a server."
+    },
+    {
+      "p": "Real proof-of-work and signed transactions run on the live public BrowserCoin network, entirely in the browser."
+    },
+    {
+      "ul": [
+        "Wallet, miner, explorer and mempool the full app",
+        "Real on-chain coin, no simulation",
+        "No install, extension or server",
+        "Content-addressed and verifiable"
+      ]
+    }
+  ],
+  "categories": [
+    "Network",
+    "Finance",
+    "Development"
+  ],
+  "keywords": [
+    "browsercoin",
+    "brc",
+    "argon2id",
+    "mining",
+    "miner",
+    "wallet",
+    "send",
+    "explorer",
+    "cryptocurrency",
+    "ed25519",
+    "asert",
+    "prism",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/brcminer",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Full BrowserCoin app, hologram-native: mine/send/explore real BRC, real QR wallet, real transactions, fast content-addressed boot."
+    }
+  ],
+  "accent": "#8b7cf6"
+}

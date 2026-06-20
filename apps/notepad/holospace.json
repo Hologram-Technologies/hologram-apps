@@ -1,0 +1,102 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloNotepad",
+  "name": "Holo Notepad",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Your second brain a networked, private outliner and always-on memory bank.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "BusinessApplication",
+  "conforms": {
+    "specs": [
+      "holo-notepad",
+      "wikilink-graph",
+      "crdt-collab",
+      "holo-memory",
+      "zk-membership",
+      "holo-record",
+      "persistent-identity"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloNotepad"
+    ]
+  },
+  "shared": [
+    "holo-collab.js",
+    "holo-manage.js",
+    "holo-memory.js",
+    "holo-mobile.css",
+    "holo-record.js",
+    "holo-theme.js",
+    "holo-zk.js"
+  ],
+  "engines": [],
+  "loader": "notepad.html",
+  "description": [
+    {
+      "p": "Notes are only as useful as the connections between them and they should stay private."
+    },
+    {
+      "p": "A serverless, end-to-end-encrypted, content-addressed graph links every thought; bidirectional links and block references re-derive identically on every peer (Law L5)."
+    },
+    {
+      "ul": [
+        "An infinitely nestable bullet outliner",
+        "[[wiki-links]] and block references, backlinked automatically",
+        "End-to-end encrypted and content-addressed",
+        "An always-on memory bank for humans and agents"
+      ]
+    }
+  ],
+  "categories": [
+    "Office",
+    "Utility"
+  ],
+  "keywords": [
+    "notes",
+    "outliner",
+    "roam",
+    "second brain",
+    "memory",
+    "gbrain",
+    "knowledge graph",
+    "wiki",
+    "backlinks",
+    "bidirectional",
+    "zettelkasten",
+    "pkm",
+    "daily notes",
+    "block reference",
+    "capture",
+    "zero-knowledge",
+    "privacy",
+    "content-addressing",
+    "uor",
+    "law-l5"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "LicenseRef-proprietary",
+  "homepage": "https://hologram.os/apps/notepad",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.1",
+      "date": "2026-06-09",
+      "description": "Your second brain: an always-on, ubiquitous MEMORY BANK (gbrain-style). A brain icon + Ctrl/Cmd-Shift-K on every holospace; auto-captures the apps/pages/articles you open and your interactions with humans and AI agents onto a daily timeline, auto-linking entities into one content-addressed knowledge/social/internet graph. 100% local with a master kill-switch; O(1) content-addressed recall; selective sharing gated by Holo Privacy + Holo Terms; zero-knowledge Merkle-membership + SD selective-disclosure proofs (real WebCrypto, no SNARK). Witnessed (node 27/27 + live 2-tab browser 12/12)."
+    },
+    {
+      "version": "1.0",
+      "date": "2026-06-09",
+      "description": "Roam Research, natively encoded: a serverless, E2E, content-addressed networked outliner with infinitely nestable blocks, [[wiki-links]] / #tags / ((block refs)), daily notes, live Linked + Unlinked References, queries, a right sidebar, a graph overview and a command palette. The bidirectional link graph is a pure derivation of content (Law L5). Real-time multiplayer; pages content-addressed by title; a saved graph IS holo://κ. Witnessed (node 40/40 + live 2-peer browser 11/11)."
+    }
+  ],
+  "accent": "#5b6ee1"
+}

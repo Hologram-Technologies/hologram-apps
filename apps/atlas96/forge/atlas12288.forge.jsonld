@@ -1,0 +1,53 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    {
+      "schema": "https://schema.org/",
+      "prov": "http://www.w3.org/ns/prov#",
+      "hosc": "https://hologram.os/ns/conformance#"
+    }
+  ],
+  "@type": [
+    "prov:Activity",
+    "hosc:Compilation",
+    "schema:CreateAction"
+  ],
+  "schema:name": "Holo Forge compilation",
+  "hosc:lang": "holo-c",
+  "hosc:tool": {
+    "@id": "did:holo:sha256:756f278f8a456b2965f70ed4e5398fec249ecc7cec2f8d7bcab9dff20da8ab53",
+    "schema:name": "holo-forge",
+    "schema:softwareVersion": "holo-forge/1.2.0 · holo-c → wasm-core-2.0"
+  },
+  "hosc:flags": "did:holo:sha256:1a369c927f5ff7abe84bacf4bca87c7dca931f6468dcfdab038403f911f97957",
+  "prov:used": {
+    "@id": "did:holo:sha256:e512af68d1e6dc9296e945ebdcfc27eb3fc42e9f23b611bdaacda0442cb3b925",
+    "@type": [
+      "prov:Entity",
+      "schema:SoftwareSourceCode"
+    ],
+    "schema:programmingLanguage": "holo-c"
+  },
+  "prov:generated": {
+    "@id": "did:holo:sha256:cb6ea863aa5458c5449b74ffc5697309f66cda724ec0b43430f7d66af3017be2",
+    "@type": [
+      "prov:Entity",
+      "schema:SoftwareApplication"
+    ],
+    "schema:encodingFormat": "application/wasm"
+  },
+  "schema:result": [
+    "lean_finalize_uor_minimal",
+    "lean_initialize_uor_minimal",
+    "lean_uor_bytes_minimal",
+    "lean_uor_pages_minimal",
+    "lean_uor_phi_byte_minimal",
+    "lean_uor_phi_encode_minimal",
+    "lean_uor_phi_page_minimal",
+    "lean_uor_r96_classify_minimal",
+    "lean_uor_rclasses_minimal",
+    "lean_uor_truth_add_minimal",
+    "lean_uor_truth_zero_minimal"
+  ],
+  "id": "did:holo:sha256:ce68436ba9178eef9a29c93a21b64c2c25a40e87fef5acb59955a960c0b527f3"
+}

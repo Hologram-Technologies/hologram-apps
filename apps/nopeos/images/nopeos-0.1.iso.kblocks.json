@@ -1,0 +1,19 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "nopeos-0.1.iso",
+    "bytes": 532480,
+    "did": "did:holo:sha256:3ee51d7aac3f7f8bf925fc3bb38cb9bc5063f07154329c270a809dceffa5e3a9"
+  },
+  "blockSize": 262144,
+  "blockCount": 3,
+  "uniqueBlocks": 3,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:99fb404f594456e2663866af264d264f9a056e2e7a1bff5977a2126fa5b0aaba",
+  "blocks": [
+    "did:holo:sha256:31c1e81698341e6ba7a85e6f20fd01d6eabdc904016a63b12f975232d3136d59",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+  ]
+}

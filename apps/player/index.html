@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Player</title>
+    <meta name="description" content="Holo Player a content-addressed media library for Hologram OS. Jellyfin-faithful discovery (hero · rails · detail), every title streamed natively through Holo Video and ranked by HoloRank, a transparent on-device recommender. Your media, your way no server, no tracking, rooted in the UOR substrate." />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <!-- Warm the TLS handshakes to every stream + thumbnail host so Play is instant. -->
+    <link rel="preconnect" href="https://test-streams.mux.dev" crossorigin />
+    <link rel="preconnect" href="https://dash.akamaized.net" crossorigin />
+    <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
+    <link rel="preconnect" href="https://i.ytimg.com" crossorigin />
+    <link rel="dns-prefetch" href="https://i.ytimg.com" />
+    <style>
+      /* ──────────────────────────────────────────────────────────────────────────
+         Holo Player — a Jellyfin-faithful media library, hologram-native.
+         Proportion is golden: spacing is a Fibonacci ramp (≈φ), the type scale steps
+         by φ from a 16px floor, the hero is 100vh/φ tall, the detail splits at 1/φ.
+         Colours use the OS theme tokens; text never drops below 16px (clean + readable).
+         ────────────────────────────────────────────────────────────────────────── */
+      :root {
+        color-scheme: dark;
+        --phi: 1.618;
+        /* Fibonacci spacing ramp — consecutive ratios converge on φ. */
+        --s1: 8px; --s2: 13px; --s3: 21px; --s4: 34px; --s5: 55px; --s6: 89px; --s7: 144px;
+        /* Type scale — φ steps up from the 16px readability floor. */
+        --t1: 16px; --t2: 20px; --t3: 26px; --t4: 42px; --t-hero: clamp(2.1rem, 4.4vw, 4.2rem);
+        --hero-h: 62vh;                 /* ≈ 100vh / φ */
+        --card-w: 16.2rem;              /* rail card; height = 9/16 */
+        --rad: 12px; --rad-lg: 16px; --top-h: 56px;   /* slim top bar (YouTube-clean) */
+        --bg: var(--holo-bg, #0b0d10); --panel: var(--holo-surface, #14161b);
+        --line: var(--holo-border, #23272f); --ink: var(--holo-ink, #f1f1f1);
+        --dim: var(--holo-ink-dim, #9aa3ad); --acc: var(--holo-accent, #5b8cff);
+        --chip: #1c2128; --chip-hi: #2b3139;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); overflow: hidden;
+        font: var(--t1)/1.5 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
+      a { color: inherit; text-decoration: none; }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      .icon { width: 1.5rem; height: 1.5rem; fill: currentColor; flex: 0 0 auto; }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-thumb { background: #2b3139; border-radius: 8px; border: 2px solid var(--bg); }
+
+      /* ── Top chrome — slim, only what's needed ──────────────────────────────── */
+      header {
+        position: fixed; inset: 0 0 auto 0; height: var(--top-h); z-index: 40;
+        display: flex; align-items: center; gap: var(--s4); padding: 0 var(--s4);
+        background: linear-gradient(180deg, rgba(8,10,13,0.94), rgba(8,10,13,0));
+        transition: background 0.2s;
+      }
+      header.solid { background: rgba(9,11,14,0.96); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+      /* Keep the bar YouTube-clean: hide any OS-injected docked buttons (manage/share/etc.). */
+      #top > :not(.brand):not(nav):not(.sp):not(.search):not(.me) { display: none !important; }
+      .brand { display: inline-flex; align-items: center; gap: var(--s1); font-weight: 800; font-size: var(--t2); letter-spacing: -0.02em; }
+      .brand .dot { width: 0.8rem; height: 0.8rem; border-radius: 50%; background: var(--acc); box-shadow: 0 0 14px var(--acc); }
+      nav { display: flex; gap: var(--s3); }
+      nav button { background: 0; border: 0; color: var(--dim); font-size: var(--t1); font-weight: 600; padding: var(--s1) 0; position: relative; }
+      nav button.on { color: var(--ink); }
+      nav button.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -0.4rem; height: 2px; background: var(--acc); border-radius: 2px; }
+      .sp { margin-left: auto; }
+      .search { display: flex; align-items: center; gap: var(--s2); background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 0 var(--s3); height: var(--s4); width: 19rem; max-width: 34vw; transition: border-color 0.2s; }
+      .search:focus-within { border-color: var(--acc); }
+      .search .icon { width: 1.25rem; height: 1.25rem; color: var(--dim); }
+      .search input { flex: 1 1 auto; background: 0; border: 0; outline: 0; color: var(--ink); font: inherit; min-width: 0; }
+      .search input::placeholder { color: var(--dim); }
+      .me { width: var(--s4); height: var(--s4); border-radius: 50%; background: linear-gradient(135deg, var(--acc), #9a6cff); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; color: #06101f; border: 0; }
+
+      main { flex: 1 1 auto; min-height: 0; position: relative; }
+      .view { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; }
+      .view[hidden] { display: none; }
+
+      /* ── Hero ───────────────────────────────────────────────────────────────── */
+      .hero { position: relative; height: var(--hero-h); min-height: 22rem; }
+      .hero .bg { position: absolute; inset: 0; background: #05070a center/cover no-repeat; }
+      .hero .scrim { position: absolute; inset: 0;
+        background: linear-gradient(90deg, rgba(8,10,13,0.96) 0%, rgba(8,10,13,0.72) 38%, rgba(8,10,13,0) 62%),
+                    linear-gradient(0deg, var(--bg) 2%, rgba(11,13,16,0) 40%); }
+      .hero .body { position: absolute; left: var(--s5); bottom: var(--s5); width: min(38rem, 62%); }
+      .hero h1 { font-size: var(--t-hero); line-height: 1.04; margin: 0 0 var(--s2); letter-spacing: -0.02em; font-weight: 800; }
+      .hero .meta { display: flex; align-items: center; gap: var(--s2); color: var(--dim); font-size: var(--t1); margin-bottom: var(--s2); flex-wrap: wrap; }
+      .hero .meta .k { color: var(--acc); font-weight: 600; }
+      .hero p { color: #d6dde4; font-size: var(--t2); line-height: 1.5; margin: 0 0 var(--s3);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 34rem; }
+      .hero .cta { display: flex; gap: var(--s2); align-items: center; }
+
+      .btn { display: inline-flex; align-items: center; gap: var(--s1); height: var(--s5); padding: 0 var(--s4);
+        border: 1px solid transparent; border-radius: 999px; font-weight: 700; font-size: var(--t1); background: var(--chip); color: var(--ink); transition: filter 0.15s, background 0.15s; }
+      .btn:hover { background: var(--chip-hi); }
+      .btn.primary { background: var(--ink); color: #06101f; }
+      .btn.primary:hover { filter: brightness(0.92); }
+      .btn .icon { width: 1.35rem; height: 1.35rem; }
+      .iconbtn { width: var(--s5); height: var(--s5); border-radius: 50%; background: var(--chip); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; color: var(--ink); }
+      .iconbtn:hover { background: var(--chip-hi); }
+      .iconbtn.on { background: var(--acc); border-color: var(--acc); color: #06101f; }
+
+      /* ── Rails ──────────────────────────────────────────────────────────────── */
+      .rails { padding: 0 0 var(--s6); margin-top: calc(-1 * var(--s5)); position: relative; z-index: 2; }
+      .rail { margin-top: var(--s4); }
+      .rail h2 { font-size: var(--t2); font-weight: 700; margin: 0 0 var(--s2); padding: 0 var(--s5); letter-spacing: -0.01em; }
+      .rail h2 small { color: var(--dim); font-weight: 500; font-size: var(--t1); margin-left: var(--s2); }
+      .strip { display: flex; gap: var(--s2); overflow-x: auto; padding: var(--s1) var(--s5) var(--s2); scroll-snap-type: x proximity; scrollbar-width: none; }
+      .strip::-webkit-scrollbar { display: none; }
+
+      .card { width: var(--card-w); flex: 0 0 auto; scroll-snap-align: start; outline: 0; }
+      .card .pic { position: relative; aspect-ratio: 16/9; border-radius: var(--rad); overflow: hidden; background: #05070a center/cover no-repeat;
+        transition: transform 0.18s cubic-bezier(.2,.7,.3,1), box-shadow 0.18s; }
+      .card:hover .pic, .card:focus-visible .pic { transform: scale(1.045); box-shadow: 0 1.2rem 2.4rem rgba(0,0,0,0.55); }
+      .card:focus-visible .pic { outline: 2px solid var(--acc); outline-offset: 2px; }
+      .card .gen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 var(--s2); font-weight: 800; font-size: var(--t2); color: #c9d1d9; background: linear-gradient(135deg, #222c40, #0d1117); }
+      .card .tag { position: absolute; left: var(--s1); top: var(--s1); font-size: var(--t1); font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 7px; background: rgba(2,6,12,0.78); backdrop-filter: blur(4px); line-height: 1.4; }
+      .tag.k { color: #7ee787; } .tag.stream { color: #79c0ff; } .tag.live { color: #ff5c5c; } .tag.owned { color: #d2a8ff; }
+      .card .dur { position: absolute; right: var(--s1); bottom: var(--s1); font-size: var(--t1); font-weight: 600; padding: 0.05rem 0.4rem; border-radius: 6px; background: rgba(2,6,12,0.82); }
+      .card .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,0.22); }
+      .card .bar i { display: block; height: 100%; background: var(--acc); }
+      .card .seen { position: absolute; right: var(--s1); top: var(--s1); width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--acc); color: #06101f; display: none; align-items: center; justify-content: center; }
+      .card.watched .seen { display: inline-flex; }
+      .card .t { margin: var(--s2) 0.2rem 0; font-weight: 600; font-size: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card .why { margin: 0.15rem 0.2rem 0; font-size: var(--t1); color: var(--acc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card .why.continue { color: #ffd866; }
+
+      /* ── Detail ─────────────────────────────────────────────────────────────── */
+      #detail { padding-bottom: var(--s6); }
+      .det-hero { position: relative; height: 56vh; min-height: 20rem; }
+      .det-hero .bg { position: absolute; inset: 0; background: #05070a center/cover no-repeat; }
+      .det-hero .scrim { position: absolute; inset: 0; background: linear-gradient(0deg, var(--bg) 4%, rgba(11,13,16,0.2) 55%, rgba(11,13,16,0.55)); }
+      .back { position: absolute; top: var(--s4); left: var(--s4); z-index: 5; }
+      .det-body { position: relative; margin-top: -8rem; padding: 0 var(--s5); z-index: 3; max-width: 64rem; }
+      .det-body h1 { font-size: var(--t4); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--s2); line-height: 1.05; }
+      .det-meta { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; color: var(--dim); font-size: var(--t1); margin-bottom: var(--s3); }
+      .det-meta .pill { padding: 0.1rem 0.6rem; border: 1px solid var(--line); border-radius: 999px; }
+      .det-meta .pill.k { color: #7ee787; border-color: #2a4; } .det-meta .pill.stream { color: #79c0ff; }
+      .det-meta .verify { color: var(--dim); } .det-meta .verify.ok { color: #7ee787; } .det-meta .verify.bad { color: #ff8a80; }
+      .det-body p.ov { font-size: var(--t2); line-height: 1.55; color: #d6dde4; max-width: 42rem; margin: 0 0 var(--s4); }
+      .det-body p.prov { font: var(--t1)/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--dim); margin: calc(-1 * var(--s3)) 0 var(--s4); word-break: break-word; }
+      .det-body p.prov a { color: var(--acc); } .det-body p.prov b { color: #d2a8ff; }
+      .actions { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s5); }
+      .actions .lab { font-size: var(--t1); color: var(--dim); margin-left: 0.2rem; }
+
+      /* ── Player ─────────────────────────────────────────────────────────────── */
+      #player { background: #000; }
+      #player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+      #player .back { background: rgba(2,6,12,0.6); backdrop-filter: blur(8px); }
+      .enhud { position: absolute; top: var(--s4); right: var(--s4); z-index: 6; display: inline-flex; align-items: center; gap: var(--s2);
+        background: rgba(2,6,12,0.62); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 999px;
+        padding: var(--s1) var(--s3); font-size: var(--t1); font-weight: 700; color: var(--ink); transition: opacity 0.6s; }
+      .enhud .spark { color: #d2a8ff; }
+      .enhud.dim { opacity: 0; }
+      /* Watch Together — overlay controls + reaction cameras */
+      .player-top { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; justify-content: space-between; align-items: center; gap: var(--s2); padding: var(--s4); pointer-events: none; }
+      .player-top .back { position: static; top: auto; left: auto; }   /* override the global absolute .back so the bar lays out */
+      .player-top .btn { pointer-events: auto; background: rgba(2,6,12,0.55); backdrop-filter: blur(8px); }
+      .watchbtn.on { background: var(--acc); color: #06101f; }
+      .watchpanel { position: absolute; top: calc(var(--s4) + var(--s6)); right: var(--s4); z-index: 7; width: 20rem; max-width: calc(100vw - 2 * var(--s4));
+        background: rgba(13,17,23,0.97); backdrop-filter: blur(20px) saturate(1.2); border: 1px solid var(--line); border-radius: var(--rad-lg);
+        padding: var(--s3); display: flex; flex-direction: column; gap: var(--s3); box-shadow: 0 1.5rem 3rem rgba(0,0,0,0.6); animation: wp-in 0.18s ease; }
+      @keyframes wp-in { from { opacity: 0; transform: translateY(-6px); } }
+      .wp-head { display: flex; align-items: center; gap: var(--s2); }
+      .wp-live { width: 9px; height: 9px; border-radius: 50%; background: #ff5c5c; box-shadow: 0 0 0 0 rgba(255,92,92,0.6); animation: wp-pulse 1.6s infinite; }
+      @keyframes wp-pulse { 70% { box-shadow: 0 0 0 7px rgba(255,92,92,0); } 100% { box-shadow: 0 0 0 0 rgba(255,92,92,0); } }
+      .wp-title { font-size: var(--t2); font-weight: 700; letter-spacing: -0.01em; }
+      .wp-x { margin-left: auto; width: var(--s4); height: var(--s4); border-radius: 50%; background: var(--chip); border: 0; color: var(--dim); font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center; }
+      .wp-x:hover { background: var(--chip-hi); color: var(--ink); }
+      .wp-who { display: flex; align-items: center; gap: var(--s2); color: var(--dim); font-size: var(--t1); }
+      .wp-dots { display: flex; }
+      .wp-dots i { width: 1.4rem; height: 1.4rem; border-radius: 50%; margin-left: -0.45rem; border: 2px solid #0d1117; }
+      .wp-dots i:first-child { margin-left: 0; }
+      .wp-host { color: #06101f; background: var(--acc); border-radius: 999px; padding: 1px 9px; font-size: 0.78rem; font-weight: 700; }
+      .wp-link { display: flex; gap: var(--s1); }
+      .wp-link input { flex: 1; min-width: 0; background: #0b0f14; border: 1px solid var(--line); border-radius: 9px; color: var(--dim); font: var(--t1) ui-monospace, Menlo, monospace; padding: 0 var(--s2); height: var(--s5); outline: 0; }
+      .wp-link input:focus { border-color: var(--acc); color: var(--ink); }
+      .wp-link button { height: var(--s5); padding: 0 var(--s3); border-radius: 9px; background: var(--ink); color: #06101f; border: 0; font-weight: 700; }
+      .wp-link button:hover { filter: brightness(0.92); }
+      .wp-actions { display: flex; gap: var(--s2); }
+      .wp-cam { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); height: var(--s5); border-radius: 999px; background: var(--chip); border: 1px solid var(--line); color: var(--ink); font-weight: 600; }
+      .wp-cam:hover { background: var(--chip-hi); }
+      .wp-cam.on { background: #7ee787; color: #06101f; border-color: #7ee787; }
+      .wp-cam .icon { width: 1.15rem; height: 1.15rem; }
+      .wp-leave { height: var(--s5); padding: 0 var(--s4); border-radius: 999px; background: transparent; border: 1px solid var(--line); color: #ff8a80; font-weight: 600; }
+      .wp-leave:hover { background: rgba(248,81,73,0.14); border-color: #f85149; }
+      .camtiles { position: absolute; bottom: var(--s4); left: var(--s4); z-index: 6; display: flex; gap: var(--s2); }
+      .camtiles video { width: 9rem; height: 6.75rem; object-fit: cover; border-radius: var(--rad); border: 2px solid var(--acc); background: #000; box-shadow: 0 8px 22px rgba(0,0,0,0.55); }
+      .camtiles video.me { border-color: #7ee787; transform: scaleX(-1); }
+
+      /* ── Library ────────────────────────────────────────────────────────────── */
+      #library { padding: calc(var(--top-h) + var(--s4)) var(--s5) var(--s6); }
+      .lib-bar { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s4); flex-wrap: wrap; }
+      .lib-bar h2 { font-size: var(--t3); font-weight: 800; margin: 0 var(--s3) 0 0; }
+      select { background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem var(--s3); font: inherit; height: var(--s4); }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr)); gap: var(--s3) var(--s2); }
+      .grid .card { width: auto; }
+
+      /* ── Search results ─────────────────────────────────────────────────────── */
+      #search { padding: calc(var(--top-h) + var(--s4)) var(--s5) var(--s6); }
+      #search h2 { font-size: var(--t2); font-weight: 700; margin: 0 0 var(--s4); color: var(--dim); }
+      .empty { color: var(--dim); font-size: var(--t2); padding: var(--s6) 0; text-align: center; }
+
+      #toast { position: fixed; bottom: var(--s4); left: 50%; transform: translateX(-50%); background: #e6edf3; color: #0b0d10;
+        border-radius: 10px; padding: var(--s2) var(--s3); font-size: var(--t1); font-weight: 600; opacity: 0; transition: opacity 0.2s; z-index: 60; pointer-events: none; }
+      #toast.show { opacity: 1; }
+    </style>
+  </head>
+  <body>
+
+    <header id="top">
+      <span class="brand" id="brand"><span class="dot"></span>Holo Player</span>
+      <nav>
+        <button data-nav="home" class="on">Home</button>
+        <button data-nav="library">Library</button>
+      </nav>
+      <span class="sp"></span>
+      <label class="search">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l5.27 5.27-1.42 1.42-5.27-5.27A6.5 6.5 0 1 1 9.5 3m0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>
+        <input id="q" type="search" placeholder="Search your library or paste a URL" autocomplete="off" spellcheck="false" />
+      </label>
+      <button class="me" id="me" title="self-sovereign identity">H</button>
+    </header>
+
+    <main>
+      <section id="home" class="view">
+        <div class="hero" id="hero"></div>
+        <div class="rails" id="rails"></div>
+      </section>
+
+      <section id="detail" class="view" hidden>
+        <div class="det-hero">
+          <div class="bg" id="dBg"></div><div class="scrim"></div>
+          <button class="btn back" data-back><svg class="icon" viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+        </div>
+        <div class="det-body">
+          <h1 id="dTitle"></h1>
+          <div class="det-meta" id="dMeta"></div>
+          <p class="ov" id="dOv"></p>
+          <p class="prov" id="dProv" hidden></p>
+          <div class="actions" id="dActions"></div>
+        </div>
+        <div class="rail" id="moreLike" hidden><h2>More like this</h2><div class="strip" id="moreStrip"></div></div>
+      </section>
+
+      <section id="player" class="view" hidden>
+        <div class="player-top">
+          <button class="btn back" data-back><svg class="icon" viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+          <button class="btn watchbtn" id="watchBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6m0 2c-2.7 0-8 1.3-8 4v2h9v-2c0-1 .4-1.9 1.1-2.6C9.4 13.1 8.6 13 8 13m8 0c-.3 0-.7 0-1.1.1C16 14 17 15.3 17 17v2h7v-2c0-2.7-5.3-4-8-4Z"/></svg>Watch together</button>
+        </div>
+        <div class="enhud" id="enhud" hidden></div>
+        <div class="watchpanel" id="watchPanel" hidden></div>
+        <div class="camtiles" id="camtiles"></div>
+      </section>
+
+      <section id="library" class="view" hidden>
+        <div class="lib-bar">
+          <h2>Library</h2>
+          <select id="genreSel"></select>
+          <select id="sortSel">
+            <option value="rank">For you</option>
+            <option value="title">A–Z</option>
+            <option value="runtime">Longest</option>
+          </select>
+        </div>
+        <div class="grid" id="libGrid"></div>
+      </section>
+
+      <section id="search" class="view" hidden>
+        <h2 id="searchHead"></h2>
+        <div class="grid" id="searchGrid"></div>
+        <div class="empty" id="searchEmpty" hidden>Nothing matched. Paste a video URL to stream it anyway.</div>
+      </section>
+    </main>
+    <div id="toast"></div>
+
+    <script src="/.holo/sha256/6e0ad52eeab97acfceb43932e5e1f6a3783807fa52e8bf8890908076e88c44dd.js" data-holo-shared="holo-jellyfin.js"></script>
+    <script src="holo-rank.js"></script>
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      const $ = (s) => document.getElementById(s);
+      const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      let toastT; const toast = (m) => { const e = $("toast"); e.textContent = m; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2200); };
+      const fmtDur = (s) => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return h ? `${h}h ${m}m` : `${m || 1}m`; };
+      const GEN = [["scifi","Sci-Fi"],["animation","Animation"],["fantasy","Fantasy"],["comedy","Comedy"],["action","Action"],["nature","Nature"],["music","Music"]];
+      const glabel = (t) => (GEN.find(([k]) => k === t) || [, t])[1];
+      // Concise, self-explanatory synopses (clean detail pages).
+      const BLURB = {
+        "tos-hls": "A small band fights to save humankind from the machines in a ruined near-future.",
+        "ed-dash": "Two men wander a vast, shifting machine the first Blender open movie.",
+        "sintel-dash": "A lone warrior crosses a harsh world to find the dragon she once raised.",
+        "bbb-dash": "A gentle giant rabbit turns the tables on three bullying rodents.",
+        "bbb4k-webm": "The beloved Blender short in crisp 4K a big bunny's sweet revenge.",
+        "spring-webm": "A shepherd girl and her dog guard the eternal turning of the seasons.",
+        "charge-webm": "An action-packed clash over a vital power source. Rendered live in Eevee.",
+        "angel-one-hls": "A short reference stream carrying multiple language audio tracks.",
+      };
+
+      // resume / favorites / watched — all on-device.
+      const RK = (it) => "holoplayer.resume." + (it.holoKappa || it.id);
+      const getResume = (it) => { try { return JSON.parse(localStorage.getItem(RK(it)) || "null"); } catch { return null; } };
+      const setResume = (it, pos, dur) => { try { localStorage.setItem(RK(it), JSON.stringify({ pos, dur, at: Date.now() })); } catch {} };
+      const lset = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } };
+      const lsave = (k, set) => { try { localStorage.setItem(k, JSON.stringify([...set])); } catch {} };
+      let FAV = lset("holoplayer.fav"), WATCHED = lset("holoplayer.watched");
+
+      let items = [], catalogItems = [], developedItems = [], live = [], enrich = {}, current = null, lastSignal = 0;
+      const SALT = String(Date.now());
+      const pool = () => [...live, ...developedItems, ...items, ...catalogItems];
+      const byId = (id) => pool().find((x) => x.id === id);
+      const blurb = (it) => BLURB[it.id] || it.blurb || (enrich[it.id] && enrich[it.id].blurb) || (it.tags && it.tags.length ? "Tagged: " + it.tags.join(", ") : "Open, content-addressable video.");
+      const signal = (ev) => { try { if (window.HoloRank) { HoloRank.signal(ev); lastSignal = Date.now(); } } catch {} };
+
+      // ── views ─────────────────────────────────────────────────────────────────
+      const views = { home: $("home"), detail: $("detail"), player: $("player"), library: $("library"), search: $("search") };
+      function show(name) {
+        for (const k in views) views[k].hidden = k !== name;
+        for (const b of document.querySelectorAll("nav button")) b.classList.toggle("on", b.dataset.nav === name);
+        if (name !== "player") tearDown();
+        views[name].scrollTop = 0; onScroll();
+      }
+      const onScroll = () => { const v = views.home; $("top").classList.toggle("solid", !views.home.hidden ? v.scrollTop > 24 : true); };
+      views.home.addEventListener("scroll", onScroll);
+
+      // ── card ────────────────────────────────────────────────────────────────
+      function card(it, why) {
+        const r = getResume(it), pct = r && r.dur ? Math.min(100, 100 * r.pos / r.dur) : 0;
+        const tag = it.live ? `<span class="tag live">● LIVE</span>` : it.source === "owned" ? `<span class="tag owned">κ ${esc(it.tier || "")}</span>` : it.source === "open" ? `<span class="tag stream">${esc(String(it.provider || "").toUpperCase())}</span>` : it.kappa ? `<span class="tag k">κ</span>` : "";
+        const el = document.createElement("div");
+        el.className = "card" + (WATCHED.has(it.id) ? " watched" : ""); el.tabIndex = 0;
+        el.innerHTML = `
+          <div class="pic" style="${it.posterUrl ? `background-image:url('${esc(it.posterUrl)}')` : ""}">
+            ${it.posterUrl ? "" : `<div class="gen">${esc(it.name)}</div>`}
+            ${tag}
+            <div class="seen"><svg class="icon" style="width:1rem;height:1rem" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></div>
+            ${it.runtimeSec ? `<div class="dur">${fmtDur(it.runtimeSec)}</div>` : ""}
+            ${pct > 1 ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}
+          </div>
+          <div class="t">${esc(it.name)}</div>
+          ${why ? `<div class="why ${why.tag === "continue" ? "continue" : ""}">${esc(why.text)}</div>` : ""}`;
+        el.addEventListener("click", () => openDetail(it));
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter") openDetail(it); });
+        return el;
+      }
+      function rail(title, list, sub) {
+        if (!list.length) return null;
+        const sec = document.createElement("div"); sec.className = "rail";
+        sec.innerHTML = `<h2>${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</h2><div class="strip"></div>`;
+        const strip = sec.querySelector(".strip");
+        list.forEach((it) => strip.appendChild(card(it, it._why)));
+        return sec;
+      }
+
+      // ── home (Jellyfin rails, HoloRank-driven) ─────────────────────────────────
+      function renderHome() {
+        const ranked = window.HoloRank ? HoloRank.rank(pool(), { resume: getResume, salt: SALT }) : pool();
+        const feat = ranked[0]; if (feat) renderHero(feat);
+        const cont = ranked.filter((it) => { const r = getResume(it); return r && r.dur && r.pos / r.dur > 0.03 && r.pos / r.dur < 0.95; });
+        const favs = ranked.filter((it) => FAV.has(it.id));
+        const taste = window.HoloRank ? HoloRank.taste() : { topics: [], cold: true };
+        const top = (taste.topics[0] || "").toLowerCase();
+        const topKey = (GEN.find(([, l]) => l.toLowerCase() === top) || [])[0];
+
+        const wrap = $("rails"); wrap.innerHTML = "";
+        const add = (r) => r && wrap.appendChild(r);
+        add(rail("Continue watching", cont.slice(0, 12)));
+        add(rail(taste.cold ? "Recommended for you" : "Top picks for you", ranked.slice(1, 13)));
+        add(rail("Your favorites", favs.slice(0, 12)));
+        if (topKey) add(rail("More " + glabel(topKey), ranked.filter((it) => (it.topics || []).includes(topKey)).slice(0, 12), "because you watch it"));
+        // a couple of genre rails the user hasn't necessarily tasted yet (discovery)
+        for (const [key, lab] of GEN) {
+          if (key === topKey) continue;
+          const g = ranked.filter((it) => (it.topics || []).includes(key));
+          if (g.length >= 3) add(rail(lab, g.slice(0, 12)));
+          if (wrap.children.length > 6) break;
+        }
+        add(rail("Your κ-store", items, "content-addressed · self-hosted"));
+        // flash nothing; the re-rank is silent + seamless
+        lastSignal = 0;
+      }
+      function renderHero(it) {
+        const h = $("hero"); const r = getResume(it);
+        const kpill = it.kappa ? `<span class="k">κ verified</span>` : it.live ? `<span class="k" style="color:#ff5c5c">● LIVE</span>` : `<span class="k" style="color:#79c0ff">${esc(String(it.provider || "open").toUpperCase())} stream</span>`;
+        h.innerHTML = `
+          <div class="bg" style="${(it.backdrop || it.posterUrl) ? `background-image:url('${esc(it.backdrop || it.posterUrl)}')` : "background:linear-gradient(135deg,#222c40,#0d1117)"}"></div>
+          <div class="scrim"></div>
+          <div class="body">
+            <h1>${esc(it.name)}</h1>
+            <div class="meta">${[it.runtimeSec ? fmtDur(it.runtimeSec) : "", glabel((it.topics || [])[0] || ""), it.license || ""].filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join('<span>·</span>')}<span>·</span>${kpill}</div>
+            <p>${esc(blurb(it))}</p>
+            <div class="cta">
+              <button class="btn primary" id="heroPlay"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>${r && r.pos > 5 ? "Resume" : "Play"}</button>
+              <button class="btn" id="heroInfo"><svg class="icon" viewBox="0 0 24 24"><path d="M11 9h2V7h-2m1 13a8 8 0 1 1 0-16 8 8 0 0 1 0 16m0-18A10 10 0 1 0 22 12 10 10 0 0 0 12 2m-1 15h2v-6h-2z"/></svg>More info</button>
+            </div>
+          </div>`;
+        $("heroPlay").onclick = () => play(it);
+        $("heroInfo").onclick = () => openDetail(it);
+      }
+      // Sintel's official upload has no hi-res thumb; use a verified alternate backdrop.
+      const BACKDROP_OVERRIDE = { "sintel-dash": "https://i.ytimg.com/vi/HomAZcKm3Jo/maxresdefault.jpg" };
+
+      // ── detail (Jellyfin item page) ────────────────────────────────────────────
+      function openDetail(it) {
+        current = it; show("detail");
+        const dbg = it.backdrop || it.posterUrl;
+        $("dBg").style.backgroundImage = dbg ? `url('${esc(dbg)}')` : "";
+        if (!dbg) $("dBg").style.background = "linear-gradient(135deg,#222c40,#0d1117)";
+        $("dTitle").textContent = it.name;
+        const r = getResume(it);
+        const mediaPill = it.kappa ? `<span class="pill k">κ content-addressed</span>` : it.live ? `<span class="pill" style="color:#ff5c5c">● LIVE</span>` : `<span class="pill stream">${esc(String(it.provider || "open").toUpperCase())} stream</span>`;
+        $("dMeta").innerHTML = [it.runtimeSec ? fmtDur(it.runtimeSec) : "", glabel((it.topics || [])[0] || ""), it.license || ""].filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("") + mediaPill + `<span class="verify" id="dVerify"></span>`;
+        $("dOv").textContent = blurb(it);
+        const prov = $("dProv");
+        if (it.source === "owned") { prov.hidden = false;
+          prov.innerHTML = `<b>Developed → ${esc(it.tier)}</b> · ${esc(it.method)}${it.bytes ? " · " + (it.bytes / 1048576).toFixed(1) + " MB" : ""} · <a href="../video/${esc(it.receipt)}" target="_blank" rel="noopener">PROV-O receipt</a><br>source κ ${esc((it.sourceKappa || "").slice(7, 21))}… → owned κ ${esc((it.kappa || "").slice(7, 21))}… · served O(1), Law-L5 verified`;
+        } else prov.hidden = true;
+        renderActions(it, r);
+        const sim = (window.HoloRank ? HoloRank.rank(pool(), { resume: getResume, focus: (it.topics || [])[0], salt: SALT }) : pool()).filter((x) => x.id !== it.id).slice(0, 12);
+        const ml = $("moreLike"); ml.hidden = !sim.length;
+        const strip = $("moreStrip"); strip.innerHTML = ""; sim.forEach((x) => strip.appendChild(card(x)));
+        signal({ type: "open", item: it });
+      }
+      function renderActions(it, r) {
+        const a = $("dActions");
+        a.innerHTML = `
+          <button class="btn primary" id="aPlay"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>${r && r.pos > 5 ? "Resume " + fmtDur(r.pos) : "Play"}</button>
+          <button class="iconbtn ${FAV.has(it.id) ? "on" : ""}" id="aFav" title="favorite"><svg class="icon" viewBox="0 0 24 24"><path d="m12 21-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.18z"/></svg></button>
+          <button class="iconbtn ${WATCHED.has(it.id) ? "on" : ""}" id="aSeen" title="mark watched"><svg class="icon" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></button>
+          ${it.source === "owned" ? "" : `<button class="btn" id="aDev" title="upscale + pin as a content-addressed object you own, served O(1)"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.3 5.3L20 9.6l-5.7 2.3L12 17l-2.3-5.1L4 9.6l5.7-2.3zM18.6 13l1.1 2.6 2.6 1.1-2.6 1.1L18.6 21l-1.1-2.6L14.9 17l2.6-1.1z"/></svg>Develop to 8K</button>`}`;
+        $("aPlay").onclick = () => play(it);
+        $("aFav").onclick = () => { toggle(FAV, "holoplayer.fav", it.id); $("aFav").classList.toggle("on", FAV.has(it.id)); if (FAV.has(it.id)) signal({ type: "like", item: it }); toast(FAV.has(it.id) ? "Added to favorites" : "Removed"); };
+        $("aSeen").onclick = () => { toggle(WATCHED, "holoplayer.watched", it.id); $("aSeen").classList.toggle("on", WATCHED.has(it.id)); if (WATCHED.has(it.id)) signal({ type: "complete", item: it }); toast(WATCHED.has(it.id) ? "Marked watched" : "Marked unwatched"); };
+        if ($("aDev")) $("aDev").onclick = () => develop(it);
+      }
+      const toggle = (set, key, id) => { set.has(id) ? set.delete(id) : set.add(id); lsave(key, set); };
+
+      // ── player (Holo Video) ────────────────────────────────────────────────────
+      let saveT = 0, watched40 = new Set();
+      // Enhancement HUD — honest: ✦ only when WebGPU is actually present (same browser
+      // as the nested player), else it says plainly that upscaling needs WebGPU.
+      const hasGPU = !!navigator.gpu;
+      const tier = (h) => h >= 4320 ? "8K" : h >= 2160 ? "4K" : h >= 1440 ? "1440p" : h >= 1080 ? "1080p" : h >= 720 ? "720p" : (h || 0) + "p";
+      // Match the device's true maximum: pick the SR target DPR from the device class +
+      // connection. Desktop → up to native pixels (8K-capable); mobile → capped for battery;
+      // Save-Data/metered → conservative. ABR already matches the connection's bandwidth.
+      const isMobile = matchMedia("(pointer: coarse)").matches || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      function autoQuality() {
+        const c = navigator.connection || {}, dpr = window.devicePixelRatio || 1;
+        const maxdpr = c.saveData ? 1.5 : isMobile ? Math.min(dpr, 2) : Math.min(dpr, 3);
+        return { maxdpr: +maxdpr.toFixed(2), save: !!c.saveData };
+      }
+      const dispTier = () => { const aq = autoQuality(); return tier(Math.round((screen.height || 1080) * Math.min(window.devicePixelRatio || 1, aq.maxdpr))); };
+      let enhT;
+      function showEnhance(it) {
+        const e = $("enhud");
+        if (it && it.kind === "live" && it.embed) { e.hidden = true; return; }   // provider's own player — no SR
+        e.hidden = false; e.classList.remove("dim");
+        const aq = autoQuality();
+        e.innerHTML = hasGPU ? `<span class="spark">✦</span> Auto-enhancing → ${dispTier()}${aq.save ? " · Data Saver" : ""}` : `Streaming · enable WebGPU for live upscaling`;
+      }
+      function updateEnhance(w, h) { if (!hasGPU) return; const e = $("enhud");
+        e.innerHTML = `<span class="spark">✦</span> ${tier(h)} → ${dispTier()} · Lanczos SR`;
+        clearTimeout(enhT); enhT = setTimeout(() => e.classList.add("dim"), 4500); }
+      function tearDown() { const f = $("player").querySelector("iframe"); if (f) f.remove(); $("enhud").hidden = true; }
+      function play(it) {
+        current = it; show("player");
+        const f = document.createElement("iframe");
+        f.title = "Holo Video"; f.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write";
+        if (it.kind === "live" && it.embed) f.src = it.embed;
+        else {
+          // Boot the hologram-native present pipeline: WebGPU zero-copy frames +
+          // Lanczos super-resolution toward the display's native pixels + the O(1)
+          // content-addressed LUT grade. No WebGPU → graceful plain <video>.
+          const q = new URLSearchParams({ gpu: "1", sr: "1", grade: "0.4", muted: "0", maxdpr: String(autoQuality().maxdpr), src: it.playSrc || it.src || "" });
+          if (it.kappa) q.set("k", it.kappa);
+          if (it.type) q.set("type", it.type);
+          if (it.live) q.set("live", "1");
+          f.src = "../video/index.html?" + q.toString();
+        }
+        $("player").appendChild(f);
+        showEnhance(it);
+        if (watch) watch.setVideo(it.id);                 // watch-together: keep the room on the same title
+        signal({ type: "open", item: it });
+      }
+      addEventListener("message", (e) => {
+        const m = e.data; if (!m || typeof m !== "object" || !current) return;
+        if (m.type === "holo-video-ready") { const r = getResume(current); if (r && r.pos > 5 && (!current.runtimeSec || r.pos < current.runtimeSec - 5)) setTimeout(() => post({ type: "holo-video-control", action: "seek", time: r.pos }), 900); }
+        else if (m.type === "holo-video-status") {
+          if (m.width && m.height) updateEnhance(m.width, m.height);
+          if (m.currentTime > 0 && Date.now() - saveT > 1500) { saveT = Date.now(); setResume(current, m.currentTime, m.duration || current.runtimeSec); }
+          const pct = m.duration ? m.currentTime / m.duration : 0;
+          if (pct > 0.4 && !watched40.has(current.id)) { watched40.add(current.id); signal({ type: "watch", item: current, pct }); }
+          if (m.state === "ended") { WATCHED.add(current.id); lsave("holoplayer.watched", WATCHED); signal({ type: "complete", item: current }); }
+          // watch-together: mirror local play/pause/seek to the room
+          const playing = m.state === "playing"; lastStatus = { time: m.currentTime || 0, playing };
+          if (watch) {
+            if (playing !== prevPlaying) { watch.broadcast({ type: playing ? "play" : "pause" }); prevPlaying = playing; }
+            else if (Math.abs((m.currentTime || 0) - prevTime) > 1.6) watch.broadcast({ type: "seek", time: m.currentTime });
+          }
+          prevTime = m.currentTime || 0;
+        }
+      });
+      const post = (msg) => { try { $("player").querySelector("iframe")?.contentWindow.postMessage(msg, "*"); } catch {} };
+
+      // ── Watch Together — one link, synced playback + reaction cameras ───────────
+      let watch = null, lastStatus = { time: 0, playing: false }, prevPlaying = false, prevTime = 0, camOn = false;
+      const watchApply = (a) => { if (a.type === "seek") post({ type: "holo-video-control", action: "seek", time: a.time }); else post({ type: "holo-video-control", action: a.type }); };
+      const inviteLink = (room) => { const u = new URL(location.href); u.search = `?room=${room}` + (current ? "&watch=" + encodeURIComponent(current.id) : ""); return u.toString(); };
+      async function copyInvite(room) { try { await navigator.clipboard.writeText(inviteLink(room)); toast("Invite link copied share to watch together"); } catch { toast(inviteLink(room)); } }
+      function joinRoom(room) {
+        if (!window.HoloWatch || watch) return;
+        watch = HoloWatch.join(room, {
+          apply: watchApply, getState: () => ({ time: lastStatus.time, playing: lastStatus.playing }),
+          onPresence: (n, host) => renderWatchPanel(room, n, host),
+          onVideo: (id) => { const it = byId(id); if (it && (!current || current.id !== id)) play(it); },
+          onRemoteStream: (peer, s) => addCam(peer, s, false), onPeerLeave: (peer) => removeCam(peer),
+        });
+        $("watchBtn").classList.add("on"); renderWatchPanel(room, 1, true);
+      }
+      function startWatch() {
+        if (watch) { $("watchPanel").hidden = !$("watchPanel").hidden; return; }
+        const room = HoloWatch.newRoom();
+        history.replaceState(null, "", `?room=${room}` + (current ? "&watch=" + encodeURIComponent(current.id) : ""));
+        joinRoom(room); copyInvite(room);
+      }
+      const DOTC = ["#5b8cff", "#7ee787", "#ffd866", "#d2a8ff", "#ff8a80"];
+      function renderWatchPanel(room, n, host) {
+        const p = $("watchPanel"); p.hidden = false;
+        const dots = Array.from({ length: Math.min(n, 5) }, (_, i) => `<i style="background:${DOTC[i % 5]}"></i>`).join("");
+        p.innerHTML = `
+          <div class="wp-head"><span class="wp-live"></span><span class="wp-title">Watch together</span><button class="wp-x" id="wX" title="Hide">✕</button></div>
+          <div class="wp-who"><span class="wp-dots">${dots}</span><span>${n} watching</span>${host ? `<span class="wp-host">host</span>` : ""}</div>
+          <div class="wp-link"><input id="wLink" readonly value="${esc(inviteLink(room))}" aria-label="invite link" /><button id="wCopy">Copy</button></div>
+          <div class="wp-actions">
+            <button class="wp-cam${camOn ? " on" : ""}" id="wCam"><svg class="icon" viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>${camOn ? "Camera on" : "Camera"}</button>
+            <button class="wp-leave" id="wLeave">Leave</button>
+          </div>`;
+        $("wX").onclick = () => { $("watchPanel").hidden = true; };
+        $("wLink").onclick = () => $("wLink").select();
+        $("wCopy").onclick = () => { copyInvite(room); $("wLink").select(); };
+        $("wCam").onclick = async () => {
+          const s = await watch.toggleCamera();
+          camOn = !!s; if (s) addCam(watch.peerId, s, true); else removeCam(watch.peerId);
+          $("wCam").classList.toggle("on", camOn); $("wCam").lastChild.textContent = camOn ? "Camera on" : "Camera";
+        };
+        $("wLeave").onclick = leaveWatch;
+      }
+      function leaveWatch() { if (watch) watch.leave(); watch = null; camOn = false; $("watchPanel").hidden = true; $("watchBtn").classList.remove("on"); $("camtiles").innerHTML = ""; history.replaceState(null, "", location.pathname); }
+      function addCam(peer, stream, me) { let v = document.getElementById("cam-" + peer); if (!v) { v = document.createElement("video"); v.id = "cam-" + peer; v.autoplay = true; v.playsInline = true; if (me) { v.muted = true; v.className = "me"; } $("camtiles").appendChild(v); } v.srcObject = stream; }
+      function removeCam(peer) { const v = document.getElementById("cam-" + peer); if (v) v.remove(); }
+      $("watchBtn").addEventListener("click", startWatch);
+
+      // ── make native (develop to κ) ─────────────────────────────────────────────
+      // Develop to 8K — POST the source to the offline SR→κ-pin pipeline, stream its
+      // progress, then surface the owned κ-object. A short preview keeps it instant +
+      // honest (full films take minutes); the receipt records exactly what ran.
+      async function develop(it, height = 2160, seconds = 12) {
+        const source = it.page || it.src; if (!source) { toast("No developable source"); return; }
+        signal({ type: "makeNative", item: it });
+        toast("Developing → " + (height >= 4320 ? "8K" : height >= 2160 ? "4K" : height + "p") + " preview…");
+        try {
+          const res = await fetch("/develop", { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ source, height, seconds, id: it.id, title: it.name, poster: it.backdrop || it.posterUrl, topics: (it.topics || []).join(",") }) });
+          if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
+          const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", made = null;
+          for (;;) { const { value, done } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
+            while ((i = buf.indexOf("\n")) >= 0) { const ln = buf.slice(0, i); buf = buf.slice(i + 1); if (!ln.trim()) continue; let e; try { e = JSON.parse(ln); } catch { continue; }
+              if (e.stage === "upscaling") toast("Upscaling " + (e.msg || "")); else if (e.stage === "pinning") toast("Content-addressing…");
+              else if (e.stage === "done") made = e; else if (e.stage === "error") throw new Error((e.msg || "develop failed").slice(0, 80)); } }
+          await loadDeveloped(); const dev = developedItems.find((x) => made && x.id === made.id) || developedItems[0];
+          if (dev) { toast("✓ Developed · you own a κ-object"); openDetail(dev); }
+        } catch (err) { toast(/fetch|NetworkError|Failed to fetch/i.test(err.message) ? "Develop backend offline see develop-sr.mjs" : "Develop failed: " + err.message); }
+      }
+
+      // ── library ─────────────────────────────────────────────────────────────
+      function renderLibrary() {
+        const gv = $("genreSel").value, sv = $("sortSel").value;
+        let list = pool().filter((it) => gv === "all" || (it.topics || []).includes(gv));
+        if (sv === "title") list.sort((a, b) => a.name.localeCompare(b.name));
+        else if (sv === "runtime") list.sort((a, b) => (b.runtimeSec || 0) - (a.runtimeSec || 0));
+        else if (window.HoloRank) list = HoloRank.rank(list, { resume: getResume, salt: SALT });
+        const g = $("libGrid"); g.innerHTML = ""; list.forEach((it) => g.appendChild(card(it)));
+      }
+      function fillGenres() {
+        const have = new Set(pool().flatMap((it) => it.topics || []));
+        $("genreSel").innerHTML = `<option value="all">All genres</option>` + GEN.filter(([k]) => have.has(k)).map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+      }
+      $("genreSel").addEventListener("change", renderLibrary); $("sortSel").addEventListener("change", renderLibrary);
+
+      // ── search (+ URL bar) ─────────────────────────────────────────────────────
+      const YT = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/, VIM = /vimeo\.com\/(?:video\/)?(\d+)/, MED = /\.(mp4|webm|m3u8|mpd|mov|mkv)(\?|#|$)/i;
+      function liveItem(url) {
+        let m = url.match(YT); if (m) return { id: "live:yt:" + m[1], name: "YouTube video", kind: "live", provider: "youtube", embed: `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&rel=0`, posterUrl: `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`, page: url, source: "live", topics: [], kappa: "" };
+        m = url.match(VIM); if (m) return { id: "live:vim:" + m[1], name: "Vimeo video", kind: "live", provider: "vimeo", embed: `https://player.vimeo.com/video/${m[1]}?autoplay=1`, posterUrl: null, page: url, source: "live", topics: [], kappa: "" };
+        const direct = MED.test(url);
+        return { id: "live:url:" + url, name: url.split("/").pop().split("?")[0] || "Stream", kind: "stream", source: "open", provider: direct ? url.split(".").pop().split(/[?#]/)[0] : "media", src: url, type: "", page: url, posterUrl: null, topics: [], kappa: "" };
+      }
+      function runSearch(v) {
+        if (/^https?:\/\/\S+$/i.test(v)) { const it = liveItem(v); live.unshift(it); play(it); toast("▶ Streaming live"); return; }
+        signal({ type: "search", term: v });
+        show("search"); $("searchHead").textContent = `Results for “${v}”`;
+        const list = pool().filter((it) => it.name.toLowerCase().includes(v.toLowerCase()) || (it.topics || []).some((t) => glabel(t).toLowerCase().includes(v.toLowerCase())) || (it.tags || []).some((t) => t.includes(v.toLowerCase())));
+        const g = $("searchGrid"); g.innerHTML = ""; list.forEach((it) => g.appendChild(card(it)));
+        $("searchEmpty").hidden = list.length > 0;
+      }
+      let qT; $("q").addEventListener("input", () => { const v = $("q").value.trim(); clearTimeout(qT); if (!v) { show("home"); return; } qT = setTimeout(() => { if (!/^https?:/i.test(v)) runSearch(v); }, 220); });
+      $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") { const v = $("q").value.trim(); if (v) runSearch(v); } });
+
+      // ── chrome / nav ───────────────────────────────────────────────────────────
+      for (const b of document.querySelectorAll("nav button")) b.addEventListener("click", () => { const n = b.dataset.nav; if (n === "library") { fillGenres(); renderLibrary(); } show(n); });
+      $("brand").addEventListener("click", () => { renderHome(); show("home"); });
+      for (const b of document.querySelectorAll("[data-back]")) b.addEventListener("click", () => { renderHome(); show("home"); });
+      $("me").addEventListener("click", () => toast("Self-sovereign identity holo-identity"));
+      addEventListener("keydown", (e) => { if (e.key === "Escape") { if (!views.player.hidden || !views.detail.hidden) { renderHome(); show("home"); } } else if (e.key === "/" && e.target.tagName !== "INPUT") { e.preventDefault(); $("q").focus(); } });
+
+      // ── data ────────────────────────────────────────────────────────────────────
+      async function loadCatalog() {
+        try {
+          const c = await (await fetch("feed/catalog.json", { cache: "no-store" })).json();
+          enrich = c.enrich || {};
+          catalogItems = (c.items || []).map((x) => ({ id: x.id, name: x.title, channel: x.channel, topics: x.topics || [], tags: x.tags || [],
+            runtimeSec: x.runtimeSec || 0, quality: x.quality ?? 0.8, license: x.license || "", kind: "stream", source: "open", provider: x.format, live: !!x.live,
+            src: x.src, type: x.type, playSrc: x.src, posterUrl: x.poster || null,
+            backdrop: BACKDROP_OVERRIDE[x.id] || (x.poster ? x.poster.replace("hqdefault", "maxresdefault") : null), page: x.page || x.src }));
+        } catch { catalogItems = []; }
+      }
+      async function loadNative() {
+        try { const lib = await HoloJellyfin.native();
+          items = lib.items.map((it) => { const e = enrich[it.id] || {}; return { ...it, topics: e.topics || [], channel: e.channel || "Your κ-store", quality: e.quality ?? 0.78, license: "Creative Commons" }; });
+          if (window.HoloTeleport && items[0]) HoloTeleport.stamp("");
+        } catch (err) { items = []; }
+      }
+      // Developed κ-objects you OWN — offline-upscaled, pinned, served O(1), Law-L5.
+      async function loadDeveloped() {
+        try { const d = await (await fetch("feed/developed.json", { cache: "no-store" })).json();
+          developedItems = (d.items || []).map((x) => ({ id: x.id, name: x.title, topics: x.topics || [], runtimeSec: x.runtimeSec || 0, quality: 0.9,
+            license: "Developed · " + x.method, kind: "native", source: "owned", provider: "hls", tier: x.tier, height: x.height, method: x.method,
+            sourceKappa: x.sourceKappa, receipt: x.receipt, bytes: x.bytes, src: x.src, playSrc: x.src, type: x.type, kappa: x.kappa,
+            posterUrl: x.poster || null, backdrop: x.poster ? x.poster.replace("hqdefault", "maxresdefault") : null, page: null, blurb: x.blurb }));
+        } catch { developedItems = []; }
+      }
+      window.holoPlayer = { get items() { return items; }, get catalogItems() { return catalogItems; }, get pool() { return pool(); }, get currentId() { return current && current.id; }, get inRoom() { return !!watch; }, openDetail, play, show, renderHome, loadNative };
+
+      (async () => {
+        await loadCatalog(); await Promise.all([loadNative(), loadDeveloped()]); fillGenres(); renderHome(); show("home");
+        // Watch-together invite: a single link opens the same title + joins the room.
+        const p = new URLSearchParams(location.search), room = p.get("room"), w = p.get("watch");
+        if (w) { const it = byId(w); if (it) { play(it); if (room) setTimeout(() => joinRoom(room), 600); } }
+        else if (room) setTimeout(() => joinRoom(room), 300);
+      })();
+    </script>
+    <script src="holo-watch.js"></script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+  </body>
+</html>

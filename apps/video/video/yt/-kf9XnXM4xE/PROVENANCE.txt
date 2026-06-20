@@ -1,0 +1,13 @@
+Ingested Holo Video — content-addressed from YouTube (Law L5).
+
+Source : https://www.youtube.com/watch?v=-kf9XnXM4xE&list=RD-kf9XnXM4xE&start_radio=1
+  -kf9XnXM4xE · Deep Work Music ~ Instrumental Sounds for Ultimate Concentration & Focus
+  license: NA
+Tooling: yt-dlp 2026.03.17 + ffmpeg (deterministic, bit-exact CMAF)
+Section: first 60s · renditions 1280×720 + 854×480 + AAC
+
+One CMAF fMP4 segment set, two standards: cmaf/master.m3u8 (HLS) + cmaf/stream.mpd (DASH).
+Every .m4s/.m3u8/.mpd is pinned in video-manifest.json; re-ingesting this source re-derives the same κ.
+
+holospace κ : sha256:afe85714834ac1a936f8b110826d5516ed7380884ef547f0166707d94eea8669
+master κ    : sha256:9ea85cfbdc0448ebb65b0aa80f38984476d6ec4e04e77ea182029c161f31b0f1

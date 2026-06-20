@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo IPFS Hologram OS</title>
+    <meta name="description" content="Holo IPFS the InterPlanetary File System, hologram-native: browse the entire IPFS/IPLD space as easily as the web. Every block is re-derived against its CID in the browser (Law L5 = the IETF Trustless Gateway contract), so no gateway is trusted. Open CIDs, ipfs:// and ipns:// links and DNSLink sites, walk UnixFS directories, preview files, discover providers, add files to get real CIDs with no daemon, and pin-to-own into the content-addressed κ-store. No simulation: real on-network content, verified." />
+    <meta name="holo-app" content="Holo IPFS" />
+    <!-- Shared mobile-conformance layer every shipped holospace adopts (enforce-witnesses gate). -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <link rel="stylesheet" href="/.holo/sha256/af0f2b5ff47f414281246d8e8e786edc6302bed6731174897f74f105dd2f93f3.css" data-holo-shared="holo-phi.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        /* fallbacks so the app looks right even without the OS theme kernel (e.g. the standalone GitHub Pages build) */
+        --bg: var(--holo-bg, #060a12); --panel: var(--holo-surface, #0d1117); --panel2: var(--holo-surface-2, #0a0e16);
+        --line: var(--holo-border, #1b2530); --ink: var(--holo-ink, #e6edf3); --dim: var(--holo-ink-dim, #8b97a5); --acc: var(--holo-accent, #4dd0e1);
+        --acc2: color-mix(in srgb, var(--acc) 72%, var(--ink)); --ok: var(--holo-ok, #3fb950); --bad: var(--holo-danger, #f85149); --warn: var(--holo-warn, #d6a019);
+        /* proportion: --holo-size-* from _shared/holo-phi.css (ADR-028) */
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: radial-gradient(130% 100% at 50% 0%, #0b1322 0%, var(--bg) 60%, #03060c 100%); color: var(--ink);
+        display: flex; flex-direction: column; overflow: hidden; font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      a { color: var(--acc2); text-decoration: none; } a:hover { text-decoration: underline; }
+      button { font: inherit; cursor: pointer; }
+      .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+
+      /* ── top chrome: identity · omnibox · verify + latency HUD ── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: var(--holo-size-xs); padding: var(--holo-size-xs) var(--holo-size-s);
+        background: linear-gradient(#0d1117, #0b0f17); border-bottom: 1px solid var(--line); position: relative; z-index: 50; }
+      #bar .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap; }
+      #bar .brand svg { width: 22px; height: 22px; color: var(--acc); }
+      #bar .tag { color: var(--dim); font-size: var(--holo-text-sm, 1rem); font-weight: 400; }
+      #omni { flex: 1 1 auto; display: flex; align-items: center; gap: 0; background: var(--panel2); border: 1px solid var(--line);
+        border-radius: 10px; padding: 0 0.4rem; min-width: 0; }
+      #omni:focus-within { border-color: var(--acc); box-shadow: 0 0 0 3px #4dd0e122; }
+      #omni .ico { color: var(--dim); padding: 0 0.4rem; display: flex; }
+      #addr { flex: 1 1 auto; background: transparent; border: 0; outline: 0; color: var(--ink); padding: 0.55rem 0.3rem; min-width: 0;
+        font-family: ui-monospace, monospace; font-size: var(--holo-text-sm, 1rem); }
+      #addr::placeholder { color: #5b6673; }
+      #goBtn { border: 0; background: var(--acc); color: #04121f; font-weight: 700; border-radius: 7px; padding: 0.42rem 0.9rem; }
+      #goBtn:hover { background: #74e0ee; }
+      .hud { display: flex; align-items: center; gap: 0.35rem; font-size: var(--holo-text-sm, 1rem); white-space: nowrap; }
+      #verify { font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--line); color: var(--dim); }
+      #verify.ok { color: var(--ok); border-color: #16432a; background: #0c1f14; }
+      #verify.bad { color: var(--bad); border-color: #4a1d1d; background: #1f0e0e; }
+      #verify.work { color: var(--acc); border-color: #173a40; }
+      #lat { color: var(--dim); font-variant-numeric: tabular-nums; }
+      #lat b { color: var(--acc); }
+      #bar .icbtn { background: transparent; border: 1px solid var(--line); color: var(--dim); border-radius: 7px; padding: 0.35rem 0.5rem; }
+      #bar .icbtn:hover { color: var(--ink); border-color: #30404e; }
+
+      /* ── layout: main + side rail ── */
+      #shell { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 300px; }
+      #main { min-width: 0; overflow: auto; padding: var(--holo-size-s) var(--holo-size-m); }
+      #rail { border-left: 1px solid var(--line); background: var(--panel2); overflow: auto; padding: var(--holo-size-s); display: flex; flex-direction: column; gap: var(--holo-size-s); }
+
+      #crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; color: var(--dim); font-family: ui-monospace, monospace;
+        font-size: var(--holo-text-sm, 1rem); margin-bottom: var(--holo-size-s); }
+      #crumbs .seg { color: var(--acc2); cursor: pointer; max-width: 38ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #crumbs .seg:hover { text-decoration: underline; } #crumbs .sl { color: #44505d; }
+
+      /* directory grid (file manager) */
+      .entries { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.6rem; }
+      .entry { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 10px; cursor: pointer; min-width: 0; }
+      .entry:hover { border-color: var(--acc); background: #0f1722; }
+      .entry .ic { flex: 0 0 auto; color: var(--acc); display: flex; }
+      .entry.file .ic { color: var(--acc2); }
+      .entry .meta { min-width: 0; } .entry .nm { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .entry .sub { color: var(--dim); font-size: var(--holo-text-sm, 1rem); font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* file preview */
+      #preview { display: flex; flex-direction: column; gap: var(--holo-size-s); }
+      #preview .ptitle { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      #preview .ptitle .nm { font-weight: 700; font-size: 1.05rem; }
+      #preview .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .pill { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.7rem; border-radius: var(--holo-radius-sm, 8px); border: 1px solid var(--line);
+        background: var(--panel); color: var(--ink); font-size: var(--holo-text-sm, 1rem); }
+      .pill:hover { border-color: var(--acc); } .pill.cta { background: var(--acc); color: #04121f; border-color: var(--acc); font-weight: 700; }
+      .pbox { background: #000; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; max-height: 64vh; }
+      .pbox img, .pbox video { display: block; max-width: 100%; max-height: 64vh; margin: 0 auto; }
+      .pbox pre { margin: 0; padding: var(--holo-size-s); overflow: auto; max-height: 64vh; color: #c9d8e4; font-size: var(--holo-text-sm, 1rem); white-space: pre-wrap; word-break: break-word; }
+      .pbox iframe { width: 100%; height: 64vh; border: 0; background: #fff; }
+      .kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 0.9rem; font-size: var(--holo-text-sm, 1rem); }
+      .kv .k { color: var(--dim); } .kv .v { font-family: ui-monospace, monospace; word-break: break-all; }
+      .kv .v .copy { color: var(--dim); cursor: pointer; margin-left: 0.4rem; } .kv .v .copy:hover { color: var(--acc); }
+
+      /* ── Holo Home — the front page of the dweb ── */
+      #home { display: flex; flex-direction: column; gap: var(--holo-size-m); max-width: 1080px; margin: 0 auto; }
+      .home-hero { text-align: center; padding: var(--holo-size-s) 0 0; }
+      .home-hero h1 { margin: 0 0 0.3rem; font-size: clamp(1.5rem, 3.2vw, 2.3rem); letter-spacing: -0.02em;
+        background: linear-gradient(100deg, var(--ink), var(--acc)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .home-hero p { margin: 0 auto; color: var(--dim); max-width: 64ch; font-size: 0.98rem; }
+      .home-hero .subs { display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap; margin-top: 0.7rem; }
+      .home-hero .subs span { font-size: var(--holo-text-sm, 1rem); color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 0.15rem 0.6rem; }
+      .home-hero .subs b { color: var(--acc); font-weight: 600; }
+      .sect { display: flex; flex-direction: column; gap: 0.6rem; }
+      .sect .shead { display: flex; align-items: baseline; gap: 0.6rem; }
+      .sect h2 { margin: 0; font-size: 0.95rem; color: var(--ink); }
+      .sect .note { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 0.6rem; }
+      .tile { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.7rem 0.8rem; background: var(--panel); border: 1px solid var(--line);
+        border-radius: var(--holo-radius, 12px); cursor: pointer; position: relative; min-width: 0; }
+      .tile:hover { border-color: var(--acc); background: #0f1722; transform: translateY(-1px); }
+      .tile .tt { font-weight: 600; font-size: var(--holo-text-sm, 1rem); display: flex; align-items: center; gap: 0.4rem; }
+      .tile .td { color: var(--dim); font-size: var(--holo-text-sm, 1rem); overflow: hidden; text-overflow: ellipsis; }
+      .tile .kb { font-size: var(--holo-text-sm, 1rem); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.05rem 0.4rem; border-radius: 4px;
+        border: 1px solid var(--line); color: var(--dim); align-self: flex-start; margin-top: 0.25rem; }
+      .tile .kb.ipfs, .tile .kb.demo { color: var(--acc); border-color: #1c4a52; }
+      .tile .kb.ens, .tile .kb.did { color: #a78bfa; border-color: #3b2f5e; }
+      .tile .kb.dnslink, .tile .kb.web { color: #f0b35b; border-color: #4a3a13; }
+      .tile .kb.app { color: var(--ok); border-color: #16432a; }
+      .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; }
+      .app { display: flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.7rem; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; cursor: pointer; }
+      .app:hover { border-color: var(--acc); } .app .dot { width: 22px; height: 22px; border-radius: 7px; flex: 0 0 auto; }
+      .app .an { font-weight: 600; font-size: var(--holo-text-sm, 1rem); } .app .ad { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      .yd { display: flex; flex-direction: column; gap: 0.35rem; }
+      .yd .yi { display: flex; flex-direction: column; padding: 0.4rem 0.55rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; }
+      .yd .yi:hover { border-color: var(--acc); } .yd .yi .yn { font-size: var(--holo-text-sm, 1rem); font-weight: 600; } .yd .yi .ya { font-size: var(--holo-text-sm, 1rem); color: var(--dim); font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; }
+      .yd .empty { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+
+      /* rail cards */
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: var(--holo-size-s); }
+      .card h3 { margin: 0 0 0.5rem; font-size: var(--holo-text-sm, 1rem); text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); }
+      .explore-list { display: flex; flex-direction: column; gap: 0.4rem; }
+      .ex { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.5rem 0.6rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; }
+      .ex:hover { border-color: var(--acc); } .ex .t { font-weight: 600; font-size: var(--holo-text-sm, 1rem); } .ex .d { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      #drop { border: 1px dashed #2c3a47; border-radius: var(--holo-radius, 12px); padding: var(--holo-size-s); text-align: center; color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      #drop.drag { border-color: var(--acc); color: var(--acc); background: #0c1822; }
+      #stats .row { display: flex; justify-content: space-between; font-size: var(--holo-text-sm, 1rem); padding: 0.15rem 0; }
+      #stats .row .v { font-family: ui-monospace, monospace; color: var(--ink); } #stats .row .k { color: var(--dim); }
+      #providers .pv { font-size: var(--holo-text-sm, 1rem); color: var(--dim); font-family: ui-monospace, monospace; padding: 0.1rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .badge { font-size: var(--holo-text-sm, 1rem); padding: 0.1rem 0.4rem; border-radius: 5px; border: 1px solid var(--line); color: var(--dim); }
+      .badge.v { color: var(--ok); border-color: #16432a; } .badge.warn { color: var(--warn); border-color: #4a3a13; }
+      #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #161b22; border: 1px solid #30363d;
+        border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem 0.9rem; font-size: var(--holo-text-sm, 1rem); opacity: 0; transition: opacity 0.2s; z-index: 2147483003; pointer-events: none; max-width: 90vw; }
+      #toast.show { opacity: 1; }
+      .spin { width: 14px; height: 14px; border: 2px solid #ffffff33; border-top-color: var(--acc); border-radius: 50%; display: inline-block; animation: sp 0.7s linear infinite; }
+      @keyframes sp { to { transform: rotate(360deg); } }
+
+      .nav { display: flex; gap: 0.25rem; }
+      #viewToggle { display: inline-flex; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); overflow: hidden; }
+      #viewToggle button { background: transparent; border: 0; color: var(--dim); padding: 0.38rem 0.62rem; font-size: var(--holo-text-sm, 1rem); cursor: pointer; }
+      #viewToggle button.on { background: var(--acc); color: #04121f; font-weight: 700; }
+      #viewToggle button:disabled { opacity: 0.35; cursor: default; }
+      #main.site { display: flex; flex-direction: column; overflow: hidden; }
+      #siteWrap { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; position: relative; }
+      #siteWrap.on { display: flex; }
+      #main.site #view { display: none; }
+      #siteFrame { flex: 1 1 auto; min-height: 0; width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 10px; }
+      /* a "verifying" veil that hides the SW cold-start (and any retry) so the first paint is seamless —
+         it only appears if the load is actually slow, so warm navigations never flash. */
+      #siteVeil { position: absolute; inset: 0; display: grid; place-items: center; background: var(--holo-bg, #0b0e13);
+        border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .14s ease; z-index: 3; }
+      #siteWrap.verifying #siteVeil { opacity: 1; pointer-events: auto; }
+      #siteVeil .sv { display: flex; align-items: center; gap: 10px; color: var(--holo-ink-dim, #8aa); font-size: 13px; }
+      #siteVeil .sv b { width: 9px; height: 9px; border-radius: 50%; background: var(--holo-accent, #4dd0e1); animation: svpulse 1s ease-in-out infinite; }
+      @keyframes svpulse { 0%, 100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
+      .fil { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      #providers .fc { color: var(--acc); }
+      @media (max-width: 860px) {
+        #shell { grid-template-columns: 1fr; }
+        #rail { border-left: 0; border-top: 1px solid var(--line); }
+        #bar { flex-wrap: wrap; } #omni { order: 9; flex-basis: 100%; }
+        #bar .icbtn, #goBtn { min-height: 40px; }
+        #main { padding: var(--holo-size-s); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo IPFS"></holo-splash>
+
+    <div id="bar">
+      <span class="brand" id="homeBtn" title="Holo Home the front page of the dweb" style="cursor:pointer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2l8.66 5v10L12 22l-8.66-5V7z"/><path d="M12 12l8.66-5M12 12v10M12 12L3.34 7"/></svg>
+        Holo IPFS <span class="tag">· holospace</span>
+      </span>
+      <div class="nav">
+        <button id="backBtn" class="icbtn" title="Back" disabled>◀</button>
+        <button id="fwdBtn" class="icbtn" title="Forward" disabled>▶</button>
+        <button id="reloadBtn" class="icbtn" title="Reload">⟳</button>
+      </div>
+      <div id="omni">
+        <span class="ico" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>
+        <input id="addr" class="mono" autocomplete="off" autocapitalize="off" spellcheck="false"
+          placeholder="paste a CID · ipfs://… · ipns://… · or a DNSLink site (en.wikipedia-on-ipfs.org)" />
+        <button id="goBtn">Open</button>
+      </div>
+      <div class="hud">
+        <span id="verify" title="Law L5: every block is re-derived against its CID in this browser. The gateway is never trusted.">κ </span>
+        <span id="lat" title="which trustless gateway won the race, and its round-trip">⚡ </span>
+      </div>
+      <div id="viewToggle" title="Render the site (every subresource verified by the service worker) vs browse the verified file tree">
+        <button data-mode="site" class="on" disabled>Site</button>
+        <button data-mode="files" disabled>Files</button>
+      </div>
+      <button id="fsBtn" class="icbtn" title="Fullscreen">⛶</button>
+    </div>
+
+    <div id="shell">
+      <div id="main">
+        <div id="crumbs" style="display:none"></div>
+        <div id="siteWrap">
+          <iframe id="siteFrame" title="IPFS site every subresource is re-derived against its CID by the service worker before it loads"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+          <div id="siteVeil"><span class="sv"><b></b> Verifying every block…</span></div>
+        </div>
+        <div id="view">
+          <div id="home"></div>
+        </div>
+      </div>
+
+      <div id="rail">
+        <div class="card">
+          <h3>Your dweb</h3>
+          <div id="yourdweb"></div>
+        </div>
+        <div class="card">
+          <h3>Add to IPFS · no daemon</h3>
+          <div id="drop">Drop a file here its <b>real CID</b> is computed in your browser (UnixFS, sha2-256), then pin-to-own.</div>
+          <div id="saverow" style="display:flex;gap:.35rem;margin-top:.6rem">
+            <input id="saveUrl" class="mono" autocomplete="off" spellcheck="false" placeholder="https://any-web-page.com" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius: var(--holo-radius-sm, 8px);color:var(--ink);padding:.42rem .5rem;font-size: var(--holo-text-sm, 1rem)" />
+            <button id="saveUrlBtn" class="pill cta" style="white-space:nowrap">Save page</button>
+          </div>
+          <div style="color:var(--dim);font-size: var(--holo-text-sm, 1rem);margin-top:.4rem">Snapshots a live web page into a single self-contained file → a verifiable CID you own. An archive faithful to what was fetched, self-verifying from then on.</div>
+        </div>
+        <div class="card" id="statsCard" style="display:none">
+          <h3>This object</h3>
+          <div id="stats"></div>
+        </div>
+        <div class="card" id="provCard" style="display:none">
+          <h3>Providers · who hosts this</h3>
+          <div id="providers"></div>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="fileInput" hidden multiple />
+    <div id="toast"></div>
+
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      import * as IPFS from "../../_shared/holo-ipfs.js";
+      import * as DWEB from "../../_shared/holo-dweb.js";      // Holo Home: the unified dweb directory (UOR objects)
+      import * as SNAP from "./holo-snapshot.js";  // save any web2 page to the dweb (single-file → CID)
+      import { namehash } from "../../_shared/holo-eth.js";   // reuse the Etherscan engine's EIP-137 namehash
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const enc = encodeURIComponent;
+
+      // ── base path + gateways (works at the origin root OR under /<repo>/ on GitHub Pages) ──
+      // BASE is the directory this page is served from ("/" locally, "/<repo>/" on Pages) — every
+      // path below is built relative to it so the app is fully portable to static hosting.
+      // Blocks are fetched DIRECT from trustless gateways by default (the big public ones send
+      // Access-Control-Allow-Origin: *, so any origin can read them — no server needed). Add
+      // ?proxy to route through holo-serve's /ipfs byte-pipe instead (for a gateway lacking CORS).
+      const BASE = new URL(".", location.href).pathname;
+      const gwParam = params.get("gw");
+      const useProxy = params.has("proxy");
+      const DEFAULT_ORIGINS = ["https://trustless-gateway.link", "https://ipfs.io", "https://dweb.link", "https://4everland.io", "https://w3s.link"];
+      const GATEWAYS = (gwParam ? gwParam.split(",").filter(Boolean) : DEFAULT_ORIGINS).map((origin) => ({ origin, viaProxy: useProxy }));
+      const PROXY_BASE = BASE + "ipfs?url=";
+      const STATIC_BLOCKS = BASE + "ipfs-demo/blocks/";   // bundled blocks served as static files
+
+      // ── compute worker (retrieval + verification + reassembly + local add) ───────────
+      let worker = null, workerReady = false, jobId = 0; const jobs = new Map();
+      function startWorker() {
+        try {
+          worker = new Worker("ipfs-worker.js", { type: "module" });
+          worker.onmessage = (e) => {
+            const m = e.data;
+            if (m.type === "ready") { workerReady = true; $("verify").title += `\n${m.version} · engine self-test ${m.selftest ? "✓" : "✗"}`; return; }
+            if (m.type === "progress") { const j = jobs.get(m.id); if (j && j.onProgress) j.onProgress(m); return; }
+            const j = jobs.get(m.id); if (!j) return;
+            if (m.type === "error") { jobs.delete(m.id); j.reject(new Error(m.message)); return; }
+            if (m.type === j.want || m.type === "resolved" || m.type === "file" || m.type === "added") { jobs.delete(m.id); j.resolve(m); }
+          };
+          worker.onerror = (e) => { workerReady = false; toast("worker error: " + (e.message || "")); };
+          worker.postMessage({ type: "config", gateways: GATEWAYS, proxyBase: PROXY_BASE, staticBlocks: STATIC_BLOCKS });
+        } catch (e) { worker = null; toast("worker unavailable: " + e.message); }
+      }
+      const ask = (msg, onProgress) => new Promise((resolve, reject) => { const id = ++jobId; jobs.set(id, { resolve, reject, onProgress, want: msg.type }); worker.postMessage({ ...msg, id }); });
+      startWorker();
+
+      // ── state ────────────────────────────────────────────────────────────────────────
+      const S = { root: null, rootLabel: "", path: [], cur: null, mode: "site", siteable: false, history: [], hi: -1 };
+
+      // ── service-worker gateway: renders whole sites with every subresource κ-verified ──
+      let swReady = false;
+      async function registerSW() {
+        if (!("serviceWorker" in navigator)) return;
+        try {
+          const reg = await navigator.serviceWorker.register(BASE + "ipfs-sw.js", { type: "module", scope: BASE + "ipfsview/" });
+          // NB: navigator.serviceWorker.ready would hang here — this page is outside the
+          // /ipfsview/ scope so it is never controlled. Wait on the registration activating.
+          if (!reg.active) { const w = reg.installing || reg.waiting; if (w) await new Promise((res) => { w.addEventListener("statechange", () => w.state === "activated" && res()); setTimeout(res, 4000); }); }
+          if (!reg.active) throw new Error("service worker did not activate");
+          // handshake: don't mark ready until the SW has ACKed the gateway config, so the
+          // first /ipfsview fetch never races ahead with the wrong (default) gateways.
+          const send = (awaitAck) => new Promise((res) => {
+            const w = reg.active || reg.waiting || reg.installing; if (!w) return res();
+            if (!awaitAck) { w.postMessage({ type: "config", gateways: GATEWAYS, proxyBase: PROXY_BASE }); return res(); }
+            const ch = new MessageChannel(); ch.port1.onmessage = () => res(); setTimeout(res, 800);
+            w.postMessage({ type: "config", gateways: GATEWAYS, proxyBase: PROXY_BASE }, [ch.port2]);
+          });
+          await send(true); swReady = true;
+          navigator.serviceWorker.addEventListener("controllerchange", () => send(false));
+        } catch (e) { swReady = false; }
+      }
+      let toastT; const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2400); };
+      const short = (s, n = 14) => { s = String(s); return s.length > 2 * n + 1 ? s.slice(0, n) + "…" + s.slice(-n) : s; };
+      const fmtSize = (n) => { if (n == null) return ""; const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : n) + " " + u[i]; };
+      function setVerify(state, text) { const v = $("verify"); v.className = state; v.textContent = text; }
+      const gwHost = (gw) => { if (!gw) return ""; if (gw === "static") return "bundled (offline)"; try { return gw.includes("://") ? new URL(gw).host : gw; } catch { return gw; } };
+      function setLat(gw, ms) { $("lat").innerHTML = gw ? `⚡ <b>${gwHost(gw)}</b> · ${ms}ms` : "⚡ "; }
+
+      const FOLDER = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+      const FILE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+
+      // ── input parsing: CID / ipfs:// / ipns:// / dnslink host / /ipfs/<cid>/path ─────
+      function parseInput(raw) {
+        let s = String(raw || "").trim();
+        if (!s) return null;
+        // dweb.link / gateway subdomain or path URLs → extract /ipfs/<cid>/<path> or /ipns/<name>
+        const m = s.match(/^https?:\/\/([^/]+)(\/.*)?$/i);
+        if (m) {
+          const host = m[1], rest = m[2] || "";
+          const sub = host.match(/^([a-z0-9]+)\.ipfs\./i); if (sub) return { kind: "cid", cid: sub[1], path: rest.replace(/^\//, "") };
+          const subn = host.match(/^([a-z0-9-]+)\.ipns\./i); if (subn) return { kind: "ipns", name: subn[1], path: rest.replace(/^\//, "") };
+          const pm = rest.match(/^\/(ipfs|ipns)\/([^/]+)(\/.*)?$/i); if (pm) return pm[1].toLowerCase() === "ipfs" ? { kind: "cid", cid: pm[2], path: (pm[3] || "").replace(/^\//, "") } : { kind: "ipns", name: pm[2], path: (pm[3] || "").replace(/^\//, "") };
+          return { kind: "dnslink", host, path: rest.replace(/^\//, "") };
+        }
+        if (/^ipfs:\/\//i.test(s)) { const r = s.replace(/^ipfs:\/\//i, ""); const [cid, ...p] = r.split("/"); return { kind: "cid", cid, path: p.join("/") }; }
+        if (/^ipns:\/\//i.test(s)) { const r = s.replace(/^ipns:\/\//i, ""); const [name, ...p] = r.split("/"); return { kind: "ipns", name, path: p.join("/") }; }
+        if (/^\/ipfs\//i.test(s)) { const r = s.replace(/^\/ipfs\//i, ""); const [cid, ...p] = r.split("/"); return { kind: "cid", cid, path: p.join("/") }; }
+        if (/^\/ipns\//i.test(s)) { const r = s.replace(/^\/ipns\//i, ""); const [name, ...p] = r.split("/"); return { kind: "ipns", name, path: p.join("/") }; }
+        // bare CID (+ optional /path)
+        const [head, ...rest] = s.split("/");
+        try { IPFS.parseCID(head); return { kind: "cid", cid: head, path: rest.join("/") }; } catch {}
+        // an ENS name → on-chain contenthash
+        if (/^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(head)) return { kind: "ens", name: head, path: rest.join("/") };
+        // a hostname → DNSLink
+        if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(head)) return { kind: "dnslink", host: head, path: rest.join("/") };
+        return null;
+      }
+
+      // ── name resolution (IPNS / DNSLink) → a root CID, via the gateway header ─────────
+      // Honest scope: the NAME is resolved by the gateway (X-Ipfs-Roots); the CONTENT it
+      // points at is then re-derived + κ-verified block-by-block here. Signature-verified
+      // IPNS records are a Phase-2 upgrade — surfaced as a caveat, never hidden.
+      async function resolveName(kind, name) {
+        const gw = GATEWAYS.find((g) => g.viaProxy) || GATEWAYS[0];
+        const route = kind === "ipns" ? `ipns/${name}` : `ipns/${name}`;            // DNSLink hostnames resolve via /ipns/<host>
+        const target = `${gw.origin.replace(/\/$/, "")}/${route}?format=raw`;
+        const url = gw.viaProxy ? PROXY_BASE + enc(target) : target;
+        const r = await fetch(url, { headers: { accept: "application/vnd.ipld.raw" }, cache: "no-store" });
+        const roots = r.headers.get("x-ipfs-roots") || r.headers.get("x-ipfs-path");
+        if (roots) { const cid = roots.split(",")[0].replace(/^\/ipfs\//, "").split("/")[0]; try { IPFS.parseCID(cid); return cid; } catch {} }
+        throw new Error("could not resolve name (gateway returned no X-Ipfs-Roots)");
+      }
+
+      // ── ENS resolution: name.eth → on-chain contenthash → /ipfs|/ipns CID ────────────
+      // The web3-name → content bridge. Two eth_calls (ENS registry → resolver → contenthash)
+      // over a public RPC, then EIP-1577 decode. Network-gated; content is then κ-verified.
+      const ENS_REGISTRY = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
+      const ETH_RPC = params.get("rpc") || "https://ethereum-rpc.publicnode.com";
+      async function ethCall(to, data) {
+        const r = await fetch(ETH_RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) });
+        const j = await r.json(); if (j.error) throw new Error(j.error.message); return j.result;
+      }
+      async function resolveEns(name) {
+        const node = namehash(name);                                    // 0x + 32-byte node
+        const resolver = "0x" + (await ethCall(ENS_REGISTRY, "0x0178b8bf" + node.slice(2))).slice(-40);   // resolver(bytes32)
+        if (/^0x0+$/.test(resolver)) throw new Error("no ENS resolver set for " + name);
+        const res = await ethCall(resolver, "0xbc1c58d1" + node.slice(2));                                // contenthash(bytes32)
+        const hex = res.slice(2); const off = parseInt(hex.slice(0, 64), 16) * 2; const len = parseInt(hex.slice(off, off + 64), 16) * 2;
+        const data = hex.slice(off + 64, off + 64 + len);
+        if (!data) throw new Error(name + " has no contenthash set");
+        const ch = IPFS.decodeContenthash("0x" + data);
+        if (!ch || !ch.cid) throw new Error(name + " contenthash is not IPFS/IPNS (" + (ch && ch.protocol) + ")");
+        return ch;                                                      // { protocol:"ipfs"|"ipns", cid }
+      }
+
+      // ── browser history (back / forward / reload), like Chrome ───────────────────────
+      function buildAddr() { const base = S.rootLabel || ("ipfs://" + S.root); return base + (S.path.length ? "/" + S.path.join("/") : ""); }
+      function pushHistory(addr) { S.history = S.history.slice(0, S.hi + 1); if (S.history[S.hi] !== addr) { S.history.push(addr); S.hi = S.history.length - 1; } updateNav(); }
+      function updateNav() { $("backBtn").disabled = S.hi <= 0; $("fwdBtn").disabled = S.hi >= S.history.length - 1; }
+      const back = () => { if (S.hi > 0) { S.hi--; go(S.history[S.hi], { push: false }); updateNav(); } };
+      const fwd = () => { if (S.hi < S.history.length - 1) { S.hi++; go(S.history[S.hi], { push: false }); updateNav(); } };
+      const reload = () => { if (S.history[S.hi]) go(S.history[S.hi], { push: false }); };
+
+      // ── navigate (universal resolve across all the webs; free text → search the front page) ─
+      async function go(raw, opts = {}) {
+        const cl = DWEB.classify(raw);
+        if (cl.kind === "demo") { if (window.holoIpfs.demoRoot) return go(window.holoIpfs.demoRoot, opts); toast("demo unavailable"); return; }
+        if (cl.kind === "search") { $("addr").value = raw; searchHome(raw); return; }   // not an address → search the dweb directory
+        const inp = parseInput(raw); if (!inp) { searchHome(raw); return; }
+        $("addr").value = raw;
+        setVerify("work", "verifying…");
+        try {
+          let nameCaveat = false;
+          if (inp.kind === "ens") {
+            const ch = await resolveEns(inp.name);
+            S.root = ch.protocol === "ipns" ? await resolveName("ipns", ch.cid) : ch.cid;
+            S.rootLabel = inp.name; nameCaveat = true;
+          } else if (inp.kind === "ipns" || inp.kind === "dnslink") {
+            const name = inp.kind === "ipns" ? inp.name : inp.host;
+            const cid = await resolveName(inp.kind, name);
+            S.root = cid; S.rootLabel = (inp.kind === "ipns" ? "ipns://" : "") + name; nameCaveat = true;
+          } else { S.root = inp.cid; S.rootLabel = ""; }
+          S.path = (inp.path || "").split("/").filter(Boolean);
+          S.nameCaveat = nameCaveat;
+          if (opts.push !== false) pushHistory(raw);
+          await openCurrent(nameCaveat);
+        } catch (e) { setVerify("bad", "✗ failed"); showError(e.message); }
+      }
+      // internal navigation (clicking a folder / breadcrumb) keeps history coherent
+      function navigate() { pushHistory(buildAddr()); openCurrent(S.nameCaveat).catch((e) => showError(e.message)); }
+
+      async function openCurrent(nameCaveat) {
+        const res = await ask({ type: "resolve", cid: S.root, path: S.path.join("/") });
+        setLat(res.gw, res.ms);
+        S.cur = res; renderCrumbs(nameCaveat); renderStats(res, nameCaveat);
+        // browsable as a website? (a dir with index.html, or an HTML file)
+        S.siteable = swReady && ((res.kind === "dir" && (res.info.entries || []).some((e) => e.name === "index.html")) || (res.kind === "file" && mimeFor(curName()) === "text/html"));
+        // always build the verified Files view so the toggle is instant
+        if (res.kind === "dir") renderDir(res);
+        else if (res.kind === "dag-cbor") renderCbor(res);
+        else if (res.kind === "symlink") renderText("symlink → " + res.info.target, "text/plain", res);
+        else renderFile(res);
+        // default to the rendered Site view when possible (feels like the web)
+        applyMode(S.siteable ? "site" : "files");
+        if (S.siteable && S.mode === "site") renderSite(); else setVerify("ok", "✓ κ verified");
+        discoverProviders(res.cid);
+        pushRecent(buildAddr(), S.rootLabel || (S.path.length ? S.path[S.path.length - 1] : short(S.root, 12)));
+        try { parent !== window && parent.postMessage({ type: "holo-ipfs-status", cid: res.cid, kind: res.kind, verified: true, holo: res.holo }, "*"); } catch {}
+      }
+
+      // ── Site view: render the whole site through the verifying service-worker gateway ─
+      function applyMode(mode) {
+        S.mode = mode;
+        $("main").classList.toggle("site", mode === "site");
+        $("siteWrap").classList.toggle("on", mode === "site");
+        document.querySelectorAll("#viewToggle button").forEach((b) => { b.classList.toggle("on", b.dataset.mode === mode); if (b.dataset.mode === "site") b.disabled = !S.siteable; else b.disabled = false; });
+      }
+      function renderSite() {
+        if (!swReady) { applyMode("files"); setVerify("ok", "✓ κ verified"); return; }
+        const path = S.path.map(encodeURIComponent).join("/");
+        const slash = (S.cur && S.cur.kind === "dir" && path) ? "/" : "";   // trailing "/" only when there's a subpath
+        const url = `${BASE}ipfsview/${S.root}/${path}${slash}`;
+        const fr = $("siteFrame"), wrap = $("siteWrap");
+        // Cold start: a fresh iframe can navigate a tick before the verifying SW controls the /ipfsview/
+        // scope, so the first request falls through to the host stub. We retry BEHIND a "verifying" veil
+        // that only appears if the load is actually slow — so the first-ever paint is SEAMLESS (no blank,
+        // no visible reload) and warm navigations never flash. By the retry the SW is serving every block.
+        let tries = 0;
+        const veilT = setTimeout(() => wrap.classList.add("verifying"), 160);
+        const done = () => { clearTimeout(veilT); wrap.classList.remove("verifying"); fr.onload = null; };
+        fr.onload = () => {
+          let stub = false;
+          try { const d = fr.contentDocument; stub = !!(d && /not found:[^<]*ipfsview/i.test(d.body ? d.body.textContent : "")); } catch { /* SW serving cross-context → success */ }
+          if (stub && tries < 5) { tries++; setTimeout(() => { try { fr.contentWindow.location.reload(); } catch { fr.src = url; } }, 120); return; }
+          done();
+        };
+        fr.src = url;
+        setVerify("ok", "✓ verified · site");
+      }
+
+      function renderCrumbs(nameCaveat) {
+        const c = $("crumbs"); c.style.display = "flex"; c.innerHTML = "";
+        const rootName = S.rootLabel || short(S.root, 8);
+        const mk = (label, depth, title) => { const s = document.createElement("span"); s.className = "seg"; s.textContent = label; s.title = title || label; s.onclick = () => { S.path = S.path.slice(0, depth); navigate(); }; return s; };
+        c.appendChild(mk(rootName, 0, S.root));
+        if (nameCaveat) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = "name via gateway"; b.title = "The NAME was resolved by the gateway; the CONTENT below is κ-verified block-by-block. Signature-verified IPNS is Phase 2."; c.appendChild(b); }
+        S.path.forEach((seg, i) => { const sl = document.createElement("span"); sl.className = "sl"; sl.textContent = "/"; c.appendChild(sl); c.appendChild(mk(seg, i + 1)); });
+      }
+
+      function renderDir(res) {
+        const entries = res.info.entries || [];
+        const v = $("view"); v.innerHTML = "";
+        const wrap = document.createElement("div"); wrap.className = "entries";
+        entries.slice().sort((a, b) => (a.isDir === b.isDir) ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1).forEach((e) => {
+          const el = document.createElement("div"); el.className = "entry " + (e.isDir ? "dir" : "file");
+          el.innerHTML = `<span class="ic">${e.isDir ? FOLDER : FILE}</span><div class="meta"><div class="nm">${escapeHtml(e.name || "(unnamed)")}</div><div class="sub">${e.isDir ? "directory" : (e.codec + (e.tsize ? " · " + fmtSize(e.tsize) : ""))}</div></div>`;
+          el.onclick = () => { S.path = [...S.path, e.name]; navigate(); };
+          wrap.appendChild(el);
+        });
+        if (!entries.length) wrap.innerHTML = '<div style="color:var(--dim)">empty directory</div>';
+        v.appendChild(wrap);
+      }
+
+      // ── file preview by type ────────────────────────────────────────────────────────
+      const mimeFor = (name) => { const ext = (name || "").split(".").pop().toLowerCase(); return ({
+        png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml", avif: "image/avif", bmp: "image/bmp", ico: "image/x-icon",
+        mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", flac: "audio/flac", m4a: "audio/mp4",
+        txt: "text/plain", md: "text/markdown", json: "application/json", js: "text/javascript", css: "text/css", html: "text/html", htm: "text/html", xml: "application/xml", csv: "text/csv", pdf: "application/pdf",
+      })[ext] || ""; };
+      const curName = () => S.path[S.path.length - 1] || (S.rootLabel || S.root);
+
+      async function renderFile(res) {
+        const name = curName(); const mime = mimeFor(name) || "application/octet-stream";
+        const v = $("view"); v.innerHTML = "";
+        const head = fileHeader(res, name);
+        v.appendChild(head.el);
+        const box = document.createElement("div"); box.className = "pbox"; box.innerHTML = `<div style="padding:1.2rem;color:var(--dim)"><span class="spin"></span> fetching + verifying blocks…</div>`; v.appendChild(box);
+        try {
+          const file = await ask({ type: "reassemble", cid: res.cid, mime }, (p) => { box.firstChild.innerHTML = `<span class="spin"></span> verifying… ${p.blocks} blocks · ${fmtSize(p.bytes)}`; });
+          const bytes = new Uint8Array(file.bytes); head.setBytes(bytes, file);
+          renderPreview(box, bytes, mime, name);
+          setLat(file.gw, file.ms);
+        } catch (e) { box.innerHTML = `<div style="padding:1.2rem;color:var(--bad)">verification failed: ${escapeHtml(e.message)}</div>`; }
+      }
+      function renderPreview(box, bytes, mime, name) {
+        box.innerHTML = "";
+        const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        if (mime.startsWith("image/")) { const im = new Image(); im.src = url; im.alt = name; box.appendChild(im); }
+        else if (mime.startsWith("video/")) { const vd = document.createElement("video"); vd.src = url; vd.controls = true; box.appendChild(vd); }
+        else if (mime.startsWith("audio/")) { const au = document.createElement("audio"); au.src = url; au.controls = true; au.style.width = "100%"; au.style.margin = "1rem"; box.appendChild(au); }
+        else if (mime === "application/pdf") { const f = document.createElement("iframe"); f.src = url; box.appendChild(f); }
+        else if (mime === "text/html") { const f = document.createElement("iframe"); f.sandbox = "allow-scripts allow-popups"; f.srcdoc = new TextDecoder().decode(bytes); box.appendChild(f); }
+        else if (bytes.length < 2_000_000 && (mime.startsWith("text/") || mime === "application/json" || mime === "application/xml")) { const pre = document.createElement("pre"); pre.textContent = new TextDecoder().decode(bytes); box.appendChild(pre); }
+        else { box.innerHTML = `<div style="padding:1.2rem;color:var(--dim)">${fmtSize(bytes.length)} · ${escapeHtml(mime)} binary. Use Download or Pin.</div>`; }
+      }
+      function renderText(text, mime, res) { const v = $("view"); v.innerHTML = ""; v.appendChild(fileHeader(res, curName()).el); const box = document.createElement("div"); box.className = "pbox"; const pre = document.createElement("pre"); pre.textContent = text; box.appendChild(pre); v.appendChild(box); }
+      function renderCbor(res) { const v = $("view"); v.innerHTML = ""; v.appendChild(fileHeader(res, curName()).el); const box = document.createElement("div"); box.className = "pbox"; const pre = document.createElement("pre"); pre.textContent = JSON.stringify(res.info.value, (k, val) => (val instanceof Uint8Array ? "0x" + IPFS.toHex(val) : val), 2); box.appendChild(pre); v.appendChild(box); }
+
+      function fileHeader(res, name) {
+        const el = document.createElement("div"); el.id = "preview";
+        let pinnedBytes = null, pinnedFile = null;
+        const title = document.createElement("div"); title.className = "ptitle";
+        title.innerHTML = `<span class="nm">${escapeHtml(name || "(file)")}</span><span class="badge v">✓ κ verified</span><span class="badge">${res.codec} · ${res.hash}</span>`;
+        const actions = document.createElement("div"); actions.className = "actions";
+        const mkPill = (label, fn, cta) => { const b = document.createElement("button"); b.className = "pill" + (cta ? " cta" : ""); b.textContent = label; b.onclick = fn; return b; };
+        actions.appendChild(mkPill("Download", () => pinnedBytes ? download(pinnedBytes, name, mimeFor(name)) : toast("still verifying…"), true));
+        actions.appendChild(mkPill("Pin · own it", async () => { if (!pinnedBytes) return toast("still verifying…"); await pinToStore(res.cid, pinnedBytes, name); }, false));
+        actions.appendChild(mkPill("Open in app", () => pinnedBytes ? openInApp(res.cid, pinnedBytes, name, mimeFor(name)) : toast("still verifying…")));
+        actions.appendChild(mkPill("Copy CID", () => copy(res.cid)));
+        if (res.did) actions.appendChild(mkPill("Copy did:holo", () => copy(res.did)));
+        actions.appendChild(mkPill("Copy holo://", () => copy(res.holo)));
+        actions.appendChild(mkPill("Share", () => shareLink(res)));
+        el.appendChild(title); el.appendChild(actions);
+        return { el, setBytes: (b, f) => { pinnedBytes = b; pinnedFile = f; } };
+      }
+
+      function renderStats(res, nameCaveat) {
+        $("statsCard").style.display = "block";
+        const c = parseTry(res.cid);
+        const rows = [
+          ["CID", short(res.cid, 12)], ["codec", res.codec], ["multihash", res.hash], ["kind", res.kind],
+          ["did:holo", res.did ? short(res.did, 12) : ""], ["holo://", short(res.holo, 12)],
+          ["source", gwHost(res.gw)], ["verify", "block re-derived ✓"],
+        ];
+        $("stats").innerHTML = rows.map(([k, v]) => `<div class="row"><span class="k">${k}</span><span class="v" title="${escapeHtml(String(v))}">${escapeHtml(String(v))}</span></div>`).join("");
+      }
+      const parseTry = (c) => { try { return IPFS.parseCID(c); } catch { return null; } };
+
+      // ── providers discovery (delegated routing /routing/v1) — best-effort ────────────
+      const filecoinNote = () => '<div class="pv fc">⬡ Filecoin: content backed by a storage deal is retrievable via w3s.link, which is in the gateway race so persistence (Filecoin) and retrieval (IPFS) are one address.</div>';
+      async function discoverProviders(cid) {
+        const card = $("provCard"), box = $("providers");
+        card.style.display = "block"; box.innerHTML = '<div class="pv"><span class="spin"></span> finding providers…</div>';
+        try {
+          const routing = `https://delegated-ipfs.dev/routing/v1/providers/${cid}`;
+          const url = useProxy ? (BASE + "fetch?url=" + enc(routing)) : routing;   // direct on static hosts (routing/v1 sends CORS)
+          const r = await fetch(url, { headers: { accept: "application/json" } });
+          const text = await r.text();
+          let provs = [];
+          try { const j = JSON.parse(text); provs = j.Providers || j.providers || []; }
+          catch { provs = text.split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); }
+          if (!provs.length) { box.innerHTML = '<div class="pv">no providers reported (or routing unreachable)</div>'; return; }
+          box.innerHTML = `<div class="pv" style="color:var(--ok)">${provs.length} provider(s) advertise this CID (IPNI · delegated routing)</div>` +
+            provs.slice(0, 8).map((p) => `<div class="pv" title="${escapeHtml(JSON.stringify(p))}">${escapeHtml((p.ID || p.Provider || p.id || "peer").toString().slice(0, 30))}</div>`).join("") + filecoinNote();
+        } catch { box.innerHTML = '<div class="pv">routing unreachable (offline / blocked)</div>' + filecoinNote(); }
+      }
+
+      // ── local "ipfs add": compute a real CID in the browser, no daemon ───────────────
+      async function addFile(file) {
+        toast(`computing CID for ${file.name}…`);
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const res = await ask({ type: "add", name: file.name, bytes: bytes.buffer });
+        // store the blocks so the new CID is immediately browsable + offline
+        await storeBlocks(res.blocks);
+        toast(`added · ${file.name} → ${short(res.root, 10)}`);
+        $("addr").value = "ipfs://" + res.root;
+        showAdded(res, file.name);
+      }
+
+      // ── save any web2 page to the dweb (snapshot → single file → CID → owned) ────────
+      // The resource fetcher tries the holo-serve /snapshot byte-pipe, then a direct fetch
+      // (CORS-permitting), then an optional public CORS proxy (?cors=). A page that can't be
+      // fetched degrades honestly. The archive is then content-addressed + verified.
+      const CORS_PROXY = params.get("cors");   // optional, for pure static hosting (e.g. https://corsproxy.io/?url=)
+      async function fetchResource(u) {
+        const tries = [BASE + "snapshot?url=" + enc(u), u];
+        if (CORS_PROXY) tries.push(CORS_PROXY + enc(u));
+        for (const t of tries) { try { const r = await fetch(t, { cache: "no-store" }); if (r.ok) return { bytes: new Uint8Array(await r.arrayBuffer()), contentType: r.headers.get("content-type") || "" }; } catch {} }
+        return null;
+      }
+      async function saveUrl(raw) {
+        let url; try { url = new URL(/^https?:\/\//i.test(raw) ? raw : "https://" + raw).href; } catch { toast("not a URL"); return; }
+        const host = new URL(url).host;
+        toast(`snapshotting ${host}…`);
+        const page = await fetchResource(url);
+        if (!page) { toast("could not fetch the page (CORS/network run holo-serve, or add ?cors=<proxy>)"); return; }
+        const single = await SNAP.inlineHtml(new TextDecoder().decode(page.bytes), url, fetchResource);
+        const bytes = new TextEncoder().encode(single);
+        const res = await ask({ type: "add", name: "index.html", bytes: bytes.buffer, wrap: "index.html" });
+        await storeBlocks(res.blocks);
+        try { const dir = await storeDir(); const lib = await readLib(dir); if (!lib.some((e) => e.cid === res.root)) { lib.unshift({ cid: res.root, name: "web · " + host, size: bytes.length, at: Date.now(), did: res.did, holo: res.holo, source: url }); await writeLib(dir, lib); } } catch {}
+        toast(`saved to the dweb · ${host} → ${short(res.root, 10)}`);
+        $("saveUrl").value = "";
+        go(res.root);   // renders the archived page as a site via the SW
+      }
+      function showAdded(res, name) {
+        $("crumbs").style.display = "none";
+        const v = $("view"); v.innerHTML = "";
+        const el = document.createElement("div"); el.id = "preview";
+        el.innerHTML = `<div class="ptitle"><span class="nm">${escapeHtml(name)}</span><span class="badge v">CID computed locally</span></div>
+          <p style="color:var(--dim);margin:0">Same bytes, addressed on every axis (ADR-022/025). These are real IPFS CIDs no daemon ran.</p>
+          <div class="kv">
+            <span class="k">UnixFS root</span><span class="v">${res.root} <span class="copy" data-c="${res.root}">⧉</span></span>
+            <span class="k">sha2-256 CID</span><span class="v">${res.dual.sha256} <span class="copy" data-c="${res.dual.sha256}">⧉</span></span>
+            <span class="k">blake3 CID</span><span class="v">${res.dual.blake3} <span class="copy" data-c="${res.dual.blake3}">⧉</span></span>
+            <span class="k">did:holo</span><span class="v">${res.did || ""} <span class="copy" data-c="${res.did || ""}">⧉</span></span>
+            <span class="k">holo://</span><span class="v">${res.holo} <span class="copy" data-c="${res.holo}">⧉</span></span>
+            <span class="k">blocks · size</span><span class="v">${res.count} block(s) · ${fmtSize(res.size)}</span>
+          </div>
+          <div class="actions"><button class="pill cta" id="openAdded">Browse it (κ-verified)</button></div>`;
+        v.appendChild(el);
+        el.querySelectorAll(".copy").forEach((c) => c.onclick = () => copy(c.dataset.c));
+        $("openAdded").onclick = () => go("ipfs://" + res.root);
+      }
+
+      // ── pin / own → OPFS κ-store (offline-ready, holo://-addressable) ────────────────
+      async function storeDir() { const root = await navigator.storage.getDirectory(); return root.getDirectoryHandle("holo-ipfs", { create: true }); }
+      async function storeBlocks(blocks) {
+        try { const dir = await storeDir(); const bd = await dir.getDirectoryHandle("blocks", { create: true });
+          for (const b of blocks) { const name = b.cid + ".block"; const fh = await bd.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(new Uint8Array(b.bytes)); await w.close(); }
+        } catch {}
+      }
+      async function pinToStore(cid, bytes, name) {
+        try {
+          // re-derive on store (Law L5) before claiming ownership
+          const ok = await IPFS.verifyBlock(cid, bytes).catch(() => null);
+          const dir = await storeDir(); const fh = await dir.getFileHandle(cid.replace(/[^a-z0-9]/gi, "_") + ".bin", { create: true });
+          const w = await fh.createWritable(); await w.write(bytes); await w.close();
+          const lib = await readLib(dir); if (!lib.some((e) => e.cid === cid)) { lib.unshift({ cid, name, size: bytes.length, at: Date.now(), did: IPFS.cidToDid(cid), holo: IPFS.holoUri(cid) }); await writeLib(dir, lib); }
+          toast(`pinned · owned offline · ${IPFS.holoUri(cid).slice(0, 22)}…`);
+        } catch (e) { toast("pin failed (OPFS unavailable?): " + e.message); }
+      }
+      async function readLib(dir) { try { const fh = await dir.getFileHandle("pins.json"); return JSON.parse(await (await fh.getFile()).text()); } catch { return []; } }
+      async function writeLib(dir, lib) { try { const fh = await dir.getFileHandle("pins.json", { create: true }); const w = await fh.createWritable(); await w.write(JSON.stringify(lib)); await w.close(); } catch {} }
+
+      // ── misc actions ───────────────────────────────────────────────────────────────
+      function download(bytes, name, mime) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type: mime || "application/octet-stream" })); a.download = name || "file"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+      const copy = (t) => { if (!t) return; navigator.clipboard?.writeText(t).then(() => toast("copied · " + short(t, 12))).catch(() => toast(t)); };
+      function shareLink(res) { const url = (window.HoloTeleport ? location.origin + location.pathname : location.href) + "?cid=" + enc(res.cid); if (window.HoloTeleport) HoloTeleport.stamp(res.holo); navigator.clipboard?.writeText(url); toast("share link copied · " + short(res.holo, 14)); }
+      function openInApp(cid, bytes, name, mime) {
+        const dataUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        const kind = mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : mime.startsWith("image/") ? "image" : "file";
+        const msg = { type: "holo-open", kind, mime, name, cid, holo: IPFS.holoUri(cid), src: dataUrl };
+        let sent = false; try { if (parent !== window) { parent.postMessage(msg, "*"); sent = true; } } catch {}
+        toast(sent ? "handed to host holospace" : "no host frame use Download");
+      }
+      function showError(msg) { const v = $("view"); v.innerHTML = `<div class="card" style="border-color:#4a1d1d"><h3 style="color:var(--bad)">could not open</h3><div style="color:var(--dim)">${escapeHtml(msg)}</div><p style="color:var(--dim);font-size: var(--holo-text-sm, 1rem)">Trustless gateways may be busy or the CID may be unprovided. Try another CID, or check the Providers panel.</p></div>`; }
+      const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+      // ── Holo Home: the front page of the dweb (one substrate; every tile a UOR object) ─
+      function showHome() {
+        applyMode("files"); $("siteWrap").classList.remove("on"); $("main").classList.remove("site");
+        $("crumbs").style.display = "none"; $("statsCard").style.display = "none"; $("provCard").style.display = "none";
+        $("addr").value = ""; setVerify("", "κ "); setLat(null);
+        buildHome(); renderYourDweb();
+        try { parent !== window && parent.postMessage({ type: "holo-ipfs-status", home: true }, "*"); } catch {}
+      }
+      function tileEl(entry) {
+        const el = document.createElement("div"); el.className = "tile";
+        el.title = DWEB.toUorObject(entry).id;                          // the UOR object id (did:holo / holo://)
+        el.innerHTML = `<div class="tt">${escapeHtml(entry.name)}</div><div class="td">${escapeHtml(entry.desc || "")}</div><span class="kb ${entry.kind}">${entry.kind}</span>`;
+        el.onclick = () => openEntry(entry);
+        return el;
+      }
+      function buildHome(results) {
+        const v = $("view"); v.innerHTML = "";
+        const h = document.createElement("div"); h.id = "home";
+        const hero = document.createElement("div"); hero.className = "home-hero";
+        hero.innerHTML = `<h1>The front page of the dweb</h1>
+          <p>One address bar for it all paste a CID, an <b>ipfs://</b> / <b>ipns://</b> link, a <b>DNSLink</b> site, an <b>ENS</b> name, or just search.
+          IPFS, ENS, the web, web3 and Hologram apps are one content-addressed graph here, and <b>every page is verified in your browser</b> not trusted.</p>
+          <div class="subs"><span><b>✓</b> trustless · Law L5</span><span><b>⬡</b> IPFS + Filecoin</span><span><b>ⓔ</b> ENS + DNSLink</span><span><b>◰</b> holospace apps</span><span><b>∞</b> one UOR substrate</span></div>`;
+        h.appendChild(hero);
+        if (results) {
+          const sec = document.createElement("div"); sec.className = "sect";
+          sec.innerHTML = `<div class="shead"><h2>Results</h2><span class="note">${results.length} match(es) across the dweb · or press Enter to resolve it directly</span></div>`;
+          const grid = document.createElement("div"); grid.className = "tiles";
+          if (!results.length) grid.innerHTML = '<div style="color:var(--dim)">nothing in the directory press Enter to resolve it as a CID / name / URL.</div>';
+          results.forEach((e) => grid.appendChild(tileEl(e))); sec.appendChild(grid); h.appendChild(sec);
+        } else {
+          for (const s of DWEB.SECTIONS) {
+            const sec = document.createElement("div"); sec.className = "sect";
+            sec.innerHTML = `<div class="shead"><h2>${escapeHtml(s.title)}</h2><span class="note">${escapeHtml(s.note || "")}</span></div>`;
+            const grid = document.createElement("div"); grid.className = "tiles";
+            s.entries.forEach((e) => grid.appendChild(tileEl(e))); sec.appendChild(grid); h.appendChild(sec);
+          }
+          const asec = document.createElement("div"); asec.className = "sect";
+          asec.innerHTML = `<div class="shead"><h2>Hologram apps</h2><span class="note">native holospaces first-class citizens of the same substrate</span></div>`;
+          const ag = document.createElement("div"); ag.className = "apps";
+          for (const a of DWEB.APPS) { const el = document.createElement("div"); el.className = "app"; el.title = "holo://" + a.id; el.innerHTML = `<span class="dot" style="background:${a.accent}"></span><div><div class="an">${escapeHtml(a.name)}</div><div class="ad">${escapeHtml(a.desc)}</div></div>`; el.onclick = () => openApp(a); ag.appendChild(el); }
+          asec.appendChild(ag); h.appendChild(asec);
+        }
+        v.appendChild(h);
+      }
+      function searchHome(q) { buildHome(DWEB.searchDirectory(q)); }
+      function openEntry(entry) {
+        if (entry.kind === "demo") { if (window.holoIpfs.demoRoot) go(window.holoIpfs.demoRoot); else toast("demo unavailable"); return; }
+        if (entry.kind === "app") return openApp(DWEB.APPS.find((a) => a.target === entry.target) || { loader: entry.target, name: entry.name });
+        go(entry.target);
+      }
+      function openApp(a) { const loader = a.loader || a.target; if (loader === "ipfs.html") { showHome(); return; } location.href = BASE + loader; }
+
+      // ── Your dweb: owned (κ-store pins) + recents — a portable, personal front page ──
+      function loadRecents() { try { return JSON.parse(localStorage.getItem("holo.ipfs.recents") || "[]"); } catch { return []; } }
+      function pushRecent(addr, label) { try { let r = loadRecents().filter((x) => x.addr !== addr); r.unshift({ addr, label: label || addr, at: Date.now() }); r = r.slice(0, 10); localStorage.setItem("holo.ipfs.recents", JSON.stringify(r)); } catch {} }
+      async function renderYourDweb() {
+        const box = $("yourdweb"); const recents = loadRecents();
+        let pins = []; try { const dir = await storeDir(); pins = await readLib(dir); } catch {}
+        const item = (label, addr, sub) => `<div class="yi" data-go="${escapeHtml(addr)}"><div class="yn">${escapeHtml(label)}</div><div class="ya">${escapeHtml(sub || addr)}</div></div>`;
+        let html = "";
+        if (pins.length) html += `<div style="font-size: var(--holo-text-sm, 1rem);color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:.2rem 0">Owned · offline</div>` + pins.slice(0, 6).map((p) => item(p.name || short(p.cid, 10), p.cid, p.holo || p.cid)).join("");
+        if (recents.length) html += `<div style="font-size: var(--holo-text-sm, 1rem);color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:.4rem 0 .2rem">Recent</div>` + recents.map((r) => item(r.label, r.addr)).join("");
+        if (!pins.length && !recents.length) html = '<div class="empty">Nothing yet. Open a CID or site, then <b>Pin · own it</b> your owned content + history live here, content-addressed and portable.</div>';
+        box.innerHTML = html = '<div class="yd">' + html + '</div>';
+        box.querySelectorAll(".yi").forEach((el) => el.onclick = () => go(el.dataset.go));
+      }
+
+      // ── drag-drop + file input (local add) ───────────────────────────────────────────
+      const dz = $("drop");
+      ["dragenter", "dragover"].forEach((ev) => addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag"); }));
+      ["dragleave", "drop"].forEach((ev) => addEventListener(ev, (e) => { e.preventDefault(); if (ev !== "drop" && e.relatedTarget !== null) return; dz.classList.remove("drag"); }));
+      addEventListener("drop", (e) => { const f = [...(e.dataTransfer?.files || [])][0]; if (f) addFile(f); });
+      dz.onclick = () => $("fileInput").click();
+      $("fileInput").onchange = (e) => { const f = e.target.files[0]; if (f) addFile(f); };
+      $("saveUrlBtn").onclick = () => { const u = $("saveUrl").value.trim(); if (u) saveUrl(u); };
+      $("saveUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") { const u = e.target.value.trim(); if (u) saveUrl(u); } });
+
+      // ── chrome ─────────────────────────────────────────────────────────────────────
+      $("goBtn").onclick = () => go($("addr").value);
+      $("addr").addEventListener("keydown", (e) => { if (e.key === "Enter") go($("addr").value); });
+      $("fsBtn").onclick = () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); };
+      $("backBtn").onclick = back; $("fwdBtn").onclick = fwd; $("reloadBtn").onclick = reload;
+      $("homeBtn").onclick = showHome;
+      document.querySelectorAll("#viewToggle button").forEach((b) => b.onclick = () => {
+        if (b.disabled) return;
+        if (b.dataset.mode === "site") { applyMode("site"); renderSite(); }
+        else { applyMode("files"); setVerify("ok", "✓ κ verified"); }
+      });
+      $("siteFrame").addEventListener("load", () => { if (S.mode === "site" && $("siteFrame").src) setVerify("ok", "✓ verified · site"); });
+
+      // ── nestability: a parent holospace can hand us a CID; we answer status ───────────
+      addEventListener("message", (e) => { const m = e.data; if (m && m.type === "holo-ipfs" && (m.cid || m.url)) go(m.cid || m.url); });
+
+      // ── public handle (witnesses / parents in the same context) ──────────────────────
+      window.holoIpfs = { engine: IPFS, dweb: DWEB, snapshot: SNAP, go, addFile, saveUrl, fetchResource, back, fwd, reload, applyMode, resolveEns, showHome, searchHome, get state() { return S; }, get swReady() { return swReady; }, get gateways() { return GATEWAYS; }, ready: false };
+
+      // ── boot ──────────────────────────────────────────────────────────────────────────
+      // bundled local demo (a real IPFS site, served + verified locally — works fully offline)
+      try { const d = await fetch(BASE + "ipfs-demo/root.json").then((r) => r.ok ? r.json() : null); if (d && d.root) window.holoIpfs.demoRoot = d.root; } catch {}
+      await registerSW();                                   // service-worker gateway (full-site rendering)
+      const initial = params.get("go") || params.get("cid") || params.get("ipfs") || params.get("q");   // ?go= = the world omnibox hand-off
+      if (initial) go(initial); else showHome();            // land on Holo Home — the front page of the dweb
+      window.holoIpfs.ready = true;
+      try { parent !== window && parent.postMessage({ type: "holo-ipfs-ready", version: IPFS.VERSION }, "*"); } catch {}
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+</body>
+</html>

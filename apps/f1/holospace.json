@@ -1,0 +1,89 @@
+{
+  "id": "org.hologram.HoloF1",
+  "name": "Holo F1",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "afflom/F1 — the 𝔽₁ square toward the Riemann Hypothesis (built on UOR-Framework) — made native as a verified object with an honest proven/open ledger, and combined with ATLAS96 by attestation.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "EducationalApplication",
+  "conforms": {
+    "specs": [
+      "uor-framework",
+      "did-core",
+      "w3c-prov-o",
+      "rfc-8785-jcs",
+      "w3c-subresource-integrity"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloF1"
+    ]
+  },
+  "shared": [],
+  "engines": [],
+  "description": [
+    {
+      "p": "Over a function field, the Riemann Hypothesis follows from the Hodge index theorem's intersection-positivity on the surface C×C. The 𝔽₁ ('field with one element') program seeks the analogue over ℚ: make Spec ℤ a curve over 𝔽₁, so that Spec ℤ ×_𝔽₁ Spec ℤ is an arithmetic surface whose Hodge-index negativity would BE the Riemann Hypothesis. afflom/F1 names, shapes, and partially builds that square it does not construct it."
+    },
+    {
+      "p": "Holo F1 re-implements no mathematics. It encodes F1 as a self-verifying UOR object whose did:holo re-derives from its own content (Law L5) and which carries faithfully transcribed from F1's own README its honesty ledger: each result tagged `true` (Lean-verified, choice-free) or `null` (open / not asserted proven). The RH crux stays `null`, exactly as F1 marks it."
+    },
+    {
+      "ul": [
+        "The honest ledger: 10 proven results (constructive analysis, ζ for Re(s)>1, λ₁>0) and the 3 open items (full Li positivity, the Hodge-index negativity crux, the square itself)",
+        "Shared root: F1 is pinned to UOR-Framework v0.5.2, the same Z/(2^n)Z base ATLAS96's octet stands on",
+        "Combined with ATLAS96 by ATTESTATION an overlay ledger that re-grades ATLAS96's claims (deterministic unfolding = true; LLM-latent-topology thesis = null; 8K-via-E8 = false) without mutating a byte of the sealed objects",
+        "A live in-tab Law-L5 badge: the sealed object re-derives its own identity via Web Crypto"
+      ]
+    }
+  ],
+  "categories": [
+    "Education",
+    "Development"
+  ],
+  "keywords": [
+    "f1",
+    "field-with-one-element",
+    "riemann-hypothesis",
+    "uor-framework",
+    "lean4",
+    "hodge-index",
+    "li-criterion",
+    "zeta",
+    "atlas96",
+    "e8",
+    "content-addressed",
+    "self-verifying",
+    "law-l5",
+    "honesty-ledger"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Hologram-Technologies/holospaces",
+  "upstream": {
+    "name": "afflom/F1",
+    "url": "https://github.com/afflom/F1",
+    "version": "v0.15.3",
+    "license": "MIT (© 2026 Alex Flom)",
+    "dependsOn": {
+      "name": "UOR-Foundation/UOR-Framework",
+      "url": "https://github.com/UOR-Foundation/UOR-Framework",
+      "version": "v0.5.2"
+    }
+  },
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-11",
+      "description": "Substrate-encode first: afflom/F1 made native to the UOR substrate as a self-verifying UOR object (dual-axis sha256 + blake3 κ) carrying its honest proven/open ledger transcribed from F1's README, linked to the shared UOR-Framework root and to ATLAS96's E₈ terminus. Combined with ATLAS96 by an overlay claim-ledger that applies F1's honesty convention (true/null/false) and binds the live atlas-e8 objects by content address mutating nothing. Witnessed 23/23 (Law-L5 re-derivation + honesty invariant + attachment integrity)."
+    }
+  ],
+  "accent": "#c5a046"
+}

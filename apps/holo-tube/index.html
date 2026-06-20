@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Tube</title>
+    <meta name="description" content="Holo Tube — native κ-addressed video streaming for Hologram OS. A stream is a content-addressed DAG of fMP4/WebM segments; every segment is re-derived against its κ (Law L5) before it reaches the decoder. No iframe, no trust in the origin. Offline replay from the OPFS κ-store; gapless playlist / radio." />
+
+    <!-- shared runtime mount: /_shared/ → /usr/lib/holo -->
+    <script type="importmap">
+      {
+        "imports": {
+          "holo-media": "/_shared/holo-media.mjs",
+          "holo-kstore": "/_shared/holo-kstore.js",
+          "holo-uor": "/_shared/holo-uor.mjs"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/_shared/holo-theme.css" />
+    <link rel="stylesheet" href="/_shared/holo-mobile.css" />
+    <!-- holo-theme.js boots theming + Holo UX + window.HoloFX (one canonical wire, Law L2) -->
+    <script src="/_shared/holo-theme.js"></script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: var(--holo-bg); --panel: var(--holo-surface); --line: var(--holo-border);
+        --dim: var(--holo-ink-dim); --ink: var(--holo-ink); --accent: var(--holo-accent, #ff5c8a);
+        --ok: var(--holo-ok, #3fb950); --bad: var(--holo-danger, #ff6b6b);
+        --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* ── top chrome ─────────────────────────────────────────────── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+        padding: .4rem .8rem; background: var(--panel); border-bottom: 1px solid var(--line);
+        font: var(--holo-text-sm, 1rem) var(--mono); user-select: none; }
+      #bar .logo { width: 22px; height: 22px; color: var(--accent); flex: 0 0 auto; }
+      #bar .name { color: var(--ink); font-weight: 800; letter-spacing: .02em; }
+      #bar .tag2 { color: var(--dim); }
+      #bar .sp { margin-left: auto; }
+      #kappa { color: var(--accent); font: var(--holo-text-sm, .9rem) var(--mono); max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #kappa .lbl { color: var(--dim); margin-right: .4em; }
+
+      /* ── main: stage + playlist ─────────────────────────────────── */
+      #main { flex: 1 1 auto; min-height: 0; display: flex; }
+      #stage { flex: 1 1 auto; min-width: 0; position: relative; background: #05070c;
+        display: flex; align-items: center; justify-content: center; }
+      #stage video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+      #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        pointer-events: none; color: var(--dim); font: var(--holo-text-sm, 1rem) var(--mono); text-align: center; padding: 1rem; }
+
+      #side { flex: 0 0 300px; max-width: 42vw; border-left: 1px solid var(--line); background: var(--panel);
+        display: flex; flex-direction: column; min-height: 0; }
+      #side h2 { margin: 0; padding: .6rem .8rem; font: 700 .72rem var(--mono); letter-spacing: .1em;
+        text-transform: uppercase; color: var(--dim); border-bottom: 1px solid var(--line); }
+      #queue { flex: 1 1 auto; overflow: auto; min-height: 0; }
+      .item { display: flex; gap: .6rem; align-items: center; padding: .55rem .8rem; cursor: pointer;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+      .item:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+      .item.on { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+      .item .ix { color: var(--dim); font: 700 .8rem var(--mono); min-width: 1.6em; text-align: right; }
+      .item .meta { min-width: 0; }
+      .item .ttl { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .item .sub { color: var(--dim); font: .76rem var(--mono); }
+      .item.on .ttl { color: var(--accent); }
+
+      /* ── controls ───────────────────────────────────────────────── */
+      #controls { flex: 0 0 auto; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+        padding: .5rem .8rem; border-top: 1px solid var(--line); background: var(--panel); }
+      button { cursor: pointer; font: var(--holo-text-sm, 1rem) var(--mono); color: var(--ink);
+        background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px);
+        padding: .45rem .7rem; min-height: 36px; }
+      button:hover { border-color: var(--accent); }
+      button.cta { color: #1a0410; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+      label.toggle { display: inline-flex; align-items: center; gap: .4rem; color: var(--dim); font: .82rem var(--mono); cursor: pointer; }
+      .gap { margin-left: auto; }
+
+      /* ── status ─────────────────────────────────────────────────── */
+      #status { flex: 0 0 auto; display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+        padding: .35rem .8rem; border-top: 1px solid var(--line); background: var(--bg);
+        font: .8rem var(--mono); color: var(--dim); }
+      #status .sx { color: var(--accent); min-width: 1.2em; display: inline-block; }
+      #status .verok { color: var(--ok); }
+      #status .err { color: var(--bad); }
+      #buf { color: var(--accent); letter-spacing: -1px; }
+    </style>
+  </head>
+  <body data-holo-boot="off">
+    <!-- Manual splash: Holo Tube keeps booting past page-load (it resolves + verifies the first
+         segments), so the host drives the bar to real milestones and completes on first frame. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Tube" manual></holo-splash>
+
+    <div id="bar">
+      <svg class="logo" viewBox="0 0 128 128" fill="none">
+        <rect x="10" y="26" width="108" height="76" rx="14" stroke="currentColor" stroke-width="6"/>
+        <path d="M54 50 L82 64 L54 78 Z" fill="currentColor"/>
+      </svg>
+      <span class="name">Holo Tube</span>
+      <span class="tag2">κ-streamed video · L5 before decode</span>
+      <span class="sp"></span>
+      <span id="kappa"><span class="lbl">stream κ</span><span id="kappaval">—</span></span>
+    </div>
+
+    <div id="main">
+      <div id="stage">
+        <video id="v" playsinline controls></video>
+        <div id="overlay">Loading MediaGraph…</div>
+      </div>
+      <aside id="side">
+        <h2>Queue</h2>
+        <div id="queue"></div>
+      </aside>
+    </div>
+
+    <div id="controls">
+      <button id="play" class="cta">Play</button>
+      <button id="skip">Skip ▸</button>
+      <label class="toggle" title="Flip one byte in the next segment before verify — the κ-store must REFUSE it (Law L5 tamper demo)">
+        <input type="checkbox" id="tamper" /> Tamper next segment
+      </label>
+      <span class="gap"></span>
+      <span class="tag2" id="quality"></span>
+    </div>
+
+    <div id="status">
+      <span class="sx" id="spin"></span>
+      <span id="stat">booting…</span>
+      <span class="verok" id="verified"></span>
+      <span id="buf"></span>
+    </div>
+
+    <script type="module">
+      import { openStream, mediaGraphClosureKappa, pickRepresentation, orderedSegmentKappas } from "holo-media";
+      import { sha256hex } from "holo-uor";
+
+      const $ = (id) => document.getElementById(id);
+      const v = $("v"), statEl = $("stat"), spinEl = $("spin"), verEl = $("verified"), bufEl = $("buf"),
+            overlay = $("overlay"), queue = $("queue"), kappaVal = $("kappaval"), qualEl = $("quality");
+      const FX = () => window.HoloFX;
+      const splash = document.querySelector("holo-splash");
+      const hexOf = (k) => String(k).split(":").pop().toLowerCase();
+
+      const setStatus = (msg, cls) => { statEl.textContent = msg; statEl.className = cls || ""; };
+
+      // ── the κ-store resolver (Law L5 at the boundary) ──────────────────────────────────────
+      // Canonical path: the OS κ-store (SW κ-route /.holo/sha256/<hex>, re-derived + OPFS-durable).
+      // Fallback for a dumb static host / dev serve: fetch the vendored segment and re-derive its
+      // κ IN-PAGE — refuse a mismatch. Either way NO byte reaches the decoder unverified.
+      let graph = null, pathByHex = new Map(), tamperArmed = false;
+      function indexPaths(g) {
+        pathByHex = new Map();
+        for (const vid of g.videos || [])
+          for (const r of vid.representations || []) {
+            if (r.initSegment && r.initPath) pathByHex.set(hexOf(r.initSegment), r.initPath);
+            for (const s of r.segments || []) if (s.path) pathByHex.set(hexOf(s.kappa), s.path);
+          }
+      }
+      async function resolve(k) {
+        const hex = hexOf(k);
+        // 1 · canonical OS κ-store (works on the SW deploy; throws if the κ-route 404s on dev)
+        try { const m = await import("holo-kstore"); const b = await m.resolve(k, { verify: true }); if (b) return tap(hex, b); } catch (_) {}
+        // 2 · vendored fallback, verified in-page (Law L5)
+        const rel = pathByHex.get(hex);
+        if (!rel) throw new Error("κ has no resolvable source: " + hex);
+        const res = await fetch("./" + rel, { cache: "force-cache" });
+        if (!res.ok) throw new Error("segment unreachable: " + rel);
+        let bytes = new Uint8Array(await res.arrayBuffer());
+        return tap(hex, bytes);
+      }
+      // tap() — the single verification gate. Optionally corrupt first (tamper demo), then
+      // re-derive sha256 and REFUSE on mismatch. This is the only place bytes pass to the feed.
+      function tap(hex, bytes) {
+        if (tamperArmed) { bytes = bytes.slice(0); bytes[(bytes.length / 2) | 0] ^= 0xff; tamperArmed = false; $("tamper").checked = false; }
+        if (sha256hex(bytes) !== hex) throw new Error("κ MISMATCH — segment refused (Law L5)");
+        return bytes;
+      }
+
+      // ── playback ───────────────────────────────────────────────────────────────────────────
+      let ctrl = null, curId = null, started = 0;
+      function renderQueue(g) {
+        queue.innerHTML = "";
+        (g.videos || []).forEach((vid, i) => {
+          const rep = vid.representations?.[0];
+          const el = document.createElement("div");
+          el.className = "item" + (vid.id === curId ? " on" : "");
+          el.dataset.id = vid.id;
+          el.innerHTML = `<span class="ix">${i + 1}</span><div class="meta"><div class="ttl"></div><div class="sub"></div></div>`;
+          el.querySelector(".ttl").textContent = vid["schema:name"] || vid.id;
+          el.querySelector(".sub").textContent = rep ? `${rep.height || "?"}p · ${(rep.segments || []).length} segs` : "—";
+          el.addEventListener("click", () => start(vid.id));
+          queue.appendChild(el);
+        });
+      }
+      function markOn(id) { for (const el of queue.children) el.classList.toggle("on", el.dataset.id === id); }
+
+      function start(startId) {
+        if (ctrl) ctrl.stop();
+        curId = startId || (graph.videos || [])[0]?.id;
+        markOn(curId);
+        overlay.style.display = "none";
+        started = performance.now();
+        if (FX() && FX().spin) { try { window._sp && window._sp.stop(""); window._sp = FX().spin(spinEl, "dna"); } catch (_) {} }
+        setStatus("streaming · resolving segments…");
+        ctrl = openStream(v, graph, {
+          startId: curId,
+          resolve,
+          onVideo: (vid) => { curId = vid.id; markOn(vid.id); const r = pickRepresentation(vid, { isSupported: () => true }); qualEl.textContent = r ? `${r.mime.split(";")[0]} · ${r.height || "?"}p` : ""; },
+          onProgress: ({ verified, bytes, buffered }) => {
+            verEl.textContent = `verified ✓ ${verified} segments · ${(bytes / 1024).toFixed(0)} KiB`;
+            bufEl.textContent = FX() ? FX().bar(Math.min(1, buffered / 12)) : "";
+            if (splash && verified === 1) splash.progress(0.6);
+          },
+          onError: (e) => {
+            if (window._sp) { window._sp.stop("✕"); window._sp = null; }
+            setStatus(String(e && e.message || e), "err");
+            overlay.textContent = "Refused — " + (e.message || e); overlay.style.display = "flex";
+          },
+        });
+        v.play().catch(() => {});
+      }
+
+      // first decoded frame → boot is really up
+      v.addEventListener("loadeddata", () => { if (splash) splash.complete(); if (window._sp) { window._sp.stop("◆"); window._sp = null; } setStatus("playing · κ-verified", "verok"); }, { once: false });
+      v.addEventListener("playing", () => setStatus("playing · κ-verified", "verok"));
+
+      $("play").addEventListener("click", () => { if (v.paused) { v.play(); $("play").textContent = "Pause"; } else { v.pause(); $("play").textContent = "Play"; } });
+      $("skip").addEventListener("click", () => { const vs = graph.videos || []; const i = vs.findIndex((x) => x.id === curId); start(vs[(i + 1) % vs.length]?.id); });
+      $("tamper").addEventListener("change", (e) => { tamperArmed = e.target.checked; if (tamperArmed) setStatus("tamper armed — the next segment will be corrupted; the κ-store must refuse it", ""); });
+
+      // ── boot: load the MediaGraph, show the stream κ, render the queue ──────────────────────
+      (async () => {
+        try {
+          if (splash) splash.progress(0.2);
+          const res = await fetch("./media/demo.mediagraph.json", { cache: "force-cache" });
+          if (!res.ok) throw new Error("no MediaGraph (run: node tools/holo-tube-ingest.mjs --demo)");
+          graph = await res.json();
+          indexPaths(graph);
+          const k = mediaGraphClosureKappa(graph);
+          kappaVal.textContent = k;
+          if (FX() && FX().kappa) { try { FX().kappa(kappaVal, k, { width: 18 }); } catch (_) {} }
+          const segs = orderedSegmentKappas(graph).length;
+          setStatus(`${(graph.videos || []).length} videos · ${segs} κ-segments · ready`);
+          renderQueue(graph);
+          if (splash) splash.progress(0.4);
+          start();   // autoplay the radio queue
+        } catch (e) {
+          if (splash) splash.complete();
+          overlay.textContent = String(e && e.message || e);
+          setStatus(String(e && e.message || e), "err");
+        }
+      })();
+    </script>
+  </body>
+</html>

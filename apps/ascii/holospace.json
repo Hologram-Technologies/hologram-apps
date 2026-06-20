@@ -1,0 +1,92 @@
+{
+  "id": "org.hologram.HoloAscii",
+  "name": "Holo ASCII",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Type anything, get ASCII art. A native text→ASCII (FIGlet) encoder with 328 fonts — byte-identical to the TAAG tool, no CDN, fonts verified on read.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DesignApplication",
+  "conforms": {
+    "specs": [
+      "figfont-spec",
+      "content-addressing",
+      "law-l4-no-cdn",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloAscii"
+    ]
+  },
+  "shared": [
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-ux.js",
+    "holo-ui-kernel.js",
+    "holo-fx.js",
+    "holo-ascii.mjs",
+    "vendor/figlet",
+    "vendor/figlet-fonts"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "A native text-to-ASCII-art encoder for Hologram, built on the FIGfont spec. The same algorithm and the same 328 .flf fonts as patorjk's TAAG generator, vendored as the byte source of truth — so output is byte-identical, not a lookalike."
+    },
+    {
+      "p": "Every font is a content-addressed κ-object. Fonts are lazy (only the one you pick is ever fetched) and each .flf is re-verified against its sealed κ on read (Law L5). Zero CDN, zero foreign runtime (Law L4)."
+    },
+    {
+      "ul": [
+        "328 FIGlet fonts, type-to-filter",
+        "Live preview as you type",
+        "Layout control: smushing · fitted · full width",
+        "Copy or download the art",
+        "Shows the active font's dual-axis κ"
+      ]
+    }
+  ],
+  "categories": [
+    "Graphics",
+    "Utility",
+    "Development"
+  ],
+  "keywords": [
+    "ascii",
+    "ascii art",
+    "figlet",
+    "taag",
+    "text to ascii",
+    "banner",
+    "wordmark",
+    "figfont",
+    "graffiti",
+    "encoder",
+    "content-addressing",
+    "uor",
+    "law-l4",
+    "law-l5"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "LicenseRef-proprietary",
+  "homepage": "https://hologram.os/apps/ascii",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-18",
+      "description": "FIGlet / TAAG, natively encoded: a κ-addressable text→ASCII encoder over the vendored figlet core (Patrick Gillespie, MIT) + 328 .flf fonts. Lazy, content-addressed fonts re-verified on read (Law L5); no CDN (Law L4). Live preview, type-to-filter font picker, layout control, copy/download, and the active font's dual-axis κ. The engine is also wired OS-wide as HoloFX.ascii(text, {font})."
+    }
+  ],
+  "accent": "#7ee787"
+}

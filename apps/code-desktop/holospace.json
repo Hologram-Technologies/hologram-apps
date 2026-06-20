@@ -1,0 +1,123 @@
+{
+  "id": "org.hologram.HoloCodeDesktop",
+  "name": "Holo Code",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A sovereign, browser-first coding desktop: tabs, a Monaco editor, an integrated terminal, and a visual diff with accept/reject over the witnessed Holo Code engine. The brain is local verifiable inference (Holo Q), the tools work over the verified substrate, and every session is a receipt that proves itself genuine.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "holo-code-desktop",
+      "holo-code",
+      "browser-first",
+      "verifiable-agent-loop",
+      "prov-work-receipt",
+      "holo-q-integration",
+      "conscience-permission-gate",
+      "content-addressing",
+      "law-l5",
+      "holo-constitution"
+    ]
+  },
+  "holo:dependsOn": [
+    {
+      "schema:identifier": "org.hologram.HoloCode",
+      "holo:root": "did:holo:sha256:ac7fc09974e1c50f9402f790e237415780b07e64db9a22965ceac569d882980a",
+      "holo:note": "compose-by-reference: the GUI imports ../code/*.mjs at runtime; the engine is a hash-pinned dependency, never forked."
+    }
+  ],
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloCode"
+    ]
+  },
+  "shared": [
+    "holo-ui-kernel.js",
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-ux.js",
+    "holo-platform.js",
+    "holo-object.js",
+    "holo-icons.js",
+    "holo-sdk.js",
+    "holo-app.mjs",
+    "holo-conscience.js",
+    "holo-files.js",
+    "holo-capability.mjs",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "vendor/monaco",
+    "vendor/xterm",
+    "voice/holo-voice-orb.mjs",
+    "voice/lib/three.min.js",
+    "voice/lib/simplex-noise.js"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "Holo Code is a graphical coding workspace panes you arrange, a file editor, an integrated terminal, a visual diff you accept or reject line by line. It is sovereign: nothing leaves your machine and nothing must be taken on trust."
+    },
+    {
+      "p": "It does not re-implement the agent it COMPOSES the witnessed Holo Code engine (apps/code) by reference: the same conscience-gated agent, the same content-addressed tools, the same Holo Q (QVAC) on-device brain. The Desktop adds only the GUI a 3-tab shell (Chat / Code / Cowork), a Monaco editor and an XTerm terminal reused from the OS workspace, and a diff view whose Accept/Reject resolves the engine's existing permission gate (Accept writes via the holo-files VFS; Reject is a no-op)."
+    },
+    {
+      "ul": [
+        "Browser-first: the whole app is one sealed κ-object served from /ipfs/<cid>/, re-deriving byte-for-byte (Law L5)",
+        "Reuses the Holo Code engine by content-address no fork, no second brain",
+        "Monaco editor + XTerm terminal reused from the OS workspace, κ-verified before load",
+        "Visual diff with per-line Accept/Reject wired to the fail-closed conscience gate (ADR-033)",
+        "Execution-dependent features (run / build / test / terminal-exec / worktrees / schedule / ssh / cowork) are present but honestly gated to the native host never faked"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "AI",
+    "Productivity"
+  ],
+  "keywords": [
+    "code",
+    "coding agent",
+    "claude code",
+    "claude desktop",
+    "desktop",
+    "ide",
+    "editor",
+    "terminal",
+    "diff",
+    "ai",
+    "llm",
+    "holo-q",
+    "verifiable inference",
+    "content-addressing",
+    "did:holo",
+    "prov-o",
+    "law-l5",
+    "conscience",
+    "serverless",
+    "sovereign ai",
+    "on-device",
+    "browser-first",
+    "developer tools"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/code-desktop",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-17",
+      "description": "Holo Code a substrate-native, browser-first coding desktop, composed by reference over the witnessed Holo Code engine (apps/code). A 3-tab shell (Chat · Cowork · Code), a reused Monaco editor and XTerm terminal, and a visual diff with Accept/Reject wired to the fail-closed conscience gate. Chat runs on the local Q engine (Falcon-E-3B on WebGPU). Sealed as one re-derivable κ-object (Law L5); execution-dependent features are honestly gated to the native host."
+    }
+  ],
+  "accent": "#5b8cff"
+}

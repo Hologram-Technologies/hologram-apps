@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo BRC Miner</title>
+    <meta name="description" content="Holo BRC Miner BrowserCoin, hologram-native: mine, send and explore real BrowserCoin (BRC) right in your browser. Real Argon2id PoW via our κ-pinned engine, BrowserCoin's real consensus, live mainnet over content-addressed REST. Real wallet, real QR, real transactions. No simulation." />
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark;
+        --bg:var(--holo-bg); --bg2:var(--holo-surface-2); --card:var(--holo-surface); --card2:var(--holo-surface-2); --line:var(--holo-border); --line2:color-mix(in srgb, var(--holo-border) 55%, var(--holo-ink));
+        --ink:var(--holo-ink); --dim:var(--holo-ink-dim); --mut:var(--holo-ink-dim); --acc:var(--holo-accent); --acc2:color-mix(in srgb, var(--holo-accent) 72%, var(--holo-ink)); --good:var(--holo-ok); --bad:var(--holo-danger); --info:var(--holo-accent); --warn:var(--holo-warn); }
+      * { box-sizing:border-box; }
+      html,body { margin:0; min-height:100%; }
+      body { background:radial-gradient(120% 80% at 80% -10%, #161033 0%, #0c1020 45%, var(--bg) 100%); background-attachment:fixed;
+        color:#c7cfe0; font:var(--holo-text-sm, 1rem)/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+      a { color:var(--acc2); text-decoration:none; } a:hover { text-decoration:underline; }
+      .mono { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+      .mut { color:var(--mut); } .dim { color:var(--dim); }
+
+      header.top { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:1rem; padding:.7rem 1.1rem;
+        background:#0b0e17ee; backdrop-filter:blur(10px); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+      .brand { display:flex; align-items:center; gap:.6rem; }
+      .brand .logo { width:30px; height:30px; border-radius: var(--holo-radius-sm, 8px); background:linear-gradient(135deg,var(--acc),#6d5cf0); display:grid; place-items:center; color:#0b0e17; font-weight:900; }
+      .brand .t b { color:var(--ink); font-size:1rem; font-weight:800; } .brand .t div { font-size:.72rem; color:var(--dim); }
+      nav.tabs { display:flex; gap:.15rem; flex-wrap:wrap; }
+      nav.tabs a { padding:.4rem .8rem; border-radius: var(--holo-radius-sm, 8px); color:var(--dim); font-weight:600; font-size:.9rem; }
+      nav.tabs a:hover { color:var(--ink); background:#ffffff0a; text-decoration:none; }
+      nav.tabs a.on { color:var(--ink); background:#ffffff12; }
+      .netstats { margin-left:auto; display:flex; gap:.9rem; font:var(--holo-text-sm, 1rem) ui-monospace,monospace; color:var(--dim); flex-wrap:wrap; }
+      .netstats .s b { color:var(--ink); } .netstats .dot { color:var(--bad); } .netstats .dot.on { color:var(--good); }
+
+      main { max-width:1180px; margin:0 auto; padding:1.2rem; }
+      h1.page { font-size:1.5rem; color:var(--ink); margin:.2rem 0 .1rem; }
+      h1.page + .sub { color:var(--dim); margin:0 0 1.1rem; }
+      .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; } @media (max-width:900px){ .grid2{grid-template-columns:1fr;} }
+      .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.1rem; } @media (max-width:760px){ .grid3{grid-template-columns:1fr;} }
+
+      .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:1.1rem 1.2rem; }
+      .card h3 { margin:0 0 .9rem; font-size:.66rem; text-transform:uppercase; letter-spacing:.11em; color:var(--dim); font-weight:800; display:flex; align-items:center; gap:.5rem; }
+      .card h3 .sp { margin-left:auto; } .card h3 a { font-size:.8rem; text-transform:none; letter-spacing:0; font-weight:600; }
+      .ico { width:15px; height:15px; border-radius:50%; border:1px solid var(--line2); color:var(--mut); display:inline-grid; place-items:center; font-size:.6rem; }
+
+      .bal { font:900 2.6rem/1 ui-monospace,monospace; color:var(--acc2); letter-spacing:-.02em; }
+      .bal .u { font-size:1rem; color:var(--ink); font-weight:800; margin-left:.5rem; }
+      .addrbox { margin-top:.7rem; }
+      .addrbox label { font-size:.78rem; color:var(--dim); }
+      .addrline { display:flex; gap:.4rem; margin-top:.3rem; }
+      input,textarea,select { background:#0a0e1a; color:var(--ink); border:1px solid var(--line2); border-radius:9px; padding:.55rem .7rem; font:.85rem ui-sans-serif,system-ui; width:100%; }
+      input.mono { font-family:ui-monospace,monospace; }
+      .row { display:flex; gap:.5rem; margin-top:.7rem; flex-wrap:wrap; }
+      button.b { font:700 .85rem ui-sans-serif,system-ui; border-radius:10px; padding:.5rem 1rem; cursor:pointer; border:1px solid var(--line2); background:#171f33; color:var(--ink); }
+      button.b:hover { border-color:#3a466a; }
+      button.b.pri { background:linear-gradient(180deg,var(--acc2),var(--acc)); color:#0b0e17; border:0; }
+      button.b.sm { padding:.35rem .6rem; font-size:.78rem; }
+      button.b:disabled { opacity:.5; cursor:default; }
+      .qrwrap { display:flex; gap:1rem; align-items:flex-start; margin-top:1rem; }
+      .qr { width:152px; height:152px; background:#fff; border-radius: var(--holo-radius, 12px); padding:8px; flex:0 0 auto; }
+      .qr svg { width:100%; height:100%; display:block; }
+      .field { margin-top:.8rem; } .field label { display:block; font-size:.78rem; color:var(--dim); margin-bottom:.25rem; }
+      .two { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+      .msg { font-size:.82rem; margin-top:.6rem; min-height:1.1em; } .msg.ok{color:var(--good);} .msg.err{color:var(--bad);}
+
+      .stat-num { font:900 2rem/1 ui-monospace,monospace; color:var(--ink); font-variant-numeric:tabular-nums; }
+      .stat-num.acc { color:var(--acc2); }
+      .kpi { display:flex; gap:2rem; flex-wrap:wrap; }
+      .kpi .l { font-size:.62rem; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:.35rem; }
+      .pill { display:inline-flex; align-items:center; gap:.45rem; border:1px solid #1f6b4d; background:#0c2018; color:var(--good); border-radius:999px; padding:.35rem .8rem; font-size:.82rem; }
+      .pill .d { width:8px; height:8px; border-radius:50%; background:var(--good); box-shadow:0 0 8px var(--good); }
+      .pill.warn { border-color:#5c4a1a; background:#201a0c; color:var(--warn); } .pill.warn .d{ background:var(--warn); box-shadow:0 0 8px var(--warn);}
+      .slider { -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; background:#222b41; outline:none; }
+      .slider::-webkit-slider-thumb{ -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--acc2); cursor:pointer; }
+      .startbtn { font:800 .9rem ui-sans-serif,system-ui; border-radius:10px; padding:.55rem 1.4rem; cursor:pointer; border:0; background:linear-gradient(180deg,var(--acc2),var(--acc)); color:#0b0e17; }
+      .startbtn.on { background:#1a2236; color:var(--ink); border:1px solid var(--line2); }
+
+      table { width:100%; border-collapse:collapse; font-size:.86rem; }
+      thead th { text-align:left; color:var(--dim); font-weight:600; font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; padding:.5rem .5rem; border-bottom:1px solid var(--line); }
+      td { padding:.5rem .5rem; border-bottom:1px solid #131a2c; white-space:nowrap; font-variant-numeric:tabular-nums; }
+      tr:hover td { background:#ffffff06; }
+      .badge { display:inline-block; font-size:.66rem; font-weight:800; letter-spacing:.04em; padding:.12rem .45rem; border-radius:6px; border:1px solid var(--acc); color:var(--acc2); }
+      .pos { color:var(--good); } .neg { color:var(--acc2); }
+      .scroll { overflow:auto; }
+      .wlist { display:grid; grid-template-columns:auto 1fr; gap:.5rem 1.2rem; font-size:.9rem; }
+      .wlist .l { color:var(--dim); } .wlist .v { color:var(--ink); font-family:ui-monospace,monospace; }
+      .empty { color:var(--dim); text-align:center; padding:1.4rem; }
+      .barwrap { height:7px; background:#1a2236; border-radius:999px; overflow:hidden; } .barwrap > i { display:block; height:100%; background:linear-gradient(90deg,var(--acc),var(--acc2)); }
+      .prose p { color:#aeb7cd; } .prose li { color:#aeb7cd; margin:.3rem 0; }
+      footer { max-width:1180px; margin:0 auto; padding:1rem 1.2rem 2rem; color:var(--mut); font-size:.78rem; }
+      #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(14px); z-index:80; opacity:0; pointer-events:none;
+        background:#141a2b; border:1px solid var(--line2); border-radius:11px; padding:.6rem 1rem; color:var(--ink); font-size:.85rem; box-shadow:0 16px 44px #0009; transition:.25s; max-width:90vw; }
+      #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+      #toast.ok{ border-color:#1f6b4d; } #toast.err{ border-color:#6b2630; }
+      /* QR modal */
+      .qr-modal{ position:fixed; inset:0; z-index:90; background:#06080fcc; display:none; place-items:center; }
+      .qr-modal.open{ display:grid; } .qr-modal-card{ background:#fff; border-radius: var(--holo-radius-lg, 16px); padding:1.2rem; text-align:center; max-width:92vw; }
+      .qr-modal-svg svg{ width:min(70vw,420px); height:min(70vw,420px); } .qr-modal-addr{ color:#0d0f17; font-size:.7rem; word-break:break-all; margin-top:.6rem; } .qr-modal-caption{ color:#444; font-size:.8rem; margin-top:.3rem; }
+      .qr-modal-close{ float:right; background:none; border:0; font-size:1.4rem; cursor:pointer; color:#333; }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo BRC Miner"></holo-splash>
+
+    <header class="top">
+      <div class="brand"><div class="logo">⛏</div><div class="t"><b>Holo BRC Miner</b><div>BrowserCoin, hologram-native</div></div></div>
+      <nav class="tabs" id="tabs">
+        <a href="#/" data-r="/">Home</a><a href="#/wallet" data-r="/wallet">Wallet</a><a href="#/mine" data-r="/mine">Mine</a>
+        <a href="#/explorer" data-r="/explorer">Explorer</a><a href="#/mempool" data-r="/mempool">Mempool</a>
+        <a href="#/about" data-r="/about">About</a><a href="#/developers" data-r="/developers">Developers</a><a href="#/settings" data-r="/settings">Settings</a>
+      </nav>
+      <div class="netstats" id="netstats">
+        <span class="s"><span class="dot" id="ns-dot">●</span> <span id="ns-status">connecting…</span></span>
+        <span class="s">height <b id="ns-height"></b></span><span class="s">miners <b id="ns-miners"></b></span>
+        <span class="s">peers <b id="ns-peers"></b></span><span class="s">diff <b id="ns-diff"></b></span>
+      </div>
+    </header>
+    <main id="view"></main>
+    <footer>
+      Holo BRC Miner real BrowserCoin (BRC) · Argon2id 32&nbsp;MiB PoW via the κ-pinned prism-argon2id engine · BrowserCoin's real consensus · live mainnet over content-addressed REST (GET&nbsp;/blocks, POST&nbsp;/block, POST&nbsp;/txs) every block validated locally, <b>no simulation</b>. <span id="f-eng" class="mut"></span>
+    </footer>
+    <div id="toast"></div>
+    <div class="qr-modal" id="qrmodal"><div class="qr-modal-card"><button class="qr-modal-close" id="qrmodal-x">×</button><div class="qr-modal-svg" id="qrmodal-svg"></div><div class="qr-modal-addr mono" id="qrmodal-addr"></div><div class="qr-modal-caption">Scan to send coins to this wallet.</div></div></div>
+
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      import {
+        Blockchain, GENESIS, GENESIS_TIMESTAMP, GENESIS_DIFFICULTY_COMPACT, TARGET_BLOCK_TIME_S,
+        MAX_FUTURE_TIME_S, DIFFICULTY_WINDOW, MTP_WINDOW, HEADER_LEN, COIN, INITIAL_REWARD, HALVING_INTERVAL,
+        encodeHeader, hashHeader, computeTxRoot, nextDifficulty, medianTimePast, decodeBlock, encodeBlock,
+        compactToTarget, hashMeetsTarget, bytesToHex, hexToBytes, applyBlockTxs, cloneState, stateRoot, emptyState, blockWork,
+        generateKeyPair, fromPrivateKey, addressFromHex, blockReward, getAccount,
+        signTx, encodeTx, decodeTx, txHash, validateTxStructure, CHAIN_ID, qrSvg,
+      } from "./_shared/brc-core/holo-core.js";
+      import { loadEngine, powHash as enginePow } from "./_shared/prism-argon2id/prism-argon2id.js";
+
+      const $ = (id) => document.getElementById(id);
+      const HEXC="0123456789abcdef"; const toHex=u8=>{let s="";for(let i=0;i<u8.length;i++)s+=HEXC[u8[i]>>>4]+HEXC[u8[i]&15];return s;};
+      const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const short=(h,n=12)=>String(h).length>n?String(h).slice(0,n)+"…":String(h);
+      const ago=ts=>{const s=Math.max(0,Math.floor(Date.now()/1000-ts));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":s<86400?Math.floor(s/3600)+"h":Math.floor(s/86400)+"d";};
+      const hhmmss=ts=>new Date(ts*1000).toLocaleTimeString();
+      const fmtHps=h=>h>=1e6?(h/1e6).toFixed(2)+" MH/s":h>=1e3?(h/1e3).toFixed(1)+" kH/s":(h<10?h.toFixed(1):Math.round(h))+" H/s";
+      const diffBits=t=>256-t.toString(2).length;
+      function fmtBRC(wei){ const neg=wei<0n; if(neg)wei=-wei; const w=wei/COIN, f=wei%COIN; let s=w.toString(); if(f>0n){ let fs=f.toString().padStart(8,"0").replace(/0+$/,""); s+="."+fs; } return (neg?"-":"")+s; }
+      let toastT; function toast(m,k){ const t=$("toast"); t.innerHTML=m; t.className="show "+(k||""); clearTimeout(toastT); toastT=setTimeout(()=>t.className="",k==="err"?6000:3500); }
+
+      // ── Law L5 engine self-test ────────────────────────────────────────────────
+      const ENGINE_KAT="3a991fec297395aad1617be2711dedc91b863989c58f597717435b6e539eaa6f";
+      const GENESIS_K="9fe010e8bdb735a5f7afacec8f5b6810550a4b25e73ea69d0159c44adf10ff74";
+      let engineOk=false;
+      (async()=>{ try{ await loadEngine(); const v=new Uint8Array(148); for(let i=0;i<148;i++)v[i]=i&0xff;
+        engineOk = toHex(await enginePow(v))===ENGINE_KAT && bytesToHex(hashHeader(GENESIS.header))===GENESIS_K;
+        $("f-eng").textContent = engineOk? "· engine κ ✓ (argon2id KAT + genesis 9fe010e8)" : "· ✗ engine κ mismatch mining disabled (Law L5)";
+      }catch(e){ $("f-eng").textContent="· ✗ engine failed"; } })();
+
+      // ── wallet (Ed25519, account model) ─────────────────────────────────────────
+      function loadKey(){ try{ const s=localStorage.getItem("brc.key.v1"); if(s) return fromPrivateKey(hexToBytes(s)); }catch{}
+        const kp=generateKeyPair(); try{ localStorage.setItem("brc.key.v1", bytesToHex(kp.privateKey)); }catch{} return kp; }
+      let key=loadKey();
+      const myBalance=()=> getAccount(chain.tipState, key.address).balance;
+      const myNonce=()=> getAccount(chain.tipState, key.address).nonce;
+
+      // ── node state ──────────────────────────────────────────────────────────────
+      const MAINNET_APIS=["https://api1.browsercoin.org","https://api2.browsercoin.org"];
+      const _qa=(new URLSearchParams(location.search).get("api")||"").split(",").map(s=>s.trim()).filter(Boolean);
+      let apis=_qa.length?_qa:(JSON.parse(localStorage.getItem("brc.apis")||"null")||MAINNET_APIS).slice();
+      const peerId="browsercoin-holo-"+toHex(crypto.getRandomValues(new Uint8Array(5)));
+      const GENK=bytesToHex(hashHeader(GENESIS.header));
+      const CKPT_DEPTH=72;
+      let chain=new Blockchain();
+      let MODE=localStorage.getItem("brc.mode")||"mainnet";
+      let serverTip={height:0,tipHash:""}, syncing=false, apisUp=0;
+      let stats={peerCount:0,minersActive:0,serverHeight:0};
+      let mempoolTxs=[];
+      let hbTimer=null, pollTimer=null;
+
+      // ── api + κ-store ─────────────────────────────────────────────────────────────
+      async function apiGet(p){ for(const base of apis){ try{ const r=await fetch(base+p,{cache:"no-store"}); if(r.ok) return await r.json(); }catch{} } throw new Error("no API reachable"); }
+      async function apiPost(p,body){ const out=[]; for(const base of apis){ try{ const r=await fetch(base+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); out.push({base,status:r.status,json:await r.json().catch(()=>null)}); }catch(e){ out.push({base,status:0,err:String(e)}); } } return out; }
+      let kstore=null;
+      async function storeInit(){ try{ kstore=await (await navigator.storage.getDirectory()).getDirectoryHandle("brc-mainnet",{create:true}); }catch{ kstore=null; } }
+      async function storeWrite(n,t){ if(!kstore)return; try{ const fh=await kstore.getFileHandle(n,{create:true}); const w=await fh.createWritable(); await w.write(t); await w.close(); }catch{} }
+      async function storeRead(n){ if(!kstore)return null; try{ return await (await (await kstore.getFileHandle(n)).getFile()).text(); }catch{ return null; } }
+      const serState=s=>[...s].map(([k,a])=>[k,a.balance.toString(),a.nonce]);
+      const deserState=a=>new Map(a.map(([k,b,n])=>[k,{balance:BigInt(b),nonce:n}]));
+
+      async function saveSnapshot(){ try{ const canon=[...chain.iterateCanonical()]; if(canon.length<2)return;
+        const bi=Math.min(CKPT_DEPTH,canon.length-1), base=canon[bi], recent=canon.slice(0,bi).reverse();
+        await storeWrite("snapshot.json", JSON.stringify({tipHash:bytesToHex(chain.tip.hash),height:chain.height,
+          base:{blockHex:bytesToHex(encodeBlock(base.block)),state:serState(base.state),work:base.work.toString()},
+          recent:recent.map(cb=>bytesToHex(encodeBlock(cb.block)))})); }catch(e){ console.warn("snap save",e); } }
+      async function bootFromSnapshot(){ const raw=await storeRead("snapshot.json"); if(!raw)return false; let s; try{s=JSON.parse(raw);}catch{return false;}
+        try{ const bb=decodeBlock(hexToBytes(s.base.blockHex)), bs=deserState(s.base.state);
+          if(bytesToHex(stateRoot(bs))!==bytesToHex(bb.header.stateRoot)) return false;
+          chain=Blockchain.fromCheckpoint(bb,bs,BigInt(s.base.work));
+          for(const hex of s.recent){ if(await chain.addBlockWithPow(decodeBlock(hexToBytes(hex)),true)) return false; }
+          return bytesToHex(chain.tip.hash)===s.tipHash && chain.height>0; }catch(e){ return false; } }
+      async function streamingColdSync(setStatus){ serverTip=await apiGet("/tip"); if(serverTip.height<CKPT_DEPTH+4) throw new Error("short");
+        const TIP=serverTip.height, starts=[]; for(let f=1;f<=TIP;f+=200)starts.push(f);
+        const pages=new Array(starts.length); let nx=0,dn=0;
+        async function fw(){ while(nx<starts.length){ const i=nx++,f=starts[i]; for(let a=0;a<4;a++){ try{ const p=await apiGet(`/blocks?fromHeight=${f}&max=200`); pages[i]=p.blocks||[]; break; }catch{ if(a===3)throw new Error("fetch@"+f); await new Promise(r=>setTimeout(r,400)); } } dn++; setStatus&&setStatus(`fetching ${Math.min(dn*200,TIP).toLocaleString()} / ${TIP.toLocaleString()} blocks`); } }
+        await Promise.all(Array.from({length:6},fw));
+        const state=emptyState(), baseH=TIP-CKPT_DEPTH; let prevHex=GENK,work=blockWork(GENESIS_DIFFICULTY_COMPACT),h=0,tipHeader=null,baseState=null,baseBlock=null,baseWork=0n; const ring=[];
+        for(const pg of pages){ if(!pg)throw new Error("gap"); for(const hex of pg){ const b=decodeBlock(hexToBytes(hex)); if(b.header.height!==h+1)continue;
+          if(bytesToHex(b.header.prevHash)!==prevHex)throw new Error("break@"+b.header.height);
+          const e=applyBlockTxs(state,b.header.height,b.header.miner,b.transactions); if(e)throw new Error("apply"+e);
+          work+=blockWork(b.header.difficulty); prevHex=bytesToHex(hashHeader(b.header)); h=b.header.height; tipHeader=b.header;
+          if(h===baseH){baseState=cloneState(state);baseBlock=b;baseWork=work;} else if(h>baseH) ring.push(b); }
+          if((h&1023)<200){ setStatus&&setStatus(`verifying state ${h.toLocaleString()} / ${TIP.toLocaleString()}`); await new Promise(r=>setTimeout(r,0)); } }
+        if(h!==TIP||prevHex!==serverTip.tipHash)throw new Error("tip"); if(bytesToHex(stateRoot(state))!==bytesToHex(tipHeader.stateRoot))throw new Error("root"); if(!baseBlock)throw new Error("base");
+        chain=Blockchain.fromCheckpoint(baseBlock,baseState,baseWork); for(const b of ring){ if(await chain.addBlockWithPow(b,true))throw new Error("replay@"+b.header.height); }
+        if(bytesToHex(chain.tip.hash)!==serverTip.tipHash)throw new Error("ckpt"); return chain.height; }
+      async function syncFromApi(setStatus){ serverTip=await apiGet("/tip"); let from=chain.height+1,lastH=-1,g=0;
+        while(chain.height<serverTip.height&&g<400){ g++; const page=await apiGet(`/blocks?fromHeight=${from}&max=200`); if(!page.blocks||!page.blocks.length){ if(from<=1)break; from=Math.max(1,from-200); continue; }
+          let pm=false; for(const hex of page.blocks){ const b=decodeBlock(hexToBytes(hex)); const err=await chain.addValidatedBlock(b); if(err==="parent block unknown")pm=true; }
+          if(chain.height>lastH){ lastH=chain.height; from=chain.height+1; } else if(pm){ from=(from>serverTip.height-199)?Math.max(1,serverTip.height-199):Math.max(1,from-200); } else break;
+          setStatus&&setStatus(`syncing ${chain.height.toLocaleString()} / ${serverTip.height.toLocaleString()}`); await new Promise(r=>setTimeout(r,0)); }
+        return chain.height; }
+      const caughtUp=()=>serverTip.height>0&&chain.height>=serverTip.height;
+
+      async function refreshStats(){ try{ const t=await apiGet("/tip"); serverTip=t; }catch{}
+        try{ stats=await apiGet("/stats"); }catch{}
+        // count reachable apis
+        let up=0; await Promise.all(apis.map(async b=>{ try{ const r=await fetch(b+"/tip",{cache:"no-store"}); if(r.ok)up++; }catch{} })); apisUp=up; }
+      async function refreshMempool(){ try{ const r=await apiGet("/mempool"); mempoolTxs=(r.txs||[]).map(hex=>{ try{ return decodeTx(hexToBytes(hex)).tx; }catch{ return null; } }).filter(Boolean); }catch{} }
+
+      // ── mining (our κ-pinned engine, multi-core) ─────────────────────────────────
+      const MAXCORES=navigator.hardwareConcurrency||4;
+      let mining=false, accepting=false, template=null, mineGen=0, attemptsThisBlock=0, sessionBlocks=0, sessionReward=0n;
+      let coreCount=Math.min(MAXCORES, +(localStorage.getItem("brc.cores")||Math.min(MAXCORES,4))), throttle=+(localStorage.getItem("brc.throttle")||1), autoThreads=localStorage.getItem("brc.auto")!=="0";
+      let workers=[]; const hpsByWid=new Map(); let lastNonceHex="0", lastHashHex="";
+      const aggHps=()=>{ let s=0; for(const v of hpsByWid.values()) s+=v; return s; };
+      function buildTemplate(){ const parent=chain.tip.block.header, height=parent.height+1, nowSec=Math.floor(Date.now()/1000);
+        const mtp=medianTimePast(chain.getRecentHeaders(MTP_WINDOW)); let ts=Math.max(nowSec,mtp+1); if(ts>nowSec+MAX_FUTURE_TIME_S)ts=nowSec+MAX_FUTURE_TIME_S;
+        const difficulty=nextDifficulty(height, chain.getRecentHeaders(DIFFICULTY_WINDOW+MTP_WINDOW-1), ts);
+        const sim=cloneState(chain.tipState); applyBlockTxs(sim,height,key.publicKey,[]);
+        const header={height,prevHash:chain.tip.hash,txRoot:computeTxRoot([]),stateRoot:stateRoot(sim),timestamp:ts,difficulty,nonce:0,miner:key.publicKey};
+        template={header,headerBytes:encodeHeader(header),targetHex:compactToTarget(difficulty).toString(16).padStart(64,"0"),difficulty,height}; attemptsThisBlock=0; }
+      function spawn(){ hardStop(); for(let i=0;i<coreCount;i++){ const w=new Worker("brc-worker.js",{type:"module"}); w.wid=i; w.onmessage=e=>onWk(e.data); workers.push(w); } }
+      function dispatch(){ const g=++mineGen, span=0x100000000, slice=Math.floor(span/Math.max(1,workers.length)), base=Math.floor(Math.random()*0xffffffff);
+        for(let i=0;i<workers.length;i++) workers[i].postMessage({cmd:"mine",wid:workers[i].wid,gen:g,headerBytes:template.headerBytes,targetHex:template.targetHex,startNonce:(base+i*slice)>>>0,throttle}); }
+      function hardStop(){ for(const w of workers){ try{ w.postMessage({cmd:"stop"}); w.terminate(); }catch{} } workers=[]; hpsByWid.clear(); }
+      function gateOk(){ return engineOk && (MODE==="devnet" || caughtUp()); }
+      function startMining(){ if(mining||!gateOk()) return; mining=true; accepting=false; buildTemplate(); spawn(); dispatch(); paintLive(); }
+      function stopMining(){ mining=false; hardStop(); paintLive(); }
+      async function onWk(d){
+        if(d.type==="hashrate"){ if(d.gen!==mineGen)return; hpsByWid.set(d.wid,d.hps||0); attemptsThisBlock+=d.delta||0; return; }
+        if(d.type==="oom"){ toast("worker hit a WASM memory ceiling fewer cores","err"); return; }
+        if(d.type==="exhausted"){ if(d.gen!==mineGen)return; if(mining){ buildTemplate(); dispatch(); } return; }
+        if(d.type==="solved"){ if(d.gen!==mineGen||accepting||!mining||!template)return; accepting=true; lastNonceHex="0x"+(d.nonce>>>0).toString(16); lastHashHex=d.hashHex;
+          for(const w of workers){ try{ w.postMessage({cmd:"stop"}); }catch{} }
+          const solved={header:{...template.header,nonce:d.nonce>>>0},transactions:[]};
+          const hb=encodeHeader(solved.header); const digest=await enginePow(hb);
+          const meets=hashMeetsTarget(digest, compactToTarget(solved.header.difficulty));
+          const err=await chain.addBlockWithPow(solved, meets);
+          if(err===null){ sessionBlocks++; sessionReward+=blockReward(solved.header.height); toast(`⛏ mined block #${solved.header.height} +50 BRC`,"ok");
+            if(MODE==="mainnet") submitBlock(solved); }
+          accepting=false; if(mining){ buildTemplate(); dispatch(); } if(activeRoute()) render(); }
+      }
+      async function submitBlock(block){ if(bytesToHex(block.header.prevHash)!==serverTip.tipHash) return;
+        try{ const res=await apiPost("/block",{block:bytesToHex(encodeBlock(block))});
+          if(res.some(r=>r.json&&r.json.status==="added")) toast(`block #${block.header.height} accepted by mainnet ✓`,"ok"); }catch{} }
+      function startHeartbeat(){ stopTimers(); const beat=()=>apiPost("/heartbeat",{id:peerId,height:chain.height,mining}).catch(()=>{}); beat(); hbTimer=setInterval(beat,30000);
+        pollTimer=setInterval(async()=>{ if(MODE!=="mainnet"||syncing)return; try{ const t=await apiGet("/tip"); serverTip=t;
+          if(t.height>chain.height||(t.tipHash&&t.tipHash!==bytesToHex(chain.tip.hash))){ syncing=true; await syncFromApi(); syncing=false; await saveSnapshot(); if(caughtUp()&&mining){ buildTemplate(); dispatch(); } }
+          if(caughtUp()&&mining&&workers.length===0){ buildTemplate(); spawn(); dispatch(); } else if(!caughtUp()&&mining){ stopMining(); }
+        }catch{} },12000); }
+      function stopTimers(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} if(pollTimer){clearInterval(pollTimer);pollTimer=null;} }
+
+      // ── send a real transaction ──────────────────────────────────────────────────
+      async function sendTx(toHexStr, amountStr, feeStr){
+        const to=hexToBytes(toHexStr.trim()); if(to.length!==32) throw new Error("address must be 64 hex chars");
+        const amount=BigInt(Math.round(parseFloat(amountStr)*1e8)); const fee=BigInt(Math.round(parseFloat(feeStr)*1e8));
+        if(!(amount>0n)) throw new Error("amount must be > 0");
+        if(bytesToHex(to)===key.address) throw new Error("can't send to yourself");
+        if(myBalance() < amount+fee) throw new Error("insufficient balance ("+fmtBRC(myBalance())+" BRC)");
+        const tx=signTx({from:key.publicKey,to,amount,fee,nonce:myNonce()}, key.privateKey);
+        const sErr=validateTxStructure(tx); if(sErr) throw new Error(sErr);
+        const res=await apiPost("/txs",{txs:[bytesToHex(encodeTx(tx))]});
+        const admitted=res.reduce((a,r)=>a+((r.json&&r.json.admitted)||0),0);
+        if(admitted>0) return { ok:true, txid:bytesToHex(txHash(tx)) };
+        const errs=res.flatMap(r=>(r.json&&r.json.errors)||[]); throw new Error(errs[0]||"not admitted by any helper");
+      }
+
+      // ── activity (real, derived from the synced chain + mempool) ──────────────────
+      function activity(){ const out=[], me=key.address;
+        for(const cb of chain.iterateCanonical()){ const h=cb.block.header; if(h.height===0)break;
+          if(bytesToHex(h.miner)===me){ let fees=0n; for(const t of cb.block.transactions) fees+=t.fee; out.push({status:"mined",dir:"mined",cp:"block #"+h.height,amt:blockReward(h.height)+fees,when:h.timestamp,conf:true}); }
+          for(const t of cb.block.transactions){ if(bytesToHex(t.to)===me) out.push({status:"received",dir:"in",cp:bytesToHex(t.from),amt:t.amount,when:h.timestamp,conf:true});
+            if(bytesToHex(t.from)===me) out.push({status:"sent",dir:"out",cp:bytesToHex(t.to),amt:-(t.amount+t.fee),when:h.timestamp,conf:true}); }
+          if(out.length>200) break; }
+        for(const t of mempoolTxs){ if(bytesToHex(t.from)===me) out.push({status:"pending",dir:"out",cp:bytesToHex(t.to),amt:-(t.amount+t.fee),when:Math.floor(Date.now()/1000),conf:false});
+          if(bytesToHex(t.to)===me) out.push({status:"pending",dir:"in",cp:bytesToHex(t.from),amt:t.amount,when:Math.floor(Date.now()/1000),conf:false}); }
+        return out; }
+
+      // ── QR ────────────────────────────────────────────────────────────────────────
+      async function paintQr(el, addr){ if(el.dataset.qrFor===addr) return; el.dataset.qrFor=addr; try{ el.innerHTML=await qrSvg(addr); }catch{ el.innerHTML=""; }
+        if(!el.dataset.wired){ el.dataset.wired="1"; el.style.cursor="zoom-in"; el.title="Tap to enlarge"; el.onclick=async()=>{ $("qrmodal-addr").textContent=addr; $("qrmodal-svg").innerHTML=await qrSvg(addr); $("qrmodal").classList.add("open"); }; } }
+      $("qrmodal-x").onclick=()=>$("qrmodal").classList.remove("open"); $("qrmodal").onclick=e=>{ if(e.target===$("qrmodal"))$("qrmodal").classList.remove("open"); };
+
+      // ── views ───────────────────────────────────────────────────────────────────
+      const route=()=> (location.hash.replace(/^#/,"")||"/");
+      const activeRoute=()=>true;
+      function tipDiffBits(){ try{ return diffBits(compactToTarget(chain.tipDifficulty)); }catch{ return ""; } }
+      function expHashes(){ try{ return Number((1n<<256n)/(compactToTarget(chain.tipDifficulty)+1n)); }catch{ return 0; } }
+      function estSolve(){ const hps=aggHps(); if(!hps) return ""; const sec=expHashes()/hps; return sec<90?Math.round(sec)+"s":sec<5400?Math.round(sec/60)+"m":(sec/3600).toFixed(1)+"h"; }
+      const infoIco='<span class="ico">i</span>';
+
+      function walletCardHtml(){ return `<div class="card"><h3>Your wallet ${infoIco}<span class="sp"></span><a href="#/wallet">Open wallet →</a></h3>
+        <div class="bal" id="hi-bal">${esc(fmtBRC(myBalance()))}<span class="u">BRC</span></div>
+        <div class="addrbox"><label>Your address (share this to receive coins)</label>
+          <div class="addrline"><input class="mono" id="hi-addr" readonly value="${esc(key.address)}"/></div>
+          <div class="row"><button class="b sm" id="hi-copy">Copy</button><button class="b sm" id="hi-send">Send →</button></div></div>
+        <div class="qrwrap"><div class="qr" id="hi-qr"></div><div class="mut" style="font-size:.82rem;align-self:center">Scan to send coins to this wallet.</div></div>
+        <div class="mut" style="margin-top:.6rem;font-size:.8rem">nonce ${myNonce()}</div></div>`; }
+
+      function miningCardHtml(full){ const d=tipDiffBits(); const peers=stats.minersActive||0;
+        return `<div class="card"><h3>Mining ${infoIco}<span class="sp"></span><a href="#/mine">Full miner →</a></h3>
+        <div class="kpi"><div><div class="l">Hashrate</div><div class="stat-num acc" id="m-hps">${fmtHps(mining?aggHps():0)}</div></div>
+          <div><div class="l">Difficulty</div><div class="stat-num" id="m-diff">${d} bits</div></div>
+          <div style="margin-left:auto"><button class="startbtn ${mining?'on':''}" id="m-start">${mining?'Stop':'Start'}</button></div></div>
+        <div class="mut" id="m-block" style="margin-top:.6rem">${mining?`mining block #${chain.height+1}`:'idle'} <span class="mut">· ~${(expHashes()/1e6).toFixed(2)}M hashes/block</span></div>
+        <div style="margin-top:.7rem"><span class="pill ${caughtUp()||MODE==='devnet'?'':'warn'}"><span class="d"></span><span id="m-peers">${MODE==='devnet'?'devnet · solo floor chain':`${peers} miners on the network · via API relay`}</span></span></div>
+        <div style="margin-top:.9rem"><div class="l mut" style="font-size:.7rem">CPU power: <span id="m-cpu">${Math.round(throttle*100)}</span>%</div>
+          <input class="slider" id="m-throttle" type="range" min="5" max="100" value="${Math.round(throttle*100)}" style="width:100%"/></div>
+        <div style="margin-top:.6rem;display:flex;align-items:center;gap:.5rem"><span class="l mut" style="font-size:.7rem">Threads: ${coreCount} / ${MAXCORES}</span>
+          <label style="margin-left:auto;font-size:.8rem"><input type="checkbox" id="m-auto" ${autoThreads?'checked':''} style="width:auto"/> auto</label></div>
+        <input class="slider" id="m-cores" type="range" min="1" max="${MAXCORES}" value="${coreCount}" style="width:100%;margin-top:.4rem" ${autoThreads?'disabled':''}/></div>`; }
+
+      function recentBlocksHtml(n){ const rows=[...chain.iterateCanonical()].filter(c=>c.block.header.height>0).slice(0,n||5);
+        const body=rows.length?rows.map(cb=>{ const h=cb.block.header, k=bytesToHex(cb.hash); return `<tr><td class="mono">${h.height}</td><td class="mono"><a>${short(k,10)}</a></td><td>${cb.block.transactions.length}</td><td class="mono mut">${short(bytesToHex(h.miner),10)}</td><td class="mut">${ago(h.timestamp)} ago</td></tr>`; }).join(""):`<tr><td colspan="5" class="empty">syncing…</td></tr>`;
+        return `<div class="card"><h3>Recent blocks ${infoIco}<span class="sp"></span><a href="#/explorer">Explorer →</a></h3><div class="scroll"><table><thead><tr><th>Height</th><th>Hash</th><th>Txs</th><th>Miner</th><th>Time</th></tr></thead><tbody>${body}</tbody></table></div></div>`; }
+      function pendingHtml(n){ const rows=mempoolTxs.slice(0,n||5);
+        const body=rows.length?rows.map(t=>`<tr><td class="mono">${short(bytesToHex(t.from),10)}</td><td class="mono">${short(bytesToHex(t.to),10)}</td><td>${fmtBRC(t.amount)} BRC</td><td class="mut">${fmtBRC(t.fee)}</td></tr>`).join(""):`<tr><td colspan="4" class="empty">no pending transactions</td></tr>`;
+        return `<div class="card"><h3>Pending transactions ${infoIco}<span class="sp"></span><a href="#/mempool">Open mempool →</a></h3><div class="scroll"><table><thead><tr><th>From</th><th>To</th><th>Amount</th><th>Fee</th></tr></thead><tbody>${body}</tbody></table></div></div>`; }
+      function networkCardHtml(){ const synced=caughtUp(); return `<div class="card"><h3>Network ${infoIco}</h3><div class="wlist">
+        <span class="l">Status</span><span class="v" style="color:${apisUp>0?'var(--good)':'var(--bad)'}">${apisUp>0?'online':'offline'}</span>
+        <span class="l">Peers</span><span class="v">${stats.peerCount??''}</span>
+        <span class="l">Miners</span><span class="v">${stats.minersActive??''}</span>
+        <span class="l">Height</span><span class="v">${chain.height.toLocaleString()}</span>
+        <span class="l">Server</span><span class="v">${synced?'in sync':'syncing'} · ${(serverTip.height||0).toLocaleString()} · ${apisUp}/${apis.length} up</span></div>
+        <div class="mut" style="font-size:.78rem;margin-top:.8rem">${MODE==='mainnet'?'Connected to the real public BrowserCoin network over content-addressed REST. Every block is validated locally the helpers are not authorities.':'Devnet: a solo content-addressed chain at the genesis floor.'}</div></div>`; }
+      function activityCardHtml(n){ const rows=activity().slice(0,n||4);
+        const body=rows.length?rows.map(a=>`<tr><td><span class="badge">${a.status.toUpperCase()}</span></td><td>${a.dir==='in'?'<span class="pos">⟵ recv</span>':a.dir==='out'?'<span class="neg">⟶ sent</span>':'⛏ mined'}</td><td class="mono">${esc(short(a.cp,12))}</td><td class="${a.amt>=0n?'pos':'neg'}">${a.amt>=0n?'+':''}${fmtBRC(a.amt)} BRC</td><td class="mut">${ago(a.when)} ago</td></tr>`).join(""):`<tr><td colspan="5" class="empty">No activity yet mine a block or receive coins.</td></tr>`;
+        return `<div class="card"><h3>Recent activity ${infoIco}<span class="sp"></span><a href="#/wallet">View all →</a></h3><div class="scroll"><table><thead><tr><th>Status</th><th>Dir</th><th>Counterparty</th><th>Amount</th><th>When</th></tr></thead><tbody>${body}</tbody></table></div></div>`; }
+
+      function viewHome(){ return `<h1 class="page">Welcome to Holo BRC Miner</h1><div class="sub">A real, content-addressed cryptocurrency you can mine, send and explore right here in your browser, hologram-native.</div>
+        <div class="grid2">${walletCardHtml()}${miningCardHtml(false)}</div>
+        <div class="grid2" style="margin-top:1.1rem">${activityCardHtml(4)}${networkCardHtml()}</div>
+        <div class="grid2" style="margin-top:1.1rem">${recentBlocksHtml(5)}${pendingHtml(5)}</div>`; }
+
+      function viewWallet(){ return `<h1 class="page">Wallet</h1><div class="sub">Manage your coins and send to anyone with an address.</div>
+        <div class="grid2"><div class="card"><h3>Balance ${infoIco}</h3>
+          <div class="bal" id="w-bal">${esc(fmtBRC(myBalance()))}<span class="u">BRC</span></div>
+          <div class="addrbox"><label>Your address (share this to receive coins)</label><div class="addrline"><input class="mono" id="w-addr" readonly value="${esc(key.address)}"/></div>
+          <div class="row"><button class="b sm" id="w-copy">Copy</button><button class="b sm" id="w-newkey">New key</button><button class="b sm" id="w-export">Export</button><button class="b sm" id="w-import">Import</button></div></div>
+          <div class="qrwrap"><div class="qr" id="w-qr"></div><div class="mut" style="font-size:.82rem;align-self:center">Scan to send coins to this wallet.</div></div>
+          <div class="mut" style="margin-top:.6rem;font-size:.8rem">nonce ${myNonce()}</div></div>
+        <div class="card"><h3>Send ${infoIco}</h3>
+          <div class="field"><label>Recipient address (64 hex chars)</label><input class="mono" id="s-to" placeholder="paste address here" autocomplete="off"/></div>
+          <div class="two"><div class="field"><label>Amount (BRC)</label><input id="s-amt" placeholder="1.0" inputmode="decimal"/></div>
+            <div class="field"><label>Fee (BRC)</label><input id="s-fee" value="0.00001" inputmode="decimal"/></div></div>
+          <div class="row"><button class="b pri" id="s-send">Send</button><button class="b sm" id="s-max">Max</button></div>
+          <div class="msg" id="s-msg"></div>
+          <div class="mut" style="font-size:.78rem;margin-top:.6rem">Transactions are Ed25519-signed on-device and broadcast to the network's mempool (POST /txs). They confirm when a miner includes them.</div></div></div>
+        <div class="card" style="margin-top:1.1rem"><h3>Activity ${infoIco}<span class="sp"></span><span class="mut" id="w-actcount"></span></h3>
+          <div class="row" id="w-acttabs" style="margin-top:0">${["All","Received","Sent","Mined","Pending"].map((t,i)=>`<button class="b sm ${i===0?'pri':''}" data-f="${t.toLowerCase()}">${t}</button>`).join("")}</div>
+          <div class="scroll" id="w-actbody"></div></div>`; }
+
+      function renderActivityBody(filter){ let rows=activity();
+        if(filter&&filter!=="all") rows=rows.filter(a=>(filter==="received"&&a.dir==="in"&&a.status!=="mined")||(filter==="sent"&&a.dir==="out"&&a.status!=="pending")||(filter==="mined"&&a.status==="mined")||(filter==="pending"&&a.status==="pending"));
+        $("w-actcount") && ($("w-actcount").textContent=rows.length+" match"+(rows.length===1?"":"es"));
+        const body=rows.length?rows.map(a=>`<tr><td><span class="badge">${a.status.toUpperCase()}</span></td><td>${a.dir==='in'?'<span class="pos">⟵ recv</span>':a.dir==='out'?'<span class="neg">⟶ sent</span>':'⛏ mined'}</td><td class="mono">${esc(short(a.cp,16))}</td><td class="${a.amt>=0n?'pos':'neg'}">${a.amt>=0n?'+':''}${fmtBRC(a.amt)} BRC</td><td class="mut">${ago(a.when)} ago</td></tr>`).join(""):`<tr><td colspan="5" class="empty">Nothing here yet.</td></tr>`;
+        $("w-actbody") && ($("w-actbody").innerHTML=`<table><thead><tr><th>Status</th><th>Dir</th><th>Counterparty</th><th>Amount</th><th>When</th></tr></thead><tbody>${body}</tbody></table>`); }
+
+      function viewMine(){ const d=tipDiffBits(); return `<h1 class="page">Mining</h1><div class="sub">Solve the Argon2id puzzle, win the block, earn the reward. <b>Real</b> proof-of-work via the κ-pinned prism-argon2id engine.</div>
+        <div style="margin-bottom:1rem"><span class="pill ${gateOk()?'':'warn'}"><span class="d"></span><span>${MODE==='devnet'?'Devnet · solo floor chain blocks land in seconds':`Connected via ${apisUp}/${apis.length} API relays · ${stats.minersActive||0} miners on the network`}</span></span></div>
+        <div class="card" style="text-align:center"><div class="mut" style="margin-bottom:.4rem">mining block <b style="color:var(--ink)">#${chain.height+1}</b></div>
+          <div class="stat-num acc" style="font-size:3rem" id="mn-hps">${fmtHps(mining?aggHps():0)}</div><div class="mut" id="mn-nh">${mining?`nonce ${lastNonceHex} · hash ${short(lastHashHex,18)}`:'idle'}</div>
+          <div style="margin-top:1rem"><button class="startbtn ${mining?'on':''}" id="mn-start">${mining?'Stop mining':'Start mining'}</button></div></div>
+        <div class="grid3" style="margin-top:1.1rem">
+          <div class="card"><h3>Mining block</h3><div class="stat-num acc">#${chain.height+1}</div><div class="mut">0 txs included</div></div>
+          <div class="card"><h3>Difficulty</h3><div class="stat-num">${d} bits</div><div class="mut">~${(expHashes()/1e6).toFixed(2)}M hashes/block</div></div>
+          <div class="card"><h3>Estimated solve</h3><div class="stat-num" id="mn-est">${estSolve()}</div><div class="mut">based on current hashrate</div></div>
+          <div class="card"><h3>Blocks this session</h3><div class="stat-num" id="mn-sb">${sessionBlocks}</div><div class="mut">since you opened this tab</div></div>
+          <div class="card"><h3>Rewards this session</h3><div class="stat-num" id="mn-sr">${fmtBRC(sessionReward)} BRC</div><div class="mut">lifetime: ${fmtBRC(myBalance())} BRC</div></div>
+          <div class="card"><h3>Block reward (now)</h3><div class="stat-num">${fmtBRC(blockReward(chain.height+1))} BRC</div><div class="mut">halves every 210,000 blocks</div></div></div>
+        <div class="grid2" style="margin-top:1.1rem">
+          <div class="card"><h3>CPU &amp; threads ${infoIco}</h3>
+            <div class="l mut" style="font-size:.72rem">CPU power: <span id="mn-cpu">${Math.round(throttle*100)}</span>%</div><input class="slider" id="mn-throttle" type="range" min="5" max="100" value="${Math.round(throttle*100)}" style="width:100%;margin:.4rem 0 1rem"/>
+            <div style="display:flex;align-items:center"><span class="l mut" style="font-size:.72rem">Threads: ${coreCount} / ${MAXCORES} available</span><label style="margin-left:auto;font-size:.82rem"><input type="checkbox" id="mn-auto" ${autoThreads?'checked':''} style="width:auto"/> auto</label></div>
+            <input class="slider" id="mn-cores" type="range" min="1" max="${MAXCORES}" value="${coreCount}" style="width:100%;margin-top:.4rem" ${autoThreads?'disabled':''}/>
+            <div class="mut" style="font-size:.78rem;margin-top:.6rem">Argon2id is memory-bandwidth bound adding threads scales sub-linearly (that's the ASIC/GPU resistance). Lower CPU power to keep using your machine.</div></div>
+          <div class="card"><h3>How mining works ${infoIco}</h3><div class="prose"><p>Your browser builds a candidate block from the chain tip, then grinds nonces: for each, it hashes the 148-byte header with memory-hard Argon2id (32 MiB) and wins if the digest falls below the target.</p><p>The winning block is validated by BrowserCoin's real consensus and broadcast to the network (POST /block). Mining uses your CPU heavily your laptop will warm up.</p></div></div></div>
+        <div class="card" style="margin-top:1.1rem"><h3>Mining diagnostics ${infoIco}<span class="sp"></span><button class="b sm" id="mn-restart">Restart workers</button></h3>
+          <div id="mn-workers" class="scroll"></div></div>`; }
+
+      function renderWorkers(){ const el=$("mn-workers"); if(!el)return; if(!workers.length){ el.innerHTML='<div class="empty">not mining</div>'; return; }
+        const max=Math.max(1,...[...hpsByWid.values()]); el.innerHTML=workers.map(w=>{ const h=hpsByWid.get(w.wid)||0; return `<div style="display:flex;align-items:center;gap:.7rem;margin:.35rem 0"><span class="mut mono" style="width:2.5rem">#${w.wid+1}</span><div class="barwrap" style="flex:1"><i style="width:${Math.round(h/max*100)}%"></i></div><span class="mono" style="width:5rem;text-align:right">${Math.round(h)} H/s</span></div>`; }).join(""); }
+
+      let exPage=0;
+      function viewExplorer(){ const total=serverTip.height||chain.height; const pages=Math.max(1,Math.ceil(total/20)); exPage=Math.max(0,Math.min(exPage,pages-1));
+        return `<h1 class="page">Explorer</h1><div class="sub">Every block ever mined. ${total.toLocaleString()} blocks.</div>
+          <div class="card"><h3>Blocks ${infoIco}<span class="sp"></span><span class="mut">Tip: ${short(serverTip.tipHash||bytesToHex(chain.tip.hash),14)}</span></h3>
+          <div class="scroll"><table><thead><tr><th>Height</th><th>Hash</th><th>Txs</th><th>Miner</th><th>Fees</th><th>Diff</th><th>Time</th></tr></thead><tbody id="ex-body"><tr><td colspan="7" class="empty">loading…</td></tr></tbody></table></div>
+          <div class="row" style="justify-content:flex-end;align-items:center"><button class="b sm" id="ex-prev" ${exPage<=0?'disabled':''}>← Prev</button><span class="mut">Page ${exPage+1} of ${pages.toLocaleString()}</span><button class="b sm" id="ex-next" ${exPage>=pages-1?'disabled':''}>Next →</button></div></div>`; }
+      // Explorer reads the FULL chain from the network (the in-memory chain is checkpoint-truncated for fast boot).
+      async function loadExplorer(){ const el=$("ex-body"); if(!el)return; const total=serverTip.height||chain.height; const top=total-exPage*20, from=Math.max(1,top-19);
+        let blocks=[]; try{ const r=await apiGet(`/blocks?fromHeight=${from}&max=20`); blocks=(r.blocks||[]).map(h=>{ try{ return decodeBlock(hexToBytes(h)); }catch{ return null; } }).filter(Boolean); }catch{}
+        blocks.reverse();
+        el.innerHTML = blocks.length? blocks.map(b=>{ const h=b.header; let fees=0n; for(const t of b.transactions)fees+=t.fee; return `<tr><td class="mono">${h.height}</td><td class="mono"><a>${short(bytesToHex(hashHeader(h)),10)}</a></td><td>${b.transactions.length}</td><td class="mono mut">${short(bytesToHex(h.miner),10)}</td><td class="mut">${fmtBRC(fees)}</td><td>${diffBits(compactToTarget(h.difficulty))} bits</td><td class="mut">${hhmmss(h.timestamp)}</td></tr>`; }).join("") : `<tr><td colspan="7" class="empty">offline</td></tr>`; }
+
+      function viewMempool(){ let val=0n,fees=0n; for(const t of mempoolTxs){ val+=t.amount; fees+=t.fee; }
+        const body=mempoolTxs.length?mempoolTxs.map(t=>`<tr><td class="mono">${short(bytesToHex(t.from),12)}</td><td class="mono">${short(bytesToHex(t.to),12)}</td><td>${fmtBRC(t.amount)} BRC</td><td class="mut">${fmtBRC(t.fee)} BRC</td><td class="mono">${t.nonce}</td></tr>`).join(""):`<tr><td colspan="5" class="empty">No pending transactions.</td></tr>`;
+        return `<h1 class="page">Mempool</h1><div class="sub">Transactions waiting to be picked up by a miner.</div>
+          <div class="card"><h3>Pending transactions ${infoIco}<span class="sp"></span><span class="mut">${mempoolTxs.length} pending · ${fmtBRC(val)} BRC · ${fmtBRC(fees)} fees</span></h3>
+          <div class="scroll"><table><thead><tr><th>From</th><th>To</th><th>Amount</th><th>Fee</th><th>Nonce</th></tr></thead><tbody>${body}</tbody></table></div></div>`; }
+
+      function viewAbout(){ return `<h1 class="page">About</h1><div class="sub">Holo BRC Miner BrowserCoin, hologram-native.</div>
+        <div class="card prose"><p>Holo BRC Miner is a faithful, native rebuild of <a href="https://github.com/swompythesecond/BrowserCoin" target="_blank" rel="noopener">BrowserCoin</a> (MIT) inside a holospace. It mines, sends and explores <b>real BRC on the live public network</b> no install, no extension, no simulation.</p>
+        <ul><li><b>Real Argon2id PoW</b> (32 MiB, 1 pass) via our κ-pinned <code>prism-argon2id</code> engine byte-identical to BrowserCoin's own verifier, so the blocks it grinds are network-valid.</li>
+        <li><b>BrowserCoin's real consensus</b> (ASERT retarget, account model, Ed25519 signatures) every block validated locally; the helper servers are not authorities.</li>
+        <li><b>Content-addressed substrate</b> each block's id is its sha256 κ; the chain is verified by re-derivation (Law L5), and boot resumes from a content-addressed state snapshot.</li>
+        <li><b>Honest:</b> a browser tab is a small miner. At current difficulty, solo block-finding takes a while proof-of-work can't be shortcut.</li></ul>
+        <p class="mut">Monetary policy mirrors BrowserCoin: 50 BRC initial reward, halving every 210,000 blocks, 21,000,000 BRC max supply, ~2.5-minute target block time.</p></div>`; }
+
+      function viewDevelopers(){ return `<h1 class="page">Developers</h1><div class="sub">Build on the chain, or inspect how this works.</div>
+        <div class="card prose"><p>The protocol is BrowserCoin's, vendored as a content-addressed library:</p>
+        <ul><li><code>_shared/brc-core/holo-core.js</code> BrowserCoin's real chain + consensus + transactions, as a browser ESM.</li>
+        <li><code>_shared/prism-argon2id/</code> the κ-pinned Argon2id PoW engine (Law L5, re-derivable).</li>
+        <li><code>brc-worker.js</code> the multi-core nonce grinder.</li>
+        <li><code>brcminer.html</code> this app.</li></ul>
+        <p><b>REST endpoints</b> (the network helpers, content-addressed):</p>
+        <ul><li><code>GET /tip</code> · <code>GET /blocks?fromHeight=N&max=M</code> · <code>POST /block</code> · <code>GET /mempool</code> · <code>POST /txs</code> · <code>GET /stats</code></li></ul>
+        <p>Addresses are Ed25519 public keys (64 hex). A transaction signs over <code>chainId | from | to | amount | fee | nonce</code>. Witness: <code>brcminer-witness.mjs</code>.</p></div>`; }
+
+      function viewSettings(){ return `<h1 class="page">Settings</h1><div class="sub">Network and mining preferences.</div>
+        <div class="grid2"><div class="card"><h3>Network ${infoIco}</h3>
+          <div class="field"><label>Mode</label><div class="row" id="set-mode" style="margin-top:0"><button class="b sm ${MODE==='mainnet'?'pri':''}" data-m="mainnet">Mainnet (live public network)</button><button class="b sm ${MODE==='devnet'?'pri':''}" data-m="devnet">Devnet (solo floor)</button></div></div>
+          <div class="field"><label>API helper servers (one per line)</label><textarea id="set-apis" rows="3" class="mono">${esc(apis.join("\n"))}</textarea></div>
+          <div class="row"><button class="b pri" id="set-save">Save &amp; reconnect</button><button class="b sm" id="set-reset">Reset</button></div>
+          <div class="mut" style="font-size:.78rem;margin-top:.6rem">Sync/submit run over these helpers (REST). The chain itself is content-addressed and validated locally.</div></div>
+        <div class="card"><h3>Mining defaults ${infoIco}</h3>
+          <div class="l mut" style="font-size:.72rem">CPU power: <span id="set-cpu">${Math.round(throttle*100)}</span>%</div><input class="slider" id="set-throttle" type="range" min="5" max="100" value="${Math.round(throttle*100)}" style="width:100%;margin:.4rem 0 1rem"/>
+          <div style="display:flex;align-items:center"><span class="l mut" style="font-size:.72rem">Threads: ${coreCount} / ${MAXCORES}</span><label style="margin-left:auto;font-size:.82rem"><input type="checkbox" id="set-auto" ${autoThreads?'checked':''} style="width:auto"/> auto (use all cores)</label></div>
+          <input class="slider" id="set-cores" type="range" min="1" max="${MAXCORES}" value="${coreCount}" style="width:100%;margin-top:.4rem" ${autoThreads?'disabled':''}/>
+          <div class="field"><label>Your private key (hex) keep secret</label><div class="row" style="margin-top:0"><button class="b sm" id="set-export">Copy private key</button></div></div></div></div>`; }
+
+      // ── render + wiring ───────────────────────────────────────────────────────────
+      function setThrottle(v){ throttle=Math.max(0.05,Math.min(1,v/100)); localStorage.setItem("brc.throttle",throttle); if(mining){ dispatch(); } }
+      function setCores(v){ coreCount=Math.max(1,Math.min(MAXCORES,v)); localStorage.setItem("brc.cores",coreCount); if(mining){ spawn(); dispatch(); } }
+      function copy(t){ navigator.clipboard?.writeText(t); toast("Copied"); }
+      function toggleMine(){ if(!engineOk){ toast("engine not verified","err"); return; } if(mining) stopMining(); else if(!gateOk()){ toast(MODE==='mainnet'?"still syncing to the live tip mining starts when caught up":"not ready","err"); } else startMining(); render(); }
+
+      function wireWalletCommon(prefix){ const c=$(prefix+"-copy"); if(c)c.onclick=()=>copy(key.address); const q=$(prefix+"-qr"); if(q)paintQr(q,key.address); }
+
+      function render(){ const r=route(); for(const a of $("tabs").children) a.classList.toggle("on", a.dataset.r===r);
+        const v=$("view");
+        if(r==="/"){ v.innerHTML=viewHome(); wireWalletCommon("hi"); $("hi-send").onclick=()=>location.hash="#/wallet"; $("m-start").onclick=toggleMine;
+          $("m-throttle").oninput=e=>{ setThrottle(+e.target.value); $("m-cpu").textContent=Math.round(throttle*100); };
+          $("m-auto").onchange=e=>{ autoThreads=e.target.checked; localStorage.setItem("brc.auto",autoThreads?"1":"0"); if(autoThreads) setCores(MAXCORES); render(); };
+          $("m-cores").oninput=e=>setCores(+e.target.value); }
+        else if(r==="/wallet"){ v.innerHTML=viewWallet(); wireWalletCommon("w"); $("w-newkey").onclick=()=>{ if(!confirm("Generate a NEW wallet? Current key lost unless exported."))return; key=generateKeyPair(); localStorage.setItem("brc.key.v1",bytesToHex(key.privateKey)); render(); };
+          $("w-export").onclick=()=>copy(bytesToHex(key.privateKey)); $("w-import").onclick=()=>{ const v2=prompt("Paste 64-hex private key:"); if(!v2)return; try{ key=fromPrivateKey(hexToBytes(v2.trim())); localStorage.setItem("brc.key.v1",bytesToHex(key.privateKey)); render(); toast("Imported"); }catch(e){ toast("invalid key","err"); } };
+          $("s-max").onclick=()=>{ const fee=BigInt(Math.round(parseFloat($("s-fee").value||"0")*1e8)); const max=myBalance()-fee; $("s-amt").value=max>0n?fmtBRC(max):"0"; };
+          $("s-send").onclick=async()=>{ const m=$("s-msg"); m.className="msg"; m.textContent="signing + broadcasting…"; $("s-send").disabled=true; try{ const r2=await sendTx($("s-to").value,$("s-amt").value,$("s-fee").value); m.className="msg ok"; m.innerHTML="broadcast ✓ txid "+short(r2.txid,18); $("s-to").value=$("s-amt").value=""; setTimeout(()=>{refreshMempool();},1200); }catch(e){ m.className="msg err"; m.textContent="✗ "+e.message; } $("s-send").disabled=false; };
+          for(const b of $("w-acttabs").children) b.onclick=()=>{ for(const x of $("w-acttabs").children) x.classList.toggle("pri",x===b); renderActivityBody(b.dataset.f); }; renderActivityBody("all"); }
+        else if(r==="/mine"){ v.innerHTML=viewMine(); $("mn-start").onclick=toggleMine; $("mn-restart").onclick=()=>{ if(mining){ spawn(); dispatch(); } };
+          $("mn-throttle").oninput=e=>{ setThrottle(+e.target.value); $("mn-cpu").textContent=Math.round(throttle*100); };
+          $("mn-auto").onchange=e=>{ autoThreads=e.target.checked; localStorage.setItem("brc.auto",autoThreads?"1":"0"); if(autoThreads) setCores(MAXCORES); render(); };
+          $("mn-cores").oninput=e=>setCores(+e.target.value); renderWorkers(); }
+        else if(r==="/explorer"){ v.innerHTML=viewExplorer(); loadExplorer(); $("ex-prev")&&($("ex-prev").onclick=()=>{ exPage=Math.max(0,exPage-1); render(); }); $("ex-next")&&($("ex-next").onclick=()=>{ exPage++; render(); }); }
+        else if(r==="/mempool"){ v.innerHTML=viewMempool(); }
+        else if(r==="/about"){ v.innerHTML=viewAbout(); }
+        else if(r==="/developers"){ v.innerHTML=viewDevelopers(); }
+        else if(r==="/settings"){ v.innerHTML=viewSettings();
+          for(const b of $("set-mode").children) b.onclick=()=>{ const m=b.dataset.m; if(m===MODE)return; localStorage.setItem("brc.mode",m); location.reload(); };
+          $("set-save").onclick=()=>{ const list=$("set-apis").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); if(list.length){ apis=list; localStorage.setItem("brc.apis",JSON.stringify(list)); toast("saved reconnecting"); location.reload(); } };
+          $("set-reset").onclick=()=>{ localStorage.removeItem("brc.apis"); apis=MAINNET_APIS.slice(); render(); };
+          $("set-throttle").oninput=e=>{ setThrottle(+e.target.value); $("set-cpu").textContent=Math.round(throttle*100); };
+          $("set-auto").onchange=e=>{ autoThreads=e.target.checked; localStorage.setItem("brc.auto",autoThreads?"1":"0"); if(autoThreads) setCores(MAXCORES); render(); };
+          $("set-cores").oninput=e=>setCores(+e.target.value); $("set-export").onclick=()=>copy(bytesToHex(key.privateKey)); }
+      }
+
+      // hot-number updater (doesn't rebuild inputs)
+      function paintLive(){ const r=route();
+        $("ns-height")&&($("ns-height").textContent=chain.height.toLocaleString()); $("ns-miners")&&($("ns-miners").textContent=stats.minersActive??"");
+        $("ns-peers")&&($("ns-peers").textContent=stats.peerCount??""); $("ns-diff")&&($("ns-diff").textContent=tipDiffBits()+" bits");
+        const synced=caughtUp()||MODE==="devnet"; const d=$("ns-dot"); if(d){ d.className="dot "+(apisUp>0||MODE==="devnet"?"on":""); } $("ns-status")&&($("ns-status").textContent= MODE==="devnet"?"devnet":(syncing?"syncing…":(synced?"online · in sync":"syncing…")));
+        if(r==="/"){ $("m-hps")&&($("m-hps").textContent=fmtHps(mining?aggHps():0)); $("m-start")&&($("m-start").textContent=mining?"Stop":"Start")&&($("m-start").className="startbtn "+(mining?"on":"")); $("hi-bal")&&($("hi-bal").innerHTML=esc(fmtBRC(myBalance()))+'<span class="u">BRC</span>'); $("m-block")&&($("m-block").innerHTML=(mining?`mining block #${chain.height+1}`:'idle')+` <span class="mut">· ~${(expHashes()/1e6).toFixed(2)}M hashes/block</span>`); }
+        if(r==="/mine"){ $("mn-hps")&&($("mn-hps").textContent=fmtHps(mining?aggHps():0)); $("mn-nh")&&($("mn-nh").textContent=mining?`nonce ${lastNonceHex} · hash ${short(lastHashHex,18)}`:'idle'); $("mn-est")&&($("mn-est").textContent=estSolve()); $("mn-sb")&&($("mn-sb").textContent=sessionBlocks); $("mn-sr")&&($("mn-sr").textContent=fmtBRC(sessionReward)+" BRC"); $("mn-start")&&($("mn-start").textContent=mining?"Stop mining":"Start mining")&&($("mn-start").className="startbtn "+(mining?"on":"")); renderWorkers(); }
+      }
+
+      addEventListener("hashchange", render);
+
+      // ── boot ──────────────────────────────────────────────────────────────────────
+      async function boot(){
+        render();
+        if(MODE==="devnet"){ chain=new Blockchain(); paintLive(); render(); startMining(); return; }
+        // mainnet: fast boot
+        await storeInit(); syncing=true; $("ns-status").textContent="connecting…";
+        let warm=false; try{ warm=await bootFromSnapshot(); }catch{}
+        if(!warm){ try{ await streamingColdSync(s=>{ $("ns-status").textContent=s; }); }catch(e){ chain=new Blockchain(); } }
+        try{ await syncFromApi(s=>{ $("ns-status").textContent=s; }); }catch(e){ $("ns-status").textContent="offline"; }
+        await saveSnapshot(); syncing=false;
+        await refreshStats(); await refreshMempool();
+        paintLive(); render();
+        if(caughtUp()){ startMining(); toast(`On the live tip at height ${chain.height.toLocaleString()} ✓`,"ok"); }
+        startHeartbeat();
+        if(window.HoloTeleport) HoloTeleport.stamp("brc:"+bytesToHex(chain.tip.hash));
+      }
+
+      // periodic refresh of live data + re-render data views
+      setInterval(async()=>{ await refreshStats(); paintLive();
+        const r=route(); if(r==="/mempool"||r==="/"||r==="/wallet") await refreshMempool();
+        if(r==="/"||r==="/mempool"||r==="/explorer"||r==="/wallet"){ /* lists */ if(r!=="/wallet") render(); } }, 5000);
+      setInterval(paintLive, 800);
+
+      boot();
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+noVNC 1.5.0 — the canonical RFB/VNC client (Law L5 pins)
+========================================================
+
+Plasma Desktop mounts a real, unmodified KDE Plasma 6 session live over VNC.
+The client is noVNC — the reference HTML5 VNC (RFB, RFC 6143) implementation —
+vendored here as its native ES-module `core/` tree. NO CDN, NO esm.sh: the page
+imports `./vendor/novnc/core/rfb.js`, so every byte is served same-origin and is
+re-derived by the κ-verifying delivery worker (Law L5). A cross-origin import
+(the previous `https://esm.sh/@novnc/novnc@1.5.0/core/rfb.js`) bypassed that
+worker entirely and ran with zero re-derivation — the KAPPA-1 hole this closes.
+
+Why this IS noVNC (not a re-implementation or a lossy bundle):
+  • This is the upstream `core/` ES-module source, copied verbatim from the
+    tagged release. `core/rfb.js` is the entry; its default export is the `RFB`
+    class — `new RFB(target, url, opts)` is the public API the page calls.
+  • All imports are RELATIVE and the tree is closed: `core/` resolves entirely
+    within itself plus `vendor/pako/` (noVNC's bundled zlib, used by the
+    Inflator/Deflator for the Tight/ZRLE/zlib decoders). Verified: 50 modules
+    reachable from rfb.js, zero non-relative specifiers, zero missing targets.
+  • Not transpiled, not minified, not re-bundled — the original author bytes, so
+    the closure is re-derivable byte-for-byte and auditable line-by-line.
+
+Source (vendored verbatim, no edits):
+  https://github.com/novnc/noVNC  tag v1.5.0
+  trees copied: core/  +  vendor/pako/   (and LICENSE.txt)
+  (npm @novnc/novnc@1.5.0 ships only a babel CommonJS `lib/` build, which is NOT
+   browser-loadable as ESM — esm.sh was transforming it on the fly. We vendor the
+   genuine ESM `core/` source instead, so no build step and no transform.)
+
+How the κ-gate works (Law L5 — verify by re-derivation):
+  • holospace.lock.json pins every vendored byte under apps/plasma/vendor/novnc/
+    on BOTH axes: did:holo:sha256 (the OS serving key) and a did:holo:blake3
+    alsoKnownAs (the unified UOR substrate anchor). The delivery worker re-derives
+    the sha256 of each served byte against this closure and refuses a drift.
+  • holo-kappa1-extern-witness.mjs confirms no first-party external code load
+    remains in apps/plasma — plasma no longer appears in its report.
+  A forged byte fails.
+
+License: Mozilla Public License 2.0 (noVNC). See LICENSE.txt. pako (vendor/pako)
+is MIT/zlib — see vendor/pako/LICENSE.
+
+sha256 (anchors; full closure is in apps/plasma/holospace.lock.json):
+  18b16349b447518844986a305c7c752d169eaf2067e12a811af14c9242d96e63  core/rfb.js
+  e522f81d37206b944461b6b50bc79bd61ccc838b442ba51871f9566de531f5c4  LICENSE.txt

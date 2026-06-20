@@ -1,0 +1,1816 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    {
+      "schema": "https://schema.org/",
+      "prov": "http://www.w3.org/ns/prov#",
+      "dcterms": "http://purl.org/dc/terms/",
+      "rel": "schema:additionalType",
+      "links": {
+        "@id": "schema:hasPart",
+        "@container": "@set"
+      }
+    },
+    {
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "skos": "http://www.w3.org/2004/02/skos/core#",
+      "xsd": "http://www.w3.org/2001/XMLSchema#",
+      "hosc": "https://hologram.os/ns/conformance#",
+      "a12": "https://hologram.os/ns/atlas-12288#"
+    }
+  ],
+  "@type": [
+    "owl:Ontology",
+    "schema:Dataset",
+    "prov:Entity"
+  ],
+  "dcterms:title": "Φ-Atlas-12288 — the UOR Prime Structure, encoded as a self-verifying UOR object",
+  "dcterms:description": "The 12,288-element boundary (48 pages × 256 bytes) of the UOR holographic system, compressed by R96 into 96 resonance classes (3/8). Projected — NOT re-implemented — from the verbatim UOR-Foundation/atlas-12288 source, each file of which is linked here by its content κ.",
+  "schema:identifier": "atlas-12288",
+  "schema:isBasedOn": {
+    "@id": "https://github.com/UOR-Foundation/atlas-12288",
+    "schema:version": "aef42a6fd5c323373222b6362050b439690136a1",
+    "schema:license": "MIT"
+  },
+  "a12:pages": 48,
+  "a12:bytesPerPage": 256,
+  "a12:totalElements": 12288,
+  "a12:resonanceClasses": 96,
+  "a12:compressionRatio": "3/8",
+  "a12:factorization": {
+    "total": "2^12 × 3",
+    "pages": "2^4 × 3",
+    "bytes": "2^8",
+    "classes": "3 × 2^5"
+  },
+  "a12:unityConstraint": "α₄α₅ = 1",
+  "a12:phiEncode": "Φ(page, byte) = (page << 8) | byte",
+  "a12:phiDecode": {
+    "page": "code >> 8",
+    "byte": "code & 0xFF"
+  },
+  "a12:conservation": "truth ≙ conservation: truth(budget) ↔ budget = 0; truth_add(a,b) ↔ a + b = 0",
+  "owl:imports": [],
+  "a12:defines": [
+    {
+      "@id": "a12:PrimeStructure",
+      "@type": "owl:Class",
+      "rdfs:label": "Prime Structure",
+      "rdfs:comment": "The 12,288-element boundary object (48×256) with R96 compression."
+    },
+    {
+      "@id": "a12:Page",
+      "@type": "owl:Class",
+      "rdfs:label": "Page",
+      "rdfs:comment": "One of 48 pages; ℤ₄₈."
+    },
+    {
+      "@id": "a12:Byte",
+      "@type": "owl:Class",
+      "rdfs:label": "Byte",
+      "rdfs:comment": "One of 256 bytes per page; ℤ₂₅₆."
+    },
+    {
+      "@id": "a12:BoundaryElement",
+      "@type": "owl:Class",
+      "rdfs:label": "Boundary Element",
+      "rdfs:comment": "A (page, byte) coordinate; one of the 12,288 elements, Φ-encodable to a 32-bit code."
+    },
+    {
+      "@id": "a12:ResonanceClass",
+      "@type": "owl:Class",
+      "rdfs:subClassOf": {
+        "@id": "skos:Concept"
+      },
+      "rdfs:label": "Resonance Class",
+      "rdfs:comment": "One of 96 R96 classes; the codomain of classifyByte."
+    }
+  ],
+  "a12:R96Scheme": {
+    "@id": "a12:R96Scheme",
+    "@type": "skos:ConceptScheme",
+    "dcterms:title": "R96 — the 96 resonance classes",
+    "skos:hasTopConcept": [
+      {
+        "@id": "a12:r96-0"
+      },
+      {
+        "@id": "a12:r96-1"
+      },
+      {
+        "@id": "a12:r96-2"
+      },
+      {
+        "@id": "a12:r96-3"
+      },
+      {
+        "@id": "a12:r96-4"
+      },
+      {
+        "@id": "a12:r96-5"
+      },
+      {
+        "@id": "a12:r96-6"
+      },
+      {
+        "@id": "a12:r96-7"
+      },
+      {
+        "@id": "a12:r96-8"
+      },
+      {
+        "@id": "a12:r96-9"
+      },
+      {
+        "@id": "a12:r96-10"
+      },
+      {
+        "@id": "a12:r96-11"
+      },
+      {
+        "@id": "a12:r96-12"
+      },
+      {
+        "@id": "a12:r96-13"
+      },
+      {
+        "@id": "a12:r96-14"
+      },
+      {
+        "@id": "a12:r96-15"
+      },
+      {
+        "@id": "a12:r96-16"
+      },
+      {
+        "@id": "a12:r96-17"
+      },
+      {
+        "@id": "a12:r96-18"
+      },
+      {
+        "@id": "a12:r96-19"
+      },
+      {
+        "@id": "a12:r96-20"
+      },
+      {
+        "@id": "a12:r96-21"
+      },
+      {
+        "@id": "a12:r96-22"
+      },
+      {
+        "@id": "a12:r96-23"
+      },
+      {
+        "@id": "a12:r96-24"
+      },
+      {
+        "@id": "a12:r96-25"
+      },
+      {
+        "@id": "a12:r96-26"
+      },
+      {
+        "@id": "a12:r96-27"
+      },
+      {
+        "@id": "a12:r96-28"
+      },
+      {
+        "@id": "a12:r96-29"
+      },
+      {
+        "@id": "a12:r96-30"
+      },
+      {
+        "@id": "a12:r96-31"
+      },
+      {
+        "@id": "a12:r96-32"
+      },
+      {
+        "@id": "a12:r96-33"
+      },
+      {
+        "@id": "a12:r96-34"
+      },
+      {
+        "@id": "a12:r96-35"
+      },
+      {
+        "@id": "a12:r96-36"
+      },
+      {
+        "@id": "a12:r96-37"
+      },
+      {
+        "@id": "a12:r96-38"
+      },
+      {
+        "@id": "a12:r96-39"
+      },
+      {
+        "@id": "a12:r96-40"
+      },
+      {
+        "@id": "a12:r96-41"
+      },
+      {
+        "@id": "a12:r96-42"
+      },
+      {
+        "@id": "a12:r96-43"
+      },
+      {
+        "@id": "a12:r96-44"
+      },
+      {
+        "@id": "a12:r96-45"
+      },
+      {
+        "@id": "a12:r96-46"
+      },
+      {
+        "@id": "a12:r96-47"
+      },
+      {
+        "@id": "a12:r96-48"
+      },
+      {
+        "@id": "a12:r96-49"
+      },
+      {
+        "@id": "a12:r96-50"
+      },
+      {
+        "@id": "a12:r96-51"
+      },
+      {
+        "@id": "a12:r96-52"
+      },
+      {
+        "@id": "a12:r96-53"
+      },
+      {
+        "@id": "a12:r96-54"
+      },
+      {
+        "@id": "a12:r96-55"
+      },
+      {
+        "@id": "a12:r96-56"
+      },
+      {
+        "@id": "a12:r96-57"
+      },
+      {
+        "@id": "a12:r96-58"
+      },
+      {
+        "@id": "a12:r96-59"
+      },
+      {
+        "@id": "a12:r96-60"
+      },
+      {
+        "@id": "a12:r96-61"
+      },
+      {
+        "@id": "a12:r96-62"
+      },
+      {
+        "@id": "a12:r96-63"
+      },
+      {
+        "@id": "a12:r96-64"
+      },
+      {
+        "@id": "a12:r96-65"
+      },
+      {
+        "@id": "a12:r96-66"
+      },
+      {
+        "@id": "a12:r96-67"
+      },
+      {
+        "@id": "a12:r96-68"
+      },
+      {
+        "@id": "a12:r96-69"
+      },
+      {
+        "@id": "a12:r96-70"
+      },
+      {
+        "@id": "a12:r96-71"
+      },
+      {
+        "@id": "a12:r96-72"
+      },
+      {
+        "@id": "a12:r96-73"
+      },
+      {
+        "@id": "a12:r96-74"
+      },
+      {
+        "@id": "a12:r96-75"
+      },
+      {
+        "@id": "a12:r96-76"
+      },
+      {
+        "@id": "a12:r96-77"
+      },
+      {
+        "@id": "a12:r96-78"
+      },
+      {
+        "@id": "a12:r96-79"
+      },
+      {
+        "@id": "a12:r96-80"
+      },
+      {
+        "@id": "a12:r96-81"
+      },
+      {
+        "@id": "a12:r96-82"
+      },
+      {
+        "@id": "a12:r96-83"
+      },
+      {
+        "@id": "a12:r96-84"
+      },
+      {
+        "@id": "a12:r96-85"
+      },
+      {
+        "@id": "a12:r96-86"
+      },
+      {
+        "@id": "a12:r96-87"
+      },
+      {
+        "@id": "a12:r96-88"
+      },
+      {
+        "@id": "a12:r96-89"
+      },
+      {
+        "@id": "a12:r96-90"
+      },
+      {
+        "@id": "a12:r96-91"
+      },
+      {
+        "@id": "a12:r96-92"
+      },
+      {
+        "@id": "a12:r96-93"
+      },
+      {
+        "@id": "a12:r96-94"
+      },
+      {
+        "@id": "a12:r96-95"
+      }
+    ],
+    "prov:wasDerivedFrom": {
+      "@type": "prov:Entity",
+      "@id": "did:holo:sha256:4502bd5d323002ee46d5b815d9ca9c0a080a30449f59557230d25d6c9724d023",
+      "schema:name": "UOR.Prime.Structure.classifyByte",
+      "rdfs:comment": "classifyByte(b) = b % 96 (verbatim, Lean 4)"
+    }
+  },
+  "skos:member": [
+    {
+      "@id": "a12:r96-0",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 0,
+      "skos:prefLabel": "R96[0]",
+      "a12:bytes": [
+        0,
+        96,
+        192
+      ]
+    },
+    {
+      "@id": "a12:r96-1",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 1,
+      "skos:prefLabel": "R96[1]",
+      "a12:bytes": [
+        1,
+        97,
+        193
+      ]
+    },
+    {
+      "@id": "a12:r96-2",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 2,
+      "skos:prefLabel": "R96[2]",
+      "a12:bytes": [
+        2,
+        98,
+        194
+      ]
+    },
+    {
+      "@id": "a12:r96-3",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 3,
+      "skos:prefLabel": "R96[3]",
+      "a12:bytes": [
+        3,
+        99,
+        195
+      ]
+    },
+    {
+      "@id": "a12:r96-4",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 4,
+      "skos:prefLabel": "R96[4]",
+      "a12:bytes": [
+        4,
+        100,
+        196
+      ]
+    },
+    {
+      "@id": "a12:r96-5",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 5,
+      "skos:prefLabel": "R96[5]",
+      "a12:bytes": [
+        5,
+        101,
+        197
+      ]
+    },
+    {
+      "@id": "a12:r96-6",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 6,
+      "skos:prefLabel": "R96[6]",
+      "a12:bytes": [
+        6,
+        102,
+        198
+      ]
+    },
+    {
+      "@id": "a12:r96-7",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 7,
+      "skos:prefLabel": "R96[7]",
+      "a12:bytes": [
+        7,
+        103,
+        199
+      ]
+    },
+    {
+      "@id": "a12:r96-8",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 8,
+      "skos:prefLabel": "R96[8]",
+      "a12:bytes": [
+        8,
+        104,
+        200
+      ]
+    },
+    {
+      "@id": "a12:r96-9",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 9,
+      "skos:prefLabel": "R96[9]",
+      "a12:bytes": [
+        9,
+        105,
+        201
+      ]
+    },
+    {
+      "@id": "a12:r96-10",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 10,
+      "skos:prefLabel": "R96[10]",
+      "a12:bytes": [
+        10,
+        106,
+        202
+      ]
+    },
+    {
+      "@id": "a12:r96-11",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 11,
+      "skos:prefLabel": "R96[11]",
+      "a12:bytes": [
+        11,
+        107,
+        203
+      ]
+    },
+    {
+      "@id": "a12:r96-12",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 12,
+      "skos:prefLabel": "R96[12]",
+      "a12:bytes": [
+        12,
+        108,
+        204
+      ]
+    },
+    {
+      "@id": "a12:r96-13",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 13,
+      "skos:prefLabel": "R96[13]",
+      "a12:bytes": [
+        13,
+        109,
+        205
+      ]
+    },
+    {
+      "@id": "a12:r96-14",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 14,
+      "skos:prefLabel": "R96[14]",
+      "a12:bytes": [
+        14,
+        110,
+        206
+      ]
+    },
+    {
+      "@id": "a12:r96-15",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 15,
+      "skos:prefLabel": "R96[15]",
+      "a12:bytes": [
+        15,
+        111,
+        207
+      ]
+    },
+    {
+      "@id": "a12:r96-16",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 16,
+      "skos:prefLabel": "R96[16]",
+      "a12:bytes": [
+        16,
+        112,
+        208
+      ]
+    },
+    {
+      "@id": "a12:r96-17",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 17,
+      "skos:prefLabel": "R96[17]",
+      "a12:bytes": [
+        17,
+        113,
+        209
+      ]
+    },
+    {
+      "@id": "a12:r96-18",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 18,
+      "skos:prefLabel": "R96[18]",
+      "a12:bytes": [
+        18,
+        114,
+        210
+      ]
+    },
+    {
+      "@id": "a12:r96-19",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 19,
+      "skos:prefLabel": "R96[19]",
+      "a12:bytes": [
+        19,
+        115,
+        211
+      ]
+    },
+    {
+      "@id": "a12:r96-20",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 20,
+      "skos:prefLabel": "R96[20]",
+      "a12:bytes": [
+        20,
+        116,
+        212
+      ]
+    },
+    {
+      "@id": "a12:r96-21",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 21,
+      "skos:prefLabel": "R96[21]",
+      "a12:bytes": [
+        21,
+        117,
+        213
+      ]
+    },
+    {
+      "@id": "a12:r96-22",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 22,
+      "skos:prefLabel": "R96[22]",
+      "a12:bytes": [
+        22,
+        118,
+        214
+      ]
+    },
+    {
+      "@id": "a12:r96-23",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 23,
+      "skos:prefLabel": "R96[23]",
+      "a12:bytes": [
+        23,
+        119,
+        215
+      ]
+    },
+    {
+      "@id": "a12:r96-24",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 24,
+      "skos:prefLabel": "R96[24]",
+      "a12:bytes": [
+        24,
+        120,
+        216
+      ]
+    },
+    {
+      "@id": "a12:r96-25",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 25,
+      "skos:prefLabel": "R96[25]",
+      "a12:bytes": [
+        25,
+        121,
+        217
+      ]
+    },
+    {
+      "@id": "a12:r96-26",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 26,
+      "skos:prefLabel": "R96[26]",
+      "a12:bytes": [
+        26,
+        122,
+        218
+      ]
+    },
+    {
+      "@id": "a12:r96-27",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 27,
+      "skos:prefLabel": "R96[27]",
+      "a12:bytes": [
+        27,
+        123,
+        219
+      ]
+    },
+    {
+      "@id": "a12:r96-28",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 28,
+      "skos:prefLabel": "R96[28]",
+      "a12:bytes": [
+        28,
+        124,
+        220
+      ]
+    },
+    {
+      "@id": "a12:r96-29",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 29,
+      "skos:prefLabel": "R96[29]",
+      "a12:bytes": [
+        29,
+        125,
+        221
+      ]
+    },
+    {
+      "@id": "a12:r96-30",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 30,
+      "skos:prefLabel": "R96[30]",
+      "a12:bytes": [
+        30,
+        126,
+        222
+      ]
+    },
+    {
+      "@id": "a12:r96-31",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 31,
+      "skos:prefLabel": "R96[31]",
+      "a12:bytes": [
+        31,
+        127,
+        223
+      ]
+    },
+    {
+      "@id": "a12:r96-32",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 32,
+      "skos:prefLabel": "R96[32]",
+      "a12:bytes": [
+        32,
+        128,
+        224
+      ]
+    },
+    {
+      "@id": "a12:r96-33",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 33,
+      "skos:prefLabel": "R96[33]",
+      "a12:bytes": [
+        33,
+        129,
+        225
+      ]
+    },
+    {
+      "@id": "a12:r96-34",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 34,
+      "skos:prefLabel": "R96[34]",
+      "a12:bytes": [
+        34,
+        130,
+        226
+      ]
+    },
+    {
+      "@id": "a12:r96-35",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 35,
+      "skos:prefLabel": "R96[35]",
+      "a12:bytes": [
+        35,
+        131,
+        227
+      ]
+    },
+    {
+      "@id": "a12:r96-36",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 36,
+      "skos:prefLabel": "R96[36]",
+      "a12:bytes": [
+        36,
+        132,
+        228
+      ]
+    },
+    {
+      "@id": "a12:r96-37",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 37,
+      "skos:prefLabel": "R96[37]",
+      "a12:bytes": [
+        37,
+        133,
+        229
+      ]
+    },
+    {
+      "@id": "a12:r96-38",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 38,
+      "skos:prefLabel": "R96[38]",
+      "a12:bytes": [
+        38,
+        134,
+        230
+      ]
+    },
+    {
+      "@id": "a12:r96-39",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 39,
+      "skos:prefLabel": "R96[39]",
+      "a12:bytes": [
+        39,
+        135,
+        231
+      ]
+    },
+    {
+      "@id": "a12:r96-40",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 40,
+      "skos:prefLabel": "R96[40]",
+      "a12:bytes": [
+        40,
+        136,
+        232
+      ]
+    },
+    {
+      "@id": "a12:r96-41",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 41,
+      "skos:prefLabel": "R96[41]",
+      "a12:bytes": [
+        41,
+        137,
+        233
+      ]
+    },
+    {
+      "@id": "a12:r96-42",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 42,
+      "skos:prefLabel": "R96[42]",
+      "a12:bytes": [
+        42,
+        138,
+        234
+      ]
+    },
+    {
+      "@id": "a12:r96-43",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 43,
+      "skos:prefLabel": "R96[43]",
+      "a12:bytes": [
+        43,
+        139,
+        235
+      ]
+    },
+    {
+      "@id": "a12:r96-44",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 44,
+      "skos:prefLabel": "R96[44]",
+      "a12:bytes": [
+        44,
+        140,
+        236
+      ]
+    },
+    {
+      "@id": "a12:r96-45",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 45,
+      "skos:prefLabel": "R96[45]",
+      "a12:bytes": [
+        45,
+        141,
+        237
+      ]
+    },
+    {
+      "@id": "a12:r96-46",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 46,
+      "skos:prefLabel": "R96[46]",
+      "a12:bytes": [
+        46,
+        142,
+        238
+      ]
+    },
+    {
+      "@id": "a12:r96-47",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 47,
+      "skos:prefLabel": "R96[47]",
+      "a12:bytes": [
+        47,
+        143,
+        239
+      ]
+    },
+    {
+      "@id": "a12:r96-48",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 48,
+      "skos:prefLabel": "R96[48]",
+      "a12:bytes": [
+        48,
+        144,
+        240
+      ]
+    },
+    {
+      "@id": "a12:r96-49",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 49,
+      "skos:prefLabel": "R96[49]",
+      "a12:bytes": [
+        49,
+        145,
+        241
+      ]
+    },
+    {
+      "@id": "a12:r96-50",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 50,
+      "skos:prefLabel": "R96[50]",
+      "a12:bytes": [
+        50,
+        146,
+        242
+      ]
+    },
+    {
+      "@id": "a12:r96-51",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 51,
+      "skos:prefLabel": "R96[51]",
+      "a12:bytes": [
+        51,
+        147,
+        243
+      ]
+    },
+    {
+      "@id": "a12:r96-52",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 52,
+      "skos:prefLabel": "R96[52]",
+      "a12:bytes": [
+        52,
+        148,
+        244
+      ]
+    },
+    {
+      "@id": "a12:r96-53",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 53,
+      "skos:prefLabel": "R96[53]",
+      "a12:bytes": [
+        53,
+        149,
+        245
+      ]
+    },
+    {
+      "@id": "a12:r96-54",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 54,
+      "skos:prefLabel": "R96[54]",
+      "a12:bytes": [
+        54,
+        150,
+        246
+      ]
+    },
+    {
+      "@id": "a12:r96-55",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 55,
+      "skos:prefLabel": "R96[55]",
+      "a12:bytes": [
+        55,
+        151,
+        247
+      ]
+    },
+    {
+      "@id": "a12:r96-56",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 56,
+      "skos:prefLabel": "R96[56]",
+      "a12:bytes": [
+        56,
+        152,
+        248
+      ]
+    },
+    {
+      "@id": "a12:r96-57",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 57,
+      "skos:prefLabel": "R96[57]",
+      "a12:bytes": [
+        57,
+        153,
+        249
+      ]
+    },
+    {
+      "@id": "a12:r96-58",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 58,
+      "skos:prefLabel": "R96[58]",
+      "a12:bytes": [
+        58,
+        154,
+        250
+      ]
+    },
+    {
+      "@id": "a12:r96-59",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 59,
+      "skos:prefLabel": "R96[59]",
+      "a12:bytes": [
+        59,
+        155,
+        251
+      ]
+    },
+    {
+      "@id": "a12:r96-60",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 60,
+      "skos:prefLabel": "R96[60]",
+      "a12:bytes": [
+        60,
+        156,
+        252
+      ]
+    },
+    {
+      "@id": "a12:r96-61",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 61,
+      "skos:prefLabel": "R96[61]",
+      "a12:bytes": [
+        61,
+        157,
+        253
+      ]
+    },
+    {
+      "@id": "a12:r96-62",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 62,
+      "skos:prefLabel": "R96[62]",
+      "a12:bytes": [
+        62,
+        158,
+        254
+      ]
+    },
+    {
+      "@id": "a12:r96-63",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 63,
+      "skos:prefLabel": "R96[63]",
+      "a12:bytes": [
+        63,
+        159,
+        255
+      ]
+    },
+    {
+      "@id": "a12:r96-64",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 64,
+      "skos:prefLabel": "R96[64]",
+      "a12:bytes": [
+        64,
+        160
+      ]
+    },
+    {
+      "@id": "a12:r96-65",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 65,
+      "skos:prefLabel": "R96[65]",
+      "a12:bytes": [
+        65,
+        161
+      ]
+    },
+    {
+      "@id": "a12:r96-66",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 66,
+      "skos:prefLabel": "R96[66]",
+      "a12:bytes": [
+        66,
+        162
+      ]
+    },
+    {
+      "@id": "a12:r96-67",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 67,
+      "skos:prefLabel": "R96[67]",
+      "a12:bytes": [
+        67,
+        163
+      ]
+    },
+    {
+      "@id": "a12:r96-68",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 68,
+      "skos:prefLabel": "R96[68]",
+      "a12:bytes": [
+        68,
+        164
+      ]
+    },
+    {
+      "@id": "a12:r96-69",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 69,
+      "skos:prefLabel": "R96[69]",
+      "a12:bytes": [
+        69,
+        165
+      ]
+    },
+    {
+      "@id": "a12:r96-70",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 70,
+      "skos:prefLabel": "R96[70]",
+      "a12:bytes": [
+        70,
+        166
+      ]
+    },
+    {
+      "@id": "a12:r96-71",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 71,
+      "skos:prefLabel": "R96[71]",
+      "a12:bytes": [
+        71,
+        167
+      ]
+    },
+    {
+      "@id": "a12:r96-72",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 72,
+      "skos:prefLabel": "R96[72]",
+      "a12:bytes": [
+        72,
+        168
+      ]
+    },
+    {
+      "@id": "a12:r96-73",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 73,
+      "skos:prefLabel": "R96[73]",
+      "a12:bytes": [
+        73,
+        169
+      ]
+    },
+    {
+      "@id": "a12:r96-74",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 74,
+      "skos:prefLabel": "R96[74]",
+      "a12:bytes": [
+        74,
+        170
+      ]
+    },
+    {
+      "@id": "a12:r96-75",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 75,
+      "skos:prefLabel": "R96[75]",
+      "a12:bytes": [
+        75,
+        171
+      ]
+    },
+    {
+      "@id": "a12:r96-76",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 76,
+      "skos:prefLabel": "R96[76]",
+      "a12:bytes": [
+        76,
+        172
+      ]
+    },
+    {
+      "@id": "a12:r96-77",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 77,
+      "skos:prefLabel": "R96[77]",
+      "a12:bytes": [
+        77,
+        173
+      ]
+    },
+    {
+      "@id": "a12:r96-78",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 78,
+      "skos:prefLabel": "R96[78]",
+      "a12:bytes": [
+        78,
+        174
+      ]
+    },
+    {
+      "@id": "a12:r96-79",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 79,
+      "skos:prefLabel": "R96[79]",
+      "a12:bytes": [
+        79,
+        175
+      ]
+    },
+    {
+      "@id": "a12:r96-80",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 80,
+      "skos:prefLabel": "R96[80]",
+      "a12:bytes": [
+        80,
+        176
+      ]
+    },
+    {
+      "@id": "a12:r96-81",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 81,
+      "skos:prefLabel": "R96[81]",
+      "a12:bytes": [
+        81,
+        177
+      ]
+    },
+    {
+      "@id": "a12:r96-82",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 82,
+      "skos:prefLabel": "R96[82]",
+      "a12:bytes": [
+        82,
+        178
+      ]
+    },
+    {
+      "@id": "a12:r96-83",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 83,
+      "skos:prefLabel": "R96[83]",
+      "a12:bytes": [
+        83,
+        179
+      ]
+    },
+    {
+      "@id": "a12:r96-84",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 84,
+      "skos:prefLabel": "R96[84]",
+      "a12:bytes": [
+        84,
+        180
+      ]
+    },
+    {
+      "@id": "a12:r96-85",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 85,
+      "skos:prefLabel": "R96[85]",
+      "a12:bytes": [
+        85,
+        181
+      ]
+    },
+    {
+      "@id": "a12:r96-86",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 86,
+      "skos:prefLabel": "R96[86]",
+      "a12:bytes": [
+        86,
+        182
+      ]
+    },
+    {
+      "@id": "a12:r96-87",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 87,
+      "skos:prefLabel": "R96[87]",
+      "a12:bytes": [
+        87,
+        183
+      ]
+    },
+    {
+      "@id": "a12:r96-88",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 88,
+      "skos:prefLabel": "R96[88]",
+      "a12:bytes": [
+        88,
+        184
+      ]
+    },
+    {
+      "@id": "a12:r96-89",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 89,
+      "skos:prefLabel": "R96[89]",
+      "a12:bytes": [
+        89,
+        185
+      ]
+    },
+    {
+      "@id": "a12:r96-90",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 90,
+      "skos:prefLabel": "R96[90]",
+      "a12:bytes": [
+        90,
+        186
+      ]
+    },
+    {
+      "@id": "a12:r96-91",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 91,
+      "skos:prefLabel": "R96[91]",
+      "a12:bytes": [
+        91,
+        187
+      ]
+    },
+    {
+      "@id": "a12:r96-92",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 92,
+      "skos:prefLabel": "R96[92]",
+      "a12:bytes": [
+        92,
+        188
+      ]
+    },
+    {
+      "@id": "a12:r96-93",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 93,
+      "skos:prefLabel": "R96[93]",
+      "a12:bytes": [
+        93,
+        189
+      ]
+    },
+    {
+      "@id": "a12:r96-94",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 94,
+      "skos:prefLabel": "R96[94]",
+      "a12:bytes": [
+        94,
+        190
+      ]
+    },
+    {
+      "@id": "a12:r96-95",
+      "@type": "skos:Concept",
+      "skos:inScheme": {
+        "@id": "a12:R96Scheme"
+      },
+      "skos:notation": 95,
+      "skos:prefLabel": "R96[95]",
+      "a12:bytes": [
+        95,
+        191
+      ]
+    }
+  ],
+  "a12:torus": {
+    "@type": [
+      "owl:Class",
+      "schema:StructuredValue"
+    ],
+    "rdfs:label": "Discrete torus T² = ℤ₄₈ × ℤ₂₅₆",
+    "rdfs:comment": "The boundary's periodic (cyclic) page and byte axes (mathematics.md §Topology) make it a discrete 2-torus with 12,288 lattice points; R96 quotients the byte fiber into 96 classes."
+  },
+  "hosc:hypothesis": {
+    "@type": "prov:Entity",
+    "schema:name": "96-vertex / 12,288 torus as LLM latent topology",
+    "schema:disambiguatingDescription": "WORKING HYPOTHESIS, not a proven property of atlas-12288: that this torus is a coordinate system for the topological space every LLM maps into. Recorded as a claim to be tested; it asserts nothing about the verified upstream mathematics.",
+    "prov:wasAttributedTo": {
+      "@id": "org.hologram",
+      "schema:name": "Hologram Technologies"
+    }
+  },
+  "prov:wasGeneratedBy": {
+    "@type": "prov:Activity",
+    "schema:name": "Lean 4 formal verification (UOR-Foundation)"
+  },
+  "prov:wasDerivedFrom": {
+    "@id": "https://github.com/UOR-Foundation/atlas-12288",
+    "@type": "prov:Entity",
+    "dcterms:license": "https://spdx.org/licenses/MIT.html"
+  },
+  "links": [
+    {
+      "id": "did:holo:sha256:1714afee885ff66c5fb9173fe82a69477be92841b257422f8e4d667cc9b78ee3",
+      "rel": "schema:hasPart",
+      "@type": "schema:MediaObject",
+      "leaf": true,
+      "digestSRI": "sha256-FxSv7ohf9mxfuRc/6CppR3vpKEGyV0Ivjk1mfMm3juM=",
+      "digestMultibase": "uEiAXFK_uiF_2bF-5Fz_oKmlHe-koQbJXQi-OTWZ8ybeO4w",
+      "schema:name": "vendor/atlas-12288/LICENSE"
+    },
+    {
+      "id": "did:holo:sha256:e512af68d1e6dc9296e945ebdcfc27eb3fc42e9f23b611bdaacda0442cb3b925",
+      "rel": "schema:hasPart",
+      "@type": "schema:SoftwareSourceCode",
+      "leaf": true,
+      "digestSRI": "sha256-5RKvaNHm3JKW6UXr3Pwn6z/ELp8jthG9qs2gRCyzuSU=",
+      "digestMultibase": "uEiDlEq9o0ebckpbpRevc_CfrP8QunyO2Eb2qzaBELLO5JQ",
+      "schema:name": "vendor/atlas-12288/ffi/c/minimal_wrapper.c"
+    },
+    {
+      "id": "did:holo:sha256:b57a99fb45f2775eb4e004a1caeece6ec4df83588f43280242ecb2418ea3e280",
+      "rel": "schema:hasPart",
+      "@type": "schema:SoftwareSourceCode",
+      "leaf": true,
+      "digestSRI": "sha256-tXqZ+0Xyd1604AShyu7ObsTfg1iPQygCQuyyQY6j4oA=",
+      "digestMultibase": "uEiC1epn7RfJ3XrTgBKHK7s5uxN-DWI9DKAJC7LJBjqPigA",
+      "schema:name": "vendor/atlas-12288/ffi/c/uor_ffi.h"
+    },
+    {
+      "id": "did:holo:sha256:09ad6f52eee2d6dcbf4e8470826fd2a8b9de8964215fa1bfe58f741d3a18f5b5",
+      "rel": "schema:hasPart",
+      "@type": "schema:SoftwareSourceCode",
+      "leaf": true,
+      "digestSRI": "sha256-Ca1vUu7i1ty/ToRwgm/SqLneiWQhX6G/5Y90HToY9bU=",
+      "digestMultibase": "uEiAJrW9S7uLW3L9OhHCCb9Koud6JZCFfob_lj3QdOhj1tQ",
+      "schema:name": "vendor/atlas-12288/pkg/node/lib/index.js"
+    },
+    {
+      "id": "did:holo:sha256:bf24a2a60f7ece8fd7915a284e37c9616b4fadddc5fe0a7a0709d46f4fbc093f",
+      "rel": "schema:hasPart",
+      "@type": "schema:SoftwareSourceCode",
+      "leaf": true,
+      "digestSRI": "sha256-vySipg9+zo/XkVooTjfJYWtPrd3F/gp6BwnUb0+8CT8=",
+      "digestMultibase": "uEiC_JKKmD37Oj9eRWihON8lha0-t3cX-CnoHCdRvT7wJPw",
+      "schema:name": "vendor/atlas-12288/pkg/node/lib/index.d.ts"
+    },
+    {
+      "id": "did:holo:sha256:4502bd5d323002ee46d5b815d9ca9c0a080a30449f59557230d25d6c9724d023",
+      "rel": "schema:hasPart",
+      "@type": "schema:SoftwareSourceCode",
+      "leaf": true,
+      "digestSRI": "sha256-RQK9XTIwAu5G1bgV2cqcCggKMESfWVVyMNJdbJck0CM=",
+      "digestMultibase": "uEiBFAr1dMjAC7kbVuBXZypwKCAowRJ9ZVXIw0l1slyTQIw",
+      "schema:name": "vendor/atlas-12288/lean/UOR/Prime/Structure.lean"
+    },
+    {
+      "id": "did:holo:sha256:209501804b2328fd507e4929dbcc253d5a7e9336f6c7b6a99fac496437cad82a",
+      "rel": "schema:hasPart",
+      "@type": "schema:SoftwareSourceCode",
+      "leaf": true,
+      "digestSRI": "sha256-IJUBgEsjKP1Qfkkp28wlPVp+kzb2x7apn6xJZDfK2Co=",
+      "digestMultibase": "uEiAglQGASyMo_VB-SSnbzCU9Wn6TNvbHtqmfrElkN8rYKg",
+      "schema:name": "vendor/atlas-12288/lean/UOR/Atlas/Core.lean"
+    },
+    {
+      "id": "did:holo:sha256:d347adbeea0581ea0f2017ac39bebb338b38b9491cb28db763d8627e3dc4a637",
+      "rel": "schema:hasPart",
+      "@type": "schema:CreativeWork",
+      "leaf": true,
+      "digestSRI": "sha256-00etvuoFgeoPIBesOb67M4s4uUkcso23Y9hifj3Epjc=",
+      "digestMultibase": "uEiDTR62-6gWB6g8gF6w5vrszizi5SRyyjbdj2GJ-PcSmNw",
+      "schema:name": "vendor/atlas-12288/docs/guides/mathematics.md"
+    },
+    {
+      "id": "did:holo:sha256:1a08df5345f5d2aa2fba87831600716d741c27ddf9f3e31939a7c1bf15dd3c1e",
+      "rel": "schema:hasPart",
+      "@type": "schema:CreativeWork",
+      "leaf": true,
+      "digestSRI": "sha256-GgjfU0X10qovuoeDFgBxbXQcJ9358+MZOafBvxXdPB4=",
+      "digestMultibase": "uEiAaCN9TRfXSqi-6h4MWAHFtdBwn3fnz4xk5p8G_Fd08Hg",
+      "schema:name": "vendor/atlas-12288/PROVENANCE.txt"
+    }
+  ],
+  "id": "did:holo:sha256:d760330bfece89f305f928e1a9065255c8fe8f91352b1ee369a2a714276419a0"
+}

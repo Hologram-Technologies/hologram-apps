@@ -1,0 +1,562 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:935522a8322a0aa19f9e85fc9ae3af0a9dbbe1aa82a82f21426fbb53bdbc5bd9",
+  "identifier": "org.hologram.V86FreeNOS",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 11225,
+    "page": 43,
+    "byte": 217,
+    "r96": 25,
+    "phi": 11225
+  },
+  "files": 60,
+  "closure": {
+    "apps/freenos/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/freenos/holospace.json": {
+      "kappa": "did:holo:sha256:130a4ddd719dc31f162ab76b3a5ba9d67f6188c69b1301f09a1bef06ace98115",
+      "sri": "sha256-EwpN3XGdwx8WKrdrOlup1n9hiMabEwHwmhvvBqzpgRU=",
+      "multibase": "uEiATCk3dcZ3DHxYqt2s6W6nWf2GIxpsTAfCaG-8GrOmBFQ",
+      "bytes": 860,
+      "alsoKnownAs": [
+        "did:holo:blake3:333b3ea4f76ca7705db1ce654ef05c6bbdf0ee1baf1f7dfe2eb2cc18eaf6185c"
+      ]
+    },
+    "apps/freenos/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso": {
+      "kappa": "did:holo:sha256:d354b01669b8a0976ca3cd7395e9963a60241919c32a6dd57cd409a173ad2ee4",
+      "sri": "sha256-01SwFmm4oJdso81zlemWOmAkGRnDKm3VfNQJoXOtLuQ=",
+      "multibase": "uEiDTVLAWabigl2yjzXOV6ZY6YCQZGcMqbdV81Amhc60u5A",
+      "bytes": 11014144,
+      "alsoKnownAs": [
+        "did:holo:blake3:492f1585210cc002986b1832b7560fc9fcdb3e2742272ab7ba648675dcc87cb0"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/043c7c1539e70091ff3a75e6cf6798c25708992a3c7125c0e7495600c7597cc0": {
+      "kappa": "did:holo:sha256:043c7c1539e70091ff3a75e6cf6798c25708992a3c7125c0e7495600c7597cc0",
+      "sri": "sha256-BDx8FTnnAJH/OnXmz2eYwlcImSo8cSXA50lWAMdZfMA=",
+      "multibase": "uEiAEPHwVOecAkf86debPZ5jCVwiZKjxxJcDnSVYAx1l8wA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:647e70d344a398a5a3fbf0211ce2074fea3bf1ccc18e353ce91a2a41170226a8"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/050b5bca9a29748316848528a57be7f81eb729473d6e416c7067a25a59d102d0": {
+      "kappa": "did:holo:sha256:050b5bca9a29748316848528a57be7f81eb729473d6e416c7067a25a59d102d0",
+      "sri": "sha256-BQtbypopdIMWhIUopXvn+B63KUc9bkFscGeiWlnRAtA=",
+      "multibase": "uEiAFC1vKmil0gxaEhSile-f4HrcpRz1uQWxwZ6JaWdEC0A",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:5f117f53218d871ef2b4763d18998a8fa0bffc71eade1bb4abe7cf5043d2b8be"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/07c11947eec9a5996cb07db58d26c3c40c1451d687e261cfec19411080649b17": {
+      "kappa": "did:holo:sha256:07c11947eec9a5996cb07db58d26c3c40c1451d687e261cfec19411080649b17",
+      "sri": "sha256-B8EZR+7JpZlssH21jSbDxAwUUdaH4mHP7BlBEIBkmxc=",
+      "multibase": "uEiAHwRlH7smlmWywfbWNJsPEDBRR1ofiYc_sGUEQgGSbFw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:1f57a0ef3aa295c2fac63c6d3611b7ef31987bfae63f2c0108c135cf366a5fc9"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/1030c266f6717c9c37e093d29744b0476bcee6f39e13dcadec94e4e54dd3cdcf": {
+      "kappa": "did:holo:sha256:1030c266f6717c9c37e093d29744b0476bcee6f39e13dcadec94e4e54dd3cdcf",
+      "sri": "sha256-EDDCZvZxfJw34JPSl0SwR2vO5vOeE9yt7JTk5U3Tzc8=",
+      "multibase": "uEiAQMMJm9nF8nDfgk9KXRLBHa87m854T3K3slOTlTdPNzw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:92206eab0c14e80cde192c16c3a7b471404655607bfd483173ba2a6ddd1e5678"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/12eec0554f13ba68824caaa4fb827a1fae8b20923a22ff6a59967c7a43e80e2e": {
+      "kappa": "did:holo:sha256:12eec0554f13ba68824caaa4fb827a1fae8b20923a22ff6a59967c7a43e80e2e",
+      "sri": "sha256-Eu7AVU8TumiCTKqk+4J6H66LIJI6Iv9qWZZ8ekPoDi4=",
+      "multibase": "uEiAS7sBVTxO6aIJMqqT7gnofrosgkjoi_2pZlnx6Q-gOLg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2007e5e788aa289d30fb08b62d948ee1df74afca213d7a362090ae4a5bd2e94"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/19ea158ab2587417ba143416146d0fdac94a14f486f2cab896a536c23ed99b41": {
+      "kappa": "did:holo:sha256:19ea158ab2587417ba143416146d0fdac94a14f486f2cab896a536c23ed99b41",
+      "sri": "sha256-GeoVirJYdBe6FDQWFG0P2slKFPSG8sq4lqU2wj7Zm0E=",
+      "multibase": "uEiAZ6hWKslh0F7oUNBYUbQ_ayUoU9IbyyriWpTbCPtmbQQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:2da01b3ee5324df53b0f0329191388785e3cf18d905d48eac8bd888ad0d4e45e"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/1b9cc9089fb66a031d20ba9644d77a744a8b629e5cdbe737a195812ec02297ec": {
+      "kappa": "did:holo:sha256:1b9cc9089fb66a031d20ba9644d77a744a8b629e5cdbe737a195812ec02297ec",
+      "sri": "sha256-G5zJCJ+2agMdILqWRNd6dEqLYp5c2+c3oZWBLsAil+w=",
+      "multibase": "uEiAbnMkIn7ZqAx0gupZE13p0Sotinlzb5zehlYEuwCKX7A",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:7fd6d10932d912e23cb76805549d136141aa592a201b28f67c26f4e3e3a0c615"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/1ea1ab7c5e7c04b25d4af9730f3179622fb253b0b177565fe1892e2c1e70eb43": {
+      "kappa": "did:holo:sha256:1ea1ab7c5e7c04b25d4af9730f3179622fb253b0b177565fe1892e2c1e70eb43",
+      "sri": "sha256-HqGrfF58BLJdSvlzDzF5Yi+yU7Cxd1Zf4YkuLB5w60M=",
+      "multibase": "uEiAeoat8XnwEsl1K-XMPMXliL7JTsLF3Vl_hiS4sHnDrQw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:c0808fa84bfa8e4dfda1254829f15830e43d3f1df26d18fe55679559b42f4efd"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/2980f2d7373a2214478af1680c9bbd70d2afc4c41ee033f6975bb863099915bf": {
+      "kappa": "did:holo:sha256:2980f2d7373a2214478af1680c9bbd70d2afc4c41ee033f6975bb863099915bf",
+      "sri": "sha256-KYDy1zc6IhRHivFoDJu9cNKvxMQe4DP2l1u4YwmZFb8=",
+      "multibase": "uEiApgPLXNzoiFEeK8WgMm71w0q_ExB7gM_aXW7hjCZkVvw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:9959b2cd3c565383e89212f009b3bd65cd3970fc171de5b2f1d39214d173d855"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/2b408988e9f80e4a2738027171d4908882d556945bd348b96fab7e447733f4d3": {
+      "kappa": "did:holo:sha256:2b408988e9f80e4a2738027171d4908882d556945bd348b96fab7e447733f4d3",
+      "sri": "sha256-K0CJiOn4DkonOAJxcdSQiILVVpRb00i5b6t+RHcz9NM=",
+      "multibase": "uEiArQImI6fgOSic4AnFx1JCIgtVWlFvTSLlvq35EdzP00w",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3a2724874301358740a15fc32319cb29a7ae8b62915196213c95f1ba5e3804f8"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/3a1229002c9472f07ff02ad97e8ba25335b8009e5e1bba8a59308631c2228b14": {
+      "kappa": "did:holo:sha256:3a1229002c9472f07ff02ad97e8ba25335b8009e5e1bba8a59308631c2228b14",
+      "sri": "sha256-OhIpACyUcvB/8CrZfouiUzW4AJ5eG7qKWTCGMcIiixQ=",
+      "multibase": "uEiA6EikALJRy8H_wKtl-i6JTNbgAnl4buopZMIYxwiKLFA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:366ef80c9aaab3276ff76b91e8e1c0d042441554f0dc4cad6ebd4a7494e53e3b"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/3f71895c82be1feb8babffcb0ae9731bd5eca458c531d32a3e98618a595c006c": {
+      "kappa": "did:holo:sha256:3f71895c82be1feb8babffcb0ae9731bd5eca458c531d32a3e98618a595c006c",
+      "sri": "sha256-P3GJXIK+H+uLq//LCulzG9XspFjFMdMqPphhillcAGw=",
+      "multibase": "uEiA_cYlcgr4f64ur_8sK6XMb1eykWMUx0yo-mGGKWVwAbA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:18380c696ea06a9be30440bafe921e6511cd8fd005e0f1eacc85d625debf2070"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/403e5ef5cb1da77a68cbc09c7825b2fa097df8468b20666d0c821aa728e4e24a": {
+      "kappa": "did:holo:sha256:403e5ef5cb1da77a68cbc09c7825b2fa097df8468b20666d0c821aa728e4e24a",
+      "sri": "sha256-QD5e9csdp3poy8CceCWy+gl9+EaLIGZtDIIapyjk4ko=",
+      "multibase": "uEiBAPl71yx2nemjLwJx4JbL6CX34RosgZm0MghqnKOTiSg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:183574b48072e82746fdf2f8a6e10334138f63cef358c7c3bd8afedd02016e3c"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/45c71acb19e2f6a9eceea27f09b85bf97d7c6c8959f6c5587c6a5a692c734404": {
+      "kappa": "did:holo:sha256:45c71acb19e2f6a9eceea27f09b85bf97d7c6c8959f6c5587c6a5a692c734404",
+      "sri": "sha256-Rccayxni9qns7qJ/Cbhb+X18bIlZ9sVYfGpaaSxzRAQ=",
+      "multibase": "uEiBFxxrLGeL2qezuon8JuFv5fXxsiVn2xVh8alppLHNEBA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:adbdf88464858e43d1e9c2c94291127411a496dfd9e47b415c7f52fe33e007f1"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/4cbe76f2a7a71a58112f58ba9f832a33a9a3efc01ebbbae00bdbf4d6584d2a19": {
+      "kappa": "did:holo:sha256:4cbe76f2a7a71a58112f58ba9f832a33a9a3efc01ebbbae00bdbf4d6584d2a19",
+      "sri": "sha256-TL528qenGlgRL1i6n4MqM6mj78Aeu7rgC9v01lhNKhk=",
+      "multibase": "uEiBMvnbyp6caWBEvWLqfgyozqaPvwB67uuAL2_TWWE0qGQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:a6542522418c9e8e28d7773580ef2f067290ca33054ed65d630f55c53ce8f5de"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/50894d267ff225ffd040bc21436662e7302fab760b8013b96618f36ac325f5b9": {
+      "kappa": "did:holo:sha256:50894d267ff225ffd040bc21436662e7302fab760b8013b96618f36ac325f5b9",
+      "sri": "sha256-UIlNJn/yJf/QQLwhQ2Zi5zAvq3YLgBO5ZhjzasMl9bk=",
+      "multibase": "uEiBQiU0mf_Il_9BAvCFDZmLnMC-rdguAE7lmGPNqwyX1uQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:a56fa26c080ab1dec29296b87630d20e77d0bf561d4f360941cfd71cb39a459a"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/55fde7ae10ddd28e6ecc5e9b0713ba6c0968fc2925f3e38c6ad2a0e916a82f84": {
+      "kappa": "did:holo:sha256:55fde7ae10ddd28e6ecc5e9b0713ba6c0968fc2925f3e38c6ad2a0e916a82f84",
+      "sri": "sha256-Vf3nrhDd0o5uzF6bBxO6bAlo/Ckl8+OMatKg6RaoL4Q=",
+      "multibase": "uEiBV_eeuEN3Sjm7MXpsHE7psCWj8KSXz44xq0qDpFqgvhA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:faafe2d9ccc4cdc82583c3277a8d4ef77e9d48759c20361b667730582f539156"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/58370ed8ea84c4aa4d1314c1c460e9ba6ada18a4e249ae22d375e2951591172e": {
+      "kappa": "did:holo:sha256:58370ed8ea84c4aa4d1314c1c460e9ba6ada18a4e249ae22d375e2951591172e",
+      "sri": "sha256-WDcO2OqExKpNExTBxGDpumraGKTiSa4i03XilRWRFy4=",
+      "multibase": "uEiBYNw7Y6oTEqk0TFMHEYOm6atoYpOJJriLTdeKVFZEXLg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:58455e6ccdccfac49dbb5dcf0870183ed0a5c4bac0280af0a5f99f41dca4d3b6"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/5b11078c72b2e39e5232583b86721cbb7dcc74a6376284c08a5d7b7b77d9f8ec": {
+      "kappa": "did:holo:sha256:5b11078c72b2e39e5232583b86721cbb7dcc74a6376284c08a5d7b7b77d9f8ec",
+      "sri": "sha256-WxEHjHKy455SMlg7hnIcu33MdKY3YoTAil17e3fZ+Ow=",
+      "multibase": "uEiBbEQeMcrLjnlIyWDuGchy7fcx0pjdihMCKXXt7d9n47A",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:5e5d2bfae6d3c73de9fafff098236782de0f106d2ad4a0e55330166a975774d7"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/5e85f7f31905f8509939ca9a4d8a358cc0da2e77b29e9981bdc6c7ba9ab0808f": {
+      "kappa": "did:holo:sha256:5e85f7f31905f8509939ca9a4d8a358cc0da2e77b29e9981bdc6c7ba9ab0808f",
+      "sri": "sha256-XoX38xkF+FCZOcqaTYo1jMDaLneynpmBvcbHupqwgI8=",
+      "multibase": "uEiBehffzGQX4UJk5yppNijWMwNoud7KemYG9xse6mrCAjw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:08d6f7de8ab4eb7939057f3f80b4b6e052e6b00c61bedf8452a2383046ae307f"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/6375a4f308cea26cde566d942b03009ad4fce6cdca45e437616d562bcfaa43a9": {
+      "kappa": "did:holo:sha256:6375a4f308cea26cde566d942b03009ad4fce6cdca45e437616d562bcfaa43a9",
+      "sri": "sha256-Y3Wk8wjOomzeVm2UKwMAmtT85s3KReQ3YW1WK8+qQ6k=",
+      "multibase": "uEiBjdaTzCM6ibN5WbZQrAwCa1PzmzcpF5DdhbVYrz6pDqQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:004190b3eaece755274c521e9649e8fda4870db9108676a76a0a04fcd5266a24"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/67abd247ef0a90ca0b9ee934fb976d158fbea894adb1fb10cc4f8a774453ed39": {
+      "kappa": "did:holo:sha256:67abd247ef0a90ca0b9ee934fb976d158fbea894adb1fb10cc4f8a774453ed39",
+      "sri": "sha256-Z6vSR+8KkMoLnuk0+5dtFY++qJStsfsQzE+Kd0RT7Tk=",
+      "multibase": "uEiBnq9JH7wqQygue6TT7l20Vj76olK2x-xDMT4p3RFPtOQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3d46befa1ccf977a102e760e2a77788da4767693c52566bbe6166a8ddcd7784c"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/7d5d29ea7dde9508ca98fd729fbe3161649bf138d9ea61f0878d8f03743ddbc2": {
+      "kappa": "did:holo:sha256:7d5d29ea7dde9508ca98fd729fbe3161649bf138d9ea61f0878d8f03743ddbc2",
+      "sri": "sha256-fV0p6n3elQjKmP1yn74xYWSb8TjZ6mHwh42PA3Q928I=",
+      "multibase": "uEiB9XSnqfd6VCMqY_XKfvjFhZJvxONnqYfCHjY8DdD3bwg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:b7a9b5ed2190b12c7480cfcb05e0597374645b862e0ecaa5f66ef5e176f611af"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/892bc565c6344087d83e78d2777a016fcea8b012db473e5aea812541bbb0917c": {
+      "kappa": "did:holo:sha256:892bc565c6344087d83e78d2777a016fcea8b012db473e5aea812541bbb0917c",
+      "sri": "sha256-iSvFZcY0QIfYPnjSd3oBb86osBLbRz5a6oElQbuwkXw=",
+      "multibase": "uEiCJK8VlxjRAh9g-eNJ3egFvzqiwEttHPlrqgSVBu7CRfA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:73ffcf9fe406e7aeb98182d8e384013e5a1ca580df3ff7624a17310c4117d218"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90": {
+      "kappa": "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+      "sri": "sha256-ijnSq9OZmrc8NNskdoSc3fMDzjibNYJoUPmnAFibSpA=",
+      "multibase": "uEiCKOdKr05matzw02yR2hJzd8wPOOJs1gmhQ-acAWJtKkA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:86bb2b521a10612d5a1d38204fac4fa632466d1866144d8a6a7e3afc050ce7ae"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/9b6f9a85d41d56c88ab9cd50430279d9fd052060474b35f7ba64ee1673096057": {
+      "kappa": "did:holo:sha256:9b6f9a85d41d56c88ab9cd50430279d9fd052060474b35f7ba64ee1673096057",
+      "sri": "sha256-m2+ahdQdVsiKuc1QQwJ52f0FIGBHSzX3umTuFnMJYFc=",
+      "multibase": "uEiCbb5qF1B1WyIq5zVBDAnnZ_QUgYEdLNfe6ZO4WcwlgVw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:f566b4b11e0cf42b25a276d45a5f09370509556b2c713a12fe47b0f03434783a"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/9e903672ce3cebe38a8d6738663c7e6549cbff652aedda0d9a6d49c601c67387": {
+      "kappa": "did:holo:sha256:9e903672ce3cebe38a8d6738663c7e6549cbff652aedda0d9a6d49c601c67387",
+      "sri": "sha256-npA2cs486+OKjWc4Zjx+ZUnL/2Uq7doNmm1JxgHGc4c=",
+      "multibase": "uEiCekDZyzjzr44qNZzhmPH5lScv_ZSrt2g2abUnGAcZzhw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:e3fca90605932d618d64cd28205b4e771fce8aa1fee5dcb0d33d1a23e463c9b2"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/a4df85edab4f0002bd98607abddfc5bd64a901d7bafdcce05cb34dbc097620ce": {
+      "kappa": "did:holo:sha256:a4df85edab4f0002bd98607abddfc5bd64a901d7bafdcce05cb34dbc097620ce",
+      "sri": "sha256-pN+F7atPAAK9mGB6vd/FvWSpAde6/czgXLNNvAl2IM4=",
+      "multibase": "uEiCk34Xtq08AAr2YYHq938W9ZKkB17r9zOBcs028CXYgzg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:23462db5d94496a3ef5ab50caf0cce71a0575dfe7019ef9ccc4eb4c6dd444d8b"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7": {
+      "kappa": "did:holo:sha256:ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+      "sri": "sha256-rX+sslhvxulmwATX0dFrAk9YBf98tHx6hdq9i0iJLKc=",
+      "multibase": "uEiCtf6yyWG_G6WbABNfR0WsCT1gF_3y0fHqF2r2LSIkspw",
+      "bytes": 4096,
+      "alsoKnownAs": [
+        "did:holo:blake3:b6fb73fc46938c981e2b0b4b1ef282adcfc89854d01bfe3972fdc4785b41b2c7"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/b4afbabb5a8aa26f6f5a005e466ade4406388ce547616e14fa43927e2441df15": {
+      "kappa": "did:holo:sha256:b4afbabb5a8aa26f6f5a005e466ade4406388ce547616e14fa43927e2441df15",
+      "sri": "sha256-tK+6u1qKom9vWgBeRmreRAY4jOVHYW4U+kOSfiRB3xU=",
+      "multibase": "uEiC0r7q7Woqib29aAF5Gat5EBjiM5UdhbhT6Q5J-JEHfFQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:4db0e2c2df4e0775fccb5c35c1aafff489ce555e8a6024c040a92da55c1d5813"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/b7b9eb4a65270ed572b1842249a74166564fa71127d3bf5e03b077a2bffe058c": {
+      "kappa": "did:holo:sha256:b7b9eb4a65270ed572b1842249a74166564fa71127d3bf5e03b077a2bffe058c",
+      "sri": "sha256-t7nrSmUnDtVysYQiSadBZlZPpxEn079eA7B3or/+BYw=",
+      "multibase": "uEiC3uetKZScO1XKxhCJJp0FmVk-nESfTv14DsHeiv_4FjA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:6ae430241cccd71fcc92b0fef3ffcf2770cf5f5ed26c0b20c677a0e8f25fd459"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/c118e160a7cf035d579738be93639d51c9b2a8fe3f5035e8b0b1b84735d18a58": {
+      "kappa": "did:holo:sha256:c118e160a7cf035d579738be93639d51c9b2a8fe3f5035e8b0b1b84735d18a58",
+      "sri": "sha256-wRjhYKfPA11Xlzi+k2OdUcmyqP4/UDXosLG4RzXRilg=",
+      "multibase": "uEiDBGOFgp88DXVeXOL6TY51RybKo_j9QNeiwsbhHNdGKWA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:9247351b2b025c0210ab799cf4defcf0790e7e879e09fb4c01f98832d81be1de"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/c553920b1b0cbe50f723a685efb190c6a7fd7ffe9a70d6f259b441f3b54d8627": {
+      "kappa": "did:holo:sha256:c553920b1b0cbe50f723a685efb190c6a7fd7ffe9a70d6f259b441f3b54d8627",
+      "sri": "sha256-xVOSCxsMvlD3I6aF77GQxqf9f/6acNbyWbRB87VNhic=",
+      "multibase": "uEiDFU5ILGwy-UPcjpoXvsZDGp_1__ppw1vJZtEHztU2GJw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:1e2d191831b17105fcc881da5eb633a6440782d2a69cf1e957bfe770deefad7f"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/c9e31611eafcf8a2f7d939ba90fb68f1847b8bac7a595a6e9403393e55164e10": {
+      "kappa": "did:holo:sha256:c9e31611eafcf8a2f7d939ba90fb68f1847b8bac7a595a6e9403393e55164e10",
+      "sri": "sha256-yeMWEer8+KL32Tm6kPto8YR7i6x6WVpulAM5PlUWThA=",
+      "multibase": "uEiDJ4xYR6vz4ovfZObqQ-2jxhHuLrHpZWm6UAzk-VRZOEA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:ee09506d4d17fe457cecccdee64b07a9a6ce601f983d461d6eebe6cef4c0cb27"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/d0cbcb9cdddc89b518d37be9e96c1604e0f602c9358bce67e288b67908d47847": {
+      "kappa": "did:holo:sha256:d0cbcb9cdddc89b518d37be9e96c1604e0f602c9358bce67e288b67908d47847",
+      "sri": "sha256-0MvLnN3cibUY03vp6WwWBOD2Ask1i85n4oi2eQjUeEc=",
+      "multibase": "uEiDQy8uc3dyJtRjTe-npbBYE4PYCyTWLzmfiiLZ5CNR4Rw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:0324e55a5ee5fcbb1820e1425ff74ce8031569181766aad65d38f56b52bc90d1"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/d4ae12d0b705ca75e596a77f50a70b6532876fe7e8cce0d89d6ec645fcb51f96": {
+      "kappa": "did:holo:sha256:d4ae12d0b705ca75e596a77f50a70b6532876fe7e8cce0d89d6ec645fcb51f96",
+      "sri": "sha256-1K4S0LcFynXllqd/UKcLZTKHb+fozODYnW7GRfy1H5Y=",
+      "multibase": "uEiDUrhLQtwXKdeWWp39QpwtlModv5-jM4NidbsZF_LUflg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:a20d076c3bfcfc673c1ab9192f9aa02d6f2b68f7985809a4111a079371783e5c"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/d6a85e6793a5842acbfce8a0662a920a609b62721f95dcd0c5d01e72970e2a83": {
+      "kappa": "did:holo:sha256:d6a85e6793a5842acbfce8a0662a920a609b62721f95dcd0c5d01e72970e2a83",
+      "sri": "sha256-1qheZ5OlhCrL/OigZiqSCmCbYnIfldzQxdAecpcOKoM=",
+      "multibase": "uEiDWqF5nk6WEKsv86KBmKpIKYJtich-V3NDF0B5ylw4qgw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:c4eaa6e16d8c1060cd39a3607a62a9c626c430ebf1fdc8d49595952a082a97b1"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/d7053d3e729c35d930906df0d2f01128b6ff5097e0ceaabfefabf7a41e80f085": {
+      "kappa": "did:holo:sha256:d7053d3e729c35d930906df0d2f01128b6ff5097e0ceaabfefabf7a41e80f085",
+      "sri": "sha256-1wU9PnKcNdkwkG3w0vARKLb/UJfgzqq/76v3pB6A8IU=",
+      "multibase": "uEiDXBT0-cpw12TCQbfDS8BEotv9Ql-DOqr_vq_ekHoDwhQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e481195c543b9a74960c72e71d3e4602dc09e7e1a8521153ba3d7b2bbb8ea40"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/d713800ec17e485a814f75aaef0ad2c4ab2be28d7559a76994eab0668b1b8fb5": {
+      "kappa": "did:holo:sha256:d713800ec17e485a814f75aaef0ad2c4ab2be28d7559a76994eab0668b1b8fb5",
+      "sri": "sha256-1xOADsF+SFqBT3Wq7wrSxKsr4o11WadplOqwZosbj7U=",
+      "multibase": "uEiDXE4AOwX5IWoFPdarvCtLEqyvijXVZp2mU6rBmixuPtQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:dde8ffa991b17fd944e36cfb541633d568a48d8e53938c7edc3de703572cf164"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/e207c71380fb5db24c1ca6432ee01453b5421689756ce559034937e2effa8ea8": {
+      "kappa": "did:holo:sha256:e207c71380fb5db24c1ca6432ee01453b5421689756ce559034937e2effa8ea8",
+      "sri": "sha256-4gfHE4D7XbJMHKZDLuAUU7VCFol1bOVZA0k34u/6jqg=",
+      "multibase": "uEiDiB8cTgPtdskwcpkMu4BRTtUIWiXVs5VkDSTfi7_qOqA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:c7f897b0fdc0d3965273113509c07720169fd9ee1fb2dabb36394cd6e2ddfec2"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/e8f4e58c96d9b944b5e88b5072237d65a46f68b33b15c50acce812234ad1f40b": {
+      "kappa": "did:holo:sha256:e8f4e58c96d9b944b5e88b5072237d65a46f68b33b15c50acce812234ad1f40b",
+      "sri": "sha256-6PTljJbZuUS16ItQciN9ZaRvaLM7FcUKzOgSI0rR9As=",
+      "multibase": "uEiDo9OWMltm5RLXoi1ByI31lpG9oszsVxQrM6BIjStH0Cw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3896966450efee11bf13a998c716b9a3cecc310a50aabd392b7e0fe521bf5304"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/ecfaef24bef591ab599a6bd89f086055ba5a6f8db123b4a3e3d2fb6d5bc8f6cd": {
+      "kappa": "did:holo:sha256:ecfaef24bef591ab599a6bd89f086055ba5a6f8db123b4a3e3d2fb6d5bc8f6cd",
+      "sri": "sha256-7PrvJL71katZmmvYnwhgVbpab42xI7Sj49L7bVvI9s0=",
+      "multibase": "uEiDs-u8kvvWRq1maa9ifCGBVulpvjbEjtKPj0vttW8j2zQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:263351e0bfbd0ff1598104a6e75dce23200b8c9471e6b3f64d48e9cdd20320b5"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks/.holo/sha256/fc57697384aca366b17981768acdf28fb3276fbe3028a68f63598440c6756dcd": {
+      "kappa": "did:holo:sha256:fc57697384aca366b17981768acdf28fb3276fbe3028a68f63598440c6756dcd",
+      "sri": "sha256-/Fdpc4Sso2axeYF2is3yj7Mnb74wKKaPY1mEQMZ1bc0=",
+      "multibase": "uEiD8V2lzhKyjZrF5gXaKzfKPsydvvjAopo9jWYRAxnVtzQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:4faba5741b09f82fc8e8a4ae704b2b88eb2015785708a445dc8f833be74cb50b"
+      ]
+    },
+    "apps/freenos/images/FreeNOS-1.0.3.iso.kblocks.json": {
+      "kappa": "did:holo:sha256:f6a160558d55dc1cc531cbaa85e2e409ad38484f1311155e0f82a790a2214857",
+      "sri": "sha256-9qFgVY1V3BzFMcuqheLkCa04SE8TERVeD4KnkKIhSFc=",
+      "multibase": "uEiD2oWBVjVXcHMUxy6qF4uQJrThITxMRFV4PgqeQoiFIVw",
+      "bytes": 4434,
+      "alsoKnownAs": [
+        "did:holo:blake3:a12e1d836104566f925605154e44a5640b084cb4babb26567139b59ab61fa6b6"
+      ]
+    },
+    "apps/freenos/index.html": {
+      "kappa": "did:holo:sha256:a7eb8971538579814dcfb5825fe35896a7e5e3bc8dd90789e291f874258c1372",
+      "sri": "sha256-p+uJcVOFeYFNz7WCX+NYlqfl47yN2QeJ4pH4dCWME3I=",
+      "multibase": "uEiCn64lxU4V5gU3PtYJf41iWp-XjvI3ZB4nikfh0JYwTcg",
+      "bytes": 24442,
+      "alsoKnownAs": [
+        "did:holo:blake3:2abb89eea5dfee7c12a74ef712f27188969fad2e876f7d691a3ff0aceb0c647f"
+      ]
+    },
+    "apps/freenos/kappa.json": {
+      "kappa": "did:holo:sha256:25ad85d6e2d46e2003551f5b8bf52c193872c50b2e3ad31e9111a44c7dec8bab",
+      "sri": "sha256-Ja2F1uLUbiADVR9bi/UsGThyxQsuOtMekRGkTH3si6s=",
+      "multibase": "uEiAlrYXW4tRuIANVH1uL9SwZOHLFCy460x6REaRMfeyLqw",
+      "bytes": 1938,
+      "alsoKnownAs": [
+        "did:holo:blake3:5f5840c619b7a81f80954e34afa21d3cb1702b558a8aa7924d731adad2b394e7"
+      ]
+    },
+    "apps/freenos/sw.js": {
+      "kappa": "did:holo:sha256:8492923c1dc55072b5cd938fd087e4445cffb9e4ca6e5672fcad52d58ca51843",
+      "sri": "sha256-hJKSPB3FUHK1zZOP0IfkRFz/ueTKblZy/K1S1YylGEM=",
+      "multibase": "uEiCEkpI8HcVQcrXNk4_Qh-REXP-55MpuVnL8rVLVjKUYQw",
+      "bytes": 5026,
+      "alsoKnownAs": [
+        "did:holo:blake3:4d976ee580fe68aa448c25fe3ad99ec04735d49b225811d55bb1381576da1c7b"
+      ]
+    },
+    "apps/freenos/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/freenos/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/freenos/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/freenos/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/freenos/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/freenos/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/freenos/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/freenos/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

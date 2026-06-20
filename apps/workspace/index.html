@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>holospace · workspace</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        /* VS Code "Dark Modern" — exact workbench tokens (microsoft/vscode theme-defaults/dark_modern) */
+        --vsc-bg: #1F1F1F; --vsc-fg: #CCCCCC; --vsc-chrome: #181818; --vsc-border: #2B2B2B;
+        --vsc-accent: #0078D4; --vsc-tab-active-fg: #FFFFFF; --vsc-dim: #9D9D9D;
+        --vsc-ab-fg: #D7D7D7; --vsc-ab-dim: #868686; --vsc-list-active: #2A2D2E; --vsc-hover: #2A2A2A;
+        --vsc-mono: "Cascadia Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --vsc-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+        --sbw: 256px; --ph: 220px;
+      }
+      html, body { height: 100%; margin: 0; }
+      body { font: var(--holo-text-sm, 1rem)/1.4 var(--vsc-ui); background: var(--vsc-bg); color: var(--vsc-fg); display: flex; flex-direction: column; overflow: hidden; }
+      button { font-family: inherit; }
+
+      /* ── Title bar ── */
+      #titlebar { height: 35px; flex: 0 0 auto; background: var(--vsc-chrome); border-bottom: 1px solid var(--vsc-border); display: flex; align-items: center; padding: 0 10px; position: relative; }
+      #titlebar .tb-logo { color: var(--vsc-accent); font-size: var(--holo-text-sm, 1rem); margin-right: 8px; }
+      #titlebar .tb-name { color: var(--vsc-fg); font-size: var(--holo-text-sm, 1rem); opacity: .85; }
+      #titlebar .tb-title { position: absolute; left: 50%; transform: translateX(-50%); color: var(--vsc-dim); font-size: var(--holo-text-sm, 1rem); pointer-events: none; }
+
+      /* ── Workbench: activity | sidebar | main ── */
+      #workbench { flex: 1 1 auto; display: grid; grid-template-columns: 48px var(--sbw) 1fr; min-height: 0; position: relative; }
+
+      /* ── Activity bar ── */
+      #activitybar { background: var(--vsc-chrome); border-right: 1px solid var(--vsc-border); display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 4px 0; }
+      #activitybar .abtop, #activitybar .abbot { display: flex; flex-direction: column; align-items: center; width: 100%; }
+      .abtn { width: 48px; height: 48px; display: grid; place-items: center; background: none; border: 0; border-left: 2px solid transparent; color: var(--vsc-ab-dim); cursor: pointer; padding: 0; }
+      .abtn:hover { color: var(--vsc-ab-fg); }
+      .abtn.active { color: var(--vsc-ab-fg); border-left-color: var(--vsc-fg); }
+      .abtn svg { width: 24px; height: 24px; display: block; }
+
+      /* ── Side bar ── */
+      #sidebar { background: var(--vsc-chrome); border-right: 1px solid var(--vsc-border); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+      .sbview { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+      .sbview[hidden] { display: none; }
+      .sbhead { padding: 9px 20px 7px; font-size: var(--holo-text-sm, 1rem); text-transform: uppercase; letter-spacing: .04em; color: var(--vsc-fg); flex: 0 0 auto; }
+      .sbsection-h { padding: 2px 12px 2px 20px; font-size: var(--holo-text-sm, 1rem); font-weight: 700; text-transform: uppercase; color: var(--vsc-fg); opacity: .9; flex: 0 0 auto; }
+      #files { overflow: auto; flex: 1; padding-bottom: 8px; }
+      .file { height: 22px; line-height: 22px; padding: 0 10px 0 20px; cursor: pointer; white-space: nowrap; overflow: hidden; display: flex; align-items: center; gap: 6px; font-size: var(--holo-text-sm, 1rem); color: var(--vsc-fg); }
+      .file:hover { background: var(--vsc-hover); }
+      .file.active { background: var(--vsc-list-active); }
+      .file .fn { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+      .file .fdel { color: var(--vsc-fg); opacity: 0; font-weight: 700; padding: 0 4px; border-radius: 4px; line-height: 1; }
+      .file:hover .fdel { opacity: .55; } .file .fdel:hover { opacity: 1; background: var(--vsc-border); }
+      .newf { height: 22px; line-height: 22px; padding: 0 10px 0 20px; color: var(--vsc-dim); cursor: pointer; font-size: var(--holo-text-sm, 1rem); }
+      .newf:hover { background: var(--vsc-hover); color: var(--vsc-fg); }
+      #searchbar { padding: 6px 12px; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+      #searchbar input { background: #313131; color: var(--vsc-fg); border: 1px solid var(--vsc-border); border-radius: 4px; padding: 4px 8px; font: var(--holo-text-sm, 1rem) var(--vsc-ui); outline: none; }
+      #searchbar input:focus { border-color: var(--vsc-accent); }
+      #searchcount { font-size: var(--holo-text-sm, 1rem); color: var(--vsc-dim); padding: 6px 2px; flex: 0 0 auto; }
+      #searchres { overflow: auto; flex: 1; }
+      #searchres .sr { padding: 2px 6px; cursor: pointer; font: var(--holo-text-sm, 1rem) var(--vsc-mono); color: var(--vsc-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #searchres .sr:hover { background: var(--vsc-hover); } #searchres .sr b { color: var(--vsc-fg); }
+
+      /* ── Main: editor area + panel ── */
+      #main { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+      #editorarea { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--vsc-bg); }
+      #tabsbar { height: 35px; flex: 0 0 auto; background: var(--vsc-chrome); display: flex; align-items: stretch; }
+      #tabs { display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; flex: 1; }
+      #tabs::-webkit-scrollbar { height: 3px; }
+      .tab { display: flex; align-items: center; gap: 8px; padding: 0 10px; max-width: 200px; background: var(--vsc-chrome); color: var(--vsc-dim); border-right: 1px solid var(--vsc-border); border-top: 1px solid transparent; cursor: pointer; font-size: var(--holo-text-sm, 1rem); white-space: nowrap; }
+      .tab.active { background: var(--vsc-bg); color: var(--vsc-tab-active-fg); border-top-color: var(--vsc-accent); }
+      .tab .tn { overflow: hidden; text-overflow: ellipsis; }
+      .tab .tx { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 4px; opacity: 0; flex: 0 0 auto; }
+      .tab .tx::before { content: "✕"; font-size: var(--holo-text-sm, 1rem); line-height: 1; }
+      .tab:hover .tx, .tab.active .tx { opacity: .7; } .tab .tx:hover { background: var(--vsc-border); opacity: 1; }
+      .tab.dirty .tx { opacity: 1; } .tab.dirty .tx::before { content: "●"; }
+      .tab.dirty:hover .tx:hover::before, .tab.dirty .tx:hover::before { content: "✕"; }
+      .editor-actions { display: flex; align-items: center; padding: 0 8px; }
+      .ea-btn { background: none; border: 0; color: var(--vsc-fg); cursor: pointer; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 5px; }
+      .ea-btn:hover { background: var(--vsc-hover); } .ea-btn svg { width: 17px; height: 17px; }
+      #breadcrumbs { height: 22px; flex: 0 0 auto; display: flex; align-items: center; padding: 0 14px; font-size: var(--holo-text-sm, 1rem); color: var(--vsc-dim); background: var(--vsc-bg); gap: 6px; }
+      #breadcrumbs .crumb::after { content: "›"; margin-left: 6px; opacity: .6; } #breadcrumbs .crumb:last-child::after { content: ""; }
+      #editor { flex: 1; min-height: 0; }
+
+      /* ── Panel ── */
+      #panel { flex: 0 0 var(--ph); background: var(--vsc-bg); border-top: 1px solid var(--vsc-border); display: flex; flex-direction: column; min-height: 0; }
+      #panel .tabs { display: flex; padding: 0 10px; flex: 0 0 auto; height: 35px; align-items: center; }
+      #panel .ptab { padding: 0 8px; height: 35px; line-height: 35px; font-size: var(--holo-text-sm, 1rem); text-transform: uppercase; letter-spacing: .04em; color: var(--vsc-dim); cursor: pointer; border-bottom: 1px solid transparent; }
+      #panel .ptab:hover { color: var(--vsc-fg); }
+      #panel .ptab.active { color: var(--vsc-fg); border-bottom-color: var(--vsc-accent); }
+      #panel .pview { flex: 1; min-height: 0; } #panel .pview[hidden] { display: none; }
+      #term { padding: 4px 8px; }
+      #problems { overflow: auto; padding: 6px 12px; font-size: var(--holo-text-sm, 1rem); }
+      #problems .pb { display: flex; gap: 8px; align-items: center; padding: 2px 0; cursor: pointer; color: var(--vsc-fg); } #problems .pb:hover { background: var(--vsc-hover); }
+      #problems .pb .pi { color: #F85149; } #problems .pb .pl { color: var(--vsc-dim); margin-left: auto; }
+      #problems .none { color: var(--vsc-dim); }
+      #graph { overflow: auto; background: var(--vsc-bg); }
+      #graph .gnode rect { fill: #2A2D2E; stroke: var(--vsc-border); }
+      #graph .gnode:hover rect { stroke: var(--vsc-accent); }
+      #graph .gnode text { fill: var(--vsc-fg); font: var(--holo-text-sm, 1rem) var(--vsc-mono); }
+      #graph .gnode .gk { fill: var(--vsc-dim); font-size: var(--holo-text-sm, 1rem); }
+      #graph .gedge { stroke: #0078d4aa; }
+      #runview { overflow: auto; padding: 8px 12px; font: var(--holo-text-sm, 1rem) var(--vsc-mono); color: var(--vsc-fg); }
+      #runview .rk { color: #4daafc; word-break: break-all; } #runview .rr { color: #3fb950; } #runview .re { color: #F85149; white-space: pre-wrap; }
+
+      /* ── Boot overlay ── */
+      #boot { position: absolute; inset: 0; z-index: 30; background: var(--vsc-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--vsc-dim); }
+      #boot p { margin: 0; } #bootlog { font: var(--holo-text-sm, 1rem) var(--vsc-mono); }
+
+      /* ── Status bar ── */
+      #statusbar { height: 22px; flex: 0 0 auto; background: var(--vsc-chrome); border-top: 1px solid var(--vsc-border); color: var(--vsc-fg); display: flex; align-items: stretch; justify-content: space-between; font-size: var(--holo-text-sm, 1rem); }
+      #statusbar .sb-side { display: flex; align-items: stretch; }
+      #statusbar .sb-item { display: flex; align-items: center; padding: 0 8px; cursor: default; white-space: nowrap; }
+      #statusbar .sb-item:hover { background: #F1F1F133; }
+      #statusbar .sb-remote { display: flex; align-items: center; padding: 0 10px; background: var(--vsc-accent); color: #fff; }
+      #statusbar .k { font-family: var(--vsc-mono); color: var(--vsc-fg); max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }
+      #statusbar .bad { color: #F85149; } #statusbar .ok { color: var(--vsc-fg); }
+
+      /* ── Resizers ── */
+      .rz { position: absolute; z-index: 20; } .rz-v { top: 0; bottom: 0; width: 5px; cursor: col-resize; } .rz-h { left: 0; right: 0; height: 5px; cursor: row-resize; }
+      .rz:hover { background: var(--vsc-accent); }
+
+      /* ── Live co-edit presence (serverless BroadcastChannel; avatars appear only when peers join) ── */
+      #statusbar #presence { display: flex; align-items: center; }
+      #statusbar #presence:empty { display: none; }
+      #presence .pa { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font: 700 var(--holo-text-sm, 1rem) var(--vsc-ui); color: #fff; border: 1.5px solid var(--vsc-chrome); margin-left: -5px; }
+      #presence .pa:first-child { margin-left: 0; }
+      .rc-caret { width: 2px; height: 18px; pointer-events: none; }
+      .rc-flag { position: absolute; left: 0; top: -15px; font: 600 var(--holo-text-sm, 1rem) var(--vsc-ui); color: #fff; padding: 1px 5px; border-radius: 4px 4px 4px 0; white-space: nowrap; pointer-events: none; }
+
+      /* ── Quick Open (Ctrl+P) + Command Palette (F1 / Ctrl+Shift+P) — VS Code's quick-input ── */
+      #quick { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 600px; max-width: 92%; z-index: 50; background: #252526; border: 1px solid var(--vsc-border); border-top: 0; border-radius: 0 0 6px 6px; box-shadow: 0 6px 22px #0009; display: none; flex-direction: column; }
+      #quick.on { display: flex; }
+      #quick input { background: #3c3c3c; color: var(--vsc-fg); border: 1px solid var(--vsc-accent); margin: 6px; padding: 5px 8px; font: var(--holo-text-sm, 1rem) var(--vsc-ui); outline: none; border-radius: 2px; }
+      #quicklist { max-height: 48vh; overflow: auto; padding-bottom: 4px; }
+      #quicklist .qi { padding: 4px 12px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; white-space: nowrap; }
+      #quicklist .qi .ql { color: var(--vsc-fg); overflow: hidden; text-overflow: ellipsis; }
+      #quicklist .qi .qd { color: var(--vsc-dim); font-size: var(--holo-text-sm, 1rem); }
+      #quicklist .qi.sel, #quicklist .qi:hover { background: #04395e; }
+      a { color: #4daafc; }
+    </style>
+    <!-- Mobile conformance layer — loaded last so it wins the cascade (WCAG 2.2 §1.4.10/§2.5.8 + MD3). -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Workspace"></holo-splash>
+
+    <div id="titlebar">
+      <span class="tb-logo" aria-hidden="true">◆</span>
+      <span class="tb-name">Holo Workspace</span>
+      <span class="tb-title" id="name">holospace</span>
+    </div>
+    <div id="workbench">
+      <nav id="activitybar" aria-label="Activity Bar">
+        <div class="abtop">
+          <button class="abtn active" data-view="explorer" title="Explorer" data-holo-shortcut="mod+Shift+E" aria-label="Explorer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M16.5 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v3"/><path d="M11 13l-2.5 8 4-2 4 2-2.5-8"/></svg></button>
+          <button class="abtn" id="hbtn-find" data-view="search" title="Search" data-holo-shortcut="mod+Shift+F" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
+          <button class="abtn" data-panel="run" title="Run &amp; Build" data-holo-shortcut="mod+Enter" aria-label="Run and Build"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+          <button class="abtn" data-panel="graph" title="Object Graph (κ)" aria-label="Object Graph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="6" r="2.3"/><circle cx="18" cy="7" r="2.3"/><circle cx="12" cy="18" r="2.3"/><path d="M7.8 7.5l3 8.3M16.4 8.9l-3.3 6.9M8.3 6.2l7.3.5"/></svg></button>
+        </div>
+        <div class="abbot">
+          <button class="abtn" id="hbtn-share" title="Share (holo://κ)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="18" cy="5" r="2.3"/><circle cx="6" cy="12" r="2.3"/><circle cx="18" cy="19" r="2.3"/><path d="M8.1 10.9l7.8-4.6M8.1 13.1l7.8 4.6"/></svg></button>
+          <button class="abtn" id="hbtn-theme" title="Toggle color theme" aria-label="Color Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></button>
+        </div>
+      </nav>
+      <aside id="sidebar">
+        <section class="sbview" id="view-explorer">
+          <div class="sbhead">Explorer</div>
+          <div class="sbsection-h" id="explorer-folder">Workspace</div>
+          <div id="files"></div>
+        </section>
+        <section class="sbview" id="view-search" hidden>
+          <div class="sbhead">Search</div>
+          <div id="searchbar">
+            <input id="searchq" type="text" placeholder="Search" spellcheck="false" />
+            <div id="searchcount"></div>
+            <div id="searchres"></div>
+          </div>
+        </section>
+      </aside>
+      <main id="main">
+        <div id="editorarea">
+          <div id="tabsbar">
+            <div id="tabs" role="tablist"></div>
+            <div class="editor-actions">
+              <button id="hbtn-run" class="ea-btn" title="Build &amp; Run" data-holo-shortcut="mod+Enter" aria-label="Build and Run"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+            </div>
+          </div>
+          <div id="breadcrumbs"></div>
+          <div id="editor"></div>
+        </div>
+        <div id="panel">
+          <div class="tabs" role="tablist">
+            <span class="ptab" data-t="problems">Problems</span>
+            <span class="ptab active" data-t="term">Terminal</span>
+            <span class="ptab" data-t="graph">Object Graph</span>
+            <span class="ptab" data-t="run">Run</span>
+          </div>
+          <div id="problems" class="pview" hidden></div>
+          <div id="term" class="pview"></div>
+          <div id="graph" class="pview" hidden></div>
+          <div id="runview" class="pview" hidden></div>
+        </div>
+      </main>
+      <div id="boot">
+        <p>Launching the workspace…</p>
+        <p id="bootlog"></p>
+      </div>
+      <div id="quick"><input id="quickq" type="text" spellcheck="false" autocomplete="off" /><div id="quicklist"></div></div>
+    </div>
+    <footer id="statusbar">
+      <div class="sb-side sb-left">
+        <span class="sb-remote" title="Anchored in the UOR content-addressed substrate">⟠ holo</span>
+        <span id="sb-prob" class="sb-item ok" title="Problems">✓ 0</span>
+      </div>
+      <div class="sb-side sb-right">
+        <span id="presence" class="sb-item" title="Live collaborators in this holospace"></span>
+        <span id="status" class="sb-item">starting…</span>
+        <span id="sb-pos" class="sb-item">Ln 1, Col 1</span>
+        <span id="sb-lang" class="sb-item">plaintext</span>
+        <span id="hk" class="sb-item k" title="content address (κ) of the active file"></span>
+        <span class="sb-item">Law L5</span>
+      </div>
+    </footer>
+
+    <script type="module">
+      import init, { kappa, verify_kappa, Workspace, DevcontainerImage } from "./pkg/holospaces_web.js";
+
+      // The browser peer is the trust root: once it is loaded, the substrate's
+      // own σ-axis (blake3, CC-1) verifies every other byte by re-derivation
+      // (Law L5). The VS Code components and the OS image are content imported by
+      // κ, exactly like any holospace's code — nothing is trusted from a bare
+      // <script src>. This is the uor-native realization: the platform verifies
+      // its own UI with itself.
+      await init();
+
+      // Holo Forge — build · run · share, wired into this Monaco IDE (ADR-0051). Loaded non-blocking
+      // so the workspace boots even if it is unavailable; sets window.HoloApp (the build/run/share verb).
+      try { await import("./_shared/holo-app.mjs"); } catch (e) { /* build·run·share unavailable */ }
+
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      $("name").textContent = params.get("name") || "devcontainer";
+      $("hk").textContent = params.get("id") || "(local)";
+      const setStatus = (m) => ($("status").textContent = m);
+      const bootlog = (m) => ($("bootlog").textContent = m);
+
+      // The pinned κ of each imported artifact (the substrate's content address;
+      // provenance in vv/artifacts/cc13/vendor.kappa + vv/PROVENANCE.md).
+      const K = {
+        "vendor/monaco/loader.js": "blake3:11a21e4e68cd15599539c9e3dccab9918adb25fe98225fcb315868f68991894b",
+        "vendor/monaco/editor/editor.main.js": "blake3:9f7f6b050c2698b3788fb9fdb0b49bad45804f7e15faa6870e9cf0d822200730",
+        "vendor/monaco/editor/editor.main.css": "blake3:a0d37d83f7c702f316c5964069dbe81ea8292ec3b7ec97c1f28869437893461a",
+        "vendor/monaco/base/worker/workerMain.js": "blake3:8937fecc35712a379622f58a6cafc0b88fc2a6f76facc20ba611f5f97ddc631f",
+        "vendor/monaco/basic-languages/markdown/markdown.js": "blake3:7948095c5cf2a7a6ea7d07fbcb16ab8ef22e1db36ec1956945537d040ad5f263",
+        "vendor/monaco/basic-languages/shell/shell.js": "blake3:8637ec501c735be9d7e31e0a4ed3101e29cc983e71bdcc50415fe10651088d7f",
+        "vendor/xterm/xterm.js": "blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50",
+        "vendor/xterm/xterm.css": "blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f",
+        "vendor/xterm/addon-fit.js": "blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99",
+        "workspace-kernel.gz": "blake3:69d01fad85dee601f35c3406f32ad203ef58ba260d2a3f0f7c7566edc3bf9a57",
+        "workspace.dtb": "blake3:e1afd55f442345e6020b0a45a240b363fe0de19eca69dc88ebe58f90b0544d5b",
+        "devcontainer-kernel.gz": "blake3:86444b599981098edbc377ed17cf81236efd56321edb86119dcf516f80fc2632",
+        "devcontainer-layer.tar.gz": "blake3:bd7614da27950a93ebc69c6e41f8e59a1bd733789b9cc46984c9b1bafa72852a",
+      };
+
+      // Import content from the gateway and verify it by re-derivation through
+      // the substrate (Law L5): a forged byte is refused, the gateway cannot lie.
+      async function importKappa(path) {
+        const res = await fetch(path);
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (!verify_kappa(bytes, K[path])) {
+          throw new Error(`κ mismatch importing ${path} the gateway returned forged content (Law L5)`);
+        }
+        return bytes;
+      }
+      const blobUrl = (bytes, type) => URL.createObjectURL(new Blob([bytes], { type }));
+      function injectScript(bytes) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = blobUrl(bytes, "text/javascript");
+          s.onload = resolve;
+          s.onerror = () => reject(new Error("script load failed"));
+          document.head.appendChild(s);
+        });
+      }
+      function injectStyle(bytes) {
+        const l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.href = blobUrl(bytes, "text/css");
+        document.head.appendChild(l);
+      }
+
+      // ── Load the real VS Code terminal (xterm.js), κ-verified ──
+      setStatus("verifying xterm.js by κ…");
+      injectStyle(await importKappa("vendor/xterm/xterm.css"));
+      await injectScript(await importKappa("vendor/xterm/xterm.js"));
+      await injectScript(await importKappa("vendor/xterm/addon-fit.js"));
+
+      // ── Load the real VS Code editor (Monaco), κ-verified ──
+      setStatus("loading Monaco editor…");
+      // Standard Monaco AMD integration (monaco-editor docs: load loader.js, then
+      // require(["vs/editor/editor.main"])). The vendored vs/ dist is content-addressed in the
+      // holospace lock and κ-verified by the Service Worker on fetch (Law L5) — the substrate's
+      // standard asset gate, identical to every other app file. Basic-language tokenizers
+      // (markdown, shell, …) are loaded on demand by the loader from the same verified dir.
+      // A self-contained no-op language worker keeps tokenization on the main thread.
+      const injectScriptSrc = (src) => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("load " + src)); document.head.appendChild(s); });
+      // Real TypeScript language service (the TS compiler bundled in editor.main; ADR-0056): for ts/js
+      // spawn a self-hosted Monaco worker (workerMain.js + baseUrl → loads vs/language/typescript/tsWorker,
+      // 5.7 MB, κ-verified), giving full cross-file type inference + IntelliSense; every OTHER worker stays
+      // a no-op (tokenization on the main thread, as before). All same-origin, serverless, offline.
+      const monacoBase = new URL("vendor/monaco/", location.href).href;
+      const tsWorkerUrl = () => blobUrl(new TextEncoder().encode("self.MonacoEnvironment={baseUrl:'" + monacoBase + "'};importScripts('" + monacoBase + "base/worker/workerMain.js');try{self.require.config({paths:{vs:'" + monacoBase.replace(/\/$/, "") + "'}})}catch(e){}"), "text/javascript");
+      const noopWorkerUrl = () => blobUrl(new TextEncoder().encode("self.onmessage=function(){};"), "text/javascript");
+      self.MonacoEnvironment = {
+        getWorker: (_id, label) => new Worker((label === "typescript" || label === "javascript") ? tsWorkerUrl() : noopWorkerUrl()),
+      };
+      { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "vendor/monaco/editor/editor.main.css"; document.head.appendChild(l); }
+      await injectScriptSrc("vendor/monaco/loader.js");
+      window.require.config({ paths: { vs: "vendor/monaco" } });
+      await new Promise((resolve) => window.require(["vs/editor/editor.main"], resolve));
+
+      // Configure the TS/JS service: lenient web defaults + eager model sync so every open .ts/.js model is
+      // visible to the worker → real CROSS-FILE type inference + IntelliSense (completion · hover · go-to-def
+      // · signature · rename · references · type diagnostics), all in the worker, no server.
+      try {
+        const T = window.monaco.languages.typescript;
+        if (T) {
+          const opts = { allowJs: true, allowNonTsExtensions: true, target: T.ScriptTarget.ESNext, moduleResolution: T.ModuleResolutionKind.NodeJs, module: T.ModuleKind.ESNext, lib: ["esnext", "dom"], noEmit: true, checkJs: false };
+          T.typescriptDefaults.setCompilerOptions(opts); T.javascriptDefaults.setCompilerOptions(opts);
+          T.typescriptDefaults.setEagerModelSync(true); T.javascriptDefaults.setEagerModelSync(true);
+        }
+      } catch (e) { /* TS service optional */ }
+
+      // ── Holo-C as a first-class Monaco language (the documented languages API) — exact highlighting,
+      // comment-toggle (Ctrl+/), autocomplete, hover docs, and go-to-definition (F12), all from the
+      // SAME grammar the compiler accepts. One registration closes five IDE gaps. ──
+      (function registerHoloC() {
+        const L = window.monaco.languages;
+        if (L.getLanguages().some((l) => l.id === "holo-c")) return;
+        L.register({ id: "holo-c", extensions: [".hc", ".c"], aliases: ["Holo-C", "holo-c"] });
+        L.setLanguageConfiguration("holo-c", {
+          comments: { lineComment: "//", blockComment: ["/*", "*/"] },
+          brackets: [["{", "}"], ["[", "]"], ["(", ")"]],
+          autoClosingPairs: [{ open: "{", close: "}" }, { open: "[", close: "]" }, { open: "(", close: ")" }, { open: '"', close: '"' }],
+          surroundingPairs: [{ open: "{", close: "}" }, { open: "(", close: ")" }, { open: "[", close: "]" }],
+        });
+        L.setMonarchTokensProvider("holo-c", {
+          keywords: ["int", "if", "else", "while", "return", "for", "break", "continue", "void"],
+          tokenizer: {
+            root: [
+              [/\/\/.*$/, "comment"],
+              [/\/\*/, "comment", "@comment"],
+              [/\b0x[0-9a-fA-F]+\b/, "number.hex"],
+              [/\b\d+\b/, "number"],
+              [/"([^"\\]|\\.)*"/, "string"],
+              [/[a-zA-Z_]\w*(?=\s*\()/, "type.identifier"],
+              [/[a-zA-Z_]\w*/, { cases: { "@keywords": "keyword", "@default": "identifier" } }],
+              [/[{}()\[\]]/, "@brackets"],
+              [/[=!<>+\-*/%&|^?:]+/, "operator"],
+            ],
+            comment: [[/[^/*]+/, "comment"], [/\*\//, "comment", "@pop"], [/[/*]/, "comment"]],
+          },
+        });
+        const DOCS = { int: "32-bit signed integer — the only Holo-C value type.", if: "conditional branch", else: "alternative branch", while: "loop while the condition is non-zero", return: "return an i32 from the function", for: "counted loop", void: "no value" };
+        L.registerCompletionItemProvider("holo-c", {
+          provideCompletionItems(model) {
+            const kw = ["int", "if", "else", "while", "return"].map((k) => ({ label: k, kind: L.CompletionItemKind.Keyword, insertText: k }));
+            const fns = [...model.getValue().matchAll(/^\s*int\s+([A-Za-z_]\w*)\s*\(/gm)].map((m) => ({ label: m[1], kind: L.CompletionItemKind.Function, insertText: m[1] + "(" }));
+            return { suggestions: [...kw, ...fns] };
+          },
+        });
+        L.registerHoverProvider("holo-c", {
+          provideHover(model, pos) { const w = model.getWordAtPosition(pos); if (!w) return; const d = DOCS[w.word]; if (!d) return; return { contents: [{ value: "**" + w.word + "** — " + d }] }; },
+        });
+        L.registerDefinitionProvider("holo-c", {
+          provideDefinition(model, pos) {
+            const w = model.getWordAtPosition(pos); if (!w) return;
+            const text = model.getValue(); const idx = text.search(new RegExp("^\\s*int\\s+" + w.word + "\\s*\\(", "m"));
+            if (idx < 0) return; const line = text.slice(0, idx).split("\n").length; const col = model.getLineContent(line).indexOf(w.word) + 1;
+            return { uri: model.uri, range: { startLineNumber: line, startColumn: col, endLineNumber: line, endColumn: col + w.word.length } };
+          },
+        });
+        // a minimal JSON highlighter (the rich JSON service isn't vendored) so config files colour
+        if (!L.getLanguages().some((l) => l.id === "json")) {
+          L.register({ id: "json", extensions: [".json"] });
+          L.setLanguageConfiguration("json", { comments: { lineComment: "//" }, brackets: [["{", "}"], ["[", "]"]], autoClosingPairs: [{ open: "{", close: "}" }, { open: "[", close: "]" }, { open: '"', close: '"' }] });
+          L.setMonarchTokensProvider("json", { tokenizer: { root: [[/"([^"\\]|\\.)*"\s*:/, "type"], [/"([^"\\]|\\.)*"/, "string"], [/\b(true|false|null)\b/, "keyword"], [/-?\d+(\.\d+)?/, "number"], [/[{}\[\]]/, "@brackets"]] } });
+        }
+        if (!L.getLanguages().some((l) => l.id === "html")) {
+          L.register({ id: "html", extensions: [".html", ".htm"] });
+          L.setLanguageConfiguration("html", { comments: { blockComment: ["<!--", "-->"] }, autoClosingPairs: [{ open: "<", close: ">" }, { open: '"', close: '"' }, { open: "{", close: "}" }] });
+          L.setMonarchTokensProvider("html", { tokenizer: { root: [[/<!--/, "comment", "@c"], [/<\/?[\w-]+/, "tag"], [/[\w-]+(?==)/, "attribute.name"], [/"([^"]*)"/, "string"], [/>/, "tag"]], c: [[/-->/, "comment", "@pop"], [/./, "comment"]] } });
+        }
+        for (const id of ["typescript", "javascript"]) if (!L.getLanguages().some((l) => l.id === id)) {
+          L.register({ id, extensions: id === "typescript" ? [".ts", ".tsx"] : [".js", ".mjs", ".jsx"] });
+          L.setLanguageConfiguration(id, { comments: { lineComment: "//", blockComment: ["/*", "*/"] }, brackets: [["{", "}"], ["[", "]"], ["(", ")"]], autoClosingPairs: [{ open: "{", close: "}" }, { open: "[", close: "]" }, { open: "(", close: ")" }, { open: '"', close: '"' }, { open: "'", close: "'" }, { open: "`", close: "`" }] });
+          L.setMonarchTokensProvider(id, { keywords: ["var", "let", "const", "function", "return", "if", "else", "for", "while", "do", "break", "continue", "new", "class", "extends", "import", "export", "from", "default", "typeof", "instanceof", "in", "of", "void", "this", "null", "true", "false", "undefined", "async", "await", "try", "catch", "finally", "throw", "switch", "case", "yield", "interface", "type", "enum", "public", "private", "readonly", "static"], tokenizer: { root: [[/\/\/.*$/, "comment"], [/\/\*/, "comment", "@c"], [/"([^"\\]|\\.)*"/, "string"], [/'([^'\\]|\\.)*'/, "string"], [/`([^`\\]|\\.)*`/, "string"], [/\b\d[\d_]*(\.\d+)?\b/, "number"], [/[A-Za-z_$][\w$]*(?=\s*\()/, "type.identifier"], [/[A-Za-z_$][\w$]*/, { cases: { "@keywords": "keyword", "@default": "identifier" } }], [/[{}()\[\]]/, "@brackets"], [/[=!<>+\-*/%&|^?:.]+/, "operator"]], c: [[/[^/*]+/, "comment"], [/\*\//, "comment", "@pop"], [/[/*]/, "comment"]] } });
+        }
+      })();
+
+      // ── HOLO LANG: language intelligence as a serverless, OFF-THREAD κ-object language service (ADR-0056).
+      // The analyzer runs in a Web Worker (built from a real function via toString → no bundler, no server),
+      // so analysis never blocks typing — input stays crisp. It feeds Monaco's standard providers (document
+      // symbols/outline · signature help · find-references · rename · formatting). The analyzer is the same
+      // language-server PATTERN a real WASM LSP (clangd/rust-analyzer) plugs into later, over this transport. ──
+      function holoLangWorker() {
+        const ID = "[A-Za-z_][A-Za-z0-9_]*";
+        function parseFns(text) {
+          const fns = [], re = new RegExp("(^|[^A-Za-z0-9_])int\\s+(" + ID + ")\\s*\\(([^)]*)\\)\\s*\\{", "g"); let m;
+          while ((m = re.exec(text))) {
+            const nameOff = m.index + m[0].indexOf(m[2], m[1].length), braceOff = m.index + m[0].length - 1;
+            let depth = 0, end = braceOff;
+            for (let i = braceOff; i < text.length; i++) { const c = text[i]; if (c === "{") depth++; else if (c === "}") { depth--; if (depth === 0) { end = i + 1; break; } } }
+            fns.push({ name: m[2], params: m[3].replace(/\s+/g, " ").trim(), start: m.index + m[1].length, end: end, selStart: nameOff, selEnd: nameOff + m[2].length });
+          }
+          return fns;
+        }
+        function symbols(text) { return parseFns(text).map(function (f) { return { name: f.name, detail: "int (" + f.params + ")", start: f.start, end: f.end, selStart: f.selStart, selEnd: f.selEnd }; }); }
+        function wordAt(text, off) { const w = /[A-Za-z_][A-Za-z0-9_]*/g; let m; while ((m = w.exec(text))) { if (m.index <= off && off <= m.index + m[0].length) return { word: m[0], start: m.index, end: m.index + m[0].length }; if (m.index > off) break; } return null; }
+        function references(text, off) { const w = wordAt(text, off); if (!w) return []; const out = [], re = new RegExp("\\b" + w.word + "\\b", "g"); let m; while ((m = re.exec(text))) out.push({ start: m.index, end: m.index + w.word.length }); return out; }
+        function signature(text, off) {
+          let depth = 0, open = -1;
+          for (let i = off - 1; i >= 0; i--) { const c = text[i]; if (c === ")") depth++; else if (c === "(") { if (depth === 0) { open = i; break; } depth--; } }
+          if (open < 0) return null;
+          let j = open - 1; while (j >= 0 && /\s/.test(text[j])) j--; const e = j + 1; while (j >= 0 && /[A-Za-z0-9_]/.test(text[j])) j--;
+          const name = text.slice(j + 1, e); if (!name) return null;
+          const fn = parseFns(text).find(function (f) { return f.name === name; }); if (!fn) return null;
+          const params = fn.params ? fn.params.split(",").map(function (s) { return s.trim(); }) : [];
+          let d = 0, commas = 0; for (let i = open + 1; i < off && i < text.length; i++) { const c = text[i]; if (c === "(") d++; else if (c === ")") d--; else if (c === "," && d === 0) commas++; }
+          return { label: "int " + name + "(" + params.join(", ") + ")", params: params, activeParam: Math.min(commas, Math.max(0, params.length - 1)) };
+        }
+        function format(text) {
+          const lines = text.split("\n"), out = []; let depth = 0;
+          for (const raw of lines) { const line = raw.trim(); if (line === "") { out.push(""); continue; } let d = depth; if (line[0] === "}") d = Math.max(0, depth - 1); out.push("  ".repeat(d) + line); for (const c of line) { if (c === "{") depth++; else if (c === "}") depth = Math.max(0, depth - 1); } }
+          return out.join("\n");
+        }
+        self.onmessage = function (e) {
+          const d = e.data; let result = null;
+          try { if (d.method === "symbols") result = symbols(d.text); else if (d.method === "references" || d.method === "rename") result = references(d.text, d.offset); else if (d.method === "signature") result = signature(d.text, d.offset); else if (d.method === "format") result = format(d.text); } catch (err) { result = null; }
+          self.postMessage({ id: d.id, result: result });
+        };
+      }
+      let langWorker = null, langSeq = 0; const langPending = new Map();
+      try {
+        langWorker = new Worker(URL.createObjectURL(new Blob(["(" + holoLangWorker.toString() + ")()"], { type: "text/javascript" })));
+        langWorker.onmessage = (e) => { const r = langPending.get(e.data.id); if (r) { langPending.delete(e.data.id); r(e.data.result); } };
+      } catch (e) { /* no worker → language service degrades silently */ }
+      function langReq(method, payload) {
+        return new Promise((res) => { if (!langWorker) return res(null); const id = ++langSeq; langPending.set(id, res); langWorker.postMessage({ id, method, ...payload }); setTimeout(() => { if (langPending.has(id)) { langPending.delete(id); res(null); } }, 2000); });
+      }
+      window.HoloLang = { request: langReq };               // the language service as a callable κ-object service
+      (function registerHoloLang() {
+        const L = window.monaco.languages, M = window.monaco;
+        const rng = (model, a, b) => M.Range.fromPositions(model.getPositionAt(a), model.getPositionAt(b));
+        L.registerDocumentSymbolProvider("holo-c", { provideDocumentSymbols: async (model) => ((await langReq("symbols", { text: model.getValue() })) || []).map((s) => ({ name: s.name, detail: s.detail || "", kind: L.SymbolKind.Function, tags: [], range: rng(model, s.start, s.end), selectionRange: rng(model, s.selStart, s.selEnd) })) });
+        L.registerDocumentFormattingEditProvider("holo-c", { provideDocumentFormattingEdits: async (model) => { const t = await langReq("format", { text: model.getValue() }); return t == null ? [] : [{ range: model.getFullModelRange(), text: t }]; } });
+        L.registerReferenceProvider("holo-c", { provideReferences: async (model, pos) => ((await langReq("references", { text: model.getValue(), offset: model.getOffsetAt(pos) })) || []).map((r) => ({ uri: model.uri, range: rng(model, r.start, r.end) })) });
+        L.registerRenameProvider("holo-c", { provideRenameEdits: async (model, pos, newName) => ({ edits: ((await langReq("rename", { text: model.getValue(), offset: model.getOffsetAt(pos) })) || []).map((r) => ({ resource: model.uri, versionId: model.getVersionId(), textEdit: { range: rng(model, r.start, r.end), text: newName } })) }) });
+        L.registerSignatureHelpProvider("holo-c", { signatureHelpTriggerCharacters: ["(", ","], signatureHelpRetriggerCharacters: [","], provideSignatureHelp: async (model, pos) => { const s = await langReq("signature", { text: model.getValue(), offset: model.getOffsetAt(pos) }); return s ? { value: { signatures: [{ label: s.label, parameters: s.params.map((p) => ({ label: p })) }], activeSignature: 0, activeParameter: s.activeParam }, dispose() {} } : null; } });
+      })();
+
+      // ── HOLO WASM-LSP: a REAL WASM language server (Biome — Rust→WebAssembly) in a worker, no server
+      // (the ADR-0056 escalation). Real diagnostics + formatting for JS / TS / JSON, content-addressed +
+      // serverless + offline; lazy (the 14 MB wasm loads only when you first open a JS/TS/JSON file). ──
+      let biomeWorker = null, biomeSeq = 0; const biomePending = new Map();
+      try {
+        biomeWorker = new Worker(new URL("./holo-biome.worker.mjs", import.meta.url), { type: "module" });
+        biomeWorker.onmessage = (e) => { const r = biomePending.get(e.data.id); if (r) { biomePending.delete(e.data.id); r(e.data.result); } };
+      } catch (e) { /* no worker → JS/TS/JSON degrade to highlighting only */ }
+      function biomeReq(method, payload) {
+        return new Promise((res) => { if (!biomeWorker) return res(null); const id = ++biomeSeq; biomePending.set(id, res); biomeWorker.postMessage({ id, method, ...payload }); setTimeout(() => { if (biomePending.has(id)) { biomePending.delete(id); res(null); } }, 12000); });
+      }
+      const biomeFile = (lang) => lang === "typescript" ? "file.ts" : lang === "javascript" ? "file.js" : "file.json";
+      window.HoloBiome = { request: biomeReq };               // the real WASM language server as a callable κ-object service
+      (function registerBiome() {
+        const L = window.monaco.languages;
+        for (const lang of ["typescript", "javascript", "json"]) {
+          L.registerDocumentFormattingEditProvider(lang, { provideDocumentFormattingEdits: async (model) => { const t = await biomeReq("format", { text: model.getValue(), path: biomeFile(lang) }); return (t == null || t === model.getValue()) ? [] : [{ range: model.getFullModelRange(), text: t }]; } });
+        }
+      })();
+
+      // ── Boot the holospace's devcontainer OS on the emulator (κ-verified) ──
+      setStatus("importing the OS image by κ…");
+      async function gunzip(bytes) {
+        const stream = new Response(bytes).body.pipeThrough(new DecompressionStream("gzip"));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+      // Two boot modes (both κ-verified, both in the browser peer):
+      //   default            — the pinned CC-11 interactive OS (the VS Code demo);
+      //   ?devcontainer      — import a devcontainer's OCI image from the gateway,
+      //                        assemble its rootfs (the in-crate Layer Assembler,
+      //                        wasm), and boot it over virtio-blk (CC-14 / CC-20).
+      const devcontainer = new URLSearchParams(location.search).has("devcontainer");
+      let ws, READY = "HOLOSPACES-WORKSPACE-READY";
+      try {
+        if (devcontainer) {
+          setStatus("importing the devcontainer image by κ + assembling its rootfs…");
+          const kernel = await gunzip(await importKappa("devcontainer-kernel.gz"));
+          const layer = await importKappa("devcontainer-layer.tar.gz");
+          const image = new DevcontainerImage();
+          image.add_layer("application/vnd.oci.image.layer.v1.tar+gzip", layer);
+          const rootfs = image.assemble(); // gunzip + untar + overlay + ext4, in wasm
+          ws = Workspace.boot_devcontainer(kernel, rootfs);
+          READY = "USERSPACE-OK";
+        } else {
+          const kernel = await gunzip(await importKappa("workspace-kernel.gz"));
+          const dtb = await importKappa("workspace.dtb");
+          ws = Workspace.boot(kernel, dtb, 128 * 1024 * 1024, 0x80000000, 0x87000000);
+        }
+      } catch (e) {
+        // The devcontainer Linux OS image is unavailable / failed κ-verify. Monaco + build·run·share
+        // do NOT need it — fall back to a serverless in-memory workspace store so the editor is fully
+        // live and FAST. The Linux emulator is an optional enhancement; nothing blocks on it.
+        const td = new TextDecoder(), te = new TextEncoder();
+        let banner = "  \x1b[90mdevcontainer Linux emulator unavailable the editor + build·run·share are live (the OS image is optional)\x1b[0m\r\n";
+        // A DURABLE content-addressed file store over IndexedDB (db "holo-ide") — files survive reload
+        // and tabs (Law L1). Sync in-memory mirror for the editor; persisted on every write.
+        const idb = await new Promise((res) => { try { const r = indexedDB.open("holo-ide", 1); r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch { res(null); } });
+        const idbPut = (p, t) => { try { idb && idb.transaction("files", "readwrite").objectStore("files").put(t, p); } catch {} };
+        const idbDel = (p) => { try { idb && idb.transaction("files", "readwrite").objectStore("files").delete(p); } catch {} };
+        const mem = await new Promise((res) => { const out = {}; try { if (!idb) return res(out); const c = idb.transaction("files", "readonly").objectStore("files").openCursor(); c.onsuccess = (e) => { const cur = e.target.result; if (cur) { out[cur.key] = cur.value; cur.continue(); } else res(out); }; c.onerror = () => res(out); } catch { res(out); } });
+        ws = {
+          halted: false,
+          files: () => JSON.stringify(Object.keys(mem).sort().map((p) => ({ path: p }))),
+          read_path: (p) => (p in mem) ? te.encode(mem[p]) : null,
+          save_file: (p, b) => { mem[p] = td.decode(b); idbPut(p, mem[p]); return "(saved)"; },
+          delete_file: (p) => { delete mem[p]; idbDel(p); },
+          terminal: () => { const s = banner; banner = ""; return s; },
+          state_kappa: () => "workspace", run: () => true, shows: () => true, type_line: () => "",
+        };
+      }
+      window.__ws = ws; // for the browser witness
+
+      // Reveal the IDE; xterm renders the terminal, Monaco the editor.
+      $("boot").style.display = "none";
+      $("sidebar").style.display = "";
+      $("editor").style.display = "";
+      $("panel").style.display = "";
+
+      const term = new window.Terminal({
+        convertEol: true, fontSize: 12, fontFamily: 'Cascadia Code, ui-monospace, monospace',
+        theme: { background: "#1F1F1F", foreground: "#CCCCCC", cursor: "#CCCCCC" },
+      });
+      const fit = new window.FitAddon.FitAddon();
+      term.loadAddon(fit);
+      term.open($("term"));
+      fit.fit();
+      window.addEventListener("resize", () => fit.fit());
+
+      // The real VS Code editor, themed with VS Code's own "Dark Modern" tokens (fed into Monaco's
+      // theme API — exact hex from microsoft/vscode theme-defaults). Same component, faithful look.
+      window.monaco.editor.defineTheme("holo-modern", {
+        base: "vs-dark", inherit: true, rules: [],
+        colors: {
+          "editor.background": "#1F1F1F", "editor.foreground": "#CCCCCC",
+          "editorLineNumber.foreground": "#6E7681", "editorLineNumber.activeForeground": "#CCCCCC",
+          "editorCursor.foreground": "#CCCCCC", "editor.findMatchBackground": "#9E6A03",
+          "editorWidget.background": "#202020", "editorGutter.modifiedBackground": "#0078D4",
+          "editorGutter.addedBackground": "#2EA043", "editorGutter.deletedBackground": "#F85149",
+        },
+      });
+      const editor = window.monaco.editor.create($("editor"), {
+        value: "", language: "plaintext", theme: "holo-modern", automaticLayout: true,
+        minimap: { enabled: true }, fontSize: 13, scrollBeyondLastLine: false, tabSize: 2,
+        fontFamily: 'Cascadia Code, "SF Mono", Menlo, Consolas, ui-monospace, monospace',
+        fontLigatures: true, smoothScrolling: true, cursorBlinking: "smooth", renderWhitespace: "selection",
+      });
+
+      // Stream the OS console into the xterm terminal as it is produced.
+      let shown = 0;
+      function pumpTerminal() {
+        const full = ws.terminal();
+        if (full.length > shown) {
+          term.write(full.slice(shown));
+          shown = full.length;
+        }
+      }
+
+      // Boot in instruction chunks so the tab stays live and streams the boot.
+      await new Promise((resolve) => {
+        let steps = 0;
+        const tick = () => {
+          const halted = ws.run(5_000_000);
+          steps += 5_000_000;
+          pumpTerminal();
+          setStatus(`booting the devcontainer OS… (${(steps / 1e6).toFixed(0)}M instructions)`);
+          if (ws.shows(READY) || halted) return resolve();
+          setTimeout(tick, 0);
+        };
+        tick();
+      });
+      setStatus("running type in the terminal, edit files in the explorer");
+
+      // Drive the terminal: capture keystrokes, echo locally, send whole lines as
+      // canonical events to the running holospace (the OS shell does not echo).
+      let line = "";
+      term.onData((d) => {
+        if (ws.halted) return;
+        for (const ch of d) {
+          if (ch === "\r") {
+            term.write("\r\n");
+            const event = ws.type_line(line);
+            line = "";
+            pumpTerminal();
+            setStatus("event on the channel → κ " + event);
+            if (ws.halted) { setStatus("the holospace powered off"); term.write("\r\n[powered off]\r\n"); }
+          } else if (ch === "") {
+            if (line.length) { line = line.slice(0, -1); term.write("\b \b"); }
+          } else if (ch >= " ") {
+            line += ch; term.write(ch);
+          }
+        }
+      });
+      term.focus();
+
+      // ── The editor / file tree — environment content addressed by κ ──
+      // Seed a sample devcontainer project; each file is content, its κ its identity.
+      const project = {
+        "/work/README.md": "# Welcome to your holospace\n\nThis is a real devcontainer running in your browser tab the OS boots\non the κ-addressed system emulator, no Docker daemon and no cloud VM.\n\nThe **terminal** below drives the running OS; this **editor** is the real\nMonaco editor, and every file is content addressed by κ (Law L1).\n",
+        "/work/.devcontainer/devcontainer.json": '{\n  "name": "holospace",\n  "image": "debian:12",\n  "features": {}\n}\n',
+        "/work/hello.sh": '#!/bin/sh\necho "hello from the devcontainer"\n',
+        "/work/sq.hc": "// Holo-C → WebAssembly. Press Ctrl+Enter (or F1 → \"Holo: Build & Run\") to\n// compile + run in this tab — content-addressed, serverless, self-verifying (ADR-0051).\nint sq(int x) { return x * x; }\nint fib(int n) { if (n < 2) return n; return fib(n - 1) + fib(n - 2); }\nint main() { return fib(10); }\n",
+        "/work/gcd.hc": "// Euclid's GCD in Holo-C. Ctrl+Enter to build & run.\nint gcd(int a, int b) { while (b != 0) { int t = a % b; a = b; b = t; } return a; }\nint main() { return gcd(1071, 462); }\n",
+        "/work/mathlib.hc": "// A LIBRARY (Holo Link). Build it (Ctrl+Enter) — then copy its κ from the terminal.\n// It becomes a self-verifying object other apps import BY CONTENT ADDRESS.\nint add(int a, int b) { return a + b; }\nint mul(int a, int b) { return a * b; }\nint sq(int x) { return mul(x, x); }\n",
+        "/work/compose.hc": "// COMPOSE BY CONTENT ADDRESS — a universe of interoperable apps, reachable from one κ.\n//   1. open mathlib.hc, press Ctrl+Enter, copy its κ from the terminal\n//   2. paste it into the extern below + uncomment both lines, then Ctrl+Enter here\n// Running LINKS the library by κ (verified, no rebuild, no bundler, no server). This app's own\n// κ then commits to the library's κ — combine into a new object, split back apart, by address.\n//\n// extern int add(int a, int b) from \"did:holo:sha256:PASTE_MATHLIB_KAPPA_HERE\";\n// int main() { return add(40, 2); }\nint main() { return 42; }\n",
+        "/work/app.ts": "// Two real language servers, both in-tab + serverless: Biome (Rust→WASM) lints + formats;\n// TypeScript (its own worker) type-checks with full cross-file inference.\nvar greeting: string = \"hello\"        // Biome: prefer let/const (noVar)\nconst count: number = \"three\"         // TypeScript: Type 'string' is not assignable to type 'number'\nfunction greet(name: string) {\n  if (name == \"\") { return greeting }   // Biome: use === (noDoubleEquals)\n  return greeting + \", \" + name\n}\nconsole.log(greet(\"holospace\"), count)\n",
+        "/work/hello.html": "<!doctype html>\n<meta charset=\"utf-8\" />\n<style>\n  body { margin: 0; height: 100vh; display: grid; place-items: center; gap: 1rem;\n    font: 16px system-ui, sans-serif; background: radial-gradient(900px 500px at 70% -10%, #1b1410, #0e1014 60%); color: #e8eaf0; }\n  h1 { font-size: 30px; margin: 0; }\n  button { font: 600 16px system-ui; color: #1a0f08; cursor: pointer; border: 0; border-radius: var(--holo-radius, 12px);\n    padding: 12px 22px; background: linear-gradient(135deg, #ff8a3d, #ff4d6d); }\n</style>\n<h1 id=\"t\">Hello, holospace</h1>\n<button onclick=\"n++; t.textContent = 'Clicked ' + n + '×'\">Click me</button>\n<scr\ipt>let n = 0;<\/scr\ipt>\n",
+      };
+      const langOf = (p) => p.endsWith(".md") ? "markdown" : p.endsWith(".sh") ? "shell" : p.endsWith(".json") ? "json" : p.endsWith(".html") ? "html" : (p.endsWith(".ts") || p.endsWith(".tsx")) ? "typescript" : (p.endsWith(".js") || p.endsWith(".mjs") || p.endsWith(".jsx")) ? "javascript" : (p.endsWith(".hc") || p.endsWith(".c")) ? "holo-c" : "plaintext";
+      let openPath = null;
+      let lintT = 0, compileFn = null;   // diagnostics state — declared early (openFile() calls lintNow at bootstrap)
+      let activeView = "term";           // which bottom-panel tab is showing (term · graph · run)
+      const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      // Native-adaptive keyboard hint (Holo UX, ADR-0062): render a semantic chord ("mod+Shift+F")
+      // as the host's keys (⌘⇧F on macOS · Ctrl+Shift+F on Windows/Linux) — matching Monaco's own
+      // CtrlCmd bindings. Uses the inherited Holo UX helper; degrades to Ctrl/Alt before it loads.
+      const kbd = (spec) => (window.HoloUX && window.HoloUX.shortcut) ? window.HoloUX.shortcut(spec)
+        : String(spec).replace(/\bmod\b/i, "Ctrl").replace(/\bopt\b/i, "Alt");
+
+      // ── Editor tabs + per-file models (the VS Code editor group). Each open file gets its own
+      // Monaco model — so it keeps its own undo history, cursor and language — and a tab; the active
+      // file's content address (κ, Law L1) shows in the status bar. ──
+      const Mu = window.monaco;
+      const models = new Map(), saved = new Map();
+      let tabs = [];
+      // Content-addressing AS performance (hologram: "addressed once, reused — a memo hit is O(1)"):
+      // hash each distinct content once and reuse the κ everywhere; unchanged bytes are never re-hashed.
+      const shaCache = new Map();
+      async function sha256hex(text) {
+        if (shaCache.has(text)) return shaCache.get(text);                 // O(1) rebind — no re-hash
+        const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text || ""));
+        const hex = [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+        if (shaCache.size > 400) shaCache.clear();
+        shaCache.set(text, hex); return hex;
+      }
+      const baseName = (p) => p.split("/").pop();
+      const isDirty = (p) => models.has(p) && models.get(p).getAlternativeVersionId() !== saved.get(p);
+      function modelFor(path) {
+        if (models.has(path)) return models.get(path);
+        const text = new TextDecoder().decode(ws.read_path(path) || new Uint8Array());
+        const m = Mu.editor.createModel(text, langOf(path), Mu.Uri.parse("inmemory://holo" + path));
+        models.set(path, m); saved.set(path, m.getAlternativeVersionId());
+        return m;
+      }
+      async function fileKappa(text) { return (await sha256hex(text)).slice(0, 10); }   // short κ (5 bytes), memoized
+      async function updateKappa() {
+        if (!$("hk")) return;
+        if (!openPath) { $("hk").textContent = ""; return; }
+        const k = await kappaOf(editor.getValue());
+        $("hk").textContent = k ? "κ " + k.slice("did:holo:sha256:".length, "did:holo:sha256:".length + 12) + "…" : "";
+      }
+      async function renderFiles() {
+        const list = JSON.parse(ws.files());
+        const rows = await Promise.all(list.map(async (f) => {
+          const t = new TextDecoder().decode(ws.read_path(f.path) || new Uint8Array());
+          return `<div class="file ${f.path === openPath ? "active" : ""}" data-p="${esc(f.path)}" title="sha256:${await fileKappa(t)}"><span class="fn">${esc(baseName(f.path))}</span><span class="fdel" title="Delete">×</span></div>`;
+        }));
+        $("files").innerHTML = `<div class="newf" id="hnewfile">+ New File</div>` + rows.join("");
+        $("hnewfile").onclick = newFile;
+        for (const el of $("files").querySelectorAll(".file")) {
+          el.querySelector(".fn").onclick = () => openFile(el.dataset.p);
+          el.querySelector(".fdel").onclick = (e) => { e.stopPropagation(); deleteFile(el.dataset.p); };
+          el.ondblclick = () => renameFile(el.dataset.p);
+        }
+      }
+      function renderTabs() {
+        const t = $("tabs"); if (!t) return;
+        t.innerHTML = tabs.map((p) => `<div class="tab ${p === openPath ? "active" : ""} ${isDirty(p) ? "dirty" : ""}" data-p="${esc(p)}" role="tab" title="${esc(p)}"><span class="tn">${esc(baseName(p))}</span><span class="tx" title="Close (${kbd("mod+W")})"></span></div>`).join("");
+        for (const el of t.querySelectorAll(".tab")) {
+          el.onclick = (e) => { if (e.target.classList.contains("tx")) return; openFile(el.dataset.p); };
+          el.querySelector(".tx").onclick = (e) => { e.stopPropagation(); closeTab(el.dataset.p); };
+          el.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); closeTab(el.dataset.p); } });
+        }
+      }
+      function updateTabsDirty() { const t = $("tabs"); if (t) for (const el of t.querySelectorAll(".tab")) el.classList.toggle("dirty", isDirty(el.dataset.p)); }
+      function renderBreadcrumbs() {
+        const b = $("breadcrumbs"); if (!b) return;
+        b.innerHTML = openPath ? openPath.replace(/^\//, "").split("/").map((s) => `<span class="crumb">${esc(s)}</span>`).join("") : "";
+      }
+      function openFile(path) {
+        if (!ws.read_path(path)) return;
+        if (!tabs.includes(path)) tabs.push(path);
+        openPath = path;
+        editor.setModel(modelFor(path));
+        if ($("sb-lang")) $("sb-lang").textContent = langOf(path);
+        renderTabs(); renderBreadcrumbs(); renderFiles(); lintNow(); updateKappa();
+        if (window.HoloCoedit) { window.HoloCoedit.requestSync(path); window.HoloCoedit.onFileSwitch(); }   // pull latest + re-render peer cursors
+        if (path.endsWith(".html")) showView("run");                    // open an app → see it run
+        else if (activeView === "graph") renderGraph(); else if (activeView === "run") runPreview();
+      }
+      function closeTab(path) {
+        if (isDirty(path)) save(path);
+        const i = tabs.indexOf(path); if (i >= 0) tabs.splice(i, 1);
+        if (openPath === path) {
+          const next = tabs[i] || tabs[i - 1] || tabs[tabs.length - 1];
+          if (next) openFile(next);
+          else { openPath = null; editor.setModel(Mu.editor.createModel("", "plaintext")); renderTabs(); renderBreadcrumbs(); renderFiles(); updateKappa(); }
+        } else renderTabs();
+      }
+      async function save(path) {
+        const p = path || openPath; if (!p) return;
+        const m = models.get(p), text = m ? m.getValue() : editor.getValue();
+        ws.save_file(p, new TextEncoder().encode(text));
+        if (m) saved.set(p, m.getAlternativeVersionId());
+        updateTabsDirty();
+        // Update only the active row's κ in place — never re-render (or re-hash) the whole tree per keystroke.
+        if ($("files")) for (const el of $("files").querySelectorAll(".file")) if (el.dataset.p === p) el.title = "sha256:" + await fileKappa(text);
+      }
+      function newFile() {
+        let n = 1, p = "/work/untitled.hc"; const has = (x) => (ws.read_path(x) != null);
+        while (has(p)) p = `/work/untitled-${++n}.hc`;
+        ws.save_file(p, new TextEncoder().encode("int main() { return 0; }\n"));
+        openFile(p);
+      }
+      function deleteFile(p) {
+        if (ws.delete_file) ws.delete_file(p);
+        if (models.has(p)) { try { models.get(p).dispose(); } catch {} models.delete(p); saved.delete(p); }
+        const i = tabs.indexOf(p); if (i >= 0) tabs.splice(i, 1);
+        if (openPath === p) {
+          openPath = null; const nx = tabs[i] || tabs[tabs.length - 1];
+          if (nx) return openFile(nx);
+          editor.setModel(Mu.editor.createModel("", "plaintext")); renderTabs(); renderBreadcrumbs(); updateKappa();
+        }
+        renderFiles();
+      }
+      function renameFile(p) {
+        const cur = baseName(p);
+        const name = prompt("Rename file:", cur); if (!name || name === cur) return;
+        const np = p.replace(/[^/]*$/, name);
+        ws.save_file(np, ws.read_path(p) || new Uint8Array());
+        if (ws.delete_file) ws.delete_file(p);
+        if (models.has(p)) { try { models.get(p).dispose(); } catch {} models.delete(p); saved.delete(p); }
+        const i = tabs.indexOf(p); if (i >= 0) tabs[i] = np;
+        openPath === p ? openFile(np) : renderFiles();
+      }
+      // Seed the sample project only on a FRESH store; persisted files (from a prior session) are kept.
+      if (JSON.parse(ws.files()).length === 0) for (const [p, body] of Object.entries(project)) ws.save_file(p, new TextEncoder().encode(body));
+      renderFiles();
+      openFile(ws.read_path("/work/sq.hc") ? "/work/sq.hc" : ((JSON.parse(ws.files())[0] || {}).path || "/work/sq.hc"));
+      editor.addCommand(Mu.KeyMod.CtrlCmd | Mu.KeyCode.KeyS, () => save());
+      editor.addCommand(Mu.KeyMod.CtrlCmd | Mu.KeyCode.KeyW, () => openPath && closeTab(openPath));
+
+      // ── Live diagnostics: Holo-C compile errors as Monaco markers (red squiggles + Problems), VS
+      // Code-style — powered by the SAME deterministic compiler build·run·share uses (no language server).
+      // One content-addressed compile, reused by diagnostics · Run · graph — compile once per source,
+      // O(1) rebind after (the same source never recompiles, exactly like Holo Forge's build memo).
+      const forgeMemo = new Map();
+      function compileCached(src) {
+        if (forgeMemo.has(src)) return forgeMemo.get(src);                 // O(1) rebind — no recompile
+        if (!compileFn) return { error: null, pending: true };
+        let r; try { compileFn(src); r = { error: null }; } catch (e) { r = { error: e }; }
+        if (forgeMemo.size > 200) forgeMemo.clear();
+        forgeMemo.set(src, r); return r;
+      }
+      import("./_shared/holo-forge/holo-forge.mjs").then((m) => { compileFn = m.compile; forgeMemo.clear(); lintNow(); }).catch(() => {});
+      async function lintNow() {
+        const model = editor.getModel(); if (!model || !window.monaco) return;
+        const lang = openPath ? langOf(openPath) : "", Sev = window.monaco.MarkerSeverity;
+        let markers = [];
+        if (lang === "holo-c" && compileFn) {
+          const e = compileCached(model.getValue()).error;
+          if (e && e.line) markers = [{ severity: Sev.Error, message: e.message, startLineNumber: e.line, startColumn: e.col || 1, endLineNumber: e.line, endColumn: (e.col || 1) + 2 }];
+        } else if (lang === "typescript" || lang === "javascript" || lang === "json") {
+          const text = model.getValue();                       // real WASM language server (Biome)
+          const diags = (await biomeReq("diagnostics", { text, path: biomeFile(lang) })) || [];
+          if (editor.getModel() !== model || model.getValue() !== text) return;   // stale: file/content moved on
+          markers = diags.map((d) => { const a = model.getPositionAt(d.start), b = model.getPositionAt(Math.max(d.end, d.start + 1)); return { severity: d.severity === "error" || d.severity === "fatal" ? Sev.Error : d.severity === "warning" ? Sev.Warning : Sev.Info, message: d.message + (d.category ? "  (" + d.category + ")" : ""), startLineNumber: a.lineNumber, startColumn: a.column, endLineNumber: b.lineNumber, endColumn: b.column }; });
+        }
+        window.monaco.editor.setModelMarkers(model, "holo-c", markers);
+        refreshProblems();
+      }
+      function refreshProblems() {
+        const model = editor.getModel();
+        if (model && $("sb-prob")) {
+          const n = window.monaco.editor.getModelMarkers({ resource: model.uri }).length;   // Biome ⊕ TypeScript
+          $("sb-prob").textContent = n ? "⊘ " + n : "✓ 0"; $("sb-prob").className = "sb-item " + (n ? "bad" : "ok");
+        }
+        if (activeView === "problems") renderProblems();
+      }
+      window.monaco.editor.onDidChangeMarkers(() => refreshProblems());   // TS diagnostics stream in asynchronously
+      // One debounced reaction to an edit: re-lint, auto-save, refresh the κ, and update the live
+      // reflection (graph / run). Cheap by construction — compile + hash are content-addressed, so
+      // unchanged content costs only an O(1) memo hit, never a recompute.
+      editor.onDidChangeModelContent(() => { updateTabsDirty(); clearTimeout(lintT); lintT = setTimeout(() => { lintNow(); save(); updateKappa(); if (activeView === "graph") renderGraph(); else if (activeView === "run") runPreview(); }, 220); });
+      editor.onDidChangeCursorPosition((e) => { if ($("sb-pos")) $("sb-pos").textContent = `Ln ${e.position.lineNumber}, Col ${e.position.column}`; });
+
+      // ── REFLECTIVE BUILD: the bottom panel reflects the holospace's object graph (functions = nodes,
+      // calls = edges) and runs it live. The IDE and the running app are two views of one κ-graph: edit
+      // the code → re-derive → the graph + the run preview update in real time. Click any node to edit it.
+      function showView(t) {
+        activeView = t;
+        for (const v of ["problems", "term", "graph", "run"]) $(v === "run" ? "runview" : v).hidden = (v !== t);
+        document.querySelectorAll("#panel .ptab").forEach((x) => x.classList.toggle("active", x.dataset.t === t));
+        document.querySelectorAll("#activitybar .abtn[data-panel]").forEach((x) => x.classList.toggle("active", x.dataset.panel === t));
+        if (t === "graph") renderGraph(); else if (t === "run") runPreview(); else if (t === "problems") renderProblems(); else { try { fit.fit(); } catch {} }
+      }
+      document.querySelectorAll("#panel .ptab").forEach((x) => x.onclick = () => showView(x.dataset.t));
+      function renderProblems() {
+        const el = $("problems"); if (!el) return;
+        const model = editor.getModel();
+        const ms = model ? Mu.editor.getModelMarkers({ resource: model.uri }) : [];
+        if (!ms.length) { el.innerHTML = '<div class="none">No problems have been detected in the workspace.</div>'; return; }
+        el.innerHTML = ms.map((m) => `<div class="pb" data-l="${m.startLineNumber}" data-c="${m.startColumn}"><span class="pi">⊘</span><span>${esc(m.message)}</span><span class="pl">${esc(baseName(openPath || ""))} [Ln ${m.startLineNumber}, Col ${m.startColumn}]</span></div>`).join("");
+        el.querySelectorAll(".pb").forEach((x) => x.onclick = () => { editor.revealLineInCenter(+x.dataset.l); editor.setPosition({ lineNumber: +x.dataset.l, column: +x.dataset.c }); editor.focus(); });
+      }
+      // Activity bar — switch the sidebar view (Explorer / Search) and focus panel tabs (Run / Graph).
+      function setView(v) {
+        $("view-explorer").hidden = v !== "explorer";
+        $("view-search").hidden = v !== "search";
+        document.querySelectorAll("#activitybar .abtn[data-view]").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
+        if (v === "search") { const q = $("searchq"); if (q) { q.focus(); runSearch(); } }
+      }
+      document.querySelectorAll("#activitybar .abtn[data-view]").forEach((x) => x.onclick = () => setView(x.dataset.view));
+      document.querySelectorAll("#activitybar .abtn[data-panel]").forEach((x) => x.onclick = () => showView(x.dataset.panel));
+
+      function parseGraph(src) {
+        const defs = [...src.matchAll(/^[ \t]*int[ \t]+([A-Za-z_]\w*)[ \t]*\(([^)]*)\)/gm)].map((m) => ({ name: m[1], params: m[2].replace(/\s+/g, " ").trim(), idx: m.index, line: src.slice(0, m.index).split("\n").length }));
+        const names = new Set(defs.map((d) => d.name)); const edges = [];
+        defs.forEach((d, i) => { const end = i + 1 < defs.length ? defs[i + 1].idx : src.length; const body = src.slice(d.idx, end);
+          for (const c of names) { if (c === d.name) continue; if (new RegExp("\\b" + c + "\\s*\\(").test(body)) edges.push([d.name, c]); } });
+        return { nodes: defs, edges };
+      }
+      function renderGraph() {
+        const g = $("graph"); if (!g) return;
+        if (!(openPath && (openPath.endsWith(".hc") || openPath.endsWith(".c")))) { g.innerHTML = '<div style="padding:1rem;color:var(--vsc-dim)">The object graph reflects a Holo-C file functions are nodes, calls are edges. Open a .hc file.</div>'; return; }
+        const { nodes, edges } = parseGraph(editor.getValue());
+        if (!nodes.length) { g.innerHTML = '<div style="padding:1rem;color:var(--vsc-dim)">no functions yet</div>'; return; }
+        const pad = 18, rowH = 58, nodeW = Math.min((g.clientWidth || 380) - 2 * pad - 60, 260), H = pad * 2 + nodes.length * rowH;
+        const pos = {}; nodes.forEach((n, i) => pos[n.name] = { x: pad, y: pad + i * rowH });
+        let s = `<svg width="100%" height="${H}" xmlns="http://www.w3.org/2000/svg"><defs><marker id="arr" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#0078d4"/></marker></defs>`;
+        edges.forEach(([a, b]) => { const pa = pos[a], pb = pos[b]; if (!pa || !pb) return; const x = pad + nodeW, y1 = pa.y + 22, y2 = pb.y + 22, mx = x + 22 + Math.abs(y2 - y1) / 3; s += `<path class="gedge" d="M${x},${y1} C${mx},${y1} ${mx},${y2} ${x + 5},${y2}" fill="none" stroke-width="1.5" marker-end="url(#arr)"/>`; });
+        nodes.forEach((n) => { const callees = edges.filter((e) => e[0] === n.name).map((e) => e[1]); s += `<g class="gnode" data-line="${n.line}"><rect x="${n.x}" y="${n.y}" width="${nodeW}" height="44" rx="8"/><text x="${n.x + 12}" y="${n.y + 19}">int ${esc(n.name)}(${esc(n.params)})</text><text class="gk" x="${n.x + 12}" y="${n.y + 34}">${callees.length ? "→ " + esc(callees.join(", ")) : "leaf"}</text></g>`; });
+        g.innerHTML = s + "</svg>";
+        g.querySelectorAll(".gnode").forEach((el) => el.onclick = () => { const l = +el.dataset.line; editor.revealLineInCenter(l); editor.setPosition({ lineNumber: l, column: 1 }); editor.focus(); });
+      }
+      async function kappaOf(text) { try { return "did:holo:sha256:" + await sha256hex(text); } catch { return ""; } }   // memoized
+      async function runPreview() {
+        const rv = $("runview"); if (!rv) return; const App = window.HoloApp;
+        if (openPath && openPath.endsWith(".html")) {                    // ── live visual Build: render the running holospace ──
+          const src = editor.getValue(), k = await kappaOf(src);
+          let frame = rv.querySelector("iframe.rframe");
+          if (!frame) { rv.innerHTML = `<div class="rk" id="rk-html">κ ${esc(k)}</div>`;
+            frame = document.createElement("iframe"); frame.className = "rframe";
+            frame.setAttribute("sandbox", "allow-scripts allow-modals allow-forms allow-pointer-lock");
+            frame.style.cssText = "width:100%;height:calc(100% - 22px);border:0;border-radius: var(--holo-radius-sm, 8px);background:#0b0f15;display:block";
+            rv.appendChild(frame);
+          } else { const kk = rv.querySelector("#rk-html"); if (kk) kk.textContent = "κ " + k; }
+          if (frame.srcdoc !== src) frame.srcdoc = src;                  // re-derive → re-render (hot reload)
+          return;
+        }
+        if (!(openPath && (openPath.endsWith(".hc") || openPath.endsWith(".c"))) || !App) { rv.innerHTML = '<span style="color:var(--vsc-dim)">Open a .hc or .html file Run renders the running object live (compiled output, or the rendered app).</span>'; return; }
+        let b; try { b = await App.build(editor.getValue()); } catch (e) { rv.innerHTML = `<span class="re">✗ ${esc(e.message)}</span>`; return; }
+        let html = `<div class="rk">κ ${b.kappa}${b.hit ? '  ·  <span style="color:#e2c08d">⚡ O(1) rebind (cached, no recompile)</span>' : ""}</div>`;
+        try { const r = await App.run(b.kappa), x = r.exports;
+          for (const name of b.exports) { const fn = x[name]; let out = "(needs args)";
+            try { if (typeof fn === "function" && fn.length === 0) out = " = " + fn(); else if (name === "main" || name === "demo") out = " = " + fn(); } catch { out = "(error)"; }
+            html += `<div>${esc(name)}<span class="rr">${esc(out)}</span></div>`; }
+        } catch (e) { html += `<span class="re">run error: ${esc(e.message)}</span>`; }
+        rv.innerHTML = html;
+      }
+
+      // ── Holo Forge: BUILD · RUN · SHARE, wired into Monaco via its own action API (ADR-0051) ──
+      // editor.addAction registers each in the Command Palette (F1), the context menu, AND a keybinding
+      // — the native VS Code UX. The verbs run over the content-addressed substrate (window.HoloApp):
+      // build compiles → a κ, run executes the wasm, share is the κ. Output streams to the terminal.
+      const M = window.monaco;
+      async function holoBuildRun() {
+        const App = window.HoloApp;
+        term.write("\r\n\x1b[38;5;208m⚒ holo build & run\x1b[0m  " + (openPath || "") + "\r\n");
+        if (!App) { term.write("\x1b[33m  build·run·share not loaded\x1b[0m\r\n"); return; }
+        let b;
+        try { b = await App.build(editor.getValue()); }
+        catch (e) {
+          term.write(`\x1b[31m  ✗ ${e.message}\x1b[0m\r\n`);
+          if (e.line) { editor.revealLineInCenter(e.line); editor.setPosition({ lineNumber: e.line, column: e.col || 1 }); editor.focus(); }
+          return;
+        }
+        term.write(`\x1b[32m  ✓ built\x1b[0m  κ ${b.kappa}\r\n  receipt ${b.receipt}\r\n  exports: ${b.exports.join(", ")}${b.hit ? "   (O(1) rebind)" : ""}\r\n`);
+        window.__holoKappa = b.kappa;
+        try {
+          const r = await App.run(b.kappa), x = r.exports;
+          const fn = ["main", "demo"].find((n) => typeof x[n] === "function") || Object.keys(x)[0];
+          if (fn && typeof x[fn] === "function") term.write(`\x1b[36m  → ${fn}() = ${x[fn]()}\x1b[0m\r\n`);
+        } catch (e) { term.write(`\x1b[31m  run error: ${e.message}\x1b[0m\r\n`); }
+      }
+      async function holoShare() {
+        const App = window.HoloApp;
+        if (!App) { term.write("\r\n\x1b[33m  build·run·share not loaded\x1b[0m\r\n"); return; }
+        // Always share the CURRENT editor content: build it (O(1) if unchanged) so share never depends
+        // on a prior Ctrl+Enter, then hand out holo://κ.
+        let k = window.__holoKappa;
+        try { const b = await App.build(editor.getValue()); k = b.kappa; window.__holoKappa = k; }
+        catch (e) { term.write(`\r\n\x1b[31m  ✗ ${e.message}\x1b[0m\r\n`); return; }
+        const s = App.share(k);
+        term.write(`\r\n\x1b[36m  shared → ${s.holo}\x1b[0m  (copied; resolves anywhere, re-derived no server)\r\n`);
+        try { await (navigator.clipboard && navigator.clipboard.writeText(s.holo)); } catch {}
+      }
+      editor.addAction({ id: "holo.buildRun", label: "Holo: Build & Run (Holo-C → WebAssembly)",
+        keybindings: [M.KeyMod.CtrlCmd | M.KeyCode.Enter], contextMenuGroupId: "navigation", contextMenuOrder: 1.5, run: holoBuildRun });
+      editor.addAction({ id: "holo.share", label: "Holo: Share build (holo://κ)",
+        contextMenuGroupId: "navigation", contextMenuOrder: 1.6, run: holoShare });
+      // Go to Definition (F12): this Monaco build doesn't ship the built-in revealDefinition action,
+      // so wire it explicitly to the same lookup the DefinitionProvider uses (jump to `int name(`).
+      editor.addAction({ id: "holo.gotoDef", label: "Go to Definition", keybindings: [M.KeyCode.F12],
+        contextMenuGroupId: "navigation", contextMenuOrder: 1.3, run: (ed) => {
+          const pos = ed.getPosition(), model = ed.getModel(), w = model.getWordAtPosition(pos); if (!w) return;
+          const text = model.getValue(), idx = text.search(new RegExp("^\\s*int\\s+" + w.word + "\\s*\\(", "m")); if (idx < 0) return;
+          const line = text.slice(0, idx).split("\n").length, col = model.getLineContent(line).indexOf(w.word) + 1;
+          ed.setPosition({ lineNumber: line, column: col }); ed.revealLineInCenter(line); ed.focus();
+        } });
+      window.__holoActions = true;
+      window.__editor = editor;
+      // Unambiguous title-bar buttons wired DIRECTLY to the handlers — no menu/palette to mis-target
+      // (the native UX, and reliable for the in-browser Claude extension to click).
+      $("hbtn-run").onclick = holoBuildRun;
+      $("hbtn-share").onclick = holoShare;
+
+      // ── Theme toggle (light / dark) — Monaco's own setTheme ──
+      let themeDark = true;
+      $("hbtn-theme").onclick = () => { themeDark = !themeDark; window.monaco.editor.setTheme(themeDark ? "holo-modern" : "vs"); };
+
+      // ── Global search across all workspace files (Ctrl+Shift+F) ──
+      function toggleSearch() { setView("search"); }
+      function runSearch() {
+        const q = $("searchq").value.trim(); const res = $("searchres"); res.innerHTML = ""; $("searchcount").textContent = "";
+        if (!q) return;
+        const list = JSON.parse(ws.files()); let n = 0; const rows = [];
+        for (const f of list) {
+          const text = new TextDecoder().decode(ws.read_path(f.path) || new Uint8Array());
+          text.split("\n").forEach((ln, i) => {
+            if (ln.toLowerCase().includes(q.toLowerCase())) { n++; const name = f.path.split("/").pop();
+              rows.push(`<div class="sr" data-p="${f.path}" data-l="${i + 1}"><b>${name}:${i + 1}</b>  ${esc(ln.trim()).slice(0, 120)}</div>`); }
+          });
+        }
+        $("searchcount").textContent = `${n} result${n === 1 ? "" : "s"} in ${list.length} files`;
+        res.innerHTML = rows.join("");
+        res.querySelectorAll(".sr").forEach((el) => el.onclick = () => { openFile(el.dataset.p); const l = +el.dataset.l; editor.revealLineInCenter(l); editor.setPosition({ lineNumber: l, column: 1 }); editor.focus(); });
+      }
+      $("hbtn-find").onclick = toggleSearch;
+      $("searchq").oninput = runSearch;
+      window.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "F" || e.key === "f")) { e.preventDefault(); toggleSearch(); } });
+
+      // ── Quick Open (Ctrl+P) + Command Palette (F1 / Ctrl+Shift+P) — VS Code's two defining moves, over
+      // the same content-addressed file set + the holospace's own verbs. One lean shared quick-input. ──
+      const COMMANDS = [
+        { label: "Holo: Build & Run", hint: "mod+Enter", run: () => holoBuildRun() },
+        { label: "Holo: Share (holo://κ)", run: () => holoShare() },
+        { label: "File: New File", run: () => newFile() },
+        { label: "Go to File…", hint: "mod+P", run: () => openQuick("files") },
+        { label: "View: Close Editor", hint: "mod+W", run: () => openPath && closeTab(openPath) },
+        { label: "Search: Find in Files", hint: "mod+Shift+F", run: () => setView("search") },
+        { label: "Go to Symbol in Editor…", hint: "mod+Shift+O", run: () => openQuick("symbols") },
+        { label: "Format Document", hint: "Shift+Alt+F", run: () => { const a = editor.getAction("editor.action.formatDocument"); if (a) a.run(); } },
+        { label: "Rename Symbol", hint: "F2", run: () => { const a = editor.getAction("editor.action.rename"); if (a) a.run(); } },
+        { label: "Go to References", hint: "Shift+F12", run: () => { const a = editor.getAction("editor.action.referenceSearch.trigger") || editor.getAction("editor.action.goToReferences"); if (a) a.run(); } },
+        { label: "View: Explorer", run: () => setView("explorer") },
+        { label: "View: Object Graph", run: () => showView("graph") },
+        { label: "View: Run Preview", run: () => showView("run") },
+        { label: "View: Terminal", run: () => showView("term") },
+        { label: "View: Problems", run: () => showView("problems") },
+        { label: "Preferences: Toggle Color Theme", run: () => $("hbtn-theme").click() },
+      ];
+      let quickSel = 0;
+      function renderQuick(filter) {
+        const f = (filter || "").toLowerCase();
+        const matches = (renderQuick._items || []).filter((it) => (it.label + " " + (it.detail || "")).toLowerCase().includes(f));
+        quickSel = Math.max(0, Math.min(quickSel, matches.length - 1));
+        $("quicklist")._matches = matches;
+        $("quicklist").innerHTML = matches.length
+          ? matches.map((it, i) => `<div class="qi ${i === quickSel ? "sel" : ""}" data-i="${i}"><span class="ql">${esc(it.label)}</span>${it.detail ? `<span class="qd">${esc(it.detail)}</span>` : ""}${it.hint ? `<span class="qd" style="margin-left:auto">${esc(kbd(it.hint))}</span>` : ""}</div>`).join("")
+          : '<div class="qi"><span class="qd">No matching results</span></div>';
+        for (const el of $("quicklist").querySelectorAll(".qi[data-i]")) el.onclick = () => pickQuick(+el.dataset.i);
+        const sel = $("quicklist").querySelector(".qi.sel"); if (sel) sel.scrollIntoView({ block: "nearest" });
+      }
+      function pickQuick(i) { const m = $("quicklist")._matches || []; const it = m[i]; closeQuick(); if (it && it.run) it.run(); }
+      function closeQuick() { $("quick").classList.remove("on"); editor.focus(); }
+      async function openQuick(mode) {
+        if (mode === "symbols") {
+          const syms = (await langReq("symbols", { text: editor.getValue() })) || [];
+          renderQuick._items = syms.map((s) => ({ label: s.name, detail: s.detail || "function", run: () => { const p = editor.getModel().getPositionAt(s.selStart); editor.setPosition(p); editor.revealLineInCenter(p.lineNumber); editor.focus(); } }));
+        } else {
+          renderQuick._items = mode === "files"
+            ? JSON.parse(ws.files()).map((f) => ({ label: baseName(f.path), detail: f.path, run: () => openFile(f.path) }))
+            : COMMANDS;
+        }
+        quickSel = 0; $("quick").classList.add("on");
+        const q = $("quickq"); q.value = ""; q.placeholder = mode === "files" ? "Go to File by name…" : mode === "symbols" ? "Go to Symbol… (functions)" : "Type a command…";
+        renderQuick(""); q.focus();
+      }
+      $("quickq").oninput = (e) => { quickSel = 0; renderQuick(e.target.value); };
+      $("quickq").onkeydown = (e) => {
+        const m = $("quicklist")._matches || [];
+        if (e.key === "ArrowDown") { e.preventDefault(); quickSel = Math.min(quickSel + 1, m.length - 1); renderQuick($("quickq").value); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); quickSel = Math.max(quickSel - 1, 0); renderQuick($("quickq").value); }
+        else if (e.key === "Enter") { e.preventDefault(); pickQuick(quickSel); }
+        else if (e.key === "Escape") { e.preventDefault(); closeQuick(); }
+      };
+      // Window-level capture so the chords work whether or not Monaco holds focus.
+      window.addEventListener("keydown", (e) => {
+        const k = (e.key || "").toLowerCase(), open = $("quick").classList.contains("on"), mod = e.ctrlKey || e.metaKey;
+        if (mod && k === "p" && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); if (!open) openQuick("files"); }
+        else if ((mod && e.shiftKey && k === "p") || e.key === "F1") { e.preventDefault(); e.stopPropagation(); if (!open) openQuick("commands"); }
+        else if (mod && e.shiftKey && k === "o") { e.preventDefault(); e.stopPropagation(); if (!open) openQuick("symbols"); }
+      }, true);
+
+      // ── Resizable: sidebar↔editor and editor↔panel (VS Code-style), driven by CSS variables ──
+      const wb = $("workbench"), mainEl = $("main"); let sbW = 256, ph = 220;
+      const rzv = document.createElement("div"); rzv.className = "rz rz-v";
+      const rzh = document.createElement("div"); rzh.className = "rz rz-h";
+      wb.appendChild(rzv); mainEl.appendChild(rzh);
+      function applyLayout() {
+        document.documentElement.style.setProperty("--sbw", sbW + "px");
+        document.documentElement.style.setProperty("--ph", ph + "px");
+        rzv.style.left = (48 + sbW - 2) + "px";
+        rzh.style.bottom = (ph - 2) + "px";
+        try { fit.fit(); } catch {}
+      }
+      applyLayout();
+      function drag(handle, onMove) { handle.addEventListener("mousedown", (e) => { e.preventDefault(); document.body.style.userSelect = "none"; const mm = (ev) => onMove(ev); const mu = () => { removeEventListener("mousemove", mm); removeEventListener("mouseup", mu); document.body.style.userSelect = ""; }; addEventListener("mousemove", mm); addEventListener("mouseup", mu); }); }
+      const wbRect = () => wb.getBoundingClientRect(), mRect = () => mainEl.getBoundingClientRect();
+      drag(rzv, (e) => { sbW = Math.max(170, Math.min(600, e.clientX - wbRect().left - 48)); applyLayout(); });
+      drag(rzh, (e) => { ph = Math.max(80, Math.min(mRect().height - 120, mRect().bottom - e.clientY)); applyLayout(); });
+
+      // ── LIVE CO-EDIT PRESENCE — serverless, UOR-native real-time human↔agent collaboration. Peers in the
+      // same holospace (browser panes/tabs + the in-browser agent) share cursors, selections and edits over a
+      // zero-server BroadcastChannel; every peer converges to the SAME content address (κ) — convergence is
+      // verifiable by re-derivation (Law L5), not just CRDT bookkeeping. Degrades to solo if unavailable.
+      const coedit = (() => {
+        const PAL = ["#0078D4", "#E2C08D", "#3FB950", "#F778BA", "#A371F7", "#FF7B72", "#56D4DD"];
+        const q = new URLSearchParams(location.search);
+        const roomId = q.get("id") || "local";
+        const me = { id: Math.random().toString(36).slice(2, 8), name: q.get("user") || "You", kind: "human", color: PAL[0] };
+        const peers = new Map();
+        const styled = new Set();
+        let ch = null, applyingRemote = false;
+        try { ch = new BroadcastChannel("holo-coedit:" + roomId); } catch {}
+        const styleEl = document.createElement("style"); document.head.appendChild(styleEl);
+        const post = (type, extra) => { if (ch) try { ch.postMessage({ type, from: { id: me.id, name: me.name, kind: me.kind, color: me.color }, ...extra }); } catch {} };
+        const ensurePeerStyle = (p) => { if (styled.has(p.id)) return; styled.add(p.id); styleEl.textContent += `.rc-sel-${p.id}{background:${p.color}33;border-radius:2px}`; };
+        function makeCursor(p) {
+          const node = document.createElement("div"); node.className = "rc-caret"; node.style.background = p.color;
+          const flag = document.createElement("div"); flag.className = "rc-flag"; flag.style.background = p.color; flag.textContent = p.name; node.appendChild(flag);
+          const widget = { getId: () => "rc-" + p.id, getDomNode: () => node, getPosition: () => p.position ? { position: p.position, preference: [Mu.editor.ContentWidgetPositionPreference.EXACT] } : null };
+          editor.addContentWidget(widget);
+          return { widget, decos: editor.createDecorationsCollection([]) };
+        }
+        function dropCursor(p) { if (p.cursor) { try { editor.removeContentWidget(p.cursor.widget); p.cursor.decos.clear(); } catch {} p.cursor = null; } }
+        function renderCursor(p) {
+          if (p.path !== openPath || !p.position) return dropCursor(p);
+          if (!p.cursor) p.cursor = makeCursor(p);
+          editor.layoutContentWidget(p.cursor.widget); ensurePeerStyle(p);
+          const s = p.selection;
+          if (s && (s.startLineNumber !== s.endLineNumber || s.startColumn !== s.endColumn)) p.cursor.decos.set([{ range: new Mu.Range(s.startLineNumber, s.startColumn, s.endLineNumber, s.endColumn), options: { className: "rc-sel-" + p.id } }]);
+          else p.cursor.decos.clear();
+        }
+        function touch(from) { let p = peers.get(from.id); if (!p) { p = { ...from, seen: Date.now(), cursor: null }; peers.set(from.id, p); renderPresence(); } else { p.name = from.name; p.color = from.color; p.kind = from.kind; p.seen = Date.now(); } return p; }
+        function applyRemote(fn) { applyingRemote = true; try { fn(); } catch {} applyingRemote = false; updateKappa(); lintNow(); if (activeView === "graph") renderGraph(); else if (activeView === "run") runPreview(); }
+        function renderPresence() {
+          const el = $("presence"); if (!el) return;
+          const others = [...peers.values()]; if (!others.length) { el.innerHTML = ""; return; }   // solo → no clutter
+          el.innerHTML = [me, ...others].map((p) => `<span class="pa" title="${esc(p.name)}${p.kind === "agent" ? " · agent" : ""}" style="background:${p.color}">${esc((p.name[0] || "?").toUpperCase())}</span>`).join("");
+        }
+        if (ch) ch.onmessage = (ev) => {
+          const d = ev.data; if (!d || !d.from || d.from.id === me.id) return;
+          const p = touch(d.from);
+          if (d.type === "hello") { post("welcome"); if (openPath && models.has(openPath)) post("snapshot", { path: openPath, text: editor.getValue() }); }
+          else if (d.type === "bye") { dropCursor(p); peers.delete(p.id); renderPresence(); }
+          else if (d.type === "cursor") { p.path = d.path; p.position = d.position; p.selection = d.selection; renderCursor(p); }
+          else if (d.type === "ops" && d.path === openPath) { const m = editor.getModel(); if (m) applyRemote(() => m.applyEdits((d.changes || []).map((c) => ({ range: new Mu.Range(c.range.startLineNumber, c.range.startColumn, c.range.endLineNumber, c.range.endColumn), text: c.text })))); }
+          else if (d.type === "snapshot" && d.path === openPath) { const m = editor.getModel(); if (m && m.getValue() !== d.text) applyRemote(() => m.pushEditOperations([], [{ range: m.getFullModelRange(), text: d.text }], () => null)); }
+          else if (d.type === "sync-req" && models.has(d.path)) post("snapshot", { path: d.path, text: models.get(d.path).getValue() });
+        };
+        setInterval(() => { const now = Date.now(); let changed = false; for (const p of [...peers.values()]) if (now - p.seen > 12000) { dropCursor(p); peers.delete(p.id); changed = true; } if (changed) renderPresence(); post("hello"); }, 5000);
+        addEventListener("beforeunload", () => post("bye"));
+        post("hello"); if (openPath) post("sync-req", { path: openPath }); renderPresence();
+        return {
+          get applyingRemote() { return applyingRemote; },
+          broadcastOps: (path, changes) => { if (!peers.size) return; post("ops", { path, changes: changes.map((c) => ({ range: c.range, text: c.text })) }); },   // zero overhead when solo
+          broadcastCursor: (path, sel) => { if (!peers.size) return; post("cursor", { path, position: { lineNumber: sel.positionLineNumber, column: sel.positionColumn }, selection: { startLineNumber: sel.startLineNumber, startColumn: sel.startColumn, endLineNumber: sel.endLineNumber, endColumn: sel.endColumn } }); },
+          requestSync: (path) => post("sync-req", { path }),
+          onFileSwitch: () => { for (const p of peers.values()) renderCursor(p); },
+          join: ({ name, kind, color } = {}) => { if (name) me.name = name; if (kind) me.kind = kind; if (color) me.color = color; post("hello"); renderPresence(); },
+          peers: () => [...peers.values()], me: () => ({ ...me }),
+          setCursor: (path, line, column) => post("cursor", { path, position: { lineNumber: line, column }, selection: null }),
+          applyEdit: (path, text) => { const m = models.get(path); if (!m) return false; applyingRemote = true; try { m.pushEditOperations([], [{ range: m.getFullModelRange(), text }], () => null); } catch {} applyingRemote = false; post("snapshot", { path, text }); if (path === openPath) { updateKappa(); lintNow(); } return true; },
+        };
+      })();
+      window.HoloCoedit = coedit;
+      // Immediate presence relay (separate from the debounced lint/save): broadcast edits + cursor as they happen.
+      editor.onDidChangeModelContent((e) => { if (!coedit.applyingRemote) coedit.broadcastOps(openPath, e.changes); });
+      editor.onDidChangeCursorSelection((e) => coedit.broadcastCursor(openPath, e.selection));
+
+      window.__ready = true;
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

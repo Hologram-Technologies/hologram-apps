@@ -1,0 +1,29 @@
+{
+  "id": "org.hologram.Holo3D",
+  "name": "Holo 3D",
+  "type": ["schema:SoftwareApplication", "schema:WebApplication"],
+  "summary": "A real graphical OS (KolibriOS) streamed to WebGL — verified and 100% serverless.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "comment_shared": "Holo 3D vendors v86 + Three.js + the OS image under ./vendor and ./images and ships no OS-shell chrome, so the whole app lives in one service-worker scope (holo-3d-sw.js) and boots offline/standalone. Nothing is pulled from the shared OS surface at runtime.",
+  "shared": [],
+  "engines": [],
+  "description": [
+    { "p": "A real graphical operating system (KolibriOS) boots on the v86 x86 engine and is streamed to WebGL — flat, sharp, full-screen, fully interactive (pointer-lock mouse + keyboard), with a live render-quality control." },
+    { "p": "Every byte is admitted by content address: the v86 engine, its wasm core, both BIOSes and the OS image are content-addressed and κ-gated — re-derived before execution and refused on any mismatch (Law L5). After first load the service worker serves the whole app from the κ-store, so it boots with the origin server OFF." },
+    { "ul": [
+      "Real x86 graphical OS on v86 (BSD-2) — mouse, keyboard, windows",
+      "κ-gated engine + BIOS + image: bytes admitted by content address",
+      "100% serverless after first load (offline κ-store cache)",
+      "Live quality control: Sharp · Ultra 2× · Native · Pixel-perfect · Performance",
+      "Swap the image κ-pin to boot any v86-bootable OS"
+    ] }
+  ],
+  "categories": ["System", "Emulator", "Graphics"],
+  "keywords": ["os", "x86", "v86", "kolibrios", "webgl", "kappa", "content-addressed", "serverless", "graphical"],
+  "developer": { "id": "org.hologram", "name": "Hologram Technologies" },
+  "license": "BSD-2-Clause",
+  "homepage": "https://hologram.os/apps/holo-3d",
+  "releases": [ { "version": "0.2", "date": "2026-06-17", "description": "Flat sharp WebGL stream, pointer-lock input, live quality control, offline κ-store SW." } ]
+}

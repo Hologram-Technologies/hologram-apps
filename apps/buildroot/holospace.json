@@ -1,0 +1,33 @@
+{
+  "id": "org.hologram.V86BuildrootLinux",
+  "name": "Buildroot Linux",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Buildroot Linux on v86 — a κ-verified Linux kernel booted directly (bzImage).",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    {
+      "p": "Buildroot Linux boots its Linux kernel directly on v86 (bzImage). The kernel is content-addressed and re-derived before a single instruction runs (Law L5)."
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator"
+  ],
+  "keywords": [
+    "v86",
+    "linux",
+    "bzimage",
+    "kappa"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0",
+  "homepage": "https://hologram.os/apps/buildroot"
+}

@@ -1,0 +1,38 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "os64boot.iso",
+    "bytes": 5580800,
+    "did": "did:holo:sha256:ec18b2f21e15c286e896c75ba009d2f64d1d17d40d91b888dffe6a671544038d"
+  },
+  "blockSize": 262144,
+  "blockCount": 22,
+  "uniqueBlocks": 22,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:f0fb8ad214e5c14b251edc5428438159f65c0993840162c743c7716b0db13d4f",
+  "blocks": [
+    "did:holo:sha256:86568792af86e5dbd8de1891ce09c406f2b958d3a04e2ea780ffeabc29abaeba",
+    "did:holo:sha256:7fa0c1bc4afa0be9661fb08fc8d782eed044b19c0854c51c5a3d0e1332358603",
+    "did:holo:sha256:47d24b9273d64b877243b16443c9c70dea6fd8135ad319eadf7eaa2175ec0ebd",
+    "did:holo:sha256:3d74ce683c6e43e93436e24c4eb6a48c87960e42772a967b590c4975e57e39bc",
+    "did:holo:sha256:4291bb550fdf822cdd16a5eba7e919581375f09e2efe5941809bca1cd026e3e4",
+    "did:holo:sha256:e2a857c75c0fa6afca20de91c699ce33d70b2057d95d2951d353cfb748ed076a",
+    "did:holo:sha256:7ba632b4c653847b39b597ef0bd4fd80542c69102be8c5672373c2d207aa489f",
+    "did:holo:sha256:f0134d372d8857d3ee12635dc6ce1c5d27402b3cc3b94abf13c2c4468284a7e1",
+    "did:holo:sha256:fabab7f365630ddd6a3b6d510824aa3ac95f401a00cdfae66b23ee0c5a7f3fd8",
+    "did:holo:sha256:e24c2e9a8d883bdf86df35a5fd7ecb78b1eb7b03f4a1d56689150dc4d97c4d3a",
+    "did:holo:sha256:a6e23d24c564fe0b5a9c6c35bb1a83c766107cc76c341890a13ecc30bec1cf10",
+    "did:holo:sha256:bcf6fc9f8c235463ca2b3c369b6c8fb0e4e9d89d2b0deb97810237203de6dbfb",
+    "did:holo:sha256:10e1af498c1396d7e3bb7fb34edadcd6422551fcb0a111d59844c35d8b6e3337",
+    "did:holo:sha256:bd38bb5ee2557bfe44d4c032da3aeaeb46e7348c4c2bf72922a5a2d9f835a114",
+    "did:holo:sha256:1f07fac6d491bc6f30f5f471dea913eabc5a32d2df63134d2cf3ec253d24bbc8",
+    "did:holo:sha256:74b3d5cbf652a4936a142032db9945904113c4bd0eed57161be1a657d93efce5",
+    "did:holo:sha256:02aa0f09f01239dbf1e9132bb095199e7727f5e179c6c0c749e23a3a61b3556d",
+    "did:holo:sha256:32a719902b233af0deb3d953f8f2b4233bc0d3fa180d5b1bc2cd4283ca4d62e4",
+    "did:holo:sha256:40739d8562ba40af3eb665704cbe815fff8c1091bd78124586e9be92f9230796",
+    "did:holo:sha256:ea9dd92397e3d7fd98f36265fce4fb4ce50a94d23647b3dd210e9ddb5341c39c",
+    "did:holo:sha256:fb36c530109e7598c0a8375d5a60a3d1d7f3c6d6524ef4befce6c2896970ba45",
+    "did:holo:sha256:4403d069ac43a1eddc68bb2a24ea2bf337a784800ec1f65430c13c583ea053e2"
+  ]
+}

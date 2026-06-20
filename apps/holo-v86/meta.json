@@ -1,0 +1,18 @@
+{
+  "machines": 99,
+  "cataloged": 116,
+  "byFormat": {
+    "single": 80,
+    "chunked": 15,
+    "9pfs": 1,
+    "bzimage": 3
+  },
+  "nominalBytes": 5720366458,
+  "pinnedBytes": 744272030,
+  "streamedBytes": 4469575168,
+  "engineSharedBytes": 2585087,
+  "engineCopiesAvoided": 98,
+  "leanerFactor": 7.7,
+  "nominal": "5.3 GB",
+  "pinned": "710 MB"
+}

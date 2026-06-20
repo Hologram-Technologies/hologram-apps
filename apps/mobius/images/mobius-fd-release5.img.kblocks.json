@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "mobius-fd-release5.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:ede35e1cd4d54dc2f08edcd7804114a04b853e94c067ae77e5e75c7f8d2888db"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:b6275eeeb5d58d3a2c5d9da0ff2e8de7599e6024213ddfefcd21a9dc1491a032",
+  "blocks": [
+    "did:holo:sha256:acf8bea43f972ecf156b14d571aa05b072a94618f304a5012b3ba967dd583ac3",
+    "did:holo:sha256:bbf33289234e31c357eba4c2f2ce4385abab141d1cf924fc48fb8b79d6e3743c",
+    "did:holo:sha256:0ebeeca3776916a916939748bc84f926cddea0a82cb8fd8d6b94e215aad11a66",
+    "did:holo:sha256:dfb6a10c53f5ae8aa782285d07759e754806745176e8a97aa007e37a38fa3e1b",
+    "did:holo:sha256:ccca14781dc4634ba2c27c4844b99fe0554d34bee3097b9b24ac4acf9cb6e855",
+    "did:holo:sha256:ceed9b15e8459c5bda8b41a2fabd9cf1554902a46ccc7958957963d051a7a7d3"
+  ]
+}

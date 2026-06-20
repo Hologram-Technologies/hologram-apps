@@ -1,0 +1,105 @@
+{
+  "id": "org.hologram.HoloCode",
+  "name": "Holo Code",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "An agentic coding partner that runs entirely on your machine the terminal agent you know, but the brain is local verifiable inference, the tools work over the verified substrate, and every session is a receipt that proves itself genuine.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "holo-code",
+      "verifiable-agent-loop",
+      "prov-work-receipt",
+      "holo-q-integration",
+      "conscience-permission-gate",
+      "content-addressing",
+      "law-l5",
+      "holo-constitution"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloCode"
+    ]
+  },
+  "shared": [
+    "holo-ui-kernel.js",
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-ux.js",
+    "holo-platform.js",
+    "holo-object.js",
+    "holo-icons.js",
+    "holo-sdk.js",
+    "holo-app.mjs",
+    "holo-conscience.js",
+    "holo-files.js",
+    "holo-capability.mjs",
+    "holo-mobile.css",
+    "holo-phi.css"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "Claude Code is a terminal agent that asks a remote server to think and trusts what comes back. Holo Code is its sovereign twin: the same faithful agent experience, but nothing leaves your machine and nothing must be taken on trust."
+    },
+    {
+      "p": "The brain is local verifiable inference (it integrates with Holo Q). The tools read, write, edit, search, build, run operate over the substrate's content-addressed file graph, so every file the agent touches carries its own did:holo address and re-derives byte-for-byte (Law L5). Permission is the OS conscience: a fail-closed gate judges every tool call before it runs. And the whole session seals into one re-derivable PROV-O work receipt a session you can prove, not just remember."
+    },
+    {
+      "ul": [
+        "A faithful terminal-agent experience streaming replies, tool-call blocks, slash commands, plan mode, permission prompts",
+        "Tools run over the content-addressed substrate, each result verifiable by re-derivation",
+        "Permission is the fail-closed conscience gate (ADR-033) no tool runs unjudged",
+        "Every session is a content-addressed, re-derivable work receipt (PROV-O, Law L5)",
+        "Local-first brain that integrates with Holo Q no server ever sees your code"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "AI",
+    "Productivity"
+  ],
+  "keywords": [
+    "code",
+    "coding agent",
+    "claude code",
+    "terminal agent",
+    "ai",
+    "llm",
+    "holo-q",
+    "verifiable inference",
+    "agent loop",
+    "content-addressing",
+    "uor",
+    "did:holo",
+    "prov-o",
+    "law-l5",
+    "conscience",
+    "serverless",
+    "sovereign ai",
+    "on-device",
+    "developer tools"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/code",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-11",
+      "description": "Holo Code a substrate-native, sovereign reproduction of the Claude Code terminal agent. The agent loop runs on a pluggable inference provider (a local deterministic provider drives real substrate tools today; the Holo Q QVAC adapter is wired for verifiable on-device generation). Tools operate over the holo-files content-addressed VFS; permission is the fail-closed conscience gate (ADR-033); every session seals into a re-derivable PROV-O work receipt (Law L5). Serverless, private, infinitely composable with the agent stack (NANDA · A2A · Delegate · Orchestrate · Settle)."
+    }
+  ],
+  "accent": "#d97757"
+}

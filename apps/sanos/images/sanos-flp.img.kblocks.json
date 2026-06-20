@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "sanos-flp.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:17a9f41624f3fa4bad1a79430ac3be80b5494add02e8eb51b8448e107a9076de"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:cfffd3cd7fa3ef280ed62399231a7f8b441c3110aab326bd44094937769baa45",
+  "blocks": [
+    "did:holo:sha256:87e494a12273fd5419e1a75f98918e6e27cef1cbf29a8c1d9817f2ddab2829d6",
+    "did:holo:sha256:b2e7188faae40f93ba2552bb4de616e911a81b2afca0bb4b018abc3c3c24041d",
+    "did:holo:sha256:1e90dd968b5fb92670b7fdd0eafd7486429029919c082526cd22064011460251",
+    "did:holo:sha256:b2f6c6f1ef98d97b37ba694de3b63051425621504fdc8c4423a613d3fb2ddc85",
+    "did:holo:sha256:6ce20a008050307611dcdbcc5d2a0b00cbe09705e22e967ecff772b56972dad8",
+    "did:holo:sha256:6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da"
+  ]
+}

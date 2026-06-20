@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "kolibri.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:f3ec74d5b70e5b7a8b0d053a1ada738a75159366b50af8a427845f87e0a91be5"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:b4a9aeb959ee265547ac99f3ed7d7f59d6b3f767d6d202e91b860ccb9f139c10",
+  "blocks": [
+    "did:holo:sha256:db51be65f2a08477106126e71991b47487c4960b845a3a0ca418616f44a08a4a",
+    "did:holo:sha256:38d9b3eed4bc2be880dfbd74439d09afdcda65fd3fef1eafc231f4cf9f8ea499",
+    "did:holo:sha256:96441a98779b0cc2cc55af6002ca6e70a45fe8dfd1659fd8f10990f342b192a9",
+    "did:holo:sha256:309ee866c071249db3347816305f339ac8f0fbc07520386454cf085e2839b8c3",
+    "did:holo:sha256:1b68fcb7ae427c5e146a4273f8b6f8146939dc1885a01301bebe0a3b6f929388",
+    "did:holo:sha256:c144a903522a8ac6a5fb40c4229fc9b352991c8881a252e346cc2be3273aa398"
+  ]
+}

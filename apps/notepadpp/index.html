@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holo Notepad++</title>
+<meta name="description" content="A fast, lightweight source-code editor in the browser tabs, line numbers, syntax highlighting for many languages, and find/replace. The editor engine is CodeMirror 6, vendored verbatim and served from your own machine (no server, no CDN)." />
+<link rel="icon" href="icon.svg" />
+<!-- rich preview when the link is shared -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Holo Notepad++" />
+<meta property="og:title" content="Holo Notepad++ a fast source-code editor" />
+<meta property="og:description" content="Tabs, line numbers, syntax highlighting and find/replace. CodeMirror 6, served from your own machine." />
+<meta property="og:image" content="icon.svg" />
+<!-- Holo UI (theme/look engine) + Holo UX (device-tier + host-native feel) — the one design system,
+     inherited, not re-decided. holo-ui-kernel.js loads the holo-theme.js engine. -->
+<link rel="stylesheet" href="_shared/holo-theme.css" />
+<link rel="stylesheet" href="_shared/holo-mobile.css" />
+<link rel="stylesheet" href="_shared/holo-phi.css" />
+<script src="_shared/holo-ui-kernel.js"></script>
+<script type="module" src="_shared/holo-ux.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--holo-bg); color: var(--holo-ink);
+    display: flex; flex-direction: column; overflow: hidden;
+    font: var(--holo-text, 1rem)/1.5 var(--holo-font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  }
+
+  /* ── toolbar ─────────────────────────────────────────────────────────── */
+  #toolbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: var(--holo-space-2, 0.5rem);
+    flex-wrap: wrap; padding: var(--holo-space-1p5, 0.35rem) var(--holo-space-3, 0.7rem);
+    background: var(--holo-surface); border-bottom: var(--holo-border-width, 1px) solid var(--holo-border);
+    user-select: none;
+  }
+  #toolbar .brand { display: inline-flex; align-items: center; gap: var(--holo-space-2, 0.5rem); font-weight: 800; letter-spacing: 0.02em; }
+  #toolbar .brand svg { width: 1.15rem; height: 1.15rem; }
+  #toolbar .sep { width: var(--holo-border-width, 1px); align-self: stretch; background: var(--holo-border); margin: var(--holo-space-0p5, 0.15rem) var(--holo-space-1, 0.25rem); }
+  #toolbar .sp { margin-left: auto; }
+  .btn {
+    font: inherit; color: var(--holo-ink-dim); background: transparent;
+    border: var(--holo-border-width, 1px) solid var(--holo-border);
+    border-radius: var(--holo-radius-sm); padding: var(--holo-space-1, 0.25rem) var(--holo-space-2p5, 0.6rem);
+    cursor: pointer; min-height: var(--holo-space-8, 1.9rem); display: inline-flex; align-items: center; gap: var(--holo-space-1p5, 0.35rem);
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .btn:hover { color: var(--holo-ink); border-color: var(--holo-border-emphasized); }
+  .btn:focus-visible { outline: var(--holo-focus-width, 2px) solid var(--holo-accent); outline-offset: 1px; }
+  .btn.accent { color: var(--holo-accent-ink, var(--holo-ink)); border-color: var(--holo-accent); background: var(--holo-accent-soft, transparent); }
+  select.field {
+    font: inherit; color: var(--holo-ink); background: var(--holo-surface-2, var(--holo-surface));
+    border: var(--holo-border-width, 1px) solid var(--holo-border); border-radius: var(--holo-radius-sm);
+    padding: var(--holo-space-1, 0.25rem) var(--holo-space-2, 0.5rem); min-height: var(--holo-space-8, 1.9rem); cursor: pointer;
+  }
+  label.toggle { display: inline-flex; align-items: center; gap: var(--holo-space-1p5, 0.35rem); color: var(--holo-ink-dim); cursor: pointer; }
+
+  /* ── tab strip ───────────────────────────────────────────────────────── */
+  #tabs {
+    flex: 0 0 auto; display: flex; align-items: stretch; gap: var(--holo-space-0p5, 0.15rem);
+    padding: var(--holo-space-1, 0.25rem) var(--holo-space-2, 0.5rem) 0;
+    background: var(--holo-surface); border-bottom: var(--holo-border-width, 1px) solid var(--holo-border);
+    overflow-x: auto; scrollbar-width: thin;
+  }
+  .tab {
+    display: inline-flex; align-items: center; gap: var(--holo-space-1p5, 0.35rem);
+    padding: var(--holo-space-1p5, 0.35rem) var(--holo-space-2p5, 0.6rem);
+    border: var(--holo-border-width, 1px) solid var(--holo-border); border-bottom: none;
+    border-radius: var(--holo-radius-sm) var(--holo-radius-sm) 0 0;
+    color: var(--holo-ink-dim); background: var(--holo-bg); cursor: pointer; white-space: nowrap; max-width: 14rem;
+    transition: color .12s, background .12s;
+  }
+  .tab.on { color: var(--holo-ink); background: var(--holo-surface-2, var(--holo-surface)); border-color: var(--holo-border-emphasized); }
+  .tab .name { overflow: hidden; text-overflow: ellipsis; }
+  .tab .dirty { color: var(--holo-warn); }
+  .tab .x { color: var(--holo-ink-subtle, var(--holo-ink-dim)); border-radius: var(--holo-radius-full); width: 1.1rem; height: 1.1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .tab .x:hover { color: var(--holo-danger); background: var(--holo-surface); }
+  .tab.add { color: var(--holo-ink-dim); border-style: dashed; }
+
+  /* ── editor host ─────────────────────────────────────────────────────── */
+  #editorHost { flex: 1 1 auto; min-height: 0; position: relative; }
+  .cm-editor { height: 100%; }
+  .cm-editor .cm-scroller { font-family: var(--holo-font-mono, ui-monospace, "Cascadia Code", Menlo, Consolas, monospace); }
+  .cm-editor.cm-focused { outline: none; }
+
+  /* ── status bar ──────────────────────────────────────────────────────── */
+  #status {
+    flex: 0 0 auto; display: flex; align-items: center; gap: var(--holo-space-4, 1rem);
+    padding: var(--holo-space-1, 0.25rem) var(--holo-space-3, 0.7rem);
+    background: var(--holo-surface); border-top: var(--holo-border-width, 1px) solid var(--holo-border);
+    color: var(--holo-ink-dim); font: var(--holo-text-sm, 0.85rem) var(--holo-font-mono, ui-monospace, monospace);
+  }
+  #status .sp { margin-left: auto; }
+  #status b { color: var(--holo-ink); font-weight: 600; }
+  .hidden-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Notepad++"></holo-splash>
+
+  <div id="toolbar">
+    <span class="brand">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="var(--holo-accent)" stroke-width="1.6"/><path d="M14 3v5h5" stroke="var(--holo-accent)" stroke-width="1.6"/><path d="M8 13h6M8 16.5h4" stroke="var(--holo-ink-dim)" stroke-width="1.4" stroke-linecap="round"/></svg>
+      Holo Notepad++
+    </span>
+    <span class="sep"></span>
+    <button class="btn" id="bNew" title="New (Ctrl+N)">New</button>
+    <button class="btn" id="bOpen" title="Open (Ctrl+O)">Open</button>
+    <button class="btn accent" id="bSave" title="Save (Ctrl+S)">Save</button>
+    <span class="sep"></span>
+    <button class="btn" id="bFind" title="Find / Replace (Ctrl+F)">Find</button>
+    <select class="field" id="lang" title="Language" aria-label="Language"></select>
+    <span class="sp"></span>
+    <label class="toggle"><input type="checkbox" id="wrap" /> Word wrap</label>
+    <input type="file" id="fileIn" class="hidden-file" multiple aria-hidden="true" />
+  </div>
+
+  <div id="tabs" role="tablist"></div>
+
+  <div id="editorHost"></div>
+
+  <div id="status">
+    <span>Ln <b id="ln">1</b>, Col <b id="col">1</b></span>
+    <span>Sel <b id="sel">0</b></span>
+    <span id="langLabel">Plain text</span>
+    <span class="sp"></span>
+    <span><b id="len">0</b> chars</span>
+    <span><b id="lines">1</b> lines</span>
+    <span>UTF-8</span>
+  </div>
+
+  <script type="module" src="./notepad.js"></script>
+</body>
+</html>

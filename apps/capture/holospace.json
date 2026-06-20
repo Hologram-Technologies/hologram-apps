@@ -1,0 +1,84 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloCapture",
+  "name": "Holo Capture",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Capture, annotate and share your screen — every capture verified.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "MultimediaApplication",
+  "conforms": {
+    "specs": [
+      "capture",
+      "media-capture"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloCapture"
+    ],
+    "permissions": [
+      "display-capture",
+      "clipboard-write"
+    ],
+    "channels": [
+      "holo-capture:share"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "capture.html",
+  "description": [
+    {
+      "p": "A screenshot you share should be yours, verifiable, and never touch a server."
+    },
+    {
+      "p": "The W3C Screen Capture API grabs a screen, window or tab; a full annotation toolset marks it up; the result is a content-addressed object."
+    },
+    {
+      "ul": [
+        "Capture a screen, window or tab",
+        "Annotate: arrows, shapes, text, blur, counters",
+        "Copy, save, pin or share",
+        "Every capture is content-addressed"
+      ]
+    }
+  ],
+  "categories": [
+    "Graphics",
+    "Utility"
+  ],
+  "keywords": [
+    "screenshot",
+    "capture",
+    "annotate",
+    "flameshot",
+    "screen",
+    "snip",
+    "markup",
+    "blur"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://hologram.os/apps/capture",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Flameshot's full tool set in the browser: W3C screen capture, content-addressed κ-verified captures, copy/save/pin/share."
+    }
+  ],
+  "accent": "#2dd4bf"
+}

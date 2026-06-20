@@ -1,0 +1,92 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloStream",
+  "name": "Holo Stream",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Live streaming, recording and a creator coin composited in the browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "MultimediaApplication",
+  "conforms": {
+    "specs": [
+      "stream"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloStream"
+    ],
+    "permissions": [
+      "display-capture",
+      "camera",
+      "microphone"
+    ]
+  },
+  "shared": [
+    "holo-collab.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-rtc.js",
+    "holo-theme.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "stream.html",
+  "description": [
+    {
+      "p": "Going live and recording shouldn't depend on desktop software or a streaming host."
+    },
+    {
+      "p": "Compose a scene from your screen, windows, camera and mic, mix the audio, then record a content-addressed clip or broadcast over a serverless relay."
+    },
+    {
+      "ul": [
+        "Scene composition display, window, camera, mic",
+        "Record a content-addressed clip",
+        "Go live over a serverless relay",
+        "A built-in creator coin"
+      ]
+    }
+  ],
+  "categories": [
+    "AudioVideo",
+    "Video",
+    "Recorder"
+  ],
+  "keywords": [
+    "obs",
+    "owncast",
+    "stream",
+    "streaming",
+    "broadcast",
+    "channel",
+    "creator coin",
+    "pump.fun",
+    "monetize",
+    "earn",
+    "webcam",
+    "record",
+    "live",
+    "whip",
+    "webrtc",
+    "hls"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://hologram.os/apps/stream",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.1",
+      "date": "2026-06-08",
+      "description": "Go Live as a Channel: Owncast-style content-addressed LL-HLS + live chat + a pump.fun-style creator coin where every trade pays the streamer."
+    }
+  ],
+  "accent": "#2dd4bf"
+}

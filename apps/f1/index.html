@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holo F1 the 𝔽₁ square toward RH, native to the UOR substrate</title>
+<style>
+  :root{
+    --bg:#0e0c07; --panel:#16130b; --line:#2a2415; --ink:#f0e6c8; --dim:#a99a6e;
+    --accent:#c5a046; --ok:#5fb87a; --open:#d8a93a; --bad:#d8633a; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:880px;margin:0 auto;padding:32px 20px 80px}
+  header h1{font-size:22px;margin:0 0 4px;font-weight:650}
+  header p.sub{color:var(--dim);margin:0 0 18px}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;
+    border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--panel);margin:2px 8px 2px 0}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+  .kappa{color:var(--dim);word-break:break-all}
+  section{margin-top:28px}
+  h2{font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
+  .thesis{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:#e7dcb8}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .tag{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:6px;height:fit-content;text-align:center}
+  .tag.true{color:#0e0c07;background:var(--ok)}
+  .tag.null{color:#0e0c07;background:var(--open)}
+  .tag.false{color:#0e0c07;background:var(--bad)}
+  .name{font-family:var(--mono);font-size:12px;color:var(--accent)}
+  .stmt{color:#ded3ac;font-size:14px}
+  .cite{color:var(--dim);font-size:12px;font-family:var(--mono);margin-top:4px}
+  footer{margin-top:34px;color:var(--dim);font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr;gap:6px}
+</style>
+<!-- Wired to the canonical Holo UI/UX engine (ADR-0030/0057/0062) — inherits the design tokens,
+     readability floor, reduced-motion guard + native-OS feel from the one shared source. -->
+<script src="../../_shared/holo-theme.js"></script>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo F1"></holo-splash>
+
+<div class="wrap">
+  <header>
+    <h1>Holo F1 the 𝔽₁ square toward the Riemann Hypothesis</h1>
+    <p class="sub">afflom/F1, built on UOR-Framework made native to the UOR substrate, and combined with ATLAS96 by attestation.</p>
+    <div id="badges">
+      <span class="badge"><span class="dot" id="d-f1"></span> F1 object Law L5</span>
+      <span class="badge"><span class="dot" id="d-ledger"></span> ATLAS96 ledger Law L5</span>
+    </div>
+    <div class="badge kappa" id="kappa-line">resolving…</div>
+  </header>
+
+  <section>
+    <h2>The thesis (not a claimed proof)</h2>
+    <div class="thesis" id="thesis"></div>
+  </section>
+
+  <section>
+    <h2>F1 honesty ledger</h2>
+    <div id="f1-ledger"></div>
+  </section>
+
+  <section>
+    <h2>The F1 ⇄ ATLAS96 bridge</h2>
+    <div id="bridge"></div>
+  </section>
+
+  <section>
+    <h2>ATLAS96 claim ledger re-graded with F1's honesty</h2>
+    <div id="atlas-ledger"></div>
+  </section>
+
+  <footer id="unlocks"></footer>
+</div>
+
+<script type="module">
+// JCS (RFC 8785) — byte-identical to the substrate's holo-uor.mjs `jcs`.
+const jcs = (v) => Array.isArray(v) ? "[" + v.map(jcs).join(",") + "]"
+  : (v && typeof v === "object") ? "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + jcs(v[k])).join(",") + "}"
+  : JSON.stringify(v);
+const hexOf = (did) => String(did).split(":").pop();
+async function sha256hex(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+}
+// address(): strip id + alsoKnownAs, JCS, sha256 → did:holo:sha256:H (mirrors holo-object.mjs).
+async function rederives(obj){
+  const { id, alsoKnownAs, ...content } = obj;
+  return ("did:holo:sha256:" + await sha256hex(jcs(content))) === obj.id;
+}
+const TAG = (v) => v === true ? "true" : v === false ? "false" : "null";
+const LABEL = (v) => v === true ? "PROVEN" : v === false ? "FALSIFIED" : "OPEN · none";
+const row = (name, v, stmt, cite) => `<div class="row">
+  <span class="tag ${TAG(v)}">${LABEL(v)}</span>
+  <div><div class="name">${name}</div><div class="stmt">${stmt}</div>${cite ? `<div class="cite">${cite}</div>` : ""}</div></div>`;
+
+const j = async (f) => (await fetch(f)).json();
+const f1 = await j("f1.uor.json");
+const ledger = await j("atlas96-ledger.uor.json");
+
+// live Law-L5 badges
+const setDot = (el, ok) => { el.classList.add(ok ? "ok" : "bad"); };
+setDot(document.getElementById("d-f1"), await rederives(f1));
+setDot(document.getElementById("d-ledger"), await rederives(ledger));
+const sub = (f1.alsoKnownAs || []).find(x => x.includes("blake3")) || "";
+document.getElementById("kappa-line").textContent = "F1 κ  " + f1.id + (sub ? "   ·   substrate  " + sub : "");
+
+document.getElementById("thesis").textContent = f1["f1:thesis"];
+
+document.getElementById("f1-ledger").innerHTML =
+  f1["f1:ledger"].map(e => row(e.name, e.universallyValid, e.statement, e.status ? "status: " + e.status : e.evidence)).join("");
+
+document.getElementById("bridge").innerHTML =
+  f1["f1:bridge"].links.map(b => row(b.name, b.universallyValid, b.statement, b.status || "")).join("");
+
+document.getElementById("atlas-ledger").innerHTML =
+  ledger["f1:claims"].map(c => row(c.name, c.universallyValid, c.statement,
+    (c.falsifiedBy ? "falsified by: " + c.falsifiedBy.join(", ") : (c.evidence || c.status || "")))).join("");
+
+const u = f1["f1:unlocks"];
+document.getElementById("unlocks").innerHTML =
+  `<strong style="color:var(--ink)">What F1 unlocks.</strong> If proven: ${u.ifProven}<br><br>` +
+  `<strong style="color:var(--ink)">For Hologram:</strong> ${u.forHologram}`;
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>The +</title>
+    <meta name="description" content="The + — drop in any file, paste any link or text, and Hologram does the rest: every source becomes content-addressed κ-objects, every entity and relationship is mapped into one κ-hypergraph, then the system investigates unbidden and hands back provenance-verified insights. No query. The whole investigation is one pinnable κ-DAG." />
+
+    <!-- shared runtime mount: /_shared/ → /usr/lib/holo (one canonical wire, Law L2) -->
+    <script type="importmap">
+      {
+        "imports": {
+          "holo-plus": "/_shared/holo-plus.mjs",
+          "holo-ingest": "/_shared/holo-ingest.mjs",
+          "holo-map": "/_shared/holo-map.mjs",
+          "holo-insight": "/_shared/holo-insight.mjs",
+          "holo-brief": "/_shared/holo-brief.mjs",
+          "holo-investigation": "/_shared/holo-investigation.mjs",
+          "holo-uor": "/_shared/holo-uor.mjs"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/_shared/holo-theme.css" />
+    <link rel="stylesheet" href="/_shared/holo-mobile.css" />
+    <script src="/_shared/holo-theme.js"></script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: var(--holo-bg, #0a0c12); --panel: var(--holo-surface, #11141c); --line: var(--holo-border, #222838);
+        --dim: var(--holo-ink-dim, #8b93a7); --ink: var(--holo-ink, #e8ecf5); --accent: var(--holo-accent, #ff5c8a);
+        --ok: var(--holo-ok, #3fb950); --warn: var(--holo-warn, #d29922); --bad: var(--holo-danger, #ff6b6b);
+        --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: column; overflow: hidden;
+        font: 1rem/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: .6rem; padding: .5rem .9rem;
+        background: var(--panel); border-bottom: 1px solid var(--line); font: .9rem var(--mono); user-select: none; }
+      #bar .plus { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px;
+        background: var(--accent); color: #fff; font-weight: 900; font-size: 1.2rem; }
+      #bar .name { font-weight: 800; letter-spacing: .02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .sp { margin-left: auto; }
+      #q { color: var(--dim); font: .78rem var(--mono); }
+      #q .on { color: var(--ok); } #q .off { color: var(--dim); }
+
+      #main { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column;
+        align-items: center; gap: 1.2rem; padding: 1.4rem; }
+
+      /* the + dropzone */
+      #drop { width: min(680px, 96%); border: 2px dashed var(--line); border-radius: 18px; background: var(--panel);
+        padding: 2.2rem 1.6rem; text-align: center; transition: border-color .15s, background .15s; cursor: pointer; }
+      #drop.hot { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+      #drop .big { font-size: 3rem; color: var(--accent); font-weight: 900; line-height: 1; }
+      #drop h1 { margin: .6rem 0 .2rem; font-size: 1.15rem; }
+      #drop p { margin: 0; color: var(--dim); font-size: .9rem; }
+      #paste { width: min(680px, 96%); display: flex; flex-direction: column; gap: .5rem; }
+      #paste textarea { width: 100%; min-height: 90px; resize: vertical; background: var(--panel); color: var(--ink);
+        border: 1px solid var(--line); border-radius: 12px; padding: .7rem .9rem; font: .92rem var(--mono); }
+      #paste .row { display: flex; gap: .5rem; }
+      #paste input { flex: 1 1 auto; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+        border-radius: 10px; padding: .55rem .8rem; font: .9rem var(--mono); }
+      button.go { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: .55rem 1.1rem;
+        font: 700 .92rem ui-sans-serif; cursor: pointer; }
+      button.go:disabled { opacity: .5; cursor: default; }
+      input[type=file] { display: none; }
+
+      /* the brief */
+      #brief { width: min(680px, 96%); display: none; flex-direction: column; gap: .7rem; }
+      #brief.show { display: flex; }
+      #brief .letter { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+        border-radius: 12px; padding: 1rem 1.1rem; white-space: pre-wrap; }
+      .ins { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: .7rem .9rem; }
+      .ins .k { display: inline-block; font: 700 .68rem var(--mono); text-transform: uppercase; letter-spacing: .08em;
+        padding: .1rem .45rem; border-radius: 6px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+      .ins.risk .k { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+      .ins .t { margin: .4rem 0 .3rem; }
+      .ins .meta { color: var(--dim); font: .78rem var(--mono); cursor: pointer; }
+      .ins .ev { margin-top: .5rem; display: none; font: .72rem var(--mono); color: var(--dim); word-break: break-all; }
+      .ins .ev.show { display: block; }
+      .ins .ev div { padding: .15rem 0; }
+      #foot { width: min(680px, 96%); color: var(--dim); font: .76rem var(--mono); border-top: 1px solid var(--line); padding-top: .7rem; }
+      .err { color: var(--bad); font: .85rem var(--mono); }
+      .spin { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div id="bar">
+      <span class="plus">+</span>
+      <span class="name">The +</span>
+      <span class="tag">drop anything · the rest is automatic</span>
+      <span class="sp"></span>
+      <span id="q">Q: <span class="off">baseline</span></span>
+    </div>
+
+    <div id="main">
+      <div id="drop" tabindex="0">
+        <div class="big">+</div>
+        <h1>Drop a file, paste text, or link a source</h1>
+        <p>Any type. It becomes a κ-hypergraph, then the system finds what matters — no query.</p>
+      </div>
+      <div id="paste">
+        <textarea id="text" placeholder="…or paste text / notes / a table here"></textarea>
+        <div class="row">
+          <input id="url" type="url" placeholder="…or paste a URL (https://…)" />
+          <button class="go" id="run">Ingest</button>
+        </div>
+      </div>
+      <div id="brief"></div>
+      <div id="foot"></div>
+    </div>
+
+    <input type="file" id="file" multiple />
+
+    <script type="module">
+      import { runPlus, bindQ } from "holo-plus";
+
+      const $ = (s) => document.querySelector(s);
+      const drop = $("#drop"), fileIn = $("#file"), briefEl = $("#brief"), foot = $("#foot"), qEl = $("#q");
+
+      // ── graceful seam detection: Q brain, telemetry tap, inbox sink. Absent → baselines (still works). ──
+      // CANONICAL (ADR-0084/0091): the unified surface window.Q exposes ask()/create(), NOT a raw generate()
+      // — so the + must ADAPT it to the `generate(prompt) → string` contract makeQExtractor/makeQInvestigator
+      // expect, instead of failing the shape check and always falling to baseline. Q.ask routes to the shared
+      // on-device brain (respond) through the mux, so the + uses the SAME model as the rest of the OS.
+      const findBrain = () => {
+        const Q = globalThis.Q;
+        if (Q && typeof Q.ask === "function") {
+          return { id: "holo-q", async generate(prompt) { try { const a = await Q.ask(prompt); return typeof a === "string" ? a : (a && a.value) || ""; } catch (e) { return ""; } } };
+        }
+        // explicit/legacy brains that already speak generate()
+        for (const g of ["HoloQ", "HoloBrain"]) {
+          const b = globalThis[g];
+          if (b && typeof b.generate === "function") return b;
+          if (b && b.brain && typeof b.brain.generate === "function") return b.brain;
+        }
+        return null;
+      };
+      const findTap = () => (globalThis.HoloTap && typeof globalThis.HoloTap.observeIngest === "function") ? globalThis.HoloTap : null;
+      const findSink = () => {
+        const ib = globalThis.HoloInbox;
+        if (ib && typeof ib.send === "function") return async (msg) => ib.send({ title: msg.title, body: msg.body, ref: msg.briefKappa });
+        return null;   // no inbox → render inline only (below)
+      };
+      const brain = findBrain();
+      qEl.innerHTML = "Q: " + (brain ? '<span class="on">connected</span>' : '<span class="off">baseline</span>');
+
+      // ── read inputs → [{name,bytes,mime}] ──────────────────────────────────────────────────────────
+      const fileToInput = async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), mime: f.type || null });
+      async function urlToInput(u) {
+        const r = await fetch(u);
+        const name = (() => { try { return new URL(u).pathname.split("/").pop() || u; } catch { return u; } })();
+        return { name, bytes: new Uint8Array(await r.arrayBuffer()), mime: r.headers.get("content-type") };
+      }
+
+      // ── the one call ───────────────────────────────────────────────────────────────────────────────
+      let busy = false;
+      async function ingest(inputs) {
+        if (busy || !inputs.length) return;
+        busy = true; $("#run").disabled = true;
+        foot.innerHTML = `<span class="spin">streaming ${inputs.length} source${inputs.length>1?"s":""} → κ-objects → hypergraph → investigating…</span>`;
+        briefEl.className = "";
+        try {
+          const seam = await bindQ(brain);                              // {} when no brain → baselines
+          const out = await runPlus(inputs, { ...seam, tap: findTap(), sink: findSink(), title: "What the + found" });
+          render(out);
+        } catch (e) {
+          foot.innerHTML = `<span class="err">ingest failed: ${e && e.message || e}</span>`;
+        } finally { busy = false; $("#run").disabled = false; }
+      }
+
+      // ── render the proactive brief (verify-before-show already happened in deliver/renderBrief) ──────
+      function render(out) {
+        const { brief, investigation, graph, coverage } = out;
+        briefEl.className = "show"; briefEl.innerHTML = "";
+        const items = brief["holo:items"] || [];
+        const letter = document.createElement("div");
+        letter.className = "letter";
+        letter.textContent = items.length
+          ? `I looked at what you just added and found ${items.length} thing${items.length>1?"s":""} worth your attention.`
+          : `I ingested what you added (${graph["holo:stats"].entities} entities) but found nothing yet worth flagging.`;
+        briefEl.appendChild(letter);
+
+        for (const ins of items) {
+          const kind = ins["holo:kind"];
+          const el = document.createElement("div");
+          el.className = "ins" + (kind === "single-source-risk" ? " risk" : "");
+          el.innerHTML = `<span class="k">${kind.replace(/-/g, " ")}</span>
+            <div class="t">${esc(ins["schema:text"])}</div>
+            <div class="meta">confidence ${(ins["holo:confidence"]*100)|0}% · ${ins["prov:wasDerivedFrom"].length} source${ins["prov:wasDerivedFrom"].length>1?"s":""} · ${ins["holo:evidence"].length} evidence κ — click to trace ▸</div>
+            <div class="ev">${ins["holo:evidence"].map((k) => `<div>${k}</div>`).join("")}<div style="color:var(--accent)">↳ sources: ${ins["prov:wasDerivedFrom"].map((s)=>s.slice(0,28)+"…").join(", ")}</div></div>`;
+          const meta = el.querySelector(".meta"), ev = el.querySelector(".ev");
+          meta.addEventListener("click", () => ev.classList.toggle("show"));
+          briefEl.appendChild(el);
+        }
+        const cov = coverage.map((c) => `${c.family}${c.adapter ? "✓" : "·"}`).join(" ");
+        foot.innerHTML = `investigation κ <b>${investigation["holo:root"].slice(0,30)}…</b> · ${investigation["holo:memberCount"]} members · ${graph["holo:stats"].entities} entities / ${graph["holo:stats"].claims} claims<br>coverage: ${cov} &nbsp;·&nbsp; this whole investigation is one pinnable κ-DAG`;
+      }
+      const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+      // ── wiring: drop / click / paste / url ───────────────────────────────────────────────────────────
+      drop.addEventListener("click", () => fileIn.click());
+      drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") fileIn.click(); });
+      fileIn.addEventListener("change", async () => { if (fileIn.files.length) ingest(await Promise.all([...fileIn.files].map(fileToInput))); });
+      ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("hot"); }));
+      ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("hot"); }));
+      drop.addEventListener("drop", async (e) => { const fs = [...(e.dataTransfer?.files || [])]; if (fs.length) ingest(await Promise.all(fs.map(fileToInput))); });
+      $("#run").addEventListener("click", async () => {
+        const text = $("#text").value.trim(), url = $("#url").value.trim();
+        const inputs = [];
+        if (text) inputs.push({ name: "pasted.txt", bytes: new TextEncoder().encode(text) });
+        if (url) { try { inputs.push(await urlToInput(url)); } catch (e) { foot.innerHTML = `<span class="err">could not fetch URL: ${e.message}</span>`; } }
+        ingest(inputs);
+      });
+    </script>
+  </body>
+</html>

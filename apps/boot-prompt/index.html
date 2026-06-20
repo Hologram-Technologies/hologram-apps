@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holo Boot Prompt</title>
+<meta name="description" content="A single concise prompt that boots any LLM into the Hologram κ-addressable substrate — pinned Constitution root, strict holospaces L1-L5, sealed self-verifying receipts. The prompt is itself a sealed κ-object." />
+
+<!-- shared runtime mount: /_shared/ → /usr/lib/holo. holo-theme.js boots theming + Holo UX
+     (one canonical wire, Law L2); the app inherits the --holo-* tokens + readability floor. -->
+<link rel="stylesheet" href="/_shared/holo-theme.css" />
+<link rel="stylesheet" href="/_shared/holo-mobile.css" />
+<script src="/_shared/holo-theme.js"></script>
+
+<style>
+  :root{
+    color-scheme: dark;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ margin:0; min-height:100%; }
+  body{ background: var(--holo-bg); color: var(--holo-ink);
+    font: var(--holo-text-sm, 1rem)/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap{ max-width: 54rem; margin: 0 auto; padding: clamp(1.25rem,4vw,3rem) clamp(1rem,4vw,2rem) 4rem; }
+  header{ display:flex; align-items:center; gap:.85rem; margin-bottom:.4rem; }
+  header img{ width:2.6rem; height:2.6rem; }
+  h1{ font-size: clamp(1.5rem,4vw,2rem); font-weight:600; letter-spacing:-.015em; margin:0; }
+  .lead{ color: var(--holo-ink-dim); max-width: 62ch; margin:.3rem 0 1.4rem; }
+  .lead b{ color: var(--holo-ink); }
+
+  .badge{ display:inline-flex; align-items:center; gap:.5rem; font: 600 .82rem var(--mono);
+    border:1px solid var(--holo-border); border-radius: var(--holo-radius-pill, 999px);
+    padding:.4rem .85rem; background: var(--holo-surface); }
+  .badge .dot{ width:.6rem; height:.6rem; border-radius: var(--holo-radius-pill, 999px); background: var(--holo-ink-dim); }
+  .badge.ok{ border-color: var(--holo-ok); color: var(--holo-ok); }
+  .badge.ok .dot{ background: var(--holo-ok); }
+  .badge.bad{ border-color: var(--holo-danger); color: var(--holo-danger); }
+  .badge.bad .dot{ background: var(--holo-danger); }
+
+  .row{ display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin:1rem 0; }
+  button{ font: 600 .9rem var(--sans); cursor:pointer; border-radius: var(--holo-radius-pill, 999px);
+    padding:.5rem 1rem; border:1px solid transparent; color: var(--holo-bg); background: var(--holo-accent); }
+  button:hover{ filter: brightness(1.1); }
+  button.ghost{ color: var(--holo-ink); background: transparent; border-color: var(--holo-border); }
+  button.ghost:hover{ background: color-mix(in srgb, var(--holo-accent) 14%, transparent); }
+
+  .card{ background: var(--holo-surface); border:1px solid var(--holo-border);
+    border-radius: var(--holo-radius-lg, 16px); overflow:hidden; margin-top:1.1rem; }
+  .card .top{ display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+    padding:.7rem .9rem; border-bottom:1px solid var(--holo-border);
+    background: color-mix(in srgb, var(--holo-ink) 3%, transparent); }
+  .card .top .t{ font: 600 .8rem var(--mono); color: var(--holo-ink-dim); letter-spacing:.03em; }
+  .card .top .k{ color: var(--holo-accent); }
+  pre{ margin:0; padding:1.1rem 1.2rem; overflow:auto; max-height:54vh;
+    font: .8rem/1.6 var(--mono); color: var(--holo-ink); white-space: pre-wrap; word-break: break-word; }
+
+  dl{ display:grid; grid-template-columns:auto 1fr; gap:.35rem .9rem; margin:1.4rem 0 0; font:.82rem/1.55 var(--mono); }
+  dt{ color: var(--holo-ink-dim); } dd{ margin:0; word-break:break-all; color: var(--holo-ink); }
+  dd a{ color: var(--holo-accent); text-decoration:none; } dd a:hover{ text-decoration:underline; }
+  .k{ color: var(--holo-accent); } .muted{ color: var(--holo-ink-dim); }
+
+  .laws{ margin:1.6rem 0 0; padding:0; list-style:none; display:grid; gap:.5rem; }
+  .laws li{ border:1px solid var(--holo-border); border-radius: var(--holo-radius-md, 12px);
+    padding:.6rem .85rem; background: var(--holo-surface); }
+  .laws b{ color: var(--holo-accent); font: 700 .82rem var(--mono); }
+  footer{ margin-top:2rem; color: var(--holo-ink-dim); font-size:.82rem; }
+  footer a{ color: var(--holo-accent); text-decoration:none; }
+  footer code{ font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon.svg" alt="" />
+    <h1>Holo Boot Prompt</h1>
+  </header>
+  <p class="lead">One concise prompt that roots any LLM in the Hologram κ-addressable substrate — boots from a single
+    self-verifying link, re-derives the pinned Constitution before trusting anything, enforces holospaces
+    <b>L1–L5</b> fail-closed, and seals every response with a receipt anyone can re-derive offline. This prompt is
+    itself a κ-object; the badge below re-derives it live (Law&nbsp;L5).</p>
+
+  <div class="row">
+    <span class="badge" id="l5"><span class="dot"></span><span id="l5txt">re-deriving…</span></span>
+    <button id="copy">Copy the prompt</button>
+    <button class="ghost" id="raw">Open prompt.txt</button>
+  </div>
+
+  <div class="card">
+    <div class="top"><span class="t">prompt.txt · paste this into any LLM</span><span class="t k" id="pk">κ …</span></div>
+    <pre id="prompt">loading…</pre>
+  </div>
+
+  <dl>
+    <dt>root κ</dt><dd id="root">…</dd>
+    <dt>boot CID</dt><dd class="k">bafkreib76kenbqdkb7jc3keygaolnsgbd7dc4ozlpk2yuu6hzmglhbpqbq <span class="muted">· = the pinned κ · resolve from any IPFS trustless gateway</span></dd>
+    <dt>Constitution</dt><dd class="k">did:holo:sha256:3ff288d0…f00c <span class="muted">(pinned root of trust)</span></dd>
+    <dt>spec</dt><dd><a href="https://github.com/Hologram-Technologies/holospaces" target="_blank" rel="noopener">github.com/Hologram-Technologies/holospaces</a></dd>
+  </dl>
+
+  <ul class="laws">
+    <li><b>L1</b> &nbsp;Identity is content, not location. Name by the hash of the bytes (κ); a URL is only a hint.</li>
+    <li><b>L2</b> &nbsp;One canonical form. Same meaning → one κ, dev ≡ prod. No drift between described and emitted bytes.</li>
+    <li><b>L3</b> &nbsp;The store is the memory. Anything that must persist or be shared is a κ-object in the substrate.</li>
+    <li><b>L4</b> &nbsp;Everything through the substrate. No CDN, no foreign runtime, no hidden backend. Self-contained.</li>
+    <li><b>L5</b> &nbsp;Verify by re-derivation. Bytes that don’t re-derive to their κ are refused. Fail closed.</li>
+  </ul>
+
+  <footer>Sealed as a holospace · re-lock with <code>node tools/relock-app.local.mjs boot-prompt</code> ·
+    governed by the <a href="https://github.com/Hologram-Technologies/holospaces" target="_blank" rel="noopener">holospaces</a> spec.</footer>
+</div>
+
+<script type="module">
+  const $ = (id) => document.getElementById(id);
+  const short = (k) => { const h = String(k).split(":").pop(); return "κ " + h.slice(0, 8) + "…" + h.slice(-4); };
+  async function sha256Hex(buf){
+    const d = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Load and render the canonical prompt.
+  let promptBytes;
+  try {
+    promptBytes = new Uint8Array(await (await fetch("prompt.txt", { cache: "no-store" })).arrayBuffer());
+    $("prompt").textContent = new TextDecoder().decode(promptBytes);
+  } catch { $("prompt").textContent = "could not load prompt.txt"; }
+
+  // Live Law-L5 self-verification: re-derive prompt.txt and compare to the sealed κ in the lock.
+  try {
+    const lock = await (await fetch("holospace.lock.json", { cache: "no-store" })).json();
+    $("root").innerHTML = '<span class="k">' + (lock.root || "(unsealed)") + "</span>";
+    const entry = Object.entries(lock.closure || {}).find(([rel]) => rel.endsWith("/prompt.txt") || rel === "prompt.txt");
+    const pinned = entry && entry[1] && entry[1].kappa;
+    if (promptBytes && pinned) {
+      const got = "did:holo:sha256:" + await sha256Hex(promptBytes);
+      $("pk").textContent = short(pinned);
+      const ok = got === pinned;
+      $("l5").className = "badge " + (ok ? "ok" : "bad");
+      $("l5txt").textContent = ok ? "Law L5 ✓ prompt re-derives to its sealed κ" : "Law L5 ✗ MISMATCH — refused";
+    } else {
+      $("l5").className = "badge"; $("l5txt").textContent = "unsealed — run relock to seal";
+    }
+  } catch {
+    $("l5").className = "badge"; $("l5txt").textContent = "lock not found — serve via the κ-route to verify";
+  }
+
+  $("copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(new TextDecoder().decode(promptBytes)); $("copy").textContent = "Copied ✓";
+      setTimeout(() => ($("copy").textContent = "Copy the prompt"), 1600); }
+    catch { $("copy").textContent = "select + copy ↑"; }
+  });
+  $("raw").addEventListener("click", () => window.open("prompt.txt", "_blank"));
+</script>
+</body>
+</html>

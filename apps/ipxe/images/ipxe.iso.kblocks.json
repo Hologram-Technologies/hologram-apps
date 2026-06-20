@@ -1,0 +1,32 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "ipxe.iso",
+    "bytes": 4194304,
+    "did": "did:holo:sha256:6c92cf42a61ae8ad04640669274a6c22c1aa9ae96dea2cafd5d0ac267eb29fbb"
+  },
+  "blockSize": 262144,
+  "blockCount": 16,
+  "uniqueBlocks": 14,
+  "dedup": "12.5%",
+  "root": "did:holo:sha256:d52fe8873057c8f3cbd639e234bd13f968500ef935f6aaa16c23cc15d22f36b7",
+  "blocks": [
+    "did:holo:sha256:a99d94492add9679112b9c9760898a8d9992ffa6973cf151933ca3d180cd30af",
+    "did:holo:sha256:c965ce706735f2c0988645914687e4902e1d1825aaf7752c67c137ea82280dbb",
+    "did:holo:sha256:6898e1579d9c734aab77ceacc8c0ff9c368e4646a78f046b80fc761568e4796c",
+    "did:holo:sha256:842fcad4a94d203bf27cb9a77a8a1fb0c8ca7b666279ad53badc46a90c21341d",
+    "did:holo:sha256:7498da8a37ff688bb18cce78595513f08cb863a1221a768bdd7ef3897a6aa7f5",
+    "did:holo:sha256:c04ef55237771ef538898c462a371de355ad0ea96211bc14927b90bc49b7ebbb",
+    "did:holo:sha256:86178d950e6deb84c1bd3b3c655c15a600fb8b6bcdd51f32a99d891f85c8f8cb",
+    "did:holo:sha256:69b7ca4937d01c4c5872eea6be9fc3b9bea51f944e7f44e1eb0c5a56b2432691",
+    "did:holo:sha256:d7d2b46ea6efd7b0173e4d5f9efcb1b41f2dbd8b05400141ae5a364b063adde6",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:1a59f43cd843f8f5f364a48bc8c1965992f7a0a9f347c1a6219a47d9d564754c",
+    "did:holo:sha256:9d9459afb5b6b1d21fc5d15c62a495a611e7ef0a187d8e972b927e063e9c5814",
+    "did:holo:sha256:5a89efb6c1fbe8e5ddc6f1a5808cd09400139422b26012f1ac38307a2fcc7879",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:544c77f3117bf194931910cf52b556117735b68e149276248d5017a5186b9230"
+  ]
+}

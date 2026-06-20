@@ -1,0 +1,22 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Hologram host the lean, least-privilege capability set for the main window. The OS gets exactly the native powers a sandboxed browser denies it (a shell, the real filesystem, CORS-free HTTP, deep links) and nothing more. Tighten the fs/http/shell scopes below before shipping a public build.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "opener:default",
+    "deep-link:default",
+    "http:default",
+    "fs:default",
+    "shell:allow-open"
+  ]
+}

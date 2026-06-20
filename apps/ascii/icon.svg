@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="currentColor" stroke="none">
+  <!-- block letter "A" — text rendered as ASCII cells -->
+  <g>
+    <rect x="34" y="20" width="16" height="16" rx="2"/><rect x="54" y="20" width="16" height="16" rx="2"/><rect x="74" y="20" width="16" height="16" rx="2"/>
+    <rect x="14" y="40" width="16" height="16" rx="2"/><rect x="94" y="40" width="16" height="16" rx="2"/>
+    <rect x="14" y="60" width="16" height="16" rx="2"/><rect x="34" y="60" width="16" height="16" rx="2"/><rect x="54" y="60" width="16" height="16" rx="2"/><rect x="74" y="60" width="16" height="16" rx="2"/><rect x="94" y="60" width="16" height="16" rx="2"/>
+    <rect x="14" y="80" width="16" height="16" rx="2"/><rect x="94" y="80" width="16" height="16" rx="2"/>
+    <rect x="14" y="100" width="16" height="16" rx="2"/><rect x="94" y="100" width="16" height="16" rx="2"/>
+  </g>
+</svg>

@@ -1,0 +1,131 @@
+<!doctype html>
+<!-- audio-stream.html — Holo Hub Phase 2b (audio): a LOSSLESS, SPATIAL κ-audio object. The BBB audio as
+     a lossless FLAC κ-object (dev-bbb-audio) streams chunk by chunk — each re-derives to its DECLARED κ
+     (Law L5) before decode — persists in the OpfsKappaStore, decodes via Web Audio, and plays through an
+     HRTF binaural panner that ORBITS the listener (put on headphones: the sound moves around your head).
+     A deterministic OfflineAudioContext render proves the spatial processing (source on the right ⇒ right
+     channel louder). Honest: lossless FLAC, but the source master is AAC (lossless-of-a-lossy-source). -->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holo Hub — lossless spatial κ-audio</title>
+<style>
+  :root{--bg:#06070a;--panel:#0f131c;--line:#222a39;--ink:#eaeefb;--dim:#8a93a6;--acc:#5b8cff;--ok:#3fb950;--warn:#e3b341;--mono:ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}html,body{margin:0;height:100%}
+  body{background:radial-gradient(1100px 600px at 70% -15%,#11182b,var(--bg) 60%);color:var(--ink);font:15px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px}
+  h1{font-size:1.05rem;font-weight:600;margin:0}h1 small{color:var(--dim);font-weight:400}
+  .stage{position:relative;width:min(680px,94vw);aspect-ratio:1/1;max-height:56vh;background:radial-gradient(circle at 50% 50%,#0d1320,#000);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+  .pill{position:absolute;top:11px;z-index:2;background:#000b;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font:600 .72rem/1 var(--mono);display:flex;align-items:center;gap:7px}
+  .badge{left:11px}.src{right:11px;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}.badge.ok .dot{background:var(--ok)}.badge.dedup .dot{background:var(--acc)}
+  .hud{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .m{background:#0009;border:1px solid var(--line);border-radius:9px;padding:6px 11px;min-width:104px;text-align:center}
+  .m .k{color:var(--dim);font:600 .58rem/1.4 var(--mono);text-transform:uppercase;letter-spacing:.05em}.m .v{font:650 .9rem/1.2 var(--mono);margin-top:2px}.v.ok{color:var(--ok)}.v.acc{color:var(--acc)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  button{font:600 .9rem/1 inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 20px;cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--acc)}button:disabled{opacity:.4}button.on{background:var(--ok);color:#052;border-color:var(--ok)}
+  button.kill{border-color:#46232a;color:#ff9b9b}button.kill.armed{background:#ff5a5a;color:#1a0606}
+</style>
+
+<h1>Holo Hub <small>— lossless, spatial κ-audio · verified before it decodes</small></h1>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="pill badge" id="badge"><span class="dot"></span><span id="bt">verifying…</span></div>
+  <div class="pill src" id="src">source: —</div>
+</div>
+<div class="hud">
+  <div class="m"><div class="k">κ-chunks</div><div class="v ok" id="mv">0 / 0</div></div>
+  <div class="m"><div class="k">format</div><div class="v acc" id="mf">FLAC · lossless</div></div>
+  <div class="m"><div class="k">spatial (HRTF)</div><div class="v" id="msp">—</div></div>
+  <div class="m"><div class="k">before-verify</div><div class="v ok" id="mu">0</div></div>
+</div>
+<div class="row">
+  <button id="btnPlay" class="on" disabled>▶ Play (headphones)</button>
+  <button id="btnReplay">↻ Re-stream</button>
+  <button id="btnCut" class="kill">⏻ Cut the origin</button>
+  <span style="color:var(--dim);font:.78rem/2.6 var(--mono)">the sound orbits your head</span>
+</div>
+
+<script type="module">
+  import { OpfsKappaStore } from "./holo-opfs-kappastore.mjs";
+  const $=(id)=>document.getElementById(id);
+  const ASSET=new URL("./audio/",location.href).href;
+  const sha256hex=async(u8)=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",u8)),b=>b.toString(16).padStart(2,"0")).join("");
+  const st={store:null,verified:0,total:0,unverified:0,originBytes:0,originCut:false,source:"origin",
+    decoded:null,spatial:null,playing:false,angle:0,level:0,started:false};
+  window.__holo={state:()=>({decoded:st.decoded,spatial:st.spatial,verified:st.verified,total:st.total,unverified:st.unverified,originBytes:st.originBytes,originCut:st.originCut,source:st.source,playing:st.playing})};
+
+  // ── visual: listener at center, the spatial source orbiting ──
+  const cv=$("cv"),g=cv.getContext("2d");
+  function draw(){ const d=Math.min(devicePixelRatio||1,2); cv.width=cv.clientWidth*d; cv.height=cv.clientHeight*d;
+    const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)*0.34; g.clearRect(0,0,W,H);
+    g.strokeStyle="#1c2536"; g.lineWidth=1*d; g.beginPath(); g.arc(cx,cy,R,0,7); g.stroke();
+    // listener
+    g.fillStyle="#5b8cff"; g.beginPath(); g.arc(cx,cy,9*d*(1+st.level*0.8),0,7); g.fill();
+    g.fillStyle="#8a93a6"; g.font=`${11*d}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign="center"; g.fillText("you",cx,cy+24*d);
+    // orbiting source
+    const sx=cx+Math.cos(st.angle)*R, sy=cy+Math.sin(st.angle)*R*0.5;
+    g.fillStyle=st.playing?"#3fb950":"#3a4660"; g.shadowBlur=20*d; g.shadowColor=g.fillStyle; g.beginPath(); g.arc(sx,sy,8*d,0,7); g.fill(); g.shadowBlur=0;
+    if(st.playing) st.angle+=0.02;
+    requestAnimationFrame(draw); }
+  requestAnimationFrame(draw);
+
+  async function getChunk(file,hex){
+    if(await st.store.hasKey("sha256",hex)){ st.source="κ-store"; return await st.store.getByKey("sha256",hex); }
+    if(st.originCut) throw new Error("origin cut · not resident");
+    const u8=new Uint8Array(await (await fetch(ASSET+file,{cache:"no-store"})).arrayBuffer()); st.originBytes+=u8.length; st.source="origin"; return u8;
+  }
+  // deterministic spatial proof: render the decoded buffer through an HRTF panner placed to the RIGHT;
+  // a true binaural render makes the right channel louder than the left.
+  async function proveSpatial(buffer){
+    const oac=new OfflineAudioContext(2,buffer.length,buffer.sampleRate);
+    const src=oac.createBufferSource(); src.buffer=buffer;
+    const pan=oac.createPanner(); pan.panningModel="HRTF"; pan.positionX.value=1.6; pan.positionZ.value=0.2;
+    src.connect(pan); pan.connect(oac.destination); src.start();
+    const r=await oac.startRendering(), L=r.getChannelData(0), Rr=r.getChannelData(1);
+    let l=0,rg=0,step=Math.max(1,(L.length/20000)|0);
+    for(let i=0;i<L.length;i+=step){ l+=L[i]*L[i]; rg+=Rr[i]*Rr[i]; }
+    const lR=Math.sqrt(l),rR=Math.sqrt(rg);
+    return { nonZero:(lR+rR)>0, binaural:(rR-lR)>0.05*(lR+rR+1e-9), lr:+lR.toFixed(1), rr:+rR.toFixed(1) };
+  }
+
+  let buffer=null, actx=null;
+  async function run(){
+    if(st.started) return; st.started=true;
+    st.store=await OpfsKappaStore.open("hub-audio");
+    const man=await (await fetch(ASSET+"manifest.json",{cache:"no-store"})).json();
+    st.total=man.chunks.length; $("mv").textContent=`0 / ${st.total}`;
+    const parts=[];
+    for(const ch of man.chunks){ const hex=String(ch.kappa).split(":").pop(); const u8=await getChunk(ch.file,hex);
+      if(st.source==="origin" && await sha256hex(u8)!==hex){ $("bt").textContent="κ mismatch — refused"; return; }   // verify BEFORE decode
+      await st.store.putVerified("sha256",hex,u8); parts.push(u8); st.verified++;
+      $("mv").textContent=`${st.verified} / ${st.total}`; $("src").textContent="source: "+st.source; }
+    // reassemble the lossless FLAC + decode
+    const flac=new Uint8Array(parts.reduce((n,p)=>n+p.length,0)); let o=0; for(const p of parts){ flac.set(p,o); o+=p.length; }
+    actx=new (window.AudioContext||window.webkitAudioContext)({ sampleRate: man.sampleRate });
+    buffer=await actx.decodeAudioData(flac.buffer.slice(0));
+    const ch0=buffer.getChannelData(0); let s=0,step=Math.max(1,(ch0.length/20000)|0); for(let i=0;i<ch0.length;i+=step) s+=ch0[i]*ch0[i];
+    st.decoded={ sampleRate:buffer.sampleRate, channels:buffer.numberOfChannels, duration:+buffer.duration.toFixed(2), rms:+Math.sqrt(s).toFixed(2) };
+    st.spatial=await proveSpatial(buffer);
+    const dedup=st.originBytes===0;
+    $("badge").className="pill badge "+(dedup?"dedup":"ok"); $("bt").textContent=dedup?"κ-store · dedup":"verified · L5";
+    $("mf").textContent=`FLAC · ${st.decoded.sampleRate/1000}kHz · ${st.decoded.channels}ch`;
+    $("msp").innerHTML=st.spatial.binaural?'<span class="v acc">HRTF ✓</span>':'—';
+    $("btnPlay").disabled=false;
+  }
+
+  function play(){
+    if(!buffer) return; actx.resume();
+    const src=actx.createBufferSource(); src.buffer=buffer; src.loop=true;
+    const pan=actx.createPanner(); pan.panningModel="HRTF"; pan.distanceModel="inverse";
+    const an=actx.createAnalyser(); an.fftSize=256; const data=new Uint8Array(an.frequencyBinCount);
+    src.connect(pan); pan.connect(an); an.connect(actx.destination); src.start();
+    st.playing=true; $("btnPlay").textContent="◼ Playing — orbiting"; $("btnPlay").disabled=true;
+    (function meter(){ an.getByteTimeDomainData(data); let m=0; for(const x of data) m=Math.max(m,Math.abs(x-128)); st.level=m/128;
+      const a=st.angle; pan.positionX.value=Math.cos(a)*2.2; pan.positionZ.value=Math.sin(a)*2.2; pan.positionY.value=0;
+      if(st.playing) requestAnimationFrame(meter); })();
+  }
+  $("btnPlay").onclick=play;
+  $("btnReplay").onclick=()=>location.reload();
+  $("btnCut").onclick=()=>{ st.originCut=!st.originCut; $("btnCut").classList.toggle("armed",st.originCut); $("btnCut").textContent=st.originCut?"⏻ Origin CUT":"⏻ Cut the origin"; };
+  run();
+</script>

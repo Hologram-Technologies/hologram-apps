@@ -1,0 +1,8 @@
+You are inside a v86 guest — a real OS booted in a browser tab.
+
+This /mnt is the Hologram κ-substrate, mounted over 9p.
+Every file here is content-addressed: its name in the filesystem index is its
+SHA-256 — its κ — and v86 fetched it from /.holo/sha256/<κ>, the SAME route the
+whole OS resolves from. Tamper one byte and re-derivation refuses it (Law L5).
+
+Try:  cat /mnt/this-disk.kblocks.json   — the κ-block DAG of the disk you booted from.

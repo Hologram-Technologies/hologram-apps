@@ -1,0 +1,42 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    {
+      "prov": "http://www.w3.org/ns/prov#",
+      "dcterms": "http://purl.org/dc/terms/",
+      "schema": "https://schema.org/",
+      "a12": "https://hologram.os/ns/atlas-12288#",
+      "hosr": "https://hologram.os/ns/resonator#"
+    }
+  ],
+  "@type": [
+    "prov:Entity",
+    "schema:Dataset"
+  ],
+  "dcterms:title": "Atlas 96 Resonator — structure receipt",
+  "dcterms:description": "The Resonator's fiber structure as a re-derivable κ-transform: every irregular artifact is a byte of SHA-256(atlasObjectId ‖ '|phi:' ‖ Φ(p,b)) over all 12,288 boundary cells. Zero free parameters, zero RNG. Re-derive the DNA and compare κ; tamper one byte of the atlas object and every cell re-derives differently — refused.",
+  "hosr:rule": "DNA(p,b) = SHA-256(atlasObjectId ‖ '|phi:' ‖ (p·256+b))[0..8) — 12,288 cells × 8 bytes",
+  "a12:atlasObject": "did:holo:sha256:d760330bfece89f305f928e1a9065255c8fe8f91352b1ee369a2a714276419a0",
+  "hosr:atlasFile": "did:holo:sha256:c32c5413296b4dafac4154aad7a008b07eb06b5bbc517b4c2eae6bcdeecf20af",
+  "hosr:derivation": "did:holo:sha256:50ab1558013e34cfd069ee9a44a61794631e20ed2f1619a2262f43f4590338a8",
+  "a12:cells": 12288,
+  "hosr:bytesPerCell": 8,
+  "hosr:fibers": 22158,
+  "hosr:stabilizers": 12288,
+  "hosr:holes": 2418,
+  "prov:used": [
+    {
+      "@id": "did:holo:sha256:d760330bfece89f305f928e1a9065255c8fe8f91352b1ee369a2a714276419a0"
+    },
+    {
+      "@id": "did:holo:sha256:50ab1558013e34cfd069ee9a44a61794631e20ed2f1619a2262f43f4590338a8"
+    }
+  ],
+  "prov:generated": {
+    "@id": "did:holo:sha256:43924b21fc03c2bff7f76512a2c20f0505c992e6cd1966aa5d34f0910405b6df"
+  },
+  "prov:wasGeneratedBy": {
+    "@id": "https://hologram.os/tools/gen-atlas96-resonator"
+  },
+  "id": "did:holo:sha256:1893a7aa8058e80d10045e019ba4085ff80b3453e9018000674fe3cf7e75053c"
+}

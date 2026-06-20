@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>On Liberty a self-verifying UOR edition</title>
+<!-- adopts the OS mobile/accessibility layer (holo-mobile.css) + the Holo UI runtime (a citizen) -->
+<link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css">
+<script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+<style>
+  /* the reading palette follows the OS tokens (Holo UI); --gold stays the book's own warm accent. */
+  :root { --bg:var(--holo-bg,#0b071e); --panel:var(--holo-surface,#141026); --ink:var(--holo-ink,#e7e3f3);
+          --dim:var(--holo-ink-dim,#a39fc0); --line:var(--holo-border,#2a2440);
+          --ok:var(--holo-ok,#34d399); --bad:var(--holo-danger,#fb7185); --gold:#f59e0b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.65 Georgia,"Iowan Old Style",Cambria,serif; }
+  a { color:#c4b5fd; }
+  .wrap { max-width:46rem; margin:0 auto; padding:2rem 1.25rem 6rem; }
+  header { border-bottom:1px solid var(--line); padding-bottom:1.25rem; margin-bottom:1.5rem; }
+  h1 { font-size:2rem; margin:.2rem 0 .1rem; letter-spacing:.01em; }
+  .by { color:var(--dim); font-style:italic; margin:0; }
+  .epigraph { color:var(--dim); font-style:italic; border-left:2px solid var(--gold);
+              padding:.4rem 0 .4rem 1rem; margin:1.4rem 0; white-space:pre-wrap; }
+  /* the verification HUD — the whole point */
+  .hud { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.8rem;
+         background:var(--panel); border:1px solid var(--line); border-radius:10px;
+         padding:.85rem 1rem; margin:1.25rem 0; }
+  .hud .row { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+  .hud b { color:var(--ink); }
+  .hud .did { color:var(--dim); word-break:break-all; }
+  .badge { display:inline-block; padding:.05rem .5rem; border-radius:999px; font-weight:700; }
+  .badge.ok { color:#062c1e; background:var(--ok); }
+  .badge.bad { color:#3b0a14; background:var(--bad); }
+  .badge.work { color:#3b2c06; background:var(--gold); }
+  .controls { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.6rem; }
+  button { font:inherit; font-size:.85rem; cursor:pointer; color:var(--ink);
+           background:#221b3c; border:1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding:.4rem .8rem; }
+  button:hover { border-color:#473c6e; }
+  .note { color:var(--dim); font-size:.85rem; }
+  nav.toc { columns:2; gap:1rem; font-size:.92rem; margin:1rem 0 2rem; }
+  nav.toc a { display:block; padding:.15rem 0; color:#c4b5fd; text-decoration:none; }
+  nav.toc a:hover { text-decoration:underline; }
+  section.chapter { border-top:1px solid var(--line); padding-top:1.5rem; margin-top:2rem; }
+  section.chapter h2 { font-size:1.3rem; margin:.2rem 0 .2rem; }
+  .chap-did { font-family:ui-monospace,monospace; font-size:.72rem; color:var(--dim); word-break:break-all; }
+  .chap-did .v { color:var(--ok); }
+  .chap-did .v.bad { color:var(--bad); }
+  p.para { margin:1rem 0; text-align:justify; }
+  footer { border-top:1px solid var(--line); margin-top:3rem; padding-top:1.25rem;
+           color:var(--dim); font-size:.82rem; }
+  .mono { font-family:ui-monospace,monospace; }
+</style>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="On Liberty"></holo-splash>
+
+<div class="wrap">
+  <header>
+    <h1>On&nbsp;Liberty</h1>
+    <p class="by">John Stuart Mill · 1859 · with an introduction by W.&nbsp;L.&nbsp;Courtney</p>
+    <div class="epigraph" id="epigraph"></div>
+
+    <div class="hud" id="hud" aria-live="polite">
+      <div class="row"><span class="badge work" id="vbadge">verifying…</span>
+        <span id="vsummary">re-deriving every node from its own content…</span></div>
+      <div class="row" style="margin-top:.4rem"><b>root</b><span class="did" id="rootdid"></span></div>
+      <div class="row"><b>source</b><span class="did" id="srcdid"></span>
+        <span class="note">(the exact Project Gutenberg #34901 bytes, by κ)</span></div>
+      <div class="controls">
+        <button id="tamper">Tamper with a byte</button>
+        <button id="restore" hidden>Restore</button>
+      </div>
+      <div class="note" id="explain" style="margin-top:.5rem">
+        This page fetched <span class="mono">one static JSON file</span> and trusts no server: it re-derives
+        every object's <span class="mono">did:holo:sha256</span> from the object's own bytes and compares (Law&nbsp;L5).
+        The root hash commits to every word below change one byte anywhere and the whole book is refused.
+      </div>
+    </div>
+
+    <nav class="toc" id="toc" aria-label="Contents"></nav>
+  </header>
+
+  <main id="book"><p class="note">Loading the κ-DAG…</p></main>
+
+  <footer>
+    <p><b>On Liberty</b> published natively into the UOR content-addressable substrate as a self-verifying
+       linked-data Merkle-DAG. Source text: <a href="https://www.gutenberg.org/ebooks/34901">Project Gutenberg #34901</a>,
+       public domain. No server is trusted; the book proves itself.</p>
+    <p class="note">An easter egg in Hologram OS a substrate that needs no authority, carrying the canonical
+       argument that none deserves blind trust.</p>
+  </footer>
+</div>
+
+<script type="module">
+import { verify, address, jcs } from "../../_shared/holo-object.js";
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
+// a faithful enough inline-emphasis pass for the _underscored_ words Gutenberg uses
+const emph = (s) => esc(s).replace(/_([^_]+)_/g, "<em>$1</em>");
+const short = (did) => { const h = String(did).split(":").pop(); return did.replace(h, h.slice(0, 12) + "…" + h.slice(-6)); };
+
+const doc = await (await fetch("on-liberty.uor.json")).json();
+const graph = doc["@graph"];
+const book = graph.find((o) => o.id === doc.root);
+const chapters = book.links.map((l) => graph.find((o) => o.id === l.id));
+
+$("#epigraph").textContent = book["schema:abstract"] || "";
+$("#rootdid").textContent = book.id;
+$("#srcdid").textContent = doc.source;
+
+// table of contents
+$("#toc").innerHTML = chapters.map((c, i) => `<a href="#c${i}">${esc(c["schema:name"])}</a>`).join("");
+
+// render the chapters (paragraphs split on blank lines; strip the repeated heading line)
+$("#book").innerHTML = chapters.map((c, i) => {
+  const body = (c["schema:text"] || "").replace(/^CHAPTER [IVXLC]+\.\s*/i, "").replace(/^[A-Z][A-Z ,.'-]+\.\s*/, "");
+  const paras = body.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+    .map((p) => `<p class="para">${emph(p.replace(/\n/g, " "))}</p>`).join("");
+  return `<section class="chapter" id="c${i}">
+    <h2>${esc(c["schema:name"])}</h2>
+    <div class="chap-did">${short(c.id)} <span class="v" id="cv${i}">✓ re-derived</span></div>
+    ${paras}</section>`;
+}).join("");
+
+// ── the proof: re-derive every node from its own content (Law L5), no server ──────────
+async function reverify() {
+  let ok = 0; const total = graph.length; let firstBad = null;
+  // each chapter node self-verifies AND its id is the one the book's Merkle edge commits to
+  for (let i = 0; i < chapters.length; i++) {
+    const c = chapters[i];
+    const good = (await verify(c)) && c.id === book.links[i].id;
+    const el = $("#cv" + i);
+    el.textContent = good ? "✓ re-derived" : "✗ REFUSED hash mismatch";
+    el.className = "v" + (good ? "" : " bad");
+    if (good) ok++; else if (!firstBad) firstBad = c["schema:name"];
+  }
+  const bookOk = await verify(book); if (bookOk) ok++; else if (!firstBad) firstBad = "the book (root)";
+  const allOk = ok === total;
+  $("#vbadge").className = "badge " + (allOk ? "ok" : "bad");
+  $("#vbadge").textContent = allOk ? "✓ self-verified" : "✗ refused";
+  $("#vsummary").innerHTML = allOk
+    ? `<b>${ok}/${total}</b> nodes re-derived from their own bytes the whole book verified, <b>no server trusted</b>.`
+    : `<b>${ok}/${total}</b> verified <b>${esc(firstBad)}</b> failed to re-derive. A single changed byte is <b>refused</b> (Law&nbsp;L5).`;
+  return allOk;
+}
+
+// ── live tamper demo: flip one byte → the hash no longer re-derives → refused ─────────
+let original = null;
+$("#tamper").addEventListener("click", async () => {
+  const target = chapters[1] || chapters[0];               // Chapter I
+  original = original || target["schema:text"];
+  // flip a single character — the object's content no longer hashes to its committed id
+  const t = target["schema:text"];
+  const k = Math.floor(t.length / 2);
+  target["schema:text"] = t.slice(0, k) + (t[k] === "e" ? "3" : "e") + t.slice(k + 1);
+  await reverify();
+  $("#tamper").hidden = true; $("#restore").hidden = false;
+  $("#explain").innerHTML = "One byte changed in <b>" + esc(target["schema:name"]) +
+    "</b>. Its content no longer hashes to its <span class='mono'>did:holo</span>, so it is <b>refused</b> " +
+    "and because the root commits to it, the whole book fails. <b>Nothing was asked of a server.</b>";
+});
+$("#restore").addEventListener("click", async () => {
+  const target = chapters[1] || chapters[0];
+  if (original != null) target["schema:text"] = original;
+  await reverify();
+  $("#restore").hidden = true; $("#tamper").hidden = false;
+  $("#explain").textContent = "Restored. Every node re-derives again verified, with no server.";
+});
+
+const verified = await reverify();
+
+// ── the easter-egg signature ──────────────────────────────────────────────────────────
+console.log("%c On Liberty self-verifying in the UOR substrate ", "background:#f59e0b;color:#0b071e;font-weight:700;padding:2px 6px;border-radius:4px");
+console.log("%c" + (book["schema:abstract"] || ""), "color:#a39fc0;font-style:italic");
+console.log("root did:holo  →  " + book.id);
+console.log("source κ       →  " + doc.source + "   (Project Gutenberg #34901, re-derive it yourself)");
+console.log(verified
+  ? "Re-derived every node from its own content. No server was trusted. Q.E.D."
+  : "Verification failed refused (Law L5).");
+</script>
+</body>
+</html>

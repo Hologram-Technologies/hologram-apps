@@ -1,0 +1,79 @@
+{
+  "id": "org.hologram.HoloControl",
+  "name": "Holo Control",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A single-pane command center: a birds-eye view of every external connection as a governable graph edge, with live signal-over-noise monitoring and one-click power to throttle, restrict, pause or cut any of it.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "conforms": {
+    "specs": [
+      "holo-telemetry",
+      "holo-ui",
+      "holo-ux"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloControl"
+    ]
+  },
+  "shared": [
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-store.js",
+    "holo-telemetry.mjs",
+    "holo-theme.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "You cannot operate what you cannot see, and you should not trust what you cannot cut."
+    },
+    {
+      "p": "Holo Control models the whole system as a graph: this OS at the center, every external interaction an edge you can watch and govern. It consumes Holo Telemetry (ADR-0073) and stays calm by default a signal-processing core learns each edge's noise floor and surfaces only what crosses it, so you see signal and the noise recedes."
+    },
+    {
+      "ul": [
+        "A birds-eye graph of every connected app, agent, resource, person and wallet",
+        "Live ingress/egress, ranked by salience, with the honest split (re-derivable vs host-attested)",
+        "One-click throttle · restrict · pause · cut on any edge conscience-gated and sealed to a verifiable receipt",
+        "Local-first: it observes; nothing leaves the device, and a cut is real where this pane owns the channel"
+      ]
+    }
+  ],
+  "categories": [
+    "System",
+    "Utilities"
+  ],
+  "keywords": [
+    "control",
+    "telemetry",
+    "observability",
+    "monitoring",
+    "dashboard",
+    "signal-processing",
+    "governance",
+    "egress",
+    "uor",
+    "content-addressed"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Hologram-Technologies/hologram-os",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-12",
+      "description": "The telemetry monitoring & control command center: a birds-eye edge graph over the live telemetry plane, a robust signal-over-noise DSP core (noise floor, salience, hysteresis, matched filter, aggregate SNR), four lenses (apps & agents, ingress/egress, social, wallet), an edge inspector, and a conscience-gated, receipt-sealed control plane (throttle/restrict/pause/cut). Honest where a feed is unwired no fabricated flows, balances or presence."
+    }
+  ],
+  "accent": "#22d3ee"
+}

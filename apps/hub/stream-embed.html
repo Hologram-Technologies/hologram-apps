@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- stream-embed.html — the κ-streaming "landing" that loads inside Holo Hub's real player iframe.
+     Streams the 4K BBB κ-object through the substrate: each chunk re-derives to its declared κ (Law L5)
+     before it decodes, persists in the OpfsKappaStore, and plays via MSE. App-relative paths so it
+     works in the real OS apps tree (apps/hub → ../video/.../dev-bbb-2160-hq). Auto-plays (muted, per
+     autoplay policy). This is what Hub's "Streaming the object into my browser…" boot actually does. -->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>κ-stream</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font:13px/1.4 ui-monospace,Menlo,monospace}
+  video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+  .b{position:absolute;top:10px;left:10px;z-index:2;background:#000a;border:1px solid #2a3346;border-radius:999px;
+    padding:5px 11px;color:#eaeefb;font-weight:600;display:flex;align-items:center;gap:7px;backdrop-filter:blur(6px)}
+  .d{width:8px;height:8px;border-radius:50%;background:#e3b341} .b.ok .d{background:#3fb950}
+</style>
+<video id="v" muted playsinline autoplay></video>
+<div class="b" id="b"><span class="d"></span><span id="t">streaming · verifying…</span></div>
+<script type="module">
+  import { OpfsKappaStore } from "./holo-opfs-kappastore.mjs";
+  const $=(i)=>document.getElementById(i);
+  const ASSET=new URL("../video/video/dev/dev-bbb-2160-hq/",location.href).href;
+  const CODEC='video/mp4; codecs="avc1.640033, mp4a.40.2"', FILES=["init.mp4","seg_000.m4s"];
+  const sha=async(u8)=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",u8)),b=>b.toString(16).padStart(2,"0")).join("");
+  const st={verified:0,total:0,source:"origin",originBytes:0}; window.__holo={state:()=>({...st})};
+  (async()=>{
+    const store=await OpfsKappaStore.open("hub-embed");
+    const pins=await (await fetch(ASSET+"manifest.json",{cache:"no-store"})).json(); st.total=FILES.length;
+    const canDecode=("MediaSource"in window)&&MediaSource.isTypeSupported(CODEC);
+    const v=$("v"); let ms=null,sb=null,append=async()=>{};
+    if(canDecode){ ms=new MediaSource(); v.src=URL.createObjectURL(ms); await new Promise(r=>ms.addEventListener("sourceopen",r,{once:true})); sb=ms.addSourceBuffer(CODEC);
+      append=(u8)=>new Promise((res,rej)=>{sb.addEventListener("updateend",res,{once:true});sb.addEventListener("error",rej,{once:true});sb.appendBuffer(u8);}); }
+    for(const f of FILES){ const hex=String(pins[f]).split(":").pop();
+      let u8; if(await store.hasKey("sha256",hex)){ u8=await store.getByKey("sha256",hex); st.source="κ-store"; }
+      else { u8=new Uint8Array(await (await fetch(ASSET+f,{cache:"no-store"})).arrayBuffer()); st.originBytes+=u8.length;
+        if(await sha(u8)!==hex){ $("t").textContent="κ mismatch — refused"; return; } }   // verify BEFORE decode
+      await store.putVerified("sha256",hex,u8); await append(u8); st.verified++; }
+    $("b").className="b ok"; $("t").textContent=(st.source==="κ-store"?"κ-store · dedup":"verified · L5")+" · κ-stream";
+    if(canDecode){ ms.endOfStream(); try{ await v.play(); }catch{} }
+  })().catch(e=>{ $("t").textContent=String(e.message||e); });
+</script>

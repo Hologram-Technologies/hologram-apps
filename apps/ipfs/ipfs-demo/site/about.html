@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How this works Holo IPFS</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.svg" alt="Holo IPFS" width="40" height="40" />
+      <nav><a href="index.html">Home</a><a href="about.html" class="on">About</a></nav>
+    </header>
+
+    <main>
+      <span class="badge">you navigated here over IPFS still verified</span>
+      <h1>How this works</h1>
+      <p class="lede">When you clicked the link, the browser asked the Holo IPFS service worker for the
+        next page. The service worker resolved its CID in the UnixFS Merkle-DAG, fetched the block,
+        <b>recomputed its multihash, and checked it against the CID</b> before handing it to the page.</p>
+
+      <div class="grid">
+        <div class="card"><h3>1 · CID</h3><p>A name that is the hash of the content: <code>multibase(version‖codec‖multihash)</code>.</p></div>
+        <div class="card"><h3>2 · Fetch</h3><p>The block is pulled from any trustless gateway, peer, or right now your own machine.</p></div>
+        <div class="card"><h3>3 · Verify</h3><p>Recompute the hash. If it doesn't match the CID, refuse it. The source is never trusted.</p></div>
+        <div class="card"><h3>4 · Serve</h3><p>Only verified bytes reach the page so a whole site renders, every byte proven.</p></div>
+      </div>
+
+      <p><a class="cta" href="index.html">← Back home</a></p>
+    </main>
+
+    <footer>This page is a different CID from the home page and it was verified independently.</footer>
+  </body>
+</html>

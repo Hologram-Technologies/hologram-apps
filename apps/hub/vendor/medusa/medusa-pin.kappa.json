@@ -1,0 +1,136 @@
+{
+  "@context": "https://uor.foundation/holo/v1",
+  "@type": "hosc:VendorPin",
+  "upstream": "https://github.com/medusajs/medusa",
+  "tag": "v2.15.5",
+  "commit": "b74b5b19569534412a67835ffae8fb3afbf6f5c5",
+  "retrieved": "2026-06-15",
+  "note": "Adopted (byte-pinned), not run. Re-hash any file to verify its did:holo κ. See SPLIT.md for the pure-vs-native classification.",
+  "files": [
+    {
+      "path": "packages/core/utils/src/common/is-big-number.ts",
+      "kappa": "did:holo:sha256:af593657600cde60a63707aad622716991a955f5ebb8af50dbfd617308ce2e52",
+      "bytes": 207
+    },
+    {
+      "path": "packages/core/utils/src/common/is-defined.ts",
+      "kappa": "did:holo:sha256:89ce82d954b29250616e0e31738ebe74eb9d204d1aef03ef16baf9538af3c49d",
+      "bytes": 148
+    },
+    {
+      "path": "packages/core/utils/src/common/is-object.ts",
+      "kappa": "did:holo:sha256:2154513317f877243600e127717cd28a6cdf2728c51df44e0ba35c97b2c8adf9",
+      "bytes": 117
+    },
+    {
+      "path": "packages/core/utils/src/common/is-string.ts",
+      "kappa": "did:holo:sha256:ced54a0fe5b77a14af81bda62f4e23978588b61ceeb2a3fb8a3043315e62fd6d",
+      "bytes": 105
+    },
+    {
+      "path": "packages/core/utils/src/pricing/price-list.ts",
+      "kappa": "did:holo:sha256:9677307f14c99e6d1d9f7cc5107c17c707bc3bd34051b0424de9631a71c86c2b",
+      "bytes": 154
+    },
+    {
+      "path": "packages/core/utils/src/totals/adjustment/index.ts",
+      "kappa": "did:holo:sha256:25cadd16f163086a9d3732dd22f60d296ea739bf8f4809ec7bd433c8d03c556b",
+      "bytes": 2161
+    },
+    {
+      "path": "packages/core/utils/src/totals/big-number.ts",
+      "kappa": "did:holo:sha256:0573b823696a71b9f8369b68f99bc1aeb10e857cbc611ab6ccf843d1deac6af8",
+      "bytes": 4584
+    },
+    {
+      "path": "packages/core/utils/src/totals/cart/index.ts",
+      "kappa": "did:holo:sha256:4742ffca87fd1873f2e43ba74031c2bde8f0b76cf374d6954bb321fad9432d67",
+      "bytes": 10287
+    },
+    {
+      "path": "packages/core/utils/src/totals/create-raw-properties-from-bignumber.ts",
+      "kappa": "did:holo:sha256:00216f978e081f70986c5a7e6d31ea731ce8bd74606da0f50a59652f151a31fe",
+      "bytes": 1820
+    },
+    {
+      "path": "packages/core/utils/src/totals/credit-lines/index.ts",
+      "kappa": "did:holo:sha256:e8b28fbaa065ae78ff3c991ef79e943580d89f0f2d09098c2af77befbac125cd",
+      "bytes": 2263
+    },
+    {
+      "path": "packages/core/utils/src/totals/index.ts",
+      "kappa": "did:holo:sha256:31e707ffafb37e8c6df92b9c4b0e88017a1045d23c041aea13f5ab4ec8a5774d",
+      "bytes": 273
+    },
+    {
+      "path": "packages/core/utils/src/totals/line-item/index.ts",
+      "kappa": "did:holo:sha256:3e3998f1eec56cc2654b8c376a972c16189a047a1bef0fc887e581206ef78fa3",
+      "bytes": 7541
+    },
+    {
+      "path": "packages/core/utils/src/totals/math.ts",
+      "kappa": "did:holo:sha256:53dfb7031f04cc701d33e477cebc4ec54993eaae4bd393805a8ef115e196c41f",
+      "bytes": 3461
+    },
+    {
+      "path": "packages/core/utils/src/totals/promotion/index.ts",
+      "kappa": "did:holo:sha256:5818588b732ef464d3a1e67b8ee835dcb10256848638406c1b3fcf455c571762",
+      "bytes": 5828
+    },
+    {
+      "path": "packages/core/utils/src/totals/shipping-method/index.ts",
+      "kappa": "did:holo:sha256:3306ef524f47c9c02c5ff6b2f40abb0345cd7a9ee4fc9aadb327ad47e428dff9",
+      "bytes": 3419
+    },
+    {
+      "path": "packages/core/utils/src/totals/tax/index.ts",
+      "kappa": "did:holo:sha256:c210abb7677bbc67f6501a7d23e83b4852dc82e06ff982b285d7af4f8f6dc3e1",
+      "bytes": 1472
+    },
+    {
+      "path": "packages/core/utils/src/totals/transform-properties-to-bignumber.ts",
+      "kappa": "did:holo:sha256:977aacbc00f2850e9176b9245a5098c8a32d130f950bc51aec05f16bd0fe42a9",
+      "bytes": 1420
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/build-promotion-rule-query-filter-from-context.ts",
+      "kappa": "did:holo:sha256:d1fd7bf5161bbb22e5d216de3e97ea3de5bc1c03e72a339fcfd35d5a31061643",
+      "bytes": 9104
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/buy-get.ts",
+      "kappa": "did:holo:sha256:d11fc7f5a1e1467cde43df0dcba326b8c9111bf064999e366ce8a030ce57c0a2",
+      "bytes": 20563
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/index.ts",
+      "kappa": "did:holo:sha256:024c10ba01898b3461ccf1d0fdfa14bc050989f3b768da454efd18766b682a0a",
+      "bytes": 118
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/line-items.ts",
+      "kappa": "did:holo:sha256:745dec204eb91e796fcc89538ef4ed1f679fa43d9162b5551c633426e3593a40",
+      "bytes": 6779
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/shipping-methods.ts",
+      "kappa": "did:holo:sha256:05c26f727f96ad771cf203bffccb8eed8863e04484cd1020da95a50d96cb5d6b",
+      "bytes": 6008
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/sort-by-price.ts",
+      "kappa": "did:holo:sha256:62fda0dc74d89a459233d3a59a42cde9ab447c3d7d1c680fbec65feca1650048",
+      "bytes": 652
+    },
+    {
+      "path": "packages/modules/promotion/src/utils/compute-actions/usage.ts",
+      "kappa": "did:holo:sha256:b6eda9d81fb5bb9911e08d67aa226008b17417857b62e4b311f67d8b61f7d12a",
+      "bytes": 2207
+    },
+    {
+      "path": "www/apps/api-reference/specs/store/openapi.full.yaml",
+      "kappa": "did:holo:sha256:40e306a68628bd0e6f51b1dfa9dff9fac18a2db901a41f8f38d8ecf37a97ca78",
+      "bytes": 1409689
+    }
+  ]
+}

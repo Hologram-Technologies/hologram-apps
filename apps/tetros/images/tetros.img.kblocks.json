@@ -1,0 +1,17 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "tetros.img",
+    "bytes": 512,
+    "did": "did:holo:sha256:fb9c23e1ffbe25ee35e2dd5a4f60c7e79710d0319ffa83da89fe0dd8a79f293c"
+  },
+  "blockSize": 262144,
+  "blockCount": 1,
+  "uniqueBlocks": 1,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:ad667dc6449633c12ff4ffad210b8b9587440d0af7e4d0c5a5dd49730af88957",
+  "blocks": [
+    "did:holo:sha256:fb9c23e1ffbe25ee35e2dd5a4f60c7e79710d0319ffa83da89fe0dd8a79f293c"
+  ]
+}

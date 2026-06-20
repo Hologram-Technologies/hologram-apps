@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "newos-flp.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:05f693fd70db438dc0fe2a59dd82292ffa2872d6d240b1d4ab679f8a9e768423"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 5,
+  "dedup": "16.7%",
+  "root": "did:holo:sha256:69d3b2e4ab79ed4247c0e0d881d204dfec3126f4b9d54cfb4e6d4068222a3e9d",
+  "blocks": [
+    "did:holo:sha256:250ee61050b64c6ab86b22d6348e80d564ac247adf113413a914c05d51e5acb6",
+    "did:holo:sha256:ac71572f372d397451224449ffa1ed69f94b7f372bcccd914f1ee27dbd0d43ba",
+    "did:holo:sha256:63e410f39cdde61450f66619288d8fb634ec6b0961dcb3605996eb2fbe7f3031",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da"
+  ]
+}

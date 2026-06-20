@@ -1,0 +1,19 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "freedos722.img",
+    "bytes": 737280,
+    "did": "did:holo:sha256:6c7b3c62823d538e20797fecae6dc55d2572455791a573a7de2cdba0b583f6be"
+  },
+  "blockSize": 262144,
+  "blockCount": 3,
+  "uniqueBlocks": 3,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:4bfbd6d8130f2fe69fc91c1ac30ecefd98b30c648c39ba85e78ead26af4048c7",
+  "blocks": [
+    "did:holo:sha256:a3fb11651b6f49baaef9900c0f015c0bcdf2b83886f25647ca8e115ea885440d",
+    "did:holo:sha256:a9185f3ce8d95875a8e116bd60a0efe3f3f0cf3e58cef64b4f9f591e65cf3a6f",
+    "did:holo:sha256:2a812e61d55348039d8e9fcf389f2f400824f092caf2280b79d903306c38ed57"
+  ]
+}

@@ -1,0 +1,13 @@
+Ingested Holo Video — content-addressed from YouTube (Law L5).
+
+Source : https://www.youtube.com/watch?v=SkVqJ1SGeL0
+  SkVqJ1SGeL0 · Caminandes 3: Llamigos
+  license: Creative Commons Attribution license (reuse allowed)
+Tooling: yt-dlp 2026.03.17 + ffmpeg (deterministic, bit-exact CMAF)
+Section: first 60s · renditions 1280×720 + 854×480 + AAC
+
+One CMAF fMP4 segment set, two standards: cmaf/master.m3u8 (HLS) + cmaf/stream.mpd (DASH).
+Every .m4s/.m3u8/.mpd is pinned in video-manifest.json; re-ingesting this source re-derives the same κ.
+
+holospace κ : sha256:edd1cd7dbaa47a32748167ee17c1b071932c1717a9ad44f0c948ed90a2bdcbc6
+master κ    : sha256:23c37875b44f3cc5459184d48785663ee7328bb231418ee73023a0ce2b48d72c

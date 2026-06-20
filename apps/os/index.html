@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>OS Hologram OS</title>
+    <!-- Cross-origin isolation: the system emulator (ADR-009) runs on a worker and
+         needs SharedArrayBuffer. GitHub Pages can't send COOP/COEP, so this shim
+         registers a service worker that adds them and reloads once. It no-ops when
+         the headers are already present (holo-serve / the native engine). -->
+    <script src="coi-serviceworker.min.js"></script>
+    <!-- The real terminal component (ADR-010 / CC-11): xterm.js, the pinned,
+         provenance-tracked build VS Code itself uses (vv/artifacts/cc13/vendor). -->
+    <link rel="stylesheet" href="/.holo/sha256/ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6.css" data-holo-shared="xterm/xterm.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column;
+        font: var(--holo-text-sm, 1rem)/1.4 ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace; }
+
+      /* Thin holospace chrome — identity · κ-address · lifecycle. */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem;
+        padding: 0.3rem 0.8rem; background: #0d1117; border-bottom: 1px solid #1b2128;
+        font-size: var(--holo-text-sm, 1rem); user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 600; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: #58a6ff; word-break: break-all; }
+      #bar .sp { margin-left: auto; }
+      #bar .stat { color: var(--dim); font-variant-numeric: tabular-nums; }
+      #bar .dot { color: #d29922; }
+      #bar .dot.on { color: #3fb950; } #bar .dot.off { color: #f85149; }
+      #bar button { font: inherit; color: var(--dim); background: transparent;
+        border: 1px solid #1b2128; border-radius: 5px; padding: 0.15rem 0.5rem; cursor: pointer; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+
+      /* The terminal fills the rest; xterm mounts into #term. */
+      #stage { position: relative; flex: 1 1 auto; min-height: 0; }
+      #term { position: absolute; inset: 0; padding: 0.3rem 0 0 0.4rem; }
+      .xterm { height: 100%; }
+
+      /* Pre-boot status / error panel, over the (still empty) terminal. Once the
+         machine boots, this hides and the REAL kernel console takes the screen. */
+      #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: var(--bg); transition: opacity 0.25s; z-index: 5; }
+      #overlay.hidden { opacity: 0; pointer-events: none; }
+      #panel { max-width: 40rem; padding: 1.5rem 1.75rem; }
+      #panel .ttl { color: #e6edf3; font-size: 1.05rem; font-weight: 600; margin-bottom: 0.2rem; }
+      #panel .sub { color: var(--dim); margin-bottom: 1.1rem; }
+      #panel .status { display: flex; align-items: center; gap: 0.6rem; color: #c9d1d9; }
+      #panel .spin { color: #58a6ff; font: 700 var(--holo-text-sm, 0.81rem)/1 ui-monospace, Menlo, Consolas, monospace; min-width: 1.1em; display: inline-block; }
+      #panel.err .status { color: #f85149; }
+      #panel.err .spin { display: none; }
+      #panel .hint { margin-top: 0.8rem; color: var(--dim); white-space: pre-wrap; }
+      #panel code { color: #79c0ff; background: #161b22; padding: 0.05rem 0.35rem; border-radius: 4px; }
+      #toast { position: fixed; bottom: 1rem; right: 1rem; background: #161b22; border: 1px solid #30363d;
+        border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.8rem; font-size: var(--holo-text-sm, 1rem); opacity: 0; transition: opacity 0.2s; }
+      #toast.show { opacity: 1; }
+
+      /* The find-bar (xterm search addon UI). */
+      #find { position: absolute; top: 0.4rem; right: 0.6rem; z-index: 6; display: flex; align-items: center; gap: 0.25rem;
+        background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.25rem 0.4rem; box-shadow: 0 6px 20px rgba(0,0,0,0.45); }
+      #find[hidden] { display: none; }
+      #find input { background: #0d1117; color: #d4d4d4; border: 1px solid #30363d; border-radius: 5px;
+        padding: 0.2rem 0.45rem; font: inherit; width: 14rem; outline: none; }
+      #find input:focus { border-color: #58a6ff; }
+      #find .fc { color: #8b949e; font-size: var(--holo-text-sm, 1rem); min-width: 2.6rem; text-align: right; font-variant-numeric: tabular-nums; }
+      #find button { color: #8b949e; background: transparent; border: 0; cursor: pointer; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: var(--holo-text-sm, 1rem); }
+      #find button:hover { color: #e6edf3; background: #21262d; }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Hologram OS"></holo-splash>
+
+    <div id="bar">
+      <span class="name">OS</span>
+      <span class="tag">· holospace</span>
+      <span class="k" id="kaddr">holo://local</span>
+      <span class="tag" id="arch">riscv64 · Debian</span>
+      <span class="sp"></span>
+      <span class="stat" id="mips"></span>
+      <span class="dot" id="dot">●</span>
+      <span class="tag" id="state">starting</span>
+      <button id="saveBtn" title="snapshot the running machine to OPFS (CC-30)">⤓ save state</button>
+      <button id="rebootBtn" title="reboot the guest">⟳ reboot</button>
+    </div>
+    <div id="stage">
+      <div id="term"></div>
+      <div id="find" hidden>
+        <input id="findq" type="text" placeholder="find" spellcheck="false" autocomplete="off" aria-label="find in terminal" />
+        <span id="findcount" class="fc"></span>
+        <button id="findprev" title="previous match (Shift+Enter)">↑</button>
+        <button id="findnext" title="next match (Enter)">↓</button>
+        <button id="findclose" title="close (Esc)">✕</button>
+      </div>
+      <div id="overlay">
+        <div id="panel">
+          <div class="ttl">Hologram OS <span id="ptitle">booting Debian (riscv64)</span></div>
+          <div class="sub">Real Debian 13 (trixie) on the holospaces RISC-V core, streamed off-heap (ADR-009/011 · CC-14/CC-50). At the prompt, <b>sign in: <code>holo</code> / <code>holo</code></b> then a real glibc shell with <code>apt</code>/<code>dpkg</code>. <code>?img=busybox</code> / <code>?arch=aarch64</code> opt in.</div>
+          <div class="status"><span class="spin" data-holo-spin="cascade"></span><span id="pstatus">loading machine…</span></div>
+          <div class="hint" id="phint"></div>
+        </div>
+      </div>
+    </div>
+    <div id="toast"></div>
+
+    <!-- The full xterm.js (5.5.0) package as pinned UMD globals: the terminal core
+         + the official addons that make it a complete browser-native terminal —
+         GPU rendering (WebGL), clickable links, search, Unicode-11 widths, and
+         OSC-52 clipboard. Same components VS Code's terminal ships (ADR-010). -->
+    <script src="/.holo/sha256/1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495.js" data-holo-shared="xterm/xterm.js"></script>
+    <script src="/.holo/sha256/bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089.js" data-holo-shared="xterm/addon-fit.js"></script>
+    <script src="/.holo/sha256/9ffa9ac3ff6d47d4e6216ed1972ca8e0b5336cef744f50ebdc3f67b0ed727cdb.js" data-holo-shared="xterm/addon-webgl.js"></script>
+    <script src="/.holo/sha256/f230a6c8211ce4614dda5441f27b603c7c1ca95151a655bc0efac6377ee643f0.js" data-holo-shared="xterm/addon-web-links.js"></script>
+    <script src="/.holo/sha256/3cf52d71d9deb4ba60125087434c53e3fb35bb2249db9b13987991fd2db1c7bd.js" data-holo-shared="xterm/addon-search.js"></script>
+    <script src="/.holo/sha256/b0c3be540a9984713aea996966c24ed1a639d11f60d44986b22661e3a8a148d0.js" data-holo-shared="xterm/addon-unicode11.js"></script>
+    <script src="/.holo/sha256/c3fe3f1e8be371c7b2034170c6a2e3cc1b9dbe6c9f1f283cbc17ff456ef78818.js" data-holo-shared="xterm/addon-clipboard.js"></script>
+    <script type="module">
+      // Braille motion frames for the boot indicator (pinned unicode-animations 1.0.3).
+      import { spinners } from "./unicode-animations.js";
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+
+      // A per-TAB session id so multiple tabs each boot their OWN independent machine
+      // (OPFS gives a κ-disk file to one tab at a time, so tabs must use distinct
+      // files). sessionStorage is per-tab and survives a reload within the same tab,
+      // so a tab keeps its disk across reloads while other tabs stay separate. An
+      // explicit ?sid= overrides (e.g. to deliberately share/resume a named machine).
+      let HOLO_SID = params.get("sid") || sessionStorage.getItem("holoOsSid");
+      if (!HOLO_SID) {
+        HOLO_SID = ((crypto.randomUUID && crypto.randomUUID()) || Math.random().toString(36).slice(2)).replace(/[^a-z0-9]/gi, "").slice(0, 12);
+      }
+      sessionStorage.setItem("holoOsSid", HOLO_SID);
+
+      // Surface the κ this holospace was opened by, if mounted through the gateway.
+      const kparam = params.get("k") || params.get("id") || params.get("addr");
+      if (kparam) $("kaddr").textContent = kparam.startsWith("holo://") ? kparam : "holo://" + kparam;
+      $("arch").textContent = (params.get("arch") === "aarch64" ? "aarch64" : "riscv64") + " · " + (params.get("img") === "busybox" ? "busybox" : params.get("img") === "alpine" ? "Alpine" : "Debian");
+
+      // ── the real terminal (xterm.js) ─────────────────────────────────────
+      const term = new Terminal({
+        allowProposedApi: true, // the unicode11 addon (activeVersion) uses proposed API
+        fontFamily: 'ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace',
+        fontSize: 14,
+        cursorBlink: true,
+        cursorStyle: "block",
+        scrollback: 20000,
+        convertEol: false, // the guest's tty already emits CRLF — render raw
+        theme: {
+          background: "#0a0a0a", foreground: "#d4d4d4", cursor: "#e6edf3", cursorAccent: "#0a0a0a",
+          selectionBackground: "#264f78",
+          black: "#0a0a0a", red: "#ff5f56", green: "#5fd75f", yellow: "#e3b341", blue: "#5f87ff",
+          magenta: "#c586c0", cyan: "#56c4d0", white: "#d4d4d4",
+          brightBlack: "#8b949e", brightRed: "#ff7b72", brightGreen: "#7ee787", brightYellow: "#f2cc60",
+          brightBlue: "#79c0ff", brightMagenta: "#d2a8ff", brightCyan: "#a5d6ff", brightWhite: "#ffffff",
+        },
+      });
+      // The full addon stack — xterm's own UX, nothing hand-rolled.
+      const fit = new FitAddon.FitAddon();
+      term.loadAddon(fit);
+      term.loadAddon(new WebLinksAddon.WebLinksAddon());        // clickable URLs
+      const uni = new Unicode11Addon.Unicode11Addon();          // correct wide/emoji widths
+      term.loadAddon(uni);
+      term.unicode.activeVersion = "11";
+      const search = new SearchAddon.SearchAddon();             // buffer search (find-bar below)
+      term.loadAddon(search);
+      try { term.loadAddon(new ClipboardAddon.ClipboardAddon()); } catch (_) {} // OSC-52
+
+      term.open($("term"));
+
+      // GPU-accelerated rendering — load after open(); fall back gracefully if the
+      // WebGL context is lost or unavailable (xterm then uses its DOM renderer).
+      try {
+        const webgl = new WebglAddon.WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
+      } catch (_) { /* no WebGL → DOM renderer, still fully functional */ }
+
+      const refit = () => { try { fit.fit(); } catch (_) {} };
+      refit();
+      new ResizeObserver(refit).observe($("stage"));
+      addEventListener("resize", refit);
+
+      // Real terminal copy/paste + find, the way a browser terminal behaves:
+      //   Ctrl+Shift+C copy selection · Ctrl+Shift+V paste · Ctrl+Shift+F find.
+      // (Plain Ctrl+C still reaches the guest as SIGINT.)
+      term.attachCustomKeyEventHandler((e) => {
+        if (e.type !== "keydown" || !e.ctrlKey || !e.shiftKey) return true;
+        const k = e.key.toLowerCase();
+        if (k === "c") { const s = term.getSelection(); if (s) navigator.clipboard?.writeText(s); return false; }
+        if (k === "v") { navigator.clipboard?.readText().then((t) => worker && worker.postMessage({ type: "stdin", data: enc.encode(t) })); return false; }
+        if (k === "f") { toggleFind(true); return false; }
+        return true;
+      });
+      // Paste via right-click / browser paste event too.
+      $("term").addEventListener("paste", (e) => {
+        const t = e.clipboardData?.getData("text"); if (t && worker) worker.postMessage({ type: "stdin", data: enc.encode(t) });
+      });
+
+      // ── find-bar (xterm search addon) ────────────────────────────────────
+      const FIND_OPTS = { decorations: {
+        matchBackground: "#5a4711", activeMatchBackground: "#e3b341",
+        matchOverviewRuler: "#e3b341", activeMatchColorOverviewRuler: "#ff8c00" } };
+      function doFind(prev) {
+        const q = $("findq").value;
+        if (!q) { search.clearDecorations?.(); $("findcount").textContent = ""; return; }
+        if (prev) search.findPrevious(q, FIND_OPTS); else search.findNext(q, FIND_OPTS);
+      }
+      function toggleFind(show) {
+        const el = $("find");
+        const on = show === undefined ? el.hidden : show;
+        el.hidden = !on;
+        if (on) { $("findq").focus(); $("findq").select(); doFind(false); }
+        else { search.clearDecorations?.(); $("findcount").textContent = ""; term.focus(); }
+      }
+      search.onDidChangeResults?.((r) => {
+        $("findcount").textContent = !r || !r.resultCount ? "0/0" : `${r.resultIndex + 1}/${r.resultCount}`;
+      });
+      $("findq").addEventListener("input", () => doFind(false));
+      $("findq").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); doFind(e.shiftKey); }
+        else if (e.key === "Escape") { e.preventDefault(); toggleFind(false); }
+      });
+      $("findnext").addEventListener("click", () => doFind(false));
+      $("findprev").addEventListener("click", () => doFind(true));
+      $("findclose").addEventListener("click", () => toggleFind(false));
+
+      // ── overlay + chrome helpers ─────────────────────────────────────────
+      const setStatus = (t) => ($("pstatus").textContent = t);
+      const showOverlay = () => { $("overlay").classList.remove("hidden"); $("panel").classList.remove("err"); $("phint").textContent = ""; };
+      const hideOverlay = () => $("overlay").classList.add("hidden");
+      const setState = (t, cls) => { $("state").textContent = t; $("dot").className = "dot" + (cls ? " " + cls : ""); };
+      const fail = (text, hint) => {
+        showOverlay();                       // reset overlay first…
+        $("panel").classList.add("err");     // …then mark it as an error (stops the spinner)
+        setStatus(text);
+        $("phint").innerHTML = hint || "";
+        setState("error", "off");
+      };
+      let toastT;
+      const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); };
+
+      // ── boot animation (unicode-animations) ───────────────────────────────
+      // A live braille animation drawn INSIDE the terminal while the machine
+      // boots — frames + cadence straight from the pinned `unicode-animations`
+      // package. Choose one with ?anim=<name> (braille · dna · helix · pulse ·
+      // wave · sparkle · orbit · …); defaults to dna.
+      const ANIM = spinners[params.get("anim")] || spinners.dna;
+      let animTimer = null, animFrame = 0, animLabel = "";
+      function startAnim(label) {
+        stopAnim();
+        animLabel = label || "";
+        term.write("\x1b[?25l"); // hide the cursor while the spinner owns the line
+        const draw = () => {
+          const f = ANIM.frames[(animFrame = (animFrame + 1) % ANIM.frames.length)];
+          term.write("\r\x1b[2K\x1b[38;5;111m" + f + "\x1b[0m  \x1b[90m" + animLabel + "\x1b[0m");
+        };
+        draw();
+        animTimer = setInterval(draw, ANIM.interval || 90);
+      }
+      const setAnimLabel = (t) => { animLabel = t; };
+      function stopAnim(clearLine) {
+        if (animTimer) { clearInterval(animTimer); animTimer = null; }
+        if (clearLine) term.write("\r\x1b[2K");
+        term.write("\x1b[?25h"); // restore the cursor
+      }
+
+      // ── the VM worker ────────────────────────────────────────────────────
+      let worker = null;
+      function startWorker() {
+        hideOverlay();
+        $("panel").classList.remove("err");
+        setState("booting", "");
+        $("mips").textContent = "";
+        term.reset();
+        // A small boot header, then the unicode animation as the live progress line.
+        term.write("\x1b[1mHologram OS\x1b[0m \x1b[90m booting a real Linux on the holospaces RISC-V core (streamed κ-disk)\x1b[0m\r\n\r\n");
+        startAnim("loading machine…");
+        const q = new URLSearchParams();
+        // Forward the guest config to the worker (it reads its own location.search).
+        for (const k of ["arch", "img", "relay", "disk", "stream", "v"]) {
+          const v = params.get(k); if (v) q.set(k, v);
+        }
+        q.set("sid", HOLO_SID); // per-tab κ-disk so multiple tabs each get their own machine
+        const url = "./os-worker.js" + (q.toString() ? "?" + q : "");
+        worker = new Worker(url, { type: "module" });
+        worker.onmessage = onMessage;
+        worker.onerror = (e) => { stopAnim(true); fail("worker failed to start", escapeHtml(e.message || String(e))); };
+      }
+      function onMessage(e) {
+        const m = e.data;
+        window.__osMsg = m;   // last worker message (lets a witness read live metrics: mem, mips)
+        switch (m.type) {
+          case "status": setAnimLabel(m.text); break;   // the live boot-animation label
+          case "booted":
+            stopAnim(true);
+            term.write("\x1b[2J\x1b[H");                 // clear → the guest console owns the screen
+            setState("running", "on"); term.focus();
+            break;
+          case "stdout":
+            term.write(new Uint8Array(m.data));
+            break;
+          case "mips": {
+            const parts = [];
+            if (m.mips >= 0.05) parts.push(m.mips.toFixed(1) + " MIPS");
+            if (m.mem) parts.push((m.mem / (1024 * 1024)).toFixed(0) + " MB"); // wasm heap (lean κ-disk lives off-heap)
+            $("mips").textContent = parts.join(" · ");
+            break;
+          }
+          case "suspended": toast("state saved (CC-30)"); break;
+          case "halt":
+            stopAnim(true);
+            setState("powered off", "off");
+            term.write("\r\n\x1b[90m " + (m.reason || "halted") + " · press ⟳ reboot \x1b[0m\r\n");
+            break;
+          case "error":
+            stopAnim(true);
+            fail(m.text, m.hint
+              ? escapeHtml(m.hint).replace(/([\w./-]*build-os-debian-arm64\.sh)/g, "<code>$1</code>")
+              : "");
+            break;
+        }
+      }
+      const enc = new TextEncoder();
+      term.onData((d) => worker && worker.postMessage({ type: "stdin", data: enc.encode(d) }));
+
+      function escapeHtml(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+      $("rebootBtn").addEventListener("click", () => { if (worker) worker.terminate(); startWorker(); });
+      $("saveBtn").addEventListener("click", () => { if (worker) { worker.postMessage({ type: "suspend" }); toast("snapshotting…"); } });
+
+      // Cross-origin isolation is required for the VM. The shim reloads once to
+      // get it on static hosts; if we're somehow still not isolated, say so plainly.
+      if (!self.crossOriginIsolated) {
+        setStatus("enabling cross-origin isolation…");
+        // Give the coi-serviceworker a moment to register + reload; if it doesn't,
+        // the boot below will surface the real failure.
+      }
+
+      // A handle for the terminal witness / automation (the repo's window.hs idiom).
+      window.os = { term, fit, search, toggleFind, spinners, anim: ANIM, startAnim, stopAnim,
+        // automation/witness hook: deliver raw input as if typed (login, commands).
+        send: (s) => worker && worker.postMessage({ type: "stdin", data: enc.encode(s) }) };
+      startWorker();
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

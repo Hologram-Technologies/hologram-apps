@@ -1,0 +1,43 @@
+{
+  "$comment": "κ-pins for this v86 holo app. Engine + BIOSes are content-addressed and gated before exec; the disk is a κ-block DAG (image.kblocks) resolved lazily and re-derived per block.",
+  "algo": "sha256",
+  "engine": {
+    "libv86": {
+      "url": "./vendor/v86/libv86.js",
+      "name": "v86 — x86 emulator (libv86.js, BSD-2-Clause)",
+      "sha256": "65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "did": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "bytes": 352483
+    },
+    "wasm": {
+      "url": "./vendor/v86/v86.wasm",
+      "name": "v86 JIT core (x86→wasm)",
+      "sha256": "3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "did": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "bytes": 2066716
+    },
+    "seabios": {
+      "url": "./vendor/v86/seabios.bin",
+      "name": "SeaBIOS",
+      "sha256": "43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "did": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "bytes": 131072
+    },
+    "vgabios": {
+      "url": "./vendor/v86/bochs-vgabios.bin",
+      "name": "VGA BIOS (bochs-vgabios.bin)",
+      "sha256": "8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "did": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "bytes": 43008
+    }
+  },
+  "image": {
+    "kblocks": {
+      "$comment": "The disk as a κ-block DAG (tools/holo-disk-encode.mjs). 'root' is the closure κ over the block set; the boot gates on it, each block re-derived at read (Law L5).",
+      "manifest": "./images/duskos.img.kblocks.json",
+      "name": "Dusk OS disk (κ-block DAG)",
+      "blockSize": 262144,
+      "root": "did:holo:sha256:e7e4dce56e18e9d2d9b71948910cce556a0b35f5ec0d8a2994c797872db9cc5a"
+    }
+  }
+}

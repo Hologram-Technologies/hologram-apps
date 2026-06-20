@@ -1,0 +1,34 @@
+{
+  "id": "org.hologram.V86Windows95",
+  "name": "Windows 95",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Windows 95 on v86 — disk streamed + verified from a κ-part manifest.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    {
+      "p": "Windows 95 on the v86 JIT. Its disk is a chunked content-addressed part-DAG: only the small manifest is sealed; each part streams on demand and is re-derived against its κ before the guest sees it (Law L5)."
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator"
+  ],
+  "keywords": [
+    "v86",
+    "emulator",
+    "kappa",
+    "chunked",
+    "windows"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "mixed",
+  "homepage": "https://hologram.os/apps/windows95-boot"
+}

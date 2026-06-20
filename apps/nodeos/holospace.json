@@ -1,0 +1,33 @@
+{
+  "id": "org.hologram.V86NodeOS",
+  "name": "NodeOS",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "NodeOS on v86 — a κ-verified Linux kernel booted directly (bzImage).",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    {
+      "p": "NodeOS boots its Linux kernel directly on v86 (bzImage). The kernel is content-addressed and re-derived before a single instruction runs (Law L5)."
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator"
+  ],
+  "keywords": [
+    "v86",
+    "linux",
+    "bzimage",
+    "kappa"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0",
+  "homepage": "https://hologram.os/apps/nodeos"
+}

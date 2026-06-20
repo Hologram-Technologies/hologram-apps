@@ -1,0 +1,80 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloDocs",
+  "name": "Holo Docs",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A serverless office suite documents, spreadsheets and slides with live co-editing.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "BusinessApplication",
+  "conforms": {
+    "specs": [
+      "holodocs-holospace",
+      "crdt-collab",
+      "spreadsheet-formula"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloDocs"
+    ]
+  },
+  "shared": [
+    "holo-collab.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js",
+    "holo-zip.js"
+  ],
+  "engines": [],
+  "loader": "docs.html",
+  "description": [
+    {
+      "p": "An office suite shouldn't lock your documents behind a server or a format."
+    },
+    {
+      "p": "A word processor, a spreadsheet with a formula engine and a presentation tool co-edit in real time over sealed, content-addressed deltas."
+    },
+    {
+      "ul": [
+        "Writer, Calc and Impress in the browser",
+        "Real-time co-editing",
+        "Import/export .docx, .xlsx, .pptx and ODF",
+        "Serverless and content-addressed"
+      ]
+    }
+  ],
+  "categories": [
+    "Office",
+    "WordProcessor",
+    "Spreadsheet",
+    "Presentation"
+  ],
+  "keywords": [
+    "office",
+    "document",
+    "word",
+    "spreadsheet",
+    "presentation",
+    "docx",
+    "odf"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MPL-2.0",
+  "homepage": "https://hologram.os/apps/docs",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Writer/Calc/Impress with live co-editing and full OOXML/ODF interop."
+    }
+  ],
+  "accent": "#2dd4bf"
+}

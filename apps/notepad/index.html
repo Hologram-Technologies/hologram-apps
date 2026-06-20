@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Notepad</title>
+    <meta name="description" content="Holo Notepad Roam Research, natively encoded for Hologram OS. A serverless, end-to-end-encrypted, content-addressed networked OUTLINER: infinitely nestable blocks; [[wiki-links]], #tags and ((block refs)); daily notes; live Linked References. The bidirectional link graph is a pure derivation of content (Law L5), so every peer re-derives the identical graph backlinks cannot be forged or desynced. A saved graph IS its content address (holo://κ)." />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark;
+        --bg:var(--holo-bg); --panel:var(--holo-surface); --line:var(--holo-border); --dim:var(--holo-ink-dim); --ink:var(--holo-ink);
+        --accent:var(--holo-accent, #5b6ee1); --pull:#a9b4ff; --ok:var(--holo-ok); --warn:var(--holo-warn); --bad:var(--holo-danger);
+        --link:#8aa0ff; --tag:#9d8cff; --ref:#6ad0c0; --bullet:#5b6477; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      a { color: inherit; }
+
+      /* ── top chrome (holospace bar) ──────────────────────────────────────────── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        padding: 0.3rem 0.7rem; background: var(--panel); border-bottom: 1px solid var(--line);
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: var(--ink); font-weight: 800; letter-spacing: 0.02em; }
+      #bar .tag2 { color: var(--dim); }
+      #bar .k { color: var(--link); max-width: 22vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: var(--ok); }
+      #bar .sec { color: var(--accent); }
+      #bar .sp { margin-left: auto; }
+      #bar .peers { display: inline-flex; gap: 3px; align-items: center; }
+      #bar .av { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        font: 700 var(--holo-text-sm, 1rem) ui-sans-serif; color: #06101f; flex: 0 0 auto; }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid var(--line);
+        border-radius: 6px; padding: 0.15rem 0.5rem; cursor: pointer; min-height: 28px; }
+      #bar button:hover { color: var(--ink); border-color: #3a4257; }
+      #bar button.cta { color: #cfe0ff; border-color: #2f3c63; background: #16203a; }
+      #bar button.rec { display: inline-flex; align-items: center; gap: 5px; color: #ff8d8d; border-color: #5c2a2a; }
+      #bar button.rec .dot { width: 7px; height: 7px; border-radius: 50%; background: #ff5d5d; animation: recPulse 1.8s ease-in-out infinite; }
+      #bar button.rec.off { color: var(--dim); border-color: var(--line); } #bar button.rec.off .dot { background: var(--dim); animation: none; }
+      @keyframes recPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+      /* ── 3-pane stage ────────────────────────────────────────────────────────── */
+      #stage { flex: 1 1 auto; min-height: 0; display: flex; }
+      #left { flex: 0 0 232px; background: #0c1018; border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: auto; }
+      body.left-hidden #left { display: none; }
+      #left .lhead { padding: 0.7rem 0.9rem 0.4rem; display: flex; align-items: center; gap: 8px; }
+      #left .lhead .logo { width: 22px; height: 22px; }
+      #left .lhead b { font-size: var(--holo-text-sm, 1rem); }
+      #search { margin: 0.2rem 0.7rem 0.5rem; }
+      #search input { width: 100%; background: #0a0e16; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); color: var(--ink); padding: 7px 10px; font: var(--holo-text-sm, 1rem) ui-sans-serif; }
+      .navlist { padding: 0.2rem 0.5rem; }
+      .navlist .nav { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--holo-radius-sm, 8px); cursor: pointer; color: var(--dim); }
+      .navlist .nav:hover { background: #131a27; color: var(--ink); } .navlist .nav.on { background: #16203a; color: var(--ink); }
+      .navlist .nav .ic { width: 16px; text-align: center; }
+      .lsec { padding: 0.6rem 0.9rem 0.2rem; color: var(--dim); font: 700 var(--holo-text-sm, 1rem) ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+      .pglist { padding: 0 0.5rem 1rem; }
+      .pglist .pg { padding: 5px 10px; border-radius: var(--holo-radius-sm, 8px); cursor: pointer; color: var(--pull); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .pglist .pg:hover { background: #131a27; }
+      .pglist .pg .star { color: var(--warn); margin-right: 5px; cursor: pointer; }
+
+      #main { flex: 1 1 auto; min-width: 0; overflow: auto; position: relative; }
+      #right { flex: 0 0 360px; max-width: 42vw; background: #0b0f17; border-left: 1px solid var(--line); overflow: auto; display: none; }
+      body.right-open #right { display: block; }
+      #right .rhead { position: sticky; top: 0; background: #0b0f17; border-bottom: 1px solid var(--line); padding: 0.5rem 0.8rem; display: flex; align-items: center; gap: 8px; font: 700 var(--holo-text-sm, 1rem) ui-sans-serif; }
+      #right .rhead .x { margin-left: auto; cursor: pointer; color: var(--dim); }
+      .rcard { border-bottom: 1px solid var(--line); padding: 0.6rem 0.9rem; }
+      .rcard .rtitle { font-weight: 800; color: var(--ink); margin-bottom: 6px; cursor: pointer; }
+      .rcard .rclose { float: right; color: var(--dim); cursor: pointer; }
+
+      /* ── page surface ──────────────────────────────────────────────────────────── */
+      .doc { max-width: 740px; margin: 0 auto; padding: 1.6rem 2rem 6rem; }
+      .crumbs { color: var(--dim); font-size: var(--holo-text-sm, 1rem); margin-bottom: 0.6rem; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+      .crumbs a { cursor: pointer; color: var(--dim); } .crumbs a:hover { color: var(--link); } .crumbs .sepc { opacity: 0.5; }
+      h1.title { font-size: 2rem; font-weight: 800; margin: 0 0 0.6rem; outline: none; }
+      h1.title:focus { border-bottom: 1px dashed var(--line); }
+      .title.daily { color: var(--accent); }
+
+      /* outliner */
+      .outline { margin-left: -6px; }
+      .block { position: relative; }
+      .brow { display: flex; align-items: flex-start; gap: 2px; border-radius: 6px; }
+      .brow:hover { background: #0e131d; }
+      .twirl { width: 16px; flex: 0 0 16px; text-align: center; color: var(--dim); cursor: pointer; user-select: none; font-size: var(--holo-text-sm, 1rem); padding-top: 5px; opacity: 0; transition: opacity .12s; }
+      .block.haskids > .brow > .twirl { opacity: 0.6; } .brow:hover .twirl { opacity: 0.9; }
+      .block.collapsed > .brow > .twirl { transform: none; }
+      .bullet { width: 18px; flex: 0 0 18px; display: flex; align-items: center; justify-content: center; padding-top: 3px; cursor: pointer; }
+      .bullet i { width: 7px; height: 7px; border-radius: 50%; background: var(--bullet); display: block; }
+      .block.haskids.collapsed > .brow > .bullet i { box-shadow: 0 0 0 4px #2a3142; }
+      .bullet:hover i { background: var(--ink); }
+      .bbody { flex: 1 1 auto; min-width: 0; padding: 2px 4px; }
+      .rendered { white-space: pre-wrap; word-break: break-word; cursor: text; min-height: 1.4em; }
+      .rendered.h1 { font-size: 1.5rem; font-weight: 800; } .rendered.h2 { font-size: 1.25rem; font-weight: 800; } .rendered.h3 { font-size: 1.08rem; font-weight: 700; }
+      textarea.ta { width: 100%; background: #0e1420; color: var(--ink); border: none; outline: none; resize: none; overflow: hidden;
+        font: inherit; line-height: 1.5; padding: 2px 4px; border-radius: 4px; }
+      .kids { margin-left: 16px; border-left: 1px solid #1a2130; padding-left: 2px; }
+      .block.collapsed > .kids { display: none; }
+
+      /* inline tokens */
+      .wikilink { color: var(--link); cursor: pointer; border-bottom: 1px solid transparent; }
+      .wikilink:hover { border-bottom-color: var(--link); }
+      .wikilink.missing { color: #6f7aa8; } .wikilink::before { content: "[["; opacity: 0.35; } .wikilink::after { content: "]]"; opacity: 0.35; }
+      .tag { color: var(--tag); cursor: pointer; } .tag:hover { text-decoration: underline; }
+      .ref { background: #11201d; border: 1px solid #1f3a35; border-radius: 5px; padding: 0 5px; color: var(--ref); cursor: pointer; }
+      .ref:hover { border-color: var(--ref); }
+      .todo { cursor: pointer; color: var(--dim); margin-right: 3px; }
+      .todo.done { color: var(--ok); } .rendered:has(.todo.done) { } .todo.done ~ * { }
+      mark { background: #4a3b00; color: #ffe9a8; border-radius: 2px; padding: 0 2px; }
+      code { background: #0a0e16; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: #e6b673; }
+      .qmark { color: var(--accent); font-size: var(--holo-text-sm, 1rem); }
+      .embed { display: block; }
+
+      /* references */
+      .refs { margin-top: 2.4rem; }
+      .refs h3 { font-size: var(--holo-text-sm, 1rem); color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; border-top: 1px solid var(--line); padding-top: 1rem; margin: 0 0 0.6rem; display: flex; gap: 8px; align-items: center; cursor: pointer; }
+      .refs h3 .cnt { color: var(--accent); }
+      .refgroup { margin-bottom: 1rem; }
+      .refgroup .src { color: var(--link); font-weight: 700; cursor: pointer; margin-bottom: 0.3rem; }
+      .refgroup .src:hover { text-decoration: underline; }
+      .refblk { border-left: 2px solid #1c2741; padding: 2px 0 2px 10px; margin: 2px 0; }
+      .refbc { color: var(--dim); font-size: var(--holo-text-sm, 1rem); margin-bottom: 2px; }
+      .refbc a { cursor: pointer; } .refbc a:hover { color: var(--link); }
+
+      /* graph view */
+      #graphwrap { position: absolute; inset: 0; }
+      #graphsvg { width: 100%; height: 100%; display: block; }
+      #graphsvg line { stroke: #283149; stroke-width: 1; }
+      #graphsvg circle { fill: var(--accent); cursor: pointer; }
+      #graphsvg circle:hover { fill: #8aa0ff; }
+      #graphsvg text { fill: var(--dim); font: var(--holo-text-sm, 1rem) ui-sans-serif; pointer-events: none; }
+
+      /* all pages */
+      .allpages { max-width: 740px; margin: 0 auto; padding: 1.6rem 2rem; }
+      .allpages table { width: 100%; border-collapse: collapse; }
+      .allpages th { text-align: left; color: var(--dim); font-size: var(--holo-text-sm, 1rem); border-bottom: 1px solid var(--line); padding: 6px 8px; }
+      .allpages td { padding: 6px 8px; border-bottom: 1px solid #141a26; }
+      .allpages td.t { color: var(--link); cursor: pointer; } .allpages td.t:hover { text-decoration: underline; }
+      .mut { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      .memctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0.8rem 0 0.2rem; }
+      .memctl .srcs { display: inline-flex; gap: 10px; flex-wrap: wrap; margin-left: 6px; }
+      .srcchk { color: var(--dim); font-size: var(--holo-text-sm, 1rem); display: inline-flex; gap: 4px; align-items: center; text-transform: capitalize; cursor: pointer; }
+      .feed { margin-top: 1rem; }
+      .fday { margin-bottom: 1rem; } .fdh { color: var(--accent); font-weight: 700; font-size: var(--holo-text-sm, 1rem); margin-bottom: 4px; }
+      .frow { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+      .frow:hover { background: #0e131d; } .frow .ft { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; flex: 0 0 38px; }
+      .frow .fi { flex: 0 0 18px; text-align: center; } .frow .fb { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .frow .facts { flex: 0 0 auto; display: inline-flex; gap: 4px; opacity: 0; transition: opacity .12s; } .frow:hover .facts { opacity: 1; }
+      .tinybtn { border: 1px solid var(--line); background: #141a26; color: var(--dim); border-radius: 5px; cursor: pointer; font-size: var(--holo-text-sm, 1rem); padding: 1px 5px; }
+      .tinybtn:hover { color: var(--ink); border-color: var(--accent); }
+
+      /* autocomplete */
+      #ac { position: fixed; z-index: 70; background: var(--panel); border: 1px solid #2f3c63; border-radius: 10px; min-width: 240px; max-width: 360px;
+        box-shadow: 0 14px 40px #000a; overflow: hidden; display: none; }
+      #ac.show { display: block; }
+      #ac .it { padding: 7px 11px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+      #ac .it .sub { color: var(--dim); font-size: var(--holo-text-sm, 1rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #ac .it.sel, #ac .it:hover { background: #16203a; }
+      #ac .it .new { color: var(--ok); }
+
+      /* command palette + overlays */
+      .overlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-start; justify-content: center; background: #060912cc; padding-top: 12vh; }
+      .overlay.hidden { display: none; }
+      .palette { width: min(94vw, 40rem); background: var(--panel); border: 1px solid #2f3c63; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px #000b; }
+      .palette input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line); color: var(--ink); padding: 14px 16px; font-size: 16px; outline: none; }
+      .palette .pres { max-height: 50vh; overflow: auto; }
+      .palette .pit { padding: 10px 16px; cursor: pointer; display: flex; gap: 10px; align-items: center; }
+      .palette .pit.sel, .palette .pit:hover { background: #16203a; } .palette .pit .sub { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      .card { width: min(94vw, 30rem); padding: 1.4rem; border: 1px solid var(--line); border-radius: var(--holo-radius-lg, 16px); background: var(--panel); }
+      .overlay.center { align-items: center; padding-top: 0; }
+      .card h2 { margin: 0 0 0.2rem; } .card .subl { color: var(--dim); margin: 0 0 1rem; font-size: var(--holo-text-sm, 1rem); }
+      .field { margin-bottom: 0.8rem; } .field label { display: block; color: var(--dim); font-size: var(--holo-text-sm, 1rem); margin-bottom: 4px; }
+      .field input { width: 100%; min-height: 44px; background: #0a0e16; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); padding: 0 12px; font-size: 16px; }
+      .row2 { display: flex; gap: 10px; align-items: end; } .row2 .field { flex: 1; margin-bottom: 0; } .row2 input[type=color] { width: 52px; min-height: 44px; padding: 3px; }
+      .btn { width: 100%; min-height: 46px; border-radius: var(--holo-radius, 12px); border: 1px solid var(--accent); background: #16203a; color: #cfe0ff; font: 800 var(--holo-text-sm, 1rem) system-ui; cursor: pointer; margin-top: 0.4rem; }
+      .btn:hover { background: #1d2c4f; } .btn.ghost { border-color: var(--line); background: #0e1420; color: var(--ink); }
+      pre.k { color: var(--link); background: #06090f; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem; overflow: auto; font-size: var(--holo-text-sm, 1rem); white-space: pre-wrap; word-break: break-all; }
+
+      #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid #2f3c63;
+        border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.8rem; font-size: var(--holo-text-sm, 1rem); opacity: 0; transition: opacity 0.2s; z-index: 90; pointer-events: none; max-width: 90vw; }
+      #toast.show { opacity: 1; }
+      @media (max-width: 760px) { #left { position: absolute; z-index: 30; height: 100%; } #right { position: absolute; right: 0; z-index: 29; height: 100%; max-width: 86vw; } #bar .k, #bar .ver { display: none; } }
+    </style>
+  </head>
+  <body data-no-teleport>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Notepad"></holo-splash>
+
+    <div id="bar">
+      <button id="leftToggle" title="toggle sidebar">☰</button>
+      <span class="name">Holo Notepad</span>
+      <span class="tag2">· holospace</span>
+      <span class="k" id="kaddr" title="this holospace's own content address (Law L5: the served bytes re-derive to it)">holo://notepad</span>
+      <span class="ver" id="ver" title="the served page re-derives to its content hash"></span>
+      <span class="sec" id="sec" title="serverless · end-to-end encrypted · the link graph is a pure derivation of content (Law L5)">🔒 serverless · E2E</span>
+      <span class="sp"></span>
+      <span class="peers" id="peers" title="collaborators in this graph"></span>
+      <button id="recBtn" class="rec" title="memory capture recording your activity into your private graph (click to pause all capture)"><span class="dot"></span> REC</button>
+      <button id="searchBtn" title="search your memory / command palette (Ctrl/Cmd-K)">🔎</button>
+      <button id="newBtn" title="new page">＋ Page</button>
+      <button id="saveBtn" class="cta" title="checkpoint mints the graph's content address (holo://κ)">💾 Save</button>
+      <button id="inviteBtn" title="copy the invite link (room secret in the URL fragment never sent to any server)">⤴ Invite</button>
+      <button id="settingsBtn" title="identity">⚙</button>
+    </div>
+
+    <div id="stage">
+      <aside id="left">
+        <div class="lhead"><svg class="logo" viewBox="0 0 128 128" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><circle cx="34" cy="40" r="12"/><circle cx="94" cy="34" r="12"/><circle cx="64" cy="92" r="12"/><path d="M44 44 L84 38 M40 50 L58 82 M86 44 L72 82"/></svg><b>Holo Notepad</b></div>
+        <div id="search"><input id="searchInput" type="search" placeholder="Find or create… (Ctrl-K)" /></div>
+        <div class="navlist">
+          <div class="nav" data-go="daily"><span class="ic">📅</span> Daily Notes</div>
+          <div class="nav" data-go="memory"><span class="ic">🧠</span> Memory</div>
+          <div class="nav" data-go="graph"><span class="ic">🕸</span> Graph Overview</div>
+          <div class="nav" data-go="allpages"><span class="ic">▦</span> All Pages</div>
+        </div>
+        <div class="lsec">Shortcuts</div>
+        <div class="pglist" id="shortcuts"></div>
+        <div class="lsec">Recent pages</div>
+        <div class="pglist" id="recentPages"></div>
+      </aside>
+
+      <main id="main"><div class="doc" id="page"></div></main>
+
+      <aside id="right"><div class="rhead">Sidebar <span class="x" id="rightClose">✕</span></div><div id="rightBody"></div></aside>
+    </div>
+
+    <div id="ac"></div>
+    <div id="toast"></div>
+
+    <!-- command palette -->
+    <div class="overlay hidden" id="paletteDlg">
+      <div class="palette">
+        <input id="paletteInput" type="text" placeholder="Find or create a page · jump · run a command…" />
+        <div class="pres" id="paletteRes"></div>
+      </div>
+    </div>
+
+    <!-- setup / identity -->
+    <div class="overlay hidden center" id="setup">
+      <div class="card">
+        <h2>Holo Notepad</h2>
+        <p class="subl">A networked outliner <b>[[link]]</b> any thought to any other and watch the backlinks appear. Serverless, end-to-end encrypted, content-addressed. Modeled on <a href="https://roamresearch.com" target="_blank" rel="noopener">Roam Research</a>.</p>
+        <div class="row2">
+          <div class="field"><label>Your name</label><input id="nameInput" type="text" maxlength="40" placeholder="Your name" /></div>
+          <div class="field" style="flex:0 0 auto"><label for="colorInput">Color</label><input id="colorInput" type="color" value="#5b6ee1" /></div>
+        </div>
+        <button class="btn" id="startBtn">Open my graph →</button>
+        <button class="btn ghost" id="openByK" style="margin-top:6px">Open a shared graph by κ…</button>
+      </div>
+    </div>
+
+    <!-- open by κ -->
+    <div class="overlay hidden center" id="openDlg">
+      <div class="card">
+        <h2>Open a graph</h2>
+        <p class="subl">Paste a graph content address (<code>holo://sha256:…</code>). A locally-saved graph opens instantly; a shared link reconstructs it live from the room and verifies it re-derives to its κ.</p>
+        <div class="field"><label>Content address</label><input id="openKappa" type="text" placeholder="holo://sha256:… or sha256:…" /></div>
+        <div class="row2"><button class="btn ghost" id="openCancel">Cancel</button><button class="btn" id="openGo">Open</button></div>
+      </div>
+    </div>
+
+    <!-- settings -->
+    <div class="overlay hidden center" id="settingsDlg">
+      <div class="card">
+        <h2>Settings</h2>
+        <div class="row2">
+          <div class="field"><label>Display name</label><input id="nameEdit" type="text" maxlength="40" /></div>
+          <div class="field" style="flex:0 0 auto"><label for="colorEdit">Color</label><input id="colorEdit" type="color" /></div>
+        </div>
+        <div class="field"><label>This graph’s content address</label><pre class="k" id="caOut">unsaved</pre></div>
+        <button class="btn ghost" id="settingsClose">Done</button>
+      </div>
+    </div>
+
+    <script src="/.holo/sha256/95525119b3406504eb9fde1503174f73519977810b9f1c523794b35c96ea0bef.js" data-holo-shared="holo-collab.js"></script>
+    <script src="/.holo/sha256/2f44f2513b96dcb7d8b843a872d21013648d6d632cfa43bff570babb32e7ea52.js" data-holo-shared="holo-roam.js"></script>
+    <script src="/.holo/sha256/1a7d64782af5f388268647b3d237aa6f23f7e0bb9af8e291b8e86172133312b9.js" data-holo-shared="holo-zk.js"></script>
+    <script src="/.holo/sha256/fcaaed0aca588d37c025166bf71abe74d1f23ccfbaf8a7a946d21cd817a74691.js" data-holo-shared="holo-memory.js"></script>
+    <script src="/.holo/sha256/ead2f8425a73f02c8ce4550e25f7638456bc80abfb057a81e4b0ce0fdb6dfe35.js" data-holo-shared="holo-record.js"></script>
+    <script type="module">
+      import { WsKappaSync } from "./holo-kappa-sync.mjs";
+      import { BrokerKappaSync } from "./holo-broker-sync.mjs";
+      const { HoloCollab, HoloRoam, HoloZK, HoloMemory, HoloRecord } = window;
+      const { Graph, renderInline, normTitle, dailyTitle, dailyTitleOffset } = HoloRoam;
+
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+      const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
+      const PALETTE = ["#5b6ee1", "#9d8cff", "#6ad0c0", "#f2cc60", "#7ee787", "#ff7b72", "#ffa657", "#8aa0ff"];
+      let toastT; const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2400); };
+
+      // ── room secret + relay in the URL fragment (never sent to a server) ────────
+      const readHash = () => new URLSearchParams((location.hash || "").replace(/^#/, ""));
+      let h = readHash();
+      let secret = h.get("k") || params.get("k") || "";
+      if (!secret) { secret = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const doc = h.get("doc") || params.get("doc"); location.hash = "k=" + secret + (doc ? "&doc=" + encodeURIComponent(doc) : ""); h = readHash(); }
+      const relayUrl = h.get("r") || params.get("r") || "";
+      let openDocCA = h.get("doc") || params.get("doc") || "";
+
+      // ── self-κ (Law L5) ─────────────────────────────────────────────────────────
+      (async () => { try {
+        const buf = new Uint8Array(await (await fetch(location.pathname, { cache: "no-store" })).arrayBuffer());
+        const hx = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)), (b) => b.toString(16).padStart(2, "0")).join("");
+        $("kaddr").textContent = "holo://sha256:" + hx.slice(0, 12) + "…"; $("ver").textContent = "✓ κ"; $("ver").className = "ver ok";
+      } catch {} })();
+
+      // ── identity ────────────────────────────────────────────────────────────────
+      const USER_KEY = "holo-notepad-user";
+      const loadUser = () => { try { return JSON.parse(localStorage.getItem(USER_KEY)) || {}; } catch { return {}; } };
+      const saveUser = (u) => { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} };
+      let user = loadUser();
+      if (!user.color) user.color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+      $("colorInput").value = user.color; if (user.name) $("nameInput").value = user.name;
+
+      // ── local persistence (your graph is always here, like Roam) ─────────────────
+      const LAST_KEY = "holo-notepad-last", RECENT_KEY = "holo-notepad-recent", DOC_PREFIX = "holo-notepad-graph:";
+      const normCA = (s) => String(s || "").replace(/^holo:\/\//, "").trim();
+      const loadLast = () => { try { return JSON.parse(localStorage.getItem(LAST_KEY)); } catch { return null; } };
+      let saveT; const saveLast = () => { if (!session) return; clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(LAST_KEY, JSON.stringify(session.doc.snapshot())); } catch {} }, 400); };
+
+      // ── sync (offline fallback identical to Holo Docs) ───────────────────────────
+      class OfflineSync { constructor() { this.ready = Promise.resolve(this); this.cache = new Map(); } async subscribe() {} onAnnounce() { return () => {}; }
+        async announce(t, k, b) { this.cache.set(k, b); } async fetch(k, { verify } = {}) { const b = this.cache.get(k); if (b && verify && !(await verify(k, b))) return null; return b || null; } close() {} }
+      async function makeSync() {
+        const s = relayUrl.startsWith("ws") ? new WsKappaSync(relayUrl) : new BrokerKappaSync(DEFAULT_BROKER);
+        const ok = await Promise.race([s.ready.then(() => true).catch(() => false), new Promise((r) => setTimeout(() => r(false), 3500))]);
+        if (!ok) { try { s.close && s.close(); } catch {} return new OfflineSync(); }
+        return s;
+      }
+
+      // ── state ────────────────────────────────────────────────────────────────────
+      let session = null, g = null;
+      const view = { mode: "page", pageUid: null, zoomUid: null };
+      let rightStack = [];        // [{type:'page'|'block', uid}]
+      let editingUid = null;      // the block whose textarea is open
+      let lastSaved = null;
+
+      // ── boot ──────────────────────────────────────────────────────────────────────
+      (async function boot() {
+        if (!user.name && !openDocCA && !params.get("autostart") && !h.get("autostart")) { $("setup").classList.remove("hidden"); return; }
+        if (!user.name) user.name = "Guest-" + Math.random().toString(16).slice(2, 6);
+        let seed = null;
+        if (openDocCA) { try { seed = JSON.parse(localStorage.getItem(DOC_PREFIX + normCA(openDocCA))); } catch {} }
+        else if (!relayUrl) seed = loadLast();          // joining a shared room → start clean, sync from peers
+        await startSession(seed, !seed && !openDocCA && !relayUrl && !params.get("blank"));
+      })();
+
+      async function startSession(seedSnapshot, seedWelcome) {
+        const sync = await makeSync();
+        session = await HoloCollab.open({ secret, sync, name: user.name, color: user.color, kind: "notepad", snapshot: seedSnapshot || null,
+          onchange: onRemoteChange, onpresence: (r) => { renderPeers(r); }, onpeer: (id, p) => toast((p.name || "A collaborator") + " joined"),
+          onsaved: (ca, snap) => { lastSaved = ca; try { localStorage.setItem(DOC_PREFIX + normCA(ca), JSON.stringify(snap)); pushRecentGraph(ca); } catch {} },
+          onerror: (e) => console.warn("[notepad]", (e && e.message) || e) });
+        g = new Graph(session);
+        if (seedWelcome && g.allPages().length === 0) seedWelcomeGraph();
+        await mountMemory();
+        // land on today's daily note (or the opened doc's first page)
+        view.mode = "page"; view.pageUid = g.dailyPage(); view.zoomUid = null;
+        renderApp(); renderPeers(session.roster());
+        exposeWitness();
+        try { parent !== window && parent.postMessage({ type: "holo-notepad-ready", room: secret }, "*"); } catch {}
+        if (sync instanceof OfflineSync) toast("offline editing locally; saves are content-addressed (holo://κ)");
+        if (params.get("quick")) setTimeout(quickCapture, 60);
+      }
+
+      let remoteT; function onRemoteChange() { if (!session) return; saveLast(); if (editingUid) return; clearTimeout(remoteT); remoteT = setTimeout(() => { if (!editingUid) renderApp(); }, 80); }
+
+      // ════════════════════════════ MEMORY BANK (the second brain) ════════════════
+      let mem = null, recorder = null;
+      const CAP_FLAG = "holo-memory-capture";
+      async function mountMemory() {
+        if (mem) return;
+        // sign the daily memory root with your PERSISTENT OS did:key (shared with Holo Terms /
+        // Holo Privacy — one identity), so a shared proof is bound to YOU across sessions; fall
+        // back to an ephemeral key only if the persistent identity is unavailable.
+        let signer = null; try { signer = await HoloZK.identitySigner(); } catch { try { signer = await HoloZK.genSigner(); } catch {} }
+        mem = new HoloMemory.MemoryBank({ graph: g, signer });
+        try { mem.capture.on = localStorage.getItem(CAP_FLAG) !== "off"; } catch {}
+        try { mem.rehydrate(); } catch {}
+        persistCaptureFlag(); refreshRec();
+        recorder = HoloRecord.mountRecorder(mem, { onIngest: () => { saveLast(); scheduleMemRender(); } });
+      }
+      let memT; function scheduleMemRender() { clearTimeout(memT); memT = setTimeout(() => { if (editingUid) return; if (view.mode === "memory" || (view.mode === "page" && isDailyPage(view.pageUid))) renderApp(); }, 140); }
+      function persistCaptureFlag() { try { localStorage.setItem(CAP_FLAG, mem && mem.capture.on ? "on" : "off"); } catch {} }
+      function refreshRec() { const on = mem ? mem.capture.on : true; const b = $("recBtn"); if (!b) return; b.classList.toggle("off", !on); b.innerHTML = `<span class="dot"></span> ${on ? "REC" : "paused"}`; b.title = on ? "Memory capture ON your activity is recorded into your private graph. Click to pause." : "Capture paused nothing is recorded. Click to resume."; }
+      function quickCapture() { const today = g.dailyPage(); commitEdit(); view.mode = "page"; view.pageUid = today; view.zoomUid = null; renderApp(); const u = g.createBlock(today, -1, ""); const out = $("outline"); if (out) { out.innerHTML = ""; for (const x of g.childUids(today)) out.appendChild(blockEl(x)); } enterEdit(u, "start"); }
+
+      function seedWelcomeGraph() {
+        const today = g.dailyPage();
+        const a = g.createBlock(today, -1, "Welcome to **Holo Notepad** a networked outliner. Press **Enter** for a new bullet, **Tab** to indent.");
+        const b = g.createBlock(today, -1, "Link any idea with [[double brackets]] try [[Ideas]], [[Reading]] or a #project tag.");
+        const c = g.createBlock(today, -1, "Every page shows its **Linked References** open [[Ideas]] to see this very block listed there.");
+        g.createBlock(today, -1, "Reference a single block with ((" + a + ")) it stays in sync everywhere.");
+        g.createBlock(today, -1, "{{[[TODO]]}} Capture a task click the box to complete it.");
+        const ideas = g.resolvePage("Ideas"); g.createBlock(ideas, -1, "Ideas collected from anywhere link back here automatically.");
+        saveLast();
+      }
+
+      function pushRecentGraph(ca) { try { let r = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); r = r.filter((x) => x.ca !== ca); r.unshift({ ca, ts: Date.now() }); localStorage.setItem(RECENT_KEY, JSON.stringify(r.slice(0, 10))); } catch {} }
+
+      // ════════════════════════════ RENDER ════════════════════════════════════════
+      function renderApp() { renderLeft(); renderMain(); renderRight(); }
+
+      function renderLeft() {
+        const pages = g ? g.allPages() : [];
+        const sc = pages.filter((p) => session.val("shortcuts", p.norm));
+        $("shortcuts").innerHTML = sc.length ? sc.map((p) => pgRow(p, true)).join("") : `<div class="pg" style="color:var(--dim);cursor:default">★ a page to pin it</div>`;
+        const recent = pages.slice().sort((a, b) => a.title.localeCompare(b.title)).slice(0, 40);
+        $("recentPages").innerHTML = recent.map((p) => pgRow(p, false)).join("");
+        document.querySelectorAll(".navlist .nav").forEach((n) => n.classList.toggle("on", n.dataset.go === view.mode || (view.mode === "page" && n.dataset.go === "daily" && isDailyPage(view.pageUid))));
+      }
+      const pgRow = (p, star) => `<div class="pg" data-page="${esc(p.uid)}"><span class="star" data-star="${esc(p.norm)}" title="pin/unpin">${star ? "★" : "☆"}</span>${esc(p.title)}</div>`;
+      const isDailyPage = (u) => { const t = g.pageTitle(u) || ""; return /^[A-Z][a-z]+ \d+(st|nd|rd|th), \d{4}$/.test(t); };
+
+      function renderMain() {
+        const main = $("main");
+        if (view.mode === "graph") return renderGraph(main);
+        if (view.mode === "allpages") return renderAllPages(main);
+        if (view.mode === "memory") return renderMemory(main);
+        main.innerHTML = '<div class="doc" id="page"></div>';
+        renderPage($("page"), view.zoomUid || view.pageUid, true);
+      }
+
+      // ── Memory view — your activity feed + capture controls + ZK proofs ───────────
+      const KIND_ICON = { visit: "🌐", interaction: "🤝", note: "✎" };
+      function renderMemory(main) {
+        const events = mem ? [...mem.events.values()] : [];
+        const people = new Set(); events.forEach((e) => e.kind === "interaction" && (e.entities || []).forEach((x) => people.add(x)));
+        const byDay = new Map(); events.sort((a, b) => b.ts - a.ts).forEach((e) => { const d = mem.dayKey(e.ts); (byDay.get(d) || byDay.set(d, []).get(d)).push(e); });
+        const srcRow = HoloMemory.SOURCES.map((s) => `<label class="srcchk"><input type="checkbox" data-src="${s}" ${mem && mem.capture.sources[s] !== false ? "checked" : ""}/> ${s}</label>`).join("");
+        main.innerHTML = `<div class="allpages">
+          <h1 class="title">🧠 Your Memory</h1>
+          <p class="mut" style="margin-top:-6px">${events.length} entries · ${g.allPages().length} pages · ${people.size} people 100% local, content-addressed. <b>Nothing leaves without your explicit share.</b></p>
+          <div class="memctl">
+            <button class="btn ghost" id="capToggle" style="width:auto;margin:0">${mem && mem.capture.on ? "⏸ Pause capture" : "⏵ Resume capture"}</button>
+            <button class="btn ghost" id="proveDay" style="width:auto;margin:0" title="commit today's memory to a signed Merkle root">🔐 Commit &amp; prove today</button>
+            <span class="srcs">${srcRow}</span>
+          </div>
+          <div id="proveOut" class="mut" style="margin:8px 0;word-break:break-all"></div>
+          <div class="feed">${[...byDay.entries()].map(([d, evs]) => `<div class="fday"><div class="fdh">${esc(d)}</div>${evs.map(memRow).join("")}</div>`).join("") || `<p class="mut">No activity captured yet. Open any holospace visits appear here automatically.</p>`}</div>
+        </div>`;
+        $("capToggle").addEventListener("click", () => toggleCapture());
+        $("proveDay").addEventListener("click", proveToday);
+        main.querySelectorAll("[data-src]").forEach((c) => c.addEventListener("change", (e) => { mem.setSource(e.target.dataset.src, e.target.checked); toast(`capture · ${e.target.dataset.src} ${e.target.checked ? "on" : "off"}`); }));
+        main.querySelectorAll("[data-ev]").forEach((el) => el.addEventListener("click", (e) => { if (e.target.closest("[data-act]")) return; const ev = mem.get(el.dataset.ev); if (ev && ev.block) { const pg = g.blockMeta(ev.block).page; if (pg) { zoomBlock(ev.block); } } }));
+        main.querySelectorAll("[data-act='prove']").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); proveEntry(b.dataset.k); }));
+        main.querySelectorAll("[data-act='share']").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); shareEntry(b.dataset.k); }));
+      }
+      function memRow(e) {
+        const t = new Date(e.ts).toTimeString().slice(0, 5);
+        const body = e.kind === "interaction" ? `met ${(e.entities || []).map((x) => `<b style="color:var(--link)">${esc(x)}</b>`).join(", ")}${e.app ? " in " + esc(e.app) : ""}` : `<b style="color:var(--pull)">${esc(e.app || "")}</b>${e.title ? " · " + esc(e.title) : ""}`;
+        return `<div class="frow" data-ev="${esc(e.id)}"><span class="ft">${t}</span><span class="fi">${KIND_ICON[e.kind] || "•"}</span><span class="fb">${body}</span><span class="facts"><button class="tinybtn" data-act="prove" data-k="${esc(e.id)}" title="zero-knowledge inclusion proof">🔐</button><button class="tinybtn" data-act="share" data-k="${esc(e.id)}" title="share via Holo Privacy (minimal disclosure)">⤴</button></span></div>`;
+      }
+      async function toggleCapture() { if (!mem) return; mem.setCapture(!mem.capture.on); persistCaptureFlag(); refreshRec(); renderMemory($("main")); toast(mem.capture.on ? "capture resumed" : "capture paused nothing is recorded"); }
+      async function proveToday() {
+        const com = await mem.commitDay(); $("proveOut").innerHTML = `<b>Today's memory root</b> (signed, Law-L5): <code>${esc(com.root.slice(0, 24))}…</code> over ${com.count} entries${com.did ? ` · signed by your ${com.persistent ? "persistent " : ""}identity <code>${esc(com.did.slice(0, 24))}…</code>` : com.pub ? ` · did:key ${esc(com.pub.slice(0, 12))}…` : ""}. Each entry can be proven a member without revealing the rest.`;
+        toast("committed today's memory to a signed Merkle root");
+      }
+      async function proveEntry(k) {
+        const dk = mem.dayKey(mem.get(k).ts); const com = await mem.commitDay(dk); const proof = await mem.proveEntry(dk, k);
+        const ok = proof && await mem.verifyEntry(com.root, k, proof);
+        toast(ok ? `✓ proven in your ${dk} memory (Merkle inclusion, nothing else revealed)` : "could not prove");
+      }
+      async function shareEntry(k) {
+        try { const pres = await mem.share(k, { recipient: "did:holo:demo-recipient", purpose: "dpv:ServiceProvision", reveal: ["kind", "app", "when"] });
+          const txt = JSON.stringify(pres); try { await navigator.clipboard.writeText(txt); } catch {}
+          toast(`shared a minimal disclosure (${pres.via}) only kind·app·time revealed; copied`);
+        } catch (e) { toast("share refused: " + (e.message || e)); }
+      }
+
+      // a page (or zoomed block): crumbs · title · outline · linked + unlinked refs
+      function renderPage(host, rootUid, withRefs) {
+        const isPage = (g.blockMeta(rootUid).isPage) || g.pageTitle(rootUid) != null;
+        const pageUid = isPage ? rootUid : g.blockMeta(rootUid).page;
+        // breadcrumbs (zoom)
+        const path = g.pathTo(rootUid);
+        const crumbs = path.length > 1 ? `<div class="crumbs">${path.map((n, i) => i < path.length - 1 ? `<a data-uid="${esc(n.uid)}">${esc((n.title || "").slice(0, 40) || "•")}</a><span class="sepc">›</span>` : `<span>${esc((n.title || "").slice(0, 40) || "•")}</span>`).join("")}</div>` : "";
+        const title = isPage ? (g.pageTitle(rootUid) || "(untitled)") : (g.blockText(rootUid) || "(block)");
+        const titleCls = isPage && isDailyPage(rootUid) ? "title daily" : "title";
+        host.innerHTML = `${crumbs}<h1 class="${titleCls}" id="pgtitle" ${isPage ? "contenteditable=plaintext-only" : ""} spellcheck="false">${esc(title)}</h1><div class="outline" id="outline"></div><div class="refs" id="refs"></div>`;
+        renderOutline($("outline"), rootUid);
+        if (isPage) wireTitle($("pgtitle"), rootUid);
+        if (withRefs && isPage) renderRefs($("refs"), rootUid);
+      }
+
+      function renderOutline(host, parentUid) {
+        host.innerHTML = "";
+        // ensure a page is never empty — one ready block to type into
+        if (g.childUids(parentUid).length === 0 && (g.blockMeta(parentUid).isPage || g.pageTitle(parentUid) != null)) g.createBlock(parentUid, -1, "");
+        for (const uid of g.childUids(parentUid)) host.appendChild(blockEl(uid));
+      }
+      function blockEl(uid) {
+        const wrap = document.createElement("div"); wrap.className = "block"; wrap.dataset.uid = uid;
+        const meta = g.blockMeta(uid); const kids = g.childUids(uid);
+        if (kids.length) wrap.classList.add("haskids"); if (meta.collapsed) wrap.classList.add("collapsed");
+        const row = document.createElement("div"); row.className = "brow";
+        row.innerHTML = `<span class="twirl" data-twirl="${esc(uid)}">${meta.collapsed ? "▸" : "▾"}</span><span class="bullet" data-bullet="${esc(uid)}"><i></i></span><div class="bbody" data-body="${esc(uid)}"></div>`;
+        wrap.appendChild(row);
+        renderBlockBody(row.querySelector(".bbody"), uid);
+        if (kids.length && !meta.collapsed) { const kc = document.createElement("div"); kc.className = "kids"; for (const k of kids) kc.appendChild(blockEl(k)); wrap.appendChild(kc); }
+        return wrap;
+      }
+      function renderBlockBody(body, uid) {
+        const text = g.blockText(uid) || ""; const meta = g.blockMeta(uid);
+        const hcls = meta.heading ? " h" + meta.heading : "";
+        const div = document.createElement("div"); div.className = "rendered" + hcls;
+        div.innerHTML = renderInline(text, renderCtx()) || "<span style='color:var(--dim)'>·</span>";
+        body.innerHTML = ""; body.appendChild(div);
+        // block embed expansion
+        body.querySelectorAll(".embed[data-embed]").forEach((e) => { const u = e.getAttribute("data-embed"); if (g.blockText(u) != null) { const m = document.createElement("div"); m.className = "outline"; m.style.marginLeft = "0"; m.appendChild(blockEl(u)); e.appendChild(m); } });
+        // live query results
+        const t = g.blockText(uid) || "";
+        if (/\{\{(?:\[\[)?\s*query/i.test(t)) renderQueryResults(div, t);
+      }
+      function renderCtx() { return { pageExists: (n) => g.pageExists(n), blockText: (u) => g.blockText(u) }; }
+
+      function renderQueryResults(host, text) {
+        const ast = g.parseQuery(text); const hits = g.runQuery(ast);
+        const box = document.createElement("div"); box.className = "kids";
+        box.innerHTML = hits.length ? hits.map((u) => `<div class="refblk"><div class="refbc">${crumbHtml(u)}</div><div data-render="${esc(u)}"></div></div>`).join("") : `<div style="color:var(--dim);font-size: var(--holo-text-sm, 1rem)">no results</div>`;
+        host.appendChild(box);
+        box.querySelectorAll("[data-render]").forEach((el) => { el.innerHTML = renderInline(g.blockText(el.dataset.render) || "", renderCtx()); });
+      }
+
+      // Linked + Unlinked references — the bidirectional, infinitely-traversable graph
+      function renderRefs(host, pageUid) {
+        const linked = g.linkedReferences(pageUid);
+        const grouped = groupByPage(linked);
+        let html = "";
+        html += `<h3 data-fold="lr"><span>Linked References</span><span class="cnt">${linked.length}</span></h3>`;
+        html += `<div id="lrbody">` + (grouped.length ? grouped.map((grp) => `
+            <div class="refgroup"><div class="src" data-page="${esc(grp.pageUid)}">${esc(g.pageTitle(grp.pageUid) || "(daily)")}</div>
+            ${grp.blocks.map((u) => refBlockHtml(u)).join("")}</div>`).join("") : `<div style="color:var(--dim);font-size: var(--holo-text-sm, 1rem)">No references yet mention <b>${esc(g.pageTitle(pageUid))}</b> in any block with [[${esc(g.pageTitle(pageUid))}]].</div>`) + `</div>`;
+        const unlinked = g.unlinkedReferences(pageUid);
+        if (unlinked.length) html += `<h3 data-fold="ur"><span>Unlinked References</span><span class="cnt">${unlinked.length}</span></h3><div id="urbody">${groupByPage(unlinked).map((grp) => `<div class="refgroup"><div class="src" data-page="${esc(grp.pageUid)}">${esc(g.pageTitle(grp.pageUid) || "(daily)")}</div>${grp.blocks.map((u) => refBlockHtml(u)).join("")}</div>`).join("")}</div>`;
+        host.innerHTML = html;
+        host.querySelectorAll("[data-render]").forEach((el) => { el.innerHTML = renderInline(g.blockText(el.dataset.render) || "", renderCtx()); });
+      }
+      function groupByPage(uids) { const m = new Map(); for (const u of uids) { const pg = g.blockMeta(u).page || "?"; if (!m.has(pg)) m.set(pg, []); m.get(pg).push(u); } return [...m].map(([pageUid, blocks]) => ({ pageUid, blocks })); }
+      function crumbHtml(u) { const path = g.pathTo(u); return path.slice(0, -1).map((n) => `<a data-uid="${esc(n.uid)}">${esc((n.title || "•").slice(0, 30))}</a>`).join(" › "); }
+      function refBlockHtml(u) { const kids = g.childUids(u).map((k) => `<div class="refblk" style="border:none"><div data-render="${esc(k)}"></div></div>`).join(""); return `<div class="refblk"><div class="refbc">${crumbHtml(u)}</div><div data-render="${esc(u)}"></div>${kids}</div>`; }
+
+      // ── all pages ─────────────────────────────────────────────────────────────────
+      function renderAllPages(main) {
+        const pages = g.allPages().sort((a, b) => a.title.localeCompare(b.title));
+        const bl = g.backlinks().byTarget;
+        main.innerHTML = `<div class="allpages"><h1 class="title">All Pages <span style="color:var(--dim);font-size:1rem">(${pages.length})</span></h1>
+          <table><thead><tr><th>Page</th><th>Backlinks</th></tr></thead><tbody>${pages.map((p) => `<tr><td class="t" data-page="${esc(p.uid)}">${esc(p.title)}</td><td>${(bl.get("page:" + p.norm) || []).size || 0}</td></tr>`).join("")}</tbody></table></div>`;
+      }
+
+      // ── graph overview (force-directed, pure SVG) ────────────────────────────────
+      let graphSim = null;
+      function renderGraph(main) {
+        if (graphSim) { cancelAnimationFrame(graphSim.raf); graphSim = null; }
+        main.innerHTML = `<div id="graphwrap"><svg id="graphsvg"><g id="gedges"></g><g id="gnodes"></g></svg></div>`;
+        const pages = g.allPages(); const idx = new Map(pages.map((p, i) => [p.norm, i]));
+        const bl = g.backlinks().byTarget; const edges = [];
+        for (const p of pages) for (const u of (bl.get("page:" + p.norm) || [])) { const src = normTitle(g.pageTitle(g.blockMeta(u).page) || ""); if (idx.has(src) && src !== p.norm) edges.push([idx.get(src), idx.get(p.norm)]); }
+        const svg = $("graphsvg"); const W = svg.clientWidth || 800, H = svg.clientHeight || 600;
+        const nodes = pages.map((p, i) => ({ p, x: W / 2 + Math.cos(i) * 160 + (Math.random() - 0.5) * 40, y: H / 2 + Math.sin(i) * 160 + (Math.random() - 0.5) * 40, vx: 0, vy: 0, deg: 0 }));
+        for (const [a, b] of edges) { nodes[a].deg++; nodes[b].deg++; }
+        const ge = $("gedges"), gn = $("gnodes");
+        ge.innerHTML = edges.map(() => `<line/>`).join("");
+        gn.innerHTML = nodes.map((n, i) => `<g data-page="${esc(n.p.uid)}"><circle r="${4 + Math.min(10, n.deg * 1.6)}"/><text x="0" y="${-(8 + Math.min(10, n.deg * 1.6))}" text-anchor="middle">${esc(n.p.title.slice(0, 18))}</text></g>`).join("");
+        const lines = [...ge.children], gs = [...gn.children];
+        graphSim = { raf: 0 };
+        let ticks = 0;
+        function step() {
+          ticks++;
+          for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i], b = nodes[j]; let dx = a.x - b.x, dy = a.y - b.y; let d2 = dx * dx + dy * dy || 1; const f = 2600 / d2;
+            const d = Math.sqrt(d2); dx /= d; dy /= d; a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
+          }
+          for (const [a, b] of edges) { const na = nodes[a], nb = nodes[b]; let dx = nb.x - na.x, dy = nb.y - na.y; na.vx += dx * 0.002; na.vy += dy * 0.002; nb.vx -= dx * 0.002; nb.vy -= dy * 0.002; }
+          for (const n of nodes) { n.vx += (W / 2 - n.x) * 0.0009; n.vy += (H / 2 - n.y) * 0.0009; n.vx *= 0.82; n.vy *= 0.82; n.x += n.vx; n.y += n.vy; }
+          edges.forEach(([a, b], k) => { const l = lines[k]; l.setAttribute("x1", nodes[a].x); l.setAttribute("y1", nodes[a].y); l.setAttribute("x2", nodes[b].x); l.setAttribute("y2", nodes[b].y); });
+          gs.forEach((el, i) => el.setAttribute("transform", `translate(${nodes[i].x},${nodes[i].y})`));
+          if (ticks < 400) graphSim.raf = requestAnimationFrame(step);
+        }
+        step();
+      }
+
+      // ── right sidebar ─────────────────────────────────────────────────────────────
+      function renderRight() {
+        if (!rightStack.length) { document.body.classList.remove("right-open"); return; }
+        document.body.classList.add("right-open");
+        $("rightBody").innerHTML = rightStack.map((it, i) => `<div class="rcard"><span class="rclose" data-rclose="${i}">✕</span><div class="rtitle" data-page="${esc(it.uid)}">${esc(g.pageTitle(it.uid) || g.blockText(it.uid) || "(block)")}</div><div class="rhost" data-rhost="${i}"></div></div>`).join("");
+        rightStack.forEach((it, i) => { const host = $("rightBody").querySelector(`[data-rhost="${i}"]`); const out = document.createElement("div"); out.className = "outline"; host.appendChild(out); for (const k of g.childUids(it.uid)) out.appendChild(blockEl(k)); });
+      }
+      function openInRight(uid) { if (!rightStack.find((x) => x.uid === uid)) rightStack.unshift({ uid }); renderRight(); }
+
+      function renderPeers(roster) {
+        $("peers").innerHTML = roster.slice(0, 8).map((r) => `<span class="av" title="${esc(r.name)}${r.you ? " (you)" : ""}" style="background:${esc(r.color || "#888")}">${esc((r.name || "?").slice(0, 1).toUpperCase())}</span>`).join("") + (roster.length > 8 ? `<span style="color:var(--dim)">+${roster.length - 8}</span>` : "");
+      }
+
+      // ════════════════════════════ EDITING ═══════════════════════════════════════
+      function enterEdit(uid, caret) {
+        if (editingUid && editingUid !== uid) commitEdit();
+        const body = document.querySelector(`.bbody[data-body="${cssEsc(uid)}"]`); if (!body) return;
+        editingUid = uid;
+        const ta = document.createElement("textarea"); ta.className = "ta"; ta.value = g.blockText(uid) || ""; ta.spellcheck = false;
+        body.innerHTML = ""; body.appendChild(ta); autosize(ta); ta.focus();
+        const pos = caret === "start" ? 0 : caret === "end" ? ta.value.length : (caret == null ? ta.value.length : caret);
+        ta.setSelectionRange(pos, pos);
+        ta.addEventListener("input", () => { g.editBlock(uid, ta.value); autosize(ta); saveLast(); maybeAutocomplete(ta, uid); scheduleRefRefresh(); });
+        ta.addEventListener("keydown", (e) => onBlockKey(e, uid, ta));
+        ta.addEventListener("blur", () => setTimeout(() => { if (editingUid === uid && !acOpen) commitEdit(); }, 120));
+      }
+      function commitEdit() { const uid = editingUid; editingUid = null; closeAc(); if (!uid) return; const body = document.querySelector(`.bbody[data-body="${cssEsc(uid)}"]`); if (body) renderBlockBody(body, uid); refreshRefsNow(); renderLeft(); }
+      const cssEsc = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s);
+      function autosize(ta) { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }
+      let refT; function scheduleRefRefresh() { clearTimeout(refT); refT = setTimeout(refreshRefsNow, 250); }
+      function refreshRefsNow() { if (view.mode === "page" && !view.zoomUid) { const r = $("refs"); if (r) renderRefs(r, view.pageUid); } }
+
+      function onBlockKey(e, uid, ta) {
+        if (acOpen) { if (acKey(e)) return; }
+        const atStart = ta.selectionStart === 0 && ta.selectionEnd === 0;
+        const atEnd = ta.selectionStart === ta.value.length;
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          const before = ta.value.slice(0, ta.selectionStart), after = ta.value.slice(ta.selectionStart);
+          g.editBlock(uid, before);
+          const parent = g.blockMeta(uid).parent; const kids = g.childUids(uid);
+          let nu;
+          if (kids.length && !g.blockMeta(uid).collapsed) nu = g.createBlock(uid, 0, after);     // has children → new first child
+          else { const idx = g.childIndex(parent, uid); nu = g.createBlock(parent, idx + 1, after); }
+          rerenderOutlineKeep(); enterEdit(nu, "start");
+        } else if (e.key === "Tab") {
+          e.preventDefault(); const ok = e.shiftKey ? g.outdent(uid) : g.indent(uid); if (ok) { const pos = ta.selectionStart; rerenderOutlineKeep(); enterEdit(uid, pos); }
+        } else if (e.key === "Backspace" && atStart && ta.selectionStart === ta.selectionEnd) {
+          const prev = prevVisible(uid);
+          if (prev != null && g.childUids(uid).length === 0) {
+            e.preventDefault(); const ptext = g.blockText(prev) || ""; const mine = ta.value; g.editBlock(prev, ptext + mine); g.removeBlock(uid); rerenderOutlineKeep(); enterEdit(prev, ptext.length);
+          }
+        } else if (e.key === "ArrowUp" && !e.altKey) {
+          if (ta.value.slice(0, ta.selectionStart).indexOf("\n") === -1) { const prev = prevVisible(uid); if (prev != null) { e.preventDefault(); enterEdit(prev, "end"); } }
+        } else if (e.key === "ArrowDown" && !e.altKey) {
+          if (ta.value.slice(ta.selectionStart).indexOf("\n") === -1) { const nx = nextVisible(uid); if (nx != null) { e.preventDefault(); enterEdit(nx, "end"); } }
+        } else if (e.key === "Escape") { ta.blur(); commitEdit(); }
+      }
+      // re-render the current outline but keep editing state pointer (textarea re-created by enterEdit)
+      function rerenderOutlineKeep() { const out = $("outline"); if (out) { const root = view.zoomUid || view.pageUid; out.innerHTML = ""; for (const u of g.childUids(root)) out.appendChild(blockEl(u)); } editingUid = null; }
+
+      // flatten visible order for arrow / backspace navigation
+      function visibleOrder() { const root = view.zoomUid || view.pageUid; const out = []; (function walk(p) { for (const c of g.childUids(p)) { out.push(c); if (!g.blockMeta(c).collapsed) walk(c); } })(root); return out; }
+      function prevVisible(uid) { const o = visibleOrder(); const i = o.indexOf(uid); return i > 0 ? o[i - 1] : null; }
+      function nextVisible(uid) { const o = visibleOrder(); const i = o.indexOf(uid); return i >= 0 && i < o.length - 1 ? o[i + 1] : null; }
+
+      // ── autocomplete ([[ · (( · # · /) ───────────────────────────────────────────
+      let acOpen = false, acItems = [], acSel = 0, acCtx = null;
+      function maybeAutocomplete(ta, uid) {
+        const left = ta.value.slice(0, ta.selectionStart);
+        let m;
+        if ((m = left.match(/\[\[([^\[\]]*)$/))) return openAc(ta, uid, "page", m[1], m.index, "]]");
+        if ((m = left.match(/\(\(([^()]*)$/))) return openAc(ta, uid, "block", m[1], m.index, "))");
+        if ((m = left.match(/(?:^|\s)#([\w/_-]*)$/))) return openAc(ta, uid, "tag", m[1], left.length - m[1].length - 1, "");
+        if ((m = left.match(/(?:^|\s)\/([\w]*)$/))) return openAc(ta, uid, "cmd", m[1], left.length - m[1].length - 1, "");
+        closeAc();
+      }
+      function openAc(ta, uid, type, query, tokenStart, closeTok) {
+        acCtx = { ta, uid, type, query, tokenStart, closeTok }; acSel = 0;
+        const q = query.toLowerCase();
+        if (type === "page" || type === "tag") {
+          const pages = g.allPages().filter((p) => p.norm.includes(q)).slice(0, 8);
+          acItems = pages.map((p) => ({ label: p.title, sub: "page", value: p.title }));
+          if (query.trim()) acItems.push({ label: `Create “${query.trim()}”`, sub: "new page", value: query.trim(), neu: true });
+        } else if (type === "block") {
+          acItems = g.allBlocks().filter((b) => b.text.toLowerCase().includes(q) && b.text.trim()).slice(0, 8).map((b) => ({ label: b.text.slice(0, 48), sub: "(( " + b.uid + " ))", value: b.uid }));
+          if (!acItems.length) { closeAc(); return; }
+        } else if (type === "cmd") {
+          const cmds = [["TODO", "{{[[TODO]]}} "], ["DONE", "{{[[DONE]]}} "], ["Heading 1", "::h1"], ["Heading 2", "::h2"], ["Heading 3", "::h3"], ["Today", "[[" + dailyTitle() + "]]"], ["Query", "{{query: {and: [[]]}}}"], ["Block reference", "(("], ["Page link", "[["]];
+          acItems = cmds.filter((c) => c[0].toLowerCase().includes(q)).map((c) => ({ label: c[0], sub: "command", value: c[1], cmd: true }));
+          if (!acItems.length) { closeAc(); return; }
+        }
+        renderAc(ta);
+      }
+      function renderAc(ta) {
+        const ac = $("ac"); ac.innerHTML = acItems.map((it, i) => `<div class="it ${i === acSel ? "sel" : ""}" data-i="${i}"><span class="${it.neu ? "new" : ""}">${esc(it.label)}</span><span class="sub">${esc(it.sub)}</span></div>`).join("");
+        const r = ta.getBoundingClientRect(); ac.style.left = Math.min(r.left, innerWidth - 360) + "px"; ac.style.top = (r.bottom + 4) + "px"; ac.classList.add("show"); acOpen = true;
+      }
+      function acKey(e) {
+        if (!acOpen) return false;
+        if (e.key === "ArrowDown") { e.preventDefault(); acSel = (acSel + 1) % acItems.length; renderAc(acCtx.ta); return true; }
+        if (e.key === "ArrowUp") { e.preventDefault(); acSel = (acSel - 1 + acItems.length) % acItems.length; renderAc(acCtx.ta); return true; }
+        if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); acChoose(acItems[acSel]); return true; }
+        if (e.key === "Escape") { e.preventDefault(); closeAc(); return true; }
+        return false;
+      }
+      function acChoose(it) {
+        if (!it || !acCtx) return; const { ta, uid, type, tokenStart, closeTok } = acCtx;
+        const caret = ta.selectionStart; const before = ta.value.slice(0, tokenStart); const after = ta.value.slice(caret);
+        let insert = "", newCaretBack = 0;
+        if (type === "page") insert = "[[" + it.value + "]]";
+        else if (type === "tag") insert = "#" + (/\s/.test(it.value) ? "[[" + it.value + "]]" : it.value);
+        else if (type === "block") insert = "((" + it.value + "))";
+        else if (type === "cmd") {
+          if (it.value === "::h1" || it.value === "::h2" || it.value === "::h3") { g.setMeta(uid, { heading: +it.value.slice(3) }); insert = ""; }
+          else if (it.value === "((" ) { insert = "(("; newCaretBack = 0; }
+          else if (it.value === "[[") { insert = "[["; }
+          else insert = it.value;
+        }
+        // create the page so it exists immediately (Roam)
+        if (type === "page" || type === "tag") g.resolvePage(it.value);
+        ta.value = before + insert + after; const np = before.length + insert.length - newCaretBack; ta.setSelectionRange(np, np);
+        g.editBlock(uid, ta.value); autosize(ta); closeAc(); ta.focus(); maybeAutocomplete(ta, uid); scheduleRefRefresh();
+      }
+      function closeAc() { acOpen = false; acCtx = null; $("ac").classList.remove("show"); }
+      $("ac").addEventListener("mousedown", (e) => { const it = e.target.closest(".it"); if (it) { e.preventDefault(); acChoose(acItems[+it.dataset.i]); } });
+
+      // ════════════════════════════ NAVIGATION ════════════════════════════════════
+      function openPageUid(uid, opts = {}) { if (opts.right) return openInRight(uid); view.mode = "page"; view.pageUid = (g.blockMeta(uid).isPage || g.pageTitle(uid) != null) ? uid : g.blockMeta(uid).page; view.zoomUid = (g.blockMeta(uid).isPage || g.pageTitle(uid) != null) ? null : uid; commitEdit(); renderApp(); $("main").scrollTop = 0; }
+      function openTitle(title, opts) { openPageUid(g.resolvePage(title), opts); }
+      function zoomBlock(uid) { view.mode = "page"; view.zoomUid = uid; view.pageUid = g.blockMeta(uid).page; commitEdit(); renderApp(); }
+
+      document.addEventListener("click", (e) => {
+        const t = e.target;
+        const wl = t.closest(".wikilink, .tag"); if (wl) { openTitle(wl.dataset.title || wl.dataset.page, { right: e.shiftKey }); return; }
+        const rf = t.closest(".ref"); if (rf) { const u = rf.dataset.uid; if (g.blockText(u) != null) (e.shiftKey ? openInRight(g.blockMeta(u).page || u) : zoomBlock(u)); return; }
+        const td = t.closest(".todo"); if (td) { const blk = t.closest(".block"); if (blk) { g.toggleTodo(blk.dataset.uid); renderBlockBody(blk.querySelector(".bbody"), blk.dataset.uid); refreshRefsNow(); } return; }
+        const star = t.closest("[data-star]"); if (star) { const n = star.dataset.star; session.set("shortcuts", n, session.val("shortcuts", n) ? null : 1); renderLeft(); return; }
+        const pg = t.closest("[data-page]"); if (pg && !t.closest(".rtitle") || (pg && t.closest(".rtitle") && e.shiftKey)) { openPageUid(pg.dataset.page, { right: e.shiftKey && !t.closest("#right") }); return; }
+        if (pg) { openPageUid(pg.dataset.page); return; }
+        const uidLink = t.closest("[data-uid]"); if (uidLink && t.closest(".crumbs, .refbc")) { const u = uidLink.dataset.uid; (g.blockMeta(u).isPage || g.pageTitle(u) != null) ? openPageUid(u) : zoomBlock(u); return; }
+        const tw = t.closest("[data-twirl]"); if (tw) { g.toggleCollapse(tw.dataset.twirl); rerenderOutlineKeep(); return; }
+        const bl = t.closest("[data-bullet]"); if (bl) { zoomBlock(bl.dataset.bullet); return; }
+        const body = t.closest("[data-body]"); if (body && !t.closest("a, .wikilink, .tag, .ref, .todo")) { const uid = body.dataset.body; enterEdit(uid, "end"); return; }
+        const rc = t.closest("[data-rclose]"); if (rc) { rightStack.splice(+rc.dataset.rclose, 1); renderRight(); return; }
+        const go = t.closest(".nav[data-go]"); if (go) { goNav(go.dataset.go); return; }
+      });
+      function goNav(where) { commitEdit(); if (where === "daily") { view.mode = "page"; view.pageUid = g.dailyPage(); view.zoomUid = null; } else view.mode = where; renderApp(); $("main").scrollTop = 0; }
+
+      function wireTitle(el, pageUid) {
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); el.blur(); const out = $("outline"); if (out && out.firstChild) enterEdit(out.firstChild.dataset.uid, "start"); } });
+        el.addEventListener("blur", () => { const nt = el.textContent.trim(); const old = g.pageTitle(pageUid); if (nt && nt !== old) { session.set("pages", normTitle(old), null); session.set("pages", normTitle(nt), pageUid); session.set("pageTitle", pageUid, nt); refreshRefsNow(); renderLeft(); } });
+      }
+
+      // ════════════════════════════ COMMAND PALETTE ═══════════════════════════════
+      function openPalette() { $("paletteInput").value = ""; renderPalette(""); $("paletteDlg").classList.remove("hidden"); $("paletteInput").focus(); }
+      let palItems = [], palSel = 0;
+      function renderPalette(q) {
+        const ql = q.toLowerCase().trim();
+        const pages = g.allPages().filter((p) => p.norm.includes(ql)).slice(0, 8).map((p) => ({ label: p.title, sub: "page", act: () => openPageUid(p.uid) }));
+        const cmds = [{ label: "Daily Notes", sub: "go", act: () => goNav("daily") }, { label: "Memory", sub: "go", act: () => goNav("memory") }, { label: "Graph Overview", sub: "go", act: () => goNav("graph") }, { label: "All Pages", sub: "go", act: () => goNav("allpages") }].filter((c) => c.label.toLowerCase().includes(ql));
+        // ask your brain — recall captured memories by content (O(1) token index)
+        const recalled = (mem && q.trim()) ? mem.recall(q, 6).map((e) => ({ label: (mem.blockText ? mem.blockText(e) : (e.title || e.app)) || e.app, sub: "🧠 memory · " + (e.kind || "") , act: () => { if (e.block) { zoomBlock(e.block); } else { goNav("memory"); } } })) : [];
+        palItems = [...pages, ...recalled, ...cmds];
+        if (q.trim() && !g.pageExists(normTitle(q))) palItems.unshift({ label: `Create “${q.trim()}”`, sub: "new page", neu: true, act: () => openTitle(q.trim()) });
+        palSel = 0; drawPalette();
+      }
+      function drawPalette() { $("paletteRes").innerHTML = palItems.map((it, i) => `<div class="pit ${i === palSel ? "sel" : ""}" data-i="${i}"><span ${it.neu ? 'style="color:var(--ok)"' : ""}>${esc(it.label)}</span><span class="sub">${esc(it.sub)}</span></div>`).join(""); }
+      $("paletteInput").addEventListener("input", (e) => renderPalette(e.target.value));
+      $("paletteInput").addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") { e.preventDefault(); palSel = (palSel + 1) % palItems.length; drawPalette(); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); palSel = (palSel - 1 + palItems.length) % palItems.length; drawPalette(); }
+        else if (e.key === "Enter") { e.preventDefault(); const it = palItems[palSel]; closePalette(); it && it.act(); }
+        else if (e.key === "Escape") closePalette();
+      });
+      $("paletteRes").addEventListener("click", (e) => { const it = e.target.closest(".pit"); if (it) { const x = palItems[+it.dataset.i]; closePalette(); x && x.act(); } });
+      function closePalette() { $("paletteDlg").classList.add("hidden"); }
+
+      // ════════════════════════════ TOP BAR + GLOBAL KEYS ═════════════════════════
+      $("leftToggle").addEventListener("click", () => document.body.classList.toggle("left-hidden"));
+      $("rightClose").addEventListener("click", () => { rightStack = []; renderRight(); });
+      $("searchBtn").addEventListener("click", openPalette);
+      $("recBtn").addEventListener("click", toggleCapture);
+      $("searchInput").addEventListener("focus", () => { openPalette(); });
+      $("newBtn").addEventListener("click", () => { const t = prompt("New page title:"); if (t && t.trim()) openTitle(t.trim()); });
+      $("inviteBtn").addEventListener("click", invite);
+      $("settingsBtn").addEventListener("click", openSettings);
+      $("saveBtn").addEventListener("click", async () => { if (!session) return; const ca = await session.save(); $("caOut") && ($("caOut").textContent = "holo://" + ca); toast("checkpoint saved · holo://" + ca.slice(0, 22) + "…"); try { const u = readHash(); u.set("doc", ca); location.hash = u.toString(); } catch {} });
+
+      async function invite() { if (session && !lastSaved) await session.save(); const url = location.href;
+        try { if (navigator.share) { await navigator.share({ title: "Holo Notepad think with me", url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+        try { await navigator.clipboard.writeText(url); toast("invite link copied anyone who opens it co-edits this graph live"); } catch { prompt("Invite link:", url); } }
+
+      function openSettings() { $("nameEdit").value = user.name || ""; $("colorEdit").value = user.color; (async () => { $("caOut").textContent = "holo://" + (await session.contentAddress()); })(); $("settingsDlg").classList.remove("hidden"); }
+      $("settingsClose").addEventListener("click", () => $("settingsDlg").classList.add("hidden"));
+      $("nameEdit").addEventListener("change", (e) => { user.name = e.target.value.slice(0, 40); saveUser(user); session && session.setName(user.name); renderPeers(session.roster()); });
+      $("colorEdit").addEventListener("input", (e) => { user.color = e.target.value; saveUser(user); session && session.setColor(user.color); renderPeers(session.roster()); });
+
+      document.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); openPalette(); }
+        else if ((e.metaKey || e.ctrlKey) && (e.key === "u" || e.key === "U")) { e.preventDefault(); openPalette(); }
+        else if ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) { e.preventDefault(); $("saveBtn").click(); }
+        else if (e.key === "Escape") { closePalette(); }
+      });
+      addEventListener("scroll", closeAc, true);
+
+      // ── setup wiring ──────────────────────────────────────────────────────────────
+      $("startBtn").addEventListener("click", async () => { user.name = ($("nameInput").value || "").trim() || ("Guest-" + Math.random().toString(16).slice(2, 6)); user.color = $("colorInput").value; saveUser(user); $("setup").classList.add("hidden"); await startSession(loadLast(), !loadLast()); });
+      $("openByK").addEventListener("click", () => { $("setup").classList.add("hidden"); $("openDlg").classList.remove("hidden"); });
+      $("openCancel").addEventListener("click", () => $("openDlg").classList.add("hidden"));
+      $("openGo").addEventListener("click", () => { const ca = normCA($("openKappa").value); if (!ca) return; const u = readHash(); u.set("doc", ca); location.hash = u.toString(); location.reload(); });
+
+      // ── witness / automation handle ────────────────────────────────────────────────
+      function exposeWitness() {
+        window.holoNotepad = window.__holoNotepad = {
+          ready: () => !!(session && session.started && g),
+          graph: () => g, session: () => session,
+          roamSelftest: () => HoloRoam.roamSelftest(),
+          openPage: (title) => openTitle(title), currentPageTitle: () => g.pageTitle(view.pageUid),
+          pageUid: (title) => g.resolvePage(title),
+          addBlock: (text, parentTitle) => { const p = parentTitle ? g.resolvePage(parentTitle) : g.dailyPage(); const u = g.createBlock(p, -1, text); onRemoteChange(); return u; },
+          editBlock: (uid, text) => { g.editBlock(uid, text); onRemoteChange(); },
+          blockText: (uid) => g.blockText(uid),
+          linkedReferences: (title) => g.linkedReferences(g.resolvePage(title)),
+          backlinks: () => { const o = {}; for (const [k, v] of g.backlinks().byTarget) o[k] = [...v]; return o; },
+          allPages: () => g.allPages().map((p) => p.title),
+          save: () => session.save(), contentAddress: () => session.contentAddress(),
+          peerCount: () => session.peerCount(), roster: () => session.roster(),
+          render: () => renderApp(),
+          // ── memory bank (the second brain) — capture, recall, ZK proofs, sharing ──
+          memory: {
+            bank: () => mem,
+            record: (ev) => mem.record(ev),
+            ingest: (ev) => mem.ingest(ev),
+            recall: (q) => mem.recall(q),
+            recallEntity: (t) => mem.recallEntity(t),
+            timeline: (dk) => mem.timeline(dk),
+            count: () => mem.events.size,
+            setCapture: (on) => { mem.setCapture(on); persistCaptureFlag(); refreshRec(); },
+            captureOn: () => mem.capture.on,
+            setSource: (s, on) => mem.setSource(s, on),
+            commitDay: (dk) => mem.commitDay(dk),
+            prove: async (k) => { const ev = mem.get(k); const dk = mem.dayKey(ev.ts); const com = await mem.commitDay(dk); const proof = await mem.proveEntry(dk, k); return { root: com.root, proof, ok: await mem.verifyEntry(com.root, k, proof) }; },
+            verify: (root, k, proof) => mem.verifyEntry(root, k, proof),
+            share: (k, opts) => mem.share(k, opts),
+            memorySelftest: () => HoloMemory.memorySelftest(),
+            zkSelftest: () => HoloZK.zkSelftest(),
+          },
+        };
+      }
+      window.__holoNotepadBoot = { roamSelftest: () => HoloRoam.roamSelftest() };
+
+      // nestability — a parent holospace can hand us a room over postMessage
+      addEventListener("message", (e) => { const m = e.data; if (!m || typeof m !== "object" || m.type !== "holo-notepad") return;
+        const hh = new URLSearchParams(); hh.set("k", m.room || secret); if (m.relay) hh.set("r", m.relay); if (m.doc) hh.set("doc", m.doc); location.hash = hh.toString(); location.reload(); });
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

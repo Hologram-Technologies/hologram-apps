@@ -1,0 +1,86 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloIpfs",
+  "name": "Holo IPFS",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Browse the entire IPFS space as easily as the web every block verified.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "CommunicationApplication",
+  "conforms": {
+    "specs": [
+      "holo-ipfs"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloIpfs"
+    ]
+  },
+  "shared": [
+    "holo-dweb.js",
+    "holo-eth.js",
+    "holo-ipfs.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-theme.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "ipfs.html",
+  "description": [
+    {
+      "p": "Content addressing is powerful, but usually hidden behind a daemon and an install."
+    },
+    {
+      "p": "A gateway that speaks IPFS natively in the browser re-derives every block's multihash before showing it (Law L5)."
+    },
+    {
+      "ul": [
+        "Browse and pin IPFS content",
+        "Every block verified by its multihash",
+        "No daemon, no install",
+        "Content addressing, end to end"
+      ]
+    }
+  ],
+  "categories": [
+    "Network",
+    "FileTransfer"
+  ],
+  "keywords": [
+    "ipfs",
+    "ipld",
+    "cid",
+    "dweb",
+    "unixfs",
+    "multihash",
+    "multiformats",
+    "dnslink",
+    "ipns",
+    "content-addressing",
+    "trustless",
+    "uor",
+    "decentralized",
+    "files"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "Apache-2.0 OR MIT",
+  "homepage": "https://hologram.os/apps/ipfs",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Hologram-native IPFS gateway: trustless in-browser block verification (Law L5), UnixFS directory browsing, typed file preview, ipns://+DNSLink resolution, delegated-routing provider discovery, local no-daemon add, and pin-to-own into the κ-store. Multiformats + IPLD (dag-pb/UnixFS/dag-cbor/CARv1), witnessed against the official BLAKE3 vectors and the canonical empty-dir CID."
+    }
+  ],
+  "accent": "#4dd0e1"
+}

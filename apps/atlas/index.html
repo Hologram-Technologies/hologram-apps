@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Holo Atlas is a pure static page (WebCrypto + same-origin reads of the content-addressed
+         indices). No SharedArrayBuffer, so — like Cloud/Docs — it omits the COI service worker. -->
+    <title>Holo Atlas the content-addressed map of every holospace</title>
+    <meta name="description" content="Holo Atlas the community map of the Hologram OS ecosystem, native to the UOR content-addressable substrate. It maps content truth, not popularity: every holospace's identity is its did:holo, its integrity is re-derived live in your tab (Law L5), and its place on the map is the real shared-dependency graph the store dedups (Law L3). Self-updating, self-verifying, autonomous." />
+    <link rel="icon" href="/.holo/sha256/d6b1ebebae5132c2a1169af9c2094776a80d13e0169e2be8a0c1ad82e5acbd19.png" data-holo-shared="favicon.png" />
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <link rel="stylesheet" href="/.holo/sha256/af0f2b5ff47f414281246d8e8e786edc6302bed6731174897f74f105dd2f93f3.css" data-holo-shared="holo-phi.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: var(--holo-bg); --panel: var(--holo-surface); --panel2: var(--holo-surface-2);
+        --line: var(--holo-border); --dim: var(--holo-ink-dim); --ink: var(--holo-ink);
+        --accent: var(--holo-accent); --ok: var(--holo-ok); --warn: var(--holo-warn); --bad: var(--holo-danger);
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+      .mono { font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+
+      /* ── top chrome ───────────────────────────────────────────────────────────── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+        padding: .35rem .7rem; background: var(--panel); border-bottom: 1px solid var(--line); user-select: none; }
+      #bar .brand { color: var(--ink); font-weight: 700; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 7px; }
+      #bar .brand .logo { color: var(--accent); display: inline-flex; }
+      #bar .k { color: var(--accent); max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: copy; }
+      #bar .pill { display: inline-flex; align-items: center; gap: 5px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim);
+        border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+      #bar .pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+      #bar .pill.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+      #bar .sp { margin-left: auto; }
+      #stats { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+      .chip { display: inline-flex; align-items: baseline; gap: 5px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim);
+        background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 3px 8px; }
+      .chip b { color: var(--ink); font-size: var(--holo-text-sm, 1rem); }
+
+      /* ── tools ────────────────────────────────────────────────────────────────── */
+      #tools { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        padding: .45rem .7rem; border-bottom: 1px solid var(--line); background: var(--bg); }
+      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+      .seg button { font: var(--holo-text-sm, 1rem) ui-sans-serif; background: transparent; color: var(--dim); border: 0;
+        padding: 6px 12px; cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 6px; }
+      .seg button.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--ink); }
+      #tools input[type=search], #tools select { font: var(--holo-text-sm, 1rem) ui-sans-serif; min-height: 32px; color: var(--ink);
+        background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0 9px; }
+      #tools input[type=search] { flex: 1 1 200px; min-width: 140px; }
+      #tools label.ck { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: var(--holo-text-sm, 1rem); cursor: pointer; }
+      #tools .count { margin-left: auto; color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+
+      /* ── stage ────────────────────────────────────────────────────────────────── */
+      #stage { flex: 1 1 auto; min-height: 0; position: relative; }
+      #map { display: block; width: 100%; height: 100%; }
+      #legend { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 14px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace;
+        color: var(--dim); background: color-mix(in srgb, var(--panel) 80%, transparent); border: 1px solid var(--line);
+        border-radius: var(--holo-radius-sm, 8px); padding: 6px 10px; pointer-events: none; }
+      #legend i { display: inline-block; width: 16px; height: 0; vertical-align: middle; margin-right: 5px; }
+      #legend .dep { border-top: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); }
+      #legend .spec { border-top: 2px dashed var(--dim); }
+      #tip { position: absolute; pointer-events: none; z-index: 6; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 7px; padding: 5px 8px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--ink); display: none; max-width: 280px; }
+
+      #grid { position: absolute; inset: 0; overflow: auto; padding: 12px; display: none;
+        grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 11px; align-content: start; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 11px 12px; cursor: pointer;
+        display: flex; flex-direction: column; gap: 7px; transition: border-color .12s, transform .12s; }
+      .card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); transform: translateY(-1px); }
+      .card .hd { display: flex; align-items: center; gap: 8px; }
+      .card .dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+      .card .nm { font-weight: 700; color: var(--ink); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .card .cat { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+      .card .sum { color: var(--dim); font-size: var(--holo-text-sm, 1rem); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; }
+      .card .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); }
+      .card .row .kap { color: var(--accent); }
+      .doors { display: inline-flex; gap: 3px; }
+      .door { width: 17px; height: 17px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+        font: 700 var(--holo-text-sm, 1rem) ui-monospace, monospace; border: 1px solid var(--line); color: var(--dim); }
+      .door.on { color: var(--bg); background: color-mix(in srgb, var(--accent) 80%, var(--ink)); border-color: transparent; }
+      .tick { font-size: var(--holo-text-sm, 1rem); } .tick.ok { color: var(--ok); } .tick.bad { color: var(--bad); } .tick.dim { color: var(--dim); }
+
+      /* ── detail ───────────────────────────────────────────────────────────────── */
+      #scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 9; }
+      #detail { position: absolute; top: 0; right: 0; height: 100%; width: min(440px, 94vw); z-index: 10;
+        background: var(--panel); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .18s ease;
+        display: flex; flex-direction: column; }
+      #detail.open { transform: none; }
+      #detail .dh { display: flex; align-items: flex-start; gap: 10px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+      #detail .dh .dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; flex: 0 0 auto; }
+      #detail .dh .t { flex: 1 1 auto; min-width: 0; }
+      #detail .dh h2 { margin: 0; font-size: 16px; color: var(--ink); }
+      #detail .dh .meta { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; margin-top: 2px; }
+      #detail .x { background: transparent; border: 1px solid var(--line); color: var(--dim); border-radius: var(--holo-radius-sm, 8px); cursor: pointer; min-height: 30px; padding: 0 9px; }
+      #detail .body { overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 13px; }
+      .sec h3 { margin: 0 0 6px; font: 600 var(--holo-text-sm, 1rem) ui-sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+      .idbox { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 8px 9px; }
+      .idbox .kfull { word-break: break-all; color: var(--accent); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      .verline { margin-top: 6px; display: flex; align-items: center; gap: 7px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      .statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+      .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 7px 9px; }
+      .stat .lab { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; } .stat .val { color: var(--ink); font-weight: 700; }
+      .tags { display: flex; gap: 5px; flex-wrap: wrap; }
+      .tag { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+      .doorrow { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+      .doorrow:last-child { border-bottom: 0; } .doorrow .nm { width: 64px; color: var(--ink); font-weight: 600; }
+      .doorrow .st { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; } .doorrow .st.on { color: var(--ok); } .doorrow .st.off { color: var(--dim); }
+      table.clo { width: 100%; border-collapse: collapse; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      table.clo th { text-align: left; color: var(--dim); font-weight: 600; padding: 3px 5px; border-bottom: 1px solid var(--line); }
+      table.clo td { padding: 3px 5px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); color: var(--dim); }
+      table.clo td.p { color: var(--ink); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      table.clo td.k { color: var(--accent); }
+      .btn { font: var(--holo-text-sm, 1rem) ui-sans-serif; min-height: 34px; padding: 0 13px; border-radius: 9px; border: 1px solid var(--line);
+        background: var(--panel2); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+      .btn.cta { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+      details.clo summary { cursor: pointer; color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; margin-bottom: 6px; }
+
+      /* ── footer ───────────────────────────────────────────────────────────────── */
+      #foot { flex: 0 0 auto; display: flex; gap: 14px; flex-wrap: wrap; padding: .35rem .7rem;
+        border-top: 1px solid var(--line); background: var(--panel); color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      #foot b { color: var(--ink); }
+      #boot { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+    </style>
+  </head>
+
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Atlas"></holo-splash>
+
+    <div id="bar">
+      <span class="brand"><span class="logo"><holo-icon name="map-2" set="tabler" size="18" label="Holo Atlas"></holo-icon></span> Holo Atlas</span>
+      <span class="k mono" id="selfk" title="the atlas's own identity click to copy">did:holo:…</span>
+      <span class="pill" id="selfv">self-verify…</span>
+      <span class="sp"></span>
+      <span id="stats"></span>
+    </div>
+
+    <div id="tools">
+      <span class="seg" id="view">
+        <button data-v="map" class="on"><holo-icon name="affiliate" set="tabler" size="15"></holo-icon> Constellation</button>
+        <button data-v="grid"><holo-icon name="layout-grid" set="tabler" size="15"></holo-icon> Directory</button>
+      </span>
+      <input type="search" id="q" placeholder="Search holospaces name, summary, spec, keyword…" />
+      <select id="sort" title="sort">
+        <option value="name">Name</option>
+        <option value="size">Size (bytes)</option>
+        <option value="specs">Conformance specs</option>
+        <option value="recent">Most recent</option>
+      </select>
+      <select id="cat" title="category"><option value="">All categories</option></select>
+      <select id="door" title="agent door">
+        <option value="">All doors</option>
+        <option value="nanda">On NANDA</option>
+        <option value="a2a">On A2A</option>
+        <option value="mcp">Has MCP tools</option>
+      </select>
+      <label class="ck"><input type="checkbox" id="vonly" /> verified only</label>
+      <span class="count" id="count"></span>
+    </div>
+
+    <div id="stage">
+      <canvas id="map"></canvas>
+      <div id="legend"><span><i class="dep"></i>shared dependency (Law L3)</span><span><i class="spec"></i>shared spec</span></div>
+      <div id="tip" class="mono"></div>
+      <div id="grid"></div>
+      <div id="boot">discovering holospaces from the content-addressed index…</div>
+      <div id="scrim"></div>
+      <aside id="detail" aria-hidden="true"></aside>
+    </div>
+
+    <div id="foot">
+      <span><b>Self-updating</b> reads <code>apps/index.jsonld</code> live</span>
+      <span><b>Self-verifying</b> re-derives every κ in-tab (Law L5)</span>
+      <span><b>Autonomous</b> no server, no external API</span>
+      <span class="sp" style="margin-left:auto"></span>
+      <span id="sealed"></span>
+    </div>
+
+    <!-- shared, content-addressed modules (rewritten by gen-imports to /.holo/sha256/…) -->
+    <script type="module" src="/.holo/sha256/ae2f0809078dc2eacfb8f3b4f114922e71b603b9ff1098fbdb203baeaac32335.js" data-holo-shared="holo-object.js"></script>
+    <script type="module" src="/.holo/sha256/75b93545eb16cd99930ec93066d090ebabec99904f4cd7448ff0873980860990.js" data-holo-shared="holo-atlas.js"></script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/6e5f645bee89ca4ffd9a9ea22ee05de4fb6e422d9e4ae61872c37a8134b1ca8b.js" data-holo-shared="holo-icons.js" defer></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+
+    <script type="module">
+      // ── boot: discover → model → render. All reads are same-origin + content-addressed; the model
+      //    runtime + the in-tab verifier are the SAME code the node witness uses (Law L5, no drift). ──
+      const OS = new URL("../../", document.baseURI);            // the os/ image root (location-independent)
+      const $ = (s) => document.querySelector(s);
+      const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
+      const short = (did) => { const h = String(did).split(":").pop() || ""; return "did:holo:…" + h.slice(0, 10); };
+      const fmtBytes = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(2) + " MB";
+      const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const slugOf = (ident, label) => { const seg = String(ident).split(".").pop(); const base = /^[A-Za-z0-9]+$/.test(seg) ? seg : (label || seg); return base.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "agent"; };
+      const getJSON = async (rel) => { const r = await fetch(new URL(rel, OS), { cache: "no-store" }); if (!r.ok) throw new Error(rel + " " + r.status); return r.json(); };
+      const tryJSON = async (rel) => { try { return await getJSON(rel); } catch { return null; } };
+      const ready = () => new Promise((res) => { const t = () => (window.HoloAtlas && window.HoloObject) ? res() : setTimeout(t, 20); t(); });
+
+      const state = { model: null, view: "map", q: "", sort: "name", cat: "", door: "", vonly: false, filtered: [], verifyCache: new Map() };
+
+      async function discover() {
+        const index = await getJSON("apps/index.jsonld");
+        const dirs = (index["dcat:dataset"] || []).map((d) => (String(d["dcat:landingPage"]).match(/^apps\/([^/]+)\//) || [])[1]).filter(Boolean);
+        const pairs = await Promise.all([...new Set(dirs)].map(async (dir) => [dir, {
+          def: await tryJSON(`apps/${dir}/holospace.json`), lock: await tryJSON(`apps/${dir}/holospace.lock.json`),
+        }]));
+        const apps = {}; for (const [dir, v] of pairs) if (v.def && v.lock) apps[dir] = v;
+        const [nanda, a2a, skills, mcp, witness] = await Promise.all([
+          tryJSON("nanda/index.jsonld"), tryJSON("a2a/index.jsonld"), tryJSON("skills/index.jsonld"),
+          tryJSON(".well-known/mcp.json"), tryJSON("apps-witness.result.json"),
+        ]);
+        return { index, apps, doors: { nanda, a2a, skills, mcp }, witness };
+      }
+
+      // Law L5 in-tab — re-derive every closure leaf of an app to its κ (the same check the witness runs
+      // on node with build-app.computeApp). Cached per app id.
+      async function verifyApp(rec) {
+        if (state.verifyCache.has(rec.id)) return state.verifyCache.get(rec.id);
+        const out = { reDerives: null, ok: 0, total: rec.closure.length, bad: [] };
+        const p = (async () => {
+          for (const e of rec.closure) {
+            try {
+              const r = await fetch(new URL(e.path, OS), { cache: "force-cache" });
+              const buf = new Uint8Array(await r.arrayBuffer());
+              const hex = await window.HoloObject.sha256hex(buf);
+              if (hex === String(e.kappa).split(":").pop()) out.ok++; else out.bad.push(e.path);
+            } catch { out.bad.push(e.path); }
+          }
+          out.reDerives = out.ok === out.total && out.total > 0;
+          return out;
+        })();
+        state.verifyCache.set(rec.id, p);
+        return p;
+      }
+
+      // ── filtering ──────────────────────────────────────────────────────────────
+      function applyFilters() {
+        const q = state.q.trim().toLowerCase();
+        let a = state.model.apps.slice();
+        if (state.cat) a = a.filter((x) => x.category === state.cat);
+        if (state.door === "nanda") a = a.filter((x) => x.doors.nanda.present);
+        else if (state.door === "a2a") a = a.filter((x) => x.doors.a2a.present);
+        else if (state.door === "mcp") a = a.filter((x) => x.doors.mcp.tools.length > 0);
+        if (state.vonly) a = a.filter((x) => x.witnessOk === true);
+        if (q) a = a.filter((x) => (x.name + " " + x.summary + " " + x.id + " " + x.keywords.join(" ") + " " + x.specs.join(" ")).toLowerCase().includes(q));
+        const by = state.sort;
+        a.sort((m, n) => by === "size" ? n.bytes - m.bytes : by === "specs" ? n.specCount - m.specCount
+          : by === "recent" ? String((n.releases[0] || {}).date || "").localeCompare(String((m.releases[0] || {}).date || ""))
+          : m.name.localeCompare(n.name));
+        state.filtered = a;
+        $("#count").textContent = `${a.length}/${state.model.apps.length} holospaces`;
+        if (state.view === "grid") renderGrid(); else renderMap(true);
+      }
+
+      // ── directory ─────────────────────────────────────────────────────────────
+      function doorChips(rec) {
+        const d = rec.doors;
+        const c = (on, t) => `<span class="door ${on ? "on" : ""}" title="${t}">${t[0]}</span>`;
+        return `<span class="doors">${c(d.nanda.present, "NANDA")}${c(d.a2a.present, "A2A")}${c(d.skills.present, "Skills")}${c(d.mcp.tools.length > 0, "MCP")}</span>`;
+      }
+      function tickFor(ok) { return ok === true ? '<span class="tick ok" title="apps-witness: re-derives + carries the constitution">✓</span>' : ok === false ? '<span class="tick bad">✗</span>' : '<span class="tick dim" title="no witness record">·</span>'; }
+      function renderGrid() {
+        const g = $("#grid"); g.innerHTML = "";
+        for (const rec of state.filtered) {
+          const card = el("div", "card");
+          card.innerHTML =
+            `<div class="hd"><span class="dot" style="background:${esc(rec.accent || "var(--accent)")}"></span>` +
+            `<span class="nm">${esc(rec.name)}</span><span class="cat">${esc(rec.category.replace(/Application$/, "") || "app")}</span></div>` +
+            `<div class="sum">${esc(rec.summary)}</div>` +
+            `<div class="row"><span class="kap">${esc(short(rec.root))}</span> ${tickFor(rec.witnessOk)}</div>` +
+            `<div class="row"><span>${rec.files} files · ${fmtBytes(rec.bytes)}</span><span>${rec.specCount} spec${rec.specCount === 1 ? "" : "s"}</span><span style="margin-left:auto">${doorChips(rec)}</span></div>`;
+          card.onclick = () => openDetail(rec);
+          g.appendChild(card);
+        }
+      }
+
+      // ── constellation (force-directed canvas; layout is display-only, never sealed) ───────────────
+      const cv = $("#map"), ctx = cv.getContext("2d");
+      let sim = null, raf = 0, hover = null;
+      const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || "#888";
+      function seedRand(s) { let x = s >>> 0 || 1; return () => (x = (x * 1664525 + 1013904223) >>> 0) / 4294967296; }
+      function buildSim() {
+        const W = cv.clientWidth, H = cv.clientHeight, rnd = seedRand(1337);
+        const apps = state.filtered, ids = new Set(apps.map((a) => a.id));
+        const maxB = Math.max(1, ...apps.map((a) => a.bytes));
+        const nodes = apps.map((a, i) => {
+          const ang = (i / Math.max(1, apps.length)) * Math.PI * 2;
+          return { rec: a, x: W / 2 + Math.cos(ang) * (120 + rnd() * 60), y: H / 2 + Math.sin(ang) * (120 + rnd() * 60),
+            vx: 0, vy: 0, r: Math.max(6, Math.min(30, 6 + Math.sqrt(a.bytes / maxB) * 22)), color: a.accent || css("--accent") };
+        });
+        const byId = new Map(nodes.map((n) => [n.rec.id, n]));
+        const edges = state.model.graph.edges.filter((e) => ids.has(e.a) && ids.has(e.b)).map((e) => ({ a: byId.get(e.a), b: byId.get(e.b), kind: e.kind, w: e.weight }));
+        sim = { nodes, edges, W, H, ticks: 0 };
+      }
+      function step() {
+        const { nodes, edges, W, H } = sim;
+        for (const n of nodes) { n.fx = (W / 2 - n.x) * 0.012; n.fy = (H / 2 - n.y) * 0.012; }
+        for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i], b = nodes[j]; let dx = a.x - b.x, dy = a.y - b.y; let d2 = dx * dx + dy * dy || 0.01;
+          const f = 2600 / d2, d = Math.sqrt(d2); const ux = dx / d, uy = dy / d;
+          a.fx += ux * f; a.fy += uy * f; b.fx -= ux * f; b.fy -= uy * f;
+        }
+        for (const e of edges) {
+          const L = e.kind === "dep" ? 78 : 130; let dx = e.b.x - e.a.x, dy = e.b.y - e.a.y; const d = Math.hypot(dx, dy) || 0.01;
+          const k = (e.kind === "dep" ? 0.02 : 0.008) * Math.min(3, e.w); const f = k * (d - L); const ux = dx / d, uy = dy / d;
+          e.a.fx += ux * f; e.a.fy += uy * f; e.b.fx -= ux * f; e.b.fy -= uy * f;
+        }
+        for (const n of nodes) { n.vx = (n.vx + n.fx) * 0.84; n.vy = (n.vy + n.fy) * 0.84;
+          n.x = Math.max(n.r + 4, Math.min(W - n.r - 4, n.x + n.vx)); n.y = Math.max(n.r + 4, Math.min(H - n.r - 4, n.y + n.vy)); }
+        sim.ticks++;
+      }
+      function draw() {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        if (cv.width !== cv.clientWidth * dpr) { cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr; }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, sim.W, sim.H);
+        const depC = css("--accent"), dimC = css("--dim"), inkC = css("--ink");
+        for (const e of sim.edges) {
+          ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y);
+          if (e.kind === "dep") { ctx.strokeStyle = depC; ctx.globalAlpha = 0.16 + Math.min(0.4, e.w * 0.1); ctx.setLineDash([]); ctx.lineWidth = Math.min(4, 0.7 + e.w * 0.5); }
+          else { ctx.strokeStyle = dimC; ctx.globalAlpha = 0.22; ctx.setLineDash([3, 4]); ctx.lineWidth = 1; }
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.setLineDash([]);
+        for (const n of sim.nodes) {
+          ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fillStyle = n.color;
+          ctx.globalAlpha = (hover && hover !== n) ? 0.45 : 1; ctx.fill();
+          if (hover === n) { ctx.lineWidth = 2; ctx.strokeStyle = inkC; ctx.stroke(); }
+          ctx.globalAlpha = 1;
+          if (n.r >= 13 || hover === n) { ctx.fillStyle = inkC; ctx.font = "11px ui-monospace, monospace"; ctx.textAlign = "center";
+            ctx.fillText(n.rec.name, n.x, n.y + n.r + 12); }
+        }
+      }
+      function loop() { if (state.view !== "map") return; if (sim.ticks < 600) step(); draw(); raf = requestAnimationFrame(loop); }
+      function renderMap(rebuild) { if (rebuild || !sim) buildSim(); cancelAnimationFrame(raf); loop(); }
+      function nodeAt(mx, my) { for (let i = sim.nodes.length - 1; i >= 0; i--) { const n = sim.nodes[i]; if ((mx - n.x) ** 2 + (my - n.y) ** 2 <= (n.r + 4) ** 2) return n; } return null; }
+      cv.addEventListener("pointermove", (ev) => {
+        if (!sim) return; const r = cv.getBoundingClientRect(); const n = nodeAt(ev.clientX - r.left, ev.clientY - r.top);
+        hover = n; const tip = $("#tip");
+        if (n) { cv.style.cursor = "pointer"; tip.style.display = "block"; tip.style.left = (ev.clientX - r.left + 12) + "px"; tip.style.top = (ev.clientY - r.top + 12) + "px";
+          tip.innerHTML = `<b>${esc(n.rec.name)}</b><br>${fmtBytes(n.rec.bytes)} · ${n.rec.files} files · ${n.rec.specCount} specs`; }
+        else { cv.style.cursor = "default"; tip.style.display = "none"; }
+      });
+      cv.addEventListener("pointerleave", () => { hover = null; $("#tip").style.display = "none"; });
+      cv.addEventListener("click", (ev) => { if (!sim) return; const r = cv.getBoundingClientRect(); const n = nodeAt(ev.clientX - r.left, ev.clientY - r.top); if (n) openDetail(n.rec); });
+
+      // ── detail panel ────────────────────────────────────────────────────────────
+      function closeDetail() { $("#detail").classList.remove("open"); $("#detail").setAttribute("aria-hidden", "true"); $("#scrim").style.display = "none"; }
+      $("#scrim").onclick = closeDetail;
+      async function openDetail(rec) {
+        const d = $("#detail"); const slug = slugOf(rec.id, rec.name);
+        const launch = "../" + rec.dir + "/index.html";
+        const doorRow = (nm, on, href, extra) => `<div class="doorrow"><span class="nm">${nm}</span><span class="st ${on ? "on" : "off"}">${on ? "● present" : "○ "}</span>${on && href ? ` <a href="${href}" target="_blank" rel="noopener" style="margin-left:auto">${extra || "open"}</a>` : `<span style="margin-left:auto;color:var(--dim)">${extra || ""}</span>`}</div>`;
+        d.innerHTML =
+          `<div class="dh"><span class="dot" style="background:${esc(rec.accent || "var(--accent)")}"></span>` +
+          `<div class="t"><h2>${esc(rec.name)}</h2><div class="meta">${esc(rec.id)} · v${esc(rec.version)} · ${esc(rec.category)}</div></div>` +
+          `<button class="x" id="dx">✕</button></div>` +
+          `<div class="body">` +
+            `<div class="sec"><h3>Identity did:holo (Law L5)</h3><div class="idbox"><div class="kfull">${esc(rec.root)}</div>` +
+              `<div class="verline" id="ver"><span class="tick dim">⟳</span> re-deriving ${rec.closure.length} closure objects in your tab…</div></div></div>` +
+            `<div class="sec"><p style="margin:0;color:var(--dim)">${esc(rec.summary)}</p></div>` +
+            `<div class="sec"><div class="statgrid">` +
+              `<div class="stat"><div class="lab">closure</div><div class="val">${rec.files} files</div></div>` +
+              `<div class="stat"><div class="lab">size</div><div class="val">${fmtBytes(rec.bytes)}</div></div>` +
+              `<div class="stat"><div class="lab">own / shared</div><div class="val">${rec.ownFiles} / ${rec.sharedFiles}</div></div>` +
+              `<div class="stat"><div class="lab">apps-witness</div><div class="val">${rec.witnessOk === true ? "✓ green" : rec.witnessOk === false ? "✗ red" : ""}</div></div>` +
+            `</div></div>` +
+            (rec.specs.length ? `<div class="sec"><h3>Conformance ${rec.specCount} spec${rec.specCount === 1 ? "" : "s"}</h3><div class="tags">${rec.specs.map((s) => `<span class="tag">${esc(s)}</span>`).join("")}</div></div>` : "") +
+            `<div class="sec"><h3>Agent doors</h3>` +
+              doorRow("NANDA", rec.doors.nanda.present, `nanda/agents/${slug}.json`, rec.doors.nanda.agent_name || "") +
+              doorRow("A2A", rec.doors.a2a.present, `a2a/cards/${slug}.json`, "AgentCard") +
+              doorRow("Skills", rec.doors.skills.present, "skills/index.jsonld", "OS-wide") +
+              doorRow("MCP", true, ".well-known/mcp.json", rec.doors.mcp.tools.length ? rec.doors.mcp.tools.join(", ") : "resolve_object") +
+            `</div>` +
+            `<div class="sec"><h3>Provenance</h3><div class="tags">` +
+              (rec.developer ? `<span class="tag">dev: ${esc(rec.developer.name || rec.developer.id)}</span>` : "") +
+              (rec.license ? `<span class="tag">${esc(rec.license)}</span>` : "") +
+              (rec.homepage ? `<a class="tag" href="${esc(rec.homepage)}" target="_blank" rel="noopener">homepage ↗</a>` : "") +
+            `</div></div>` +
+            `<details class="clo"><summary>closure ${rec.closure.length} content-addressed objects</summary>` +
+              `<table class="clo"><thead><tr><th>path</th><th>κ</th><th>bytes</th><th></th></tr></thead><tbody id="clob">` +
+              rec.closure.map((e, i) => `<tr><td class="p" title="${esc(e.path)}">${esc(e.path)}</td><td class="k">${esc((e.kappa || "").split(":").pop().slice(0, 8))}</td><td>${e.bytes}</td><td id="cl${i}"></td></tr>`).join("") +
+              `</tbody></table></details>` +
+            `<div class="sec"><a class="btn cta" href="${esc(launch)}" target="_blank" rel="noopener"><holo-icon name="external-link" set="tabler" size="15"></holo-icon> Launch ${esc(rec.name)}</a></div>` +
+          `</div>`;
+        d.classList.add("open"); d.setAttribute("aria-hidden", "false"); $("#scrim").style.display = "block";
+        $("#dx").onclick = closeDetail;
+        // live re-derivation
+        const v = await verifyApp(rec); const line = $("#ver");
+        if (line) line.innerHTML = v.reDerives
+          ? `<span class="tick ok">✓</span> re-derives all ${v.total} objects hash to their κ (Law L5)`
+          : `<span class="tick bad">✗</span> ${v.ok}/${v.total} re-derive${v.bad.length ? " mismatch: " + esc(v.bad[0]) : ""}`;
+        rec.closure.forEach((e, i) => { const cell = $("#cl" + i); if (cell) cell.innerHTML = v.bad.includes(e.path) ? '<span class="tick bad">✗</span>' : '<span class="tick ok">✓</span>'; });
+      }
+
+      // ── stats bar + self verify ──────────────────────────────────────────────────
+      function renderStats() {
+        const s = state.model.stats;
+        $("#stats").innerHTML =
+          `<span class="chip"><b>${s.holospaces}</b> holospaces</span>` +
+          `<span class="chip"><b>${fmtBytes(s.totalBytes)}</b> mapped</span>` +
+          `<span class="chip"><b>${s.totalSpecs}</b> specs</span>` +
+          (s.witnessedGreenPct != null ? `<span class="chip"><b>${s.witnessedGreenPct}%</b> witnessed</span>` : "") +
+          `<span class="chip" title="agent doors: NANDA · A2A · Skills · MCP tools">doors <b>${s.doors.nanda}</b>·<b>${s.doors.a2a}</b>·<b>${s.doors.skills}</b>·<b>${s.doors.mcp}</b></span>`;
+        const cats = [...new Set(state.model.apps.map((a) => a.category))].sort();
+        $("#cat").innerHTML = `<option value="">All categories</option>` + cats.map((c) => `<option value="${esc(c)}">${esc(c.replace(/Application$/, "") || c)}</option>`).join("");
+      }
+      async function selfVerify() {
+        const me = state.model.apps.find((a) => a.id === "org.hologram.HoloAtlas") || state.model.apps.find((a) => a.dir === "atlas");
+        if (!me) { $("#selfk").textContent = "did:holo:… (atlas not yet locked)"; $("#selfv").textContent = ""; return; }
+        $("#selfk").textContent = short(me.root); $("#selfk").title = me.root + " click to copy";
+        $("#selfk").onclick = () => navigator.clipboard && navigator.clipboard.writeText(me.root);
+        const v = await verifyApp(me); const pill = $("#selfv");
+        pill.className = "pill " + (v.reDerives ? "ok" : "bad");
+        pill.innerHTML = v.reDerives ? `✓ self-verifies (${v.total} objects)` : `✗ ${v.ok}/${v.total} re-derive`;
+      }
+      async function showSealed() {
+        const doc = await tryJSON("atlas/index.uor.json");
+        $("#sealed").innerHTML = doc && doc.root ? `sealed atlas κ: <b>${esc(short(doc.root))}</b>` : "";
+      }
+
+      // ── wire up ──────────────────────────────────────────────────────────────────
+      function setView(v) {
+        state.view = v;
+        for (const b of document.querySelectorAll("#view button")) b.classList.toggle("on", b.dataset.v === v);
+        $("#map").style.display = v === "map" ? "block" : "none";
+        $("#legend").style.display = v === "map" ? "flex" : "none";
+        $("#grid").style.display = v === "grid" ? "grid" : "none";
+        if (v === "map") renderMap(true); else { cancelAnimationFrame(raf); renderGrid(); }
+      }
+      document.querySelector("#view").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setView(b.dataset.v); });
+      $("#q").addEventListener("input", (e) => { state.q = e.target.value; applyFilters(); });
+      $("#sort").addEventListener("change", (e) => { state.sort = e.target.value; applyFilters(); });
+      $("#cat").addEventListener("change", (e) => { state.cat = e.target.value; applyFilters(); });
+      $("#door").addEventListener("change", (e) => { state.door = e.target.value; applyFilters(); });
+      $("#vonly").addEventListener("change", (e) => { state.vonly = e.target.checked; applyFilters(); });
+      window.addEventListener("resize", () => { if (state.view === "map") renderMap(true); });
+      window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+
+      (async function main() {
+        try {
+          await ready();
+          const sources = await discover();
+          state.model = window.HoloAtlas.atlasModel(sources);
+          $("#boot").style.display = "none";
+          renderStats(); applyFilters(); setView("map");
+          selfVerify(); showSealed();
+        } catch (err) {
+          $("#boot").innerHTML = "could not load the atlas " + esc(err.message);
+        }
+      })();
+    </script>
+  </body>
+</html>

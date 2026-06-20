@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>atlas 96 the 12,288-cell boundary</title>
+<style>
+  /* threejs.org-format: a lean left rail over a full-bleed navigable hero. Very small surface. */
+  :root{ --bg:#05070b; --ink:#e6edf3; --dim:#79828d; --accent:#46d3c5; --gold:#e8a93c; --line:#1c242e; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); overflow:hidden;
+    font:var(--holo-text-sm, 1rem)/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+  canvas#gl.grabbing{ cursor:grabbing; }
+  a{ color:var(--accent); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  /* ── the rail ── */
+  #rail{ position:fixed; z-index:5; top:0; left:0; height:100%; width:300px; padding:36px 34px;
+    display:flex; flex-direction:column; gap:26px; pointer-events:none; }
+  #rail > *{ pointer-events:auto; }
+  #rail h1{ margin:0; font-size:30px; font-weight:300; letter-spacing:.5px; }
+  #rail h1 b{ color:var(--accent); font-weight:600; }
+  #rev{ color:var(--dim); font-size:var(--holo-text-sm, 1rem); margin-top:4px; display:flex; align-items:center; gap:7px; }
+  #rev .dot{ width:7px; height:7px; border-radius:50%; background:var(--dim); flex:none; }
+  #rev .dot.ok{ background:#3fb950; box-shadow:0 0 0 3px rgba(63,185,80,.15); }
+  #rail nav{ display:flex; flex-direction:column; gap:22px; }
+  #rail nav h2{ margin:0 0 7px; font-size:var(--holo-text-sm, 1rem); font-weight:600; color:var(--dim);
+    text-transform:uppercase; letter-spacing:.14em; }
+  #rail nav ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+  #rail nav li small{ color:var(--dim); }
+  #foot{ margin-top:auto; color:var(--dim); font-size:var(--holo-text-sm, 1rem); }
+  .modes a{ cursor:pointer; color:var(--dim); }
+  .modes a.on{ color:var(--accent); font-weight:600; }
+  #legend{ width:100%; height:8px; border-radius:4px; display:block; margin:9px 0 7px; }
+  #tuneRow input{ width:100%; accent-color:var(--accent); margin:0; }
+  #tip i.chip{ display:inline-block; width:9px; height:9px; border-radius:2px; position:relative; top:1px; }
+  /* ── hints + tooltip ── */
+  #hint{ position:fixed; z-index:5; right:22px; bottom:18px; color:var(--dim);
+    font-size:var(--holo-text-sm, 1rem); text-align:right; pointer-events:none; transition:opacity 1s; }
+  #tip{ position:fixed; z-index:6; display:none; background:#0d1117ee; border:1px solid var(--line);
+    border-radius:8px; padding:5px 10px; font-size:var(--holo-text-sm, 1rem); pointer-events:none; }
+  #tip .k{ color:var(--dim); }
+  @media (max-width:760px){
+    #rail{ width:100%; height:auto; padding:22px 22px 0; background:linear-gradient(#05070be8,#05070b00); gap:14px; }
+    #rail nav{ flex-direction:row; flex-wrap:wrap; gap:18px; }
+    #foot{ display:none; }
+  }
+  @media (prefers-reduced-motion: reduce){ #hint{ transition:none; } }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="rail">
+  <div>
+    <h1>atlas <b>96</b></h1>
+    <div id="rev"><span class="dot" id="revDot"></span><span class="mono" id="revTxt">deriving…</span></div>
+  </div>
+  <nav>
+    <div>
+      <h2>Explore</h2>
+      <ul>
+        <li><a href="resonator.html">Resonator</a> <small> play the boundary</small></li>
+        <li><a href="resonator.html?proof=1">Proof</a> <small> the decidable answer</small></li>
+        <li><a href="resonator.html?dim=4">4D</a> <small> the Clifford torus in S³</small></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Object</h2>
+      <ul>
+        <li><a href="atlas-12288.uor.jsonld">Sealed atlas</a> <small> OWL · SKOS · PROV-O</small></li>
+        <li><a href="resonator.receipt.jsonld">Structure receipt</a> <small> f(κ), sealed</small></li>
+        <li><a href="index.html">Holospace</a> <small> the full card</small></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Source</h2>
+      <ul>
+        <li><a href="https://github.com/UOR-Foundation/atlas-12288" target="_blank" rel="noopener">UOR-Foundation/atlas-12288</a></li>
+        <li><small class="mono">@ aef42a6 · vendored verbatim · MIT</small></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Spectrum</h2>
+      <ul class="modes" id="palModes">
+        <li><a data-m="spectral">spectral</a> · <a data-m="blend">blend</a> · <a data-m="ember">ember</a></li>
+        <li><small>R96 → 96-EDO → the visible octave → CIE 1931</small></li>
+      </ul>
+      <canvas id="legend" width="192" height="10"></canvas>
+      <div id="tuneRow">
+        <input type="range" id="tune" min="0" max="0.999" step="0.001" value="0" aria-label="tuning of class 0">
+        <div id="tuneTxt" class="mono" style="color:var(--dim)"></div>
+      </div>
+    </div>
+  </nav>
+  <div id="foot">T² = ℤ₄₈ × ℤ₂₅₆ · 12,288 cells · 96 resonance classes<br>every artifact is a content address<br>
+    <span id="resline" class="mono"></span></div>
+</div>
+
+<div id="hint">drag to orbit · scroll to zoom · click for a wave</div>
+<div id="tip"></div>
+
+<script type="module">
+// atlas 96 — the showcase. The SAME content-addressed structure as the Resonator (shared OPFS
+// κ-cache → O(1) rebind), rendered as lean as it gets: geometry uploads ONCE, every motion
+// (orbit · breathing · the click-wave) lives in the vertex shader. Per-frame CPU = uniforms.
+import { verify, sha256hex } from "./forge/holo-object.js";
+import * as AG from "./resonator-geometry.js";
+import * as SP from "./resonator-spectrum.js";
+import * as FD from "./resonator-detail.js";
+
+const $ = (id) => document.getElementById(id);
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const kOf = async (u8) => "did:holo:sha256:" + await sha256hex(u8);
+const N = AG.CELLS, TAU = Math.PI * 2;
+
+// ── the structure: rebind O(1) by κ (shared cache with the Resonator), else derive ──
+const [atlas, receipt] = await Promise.all([
+  fetch("atlas-12288.uor.jsonld").then((r) => r.json()),
+  fetch("resonator.receipt.jsonld").then((r) => r.json()),
+]);
+const structKappa = receipt["prov:generated"]["@id"], structHex = structKappa.split(":").pop();
+let dna = null;
+try { const d = await navigator.storage.getDirectory();
+  const f = await d.getFileHandle(`resonator-${structHex}.dna`);
+  const c = new Uint8Array(await (await f.getFile()).arrayBuffer());
+  if ((await kOf(c)) === structKappa) dna = c;
+} catch {}
+if (!dna) {
+  dna = await AG.deriveDNA(atlas.id, (f) => $("revTxt").textContent = `deriving ${Math.round(f * 100)}%`);
+  try { const d = await navigator.storage.getDirectory();
+    const f = await d.getFileHandle(`resonator-${structHex}.dna`, { create: true });
+    const w = await f.createWritable(); await w.write(dna); await w.close(); } catch {}
+}
+const ok = (await verify(atlas)) && (await kOf(dna)) === structKappa;
+$("revDot").className = "dot " + (ok ? "ok" : "");
+$("revTxt").textContent = (ok ? "" : "✗ ") + structKappa.slice(16, 34) + "… · re-derives " + (ok ? "✓" : "✗");
+
+// ── static geometry: the 3D torus rest positions + the weave (uploaded once) ──
+const projector = AG.makeProjector(dna);
+const rest = new Float32Array(N * 3);
+projector(rest, 3, 0, 0, true);
+const { render: edges } = AG.buildEdges(dna);
+const E = edges.length / 2;
+// fiber-level detail: every fiber curved through 3 control points read from the SEALED bytes
+// 5/6/7 of its endpoints (see resonator-detail.js) — more detail, zero new derivation
+const fiber = FD.buildFiberGeometry(rest, edges, dna);
+const SEGS = E * FD.SUBDIV;
+// ── color: the rooted spectrum (see resonator-spectrum.js) with the fiber-study 'ember' look
+//    as an alternative. The only free parameter is the TUNING of class 0 — a circle rotation.
+const colR = new Float32Array(N), colG = new Float32Array(N), colB = new Float32Array(N), nSize = new Float32Array(N);
+const PAL_KEY = "atlas96.palette";
+let pal = { mode: "spectral", baseHz: 220 };
+try { pal = { ...pal, ...JSON.parse(localStorage.getItem(PAL_KEY) || "{}") }; } catch {}
+let classRGB = [];
+function buildColors() {
+  classRGB = Array.from({ length: 96 }, (_, c) => SP.classColor(c, pal.baseHz));
+  const w = pal.mode === "spectral" ? 1 : pal.mode === "blend" ? 0.55 : 0;
+  for (let i = 0; i < N; i++) {
+    const p = i >> 8, b = i & 0xff, o = i * 8, c = b % 96;
+    const warm = Math.pow((1 + Math.cos(TAU * p / AG.PAGES)) / 2, 1.25);
+    const lit = 0.62 + (dna[o + 3] / 255) * 0.55;
+    const tint = (c / 96 - 0.5) * 0.10;
+    const er = (0.92 + warm * 0.10) * lit, eg = (0.94 - warm * 0.27 + tint * 0.4) * lit, eb = (1.00 - warm * 0.80 - tint) * lit;
+    const [sr, sg, sb] = classRGB[c].rgb;
+    colR[i] = er * (1 - w) + sr * lit * 1.15 * w;
+    colG[i] = eg * (1 - w) + sg * lit * 1.15 * w;
+    colB[i] = eb * (1 - w) + sb * lit * 1.15 * w;
+    nSize[i] = 1.6 + (dna[o + 3] / 255) * 1.4;
+    if (p === 0 && b < 96) {                              // the 96 class-representative beads
+      if (w > 0) { colR[i] = sr * 1.25; colG[i] = sg * 1.25; colB[i] = sb * 1.25; }
+      else { colR[i] = 0.55; colG[i] = 1.05; colB[i] = 1.0; }
+      nSize[i] = 4.6;
+    }
+  }
+}
+buildColors();
+
+// ── WebGL2, two static instanced buffers, all motion in the shader ──
+const cv = $("gl"), gl = cv.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "high-performance" });
+if (!gl) { $("revTxt").textContent = "WebGL2 unavailable"; throw new Error("no webgl2"); }
+// resolution: start at the display's native ratio, then SUPERSAMPLE while the GPU has headroom
+// (frame-time governed), up to 4× or the hardware's framebuffer limit — max detail it can carry
+const maxRB = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), gl.getParameter(gl.MAX_TEXTURE_SIZE));
+let sc = Math.min(devicePixelRatio || 1, 2);
+let VW = 0, VH = 0, frameEMA = 16.7;
+const scMax = () => Math.min(4, maxRB / Math.max(innerWidth, innerHeight));
+function resize() { sc = Math.min(sc, scMax());
+  VW = cv.width = innerWidth * sc | 0; VH = cv.height = innerHeight * sc | 0; gl.viewport(0, 0, VW, VH); }
+addEventListener("resize", resize); resize();
+
+const MOVE = `
+uniform float uT; uniform vec4 uRip;          // ripple: origin.xyz, t0 (s); uRip.w<0 ⇒ none
+uniform float uRM;
+vec3 move(vec3 P, float ph){
+  vec3 q = P * (1.0 + (1.0 - uRM) * 0.004 * sin(uT * 0.6 + ph * 6.28318));
+  if (uRip.w >= 0.0) {
+    float d = distance(P, uRip.xyz);
+    float age = uT - uRip.w;
+    float w = sin(d * 0.16 - age * 9.0) * exp(-d * 0.014) * exp(-age * 1.1) * 9.0;
+    q += normalize(P + vec3(1e-4)) * w;
+  }
+  return q;
+}`;
+const LINE_VS = `#version 300 es
+layout(location=0) in vec3 aA; layout(location=1) in vec3 aB;
+layout(location=2) in vec3 aCol; layout(location=3) in vec2 aWP;   // width · phase
+uniform mat4 uMVP; uniform vec2 uVP; uniform float uWMul;
+out vec3 vCol; out float vY; out float vW;
+const vec2 C[6]=vec2[6](vec2(0.,-1.),vec2(1.,-1.),vec2(1.,1.),vec2(0.,-1.),vec2(1.,1.),vec2(0.,1.));
+${MOVE}
+void main(){
+  vec2 c=C[gl_VertexID];
+  vec3 A=move(aA,aWP.y), B=move(aB,aWP.y);
+  vec4 ca=uMVP*vec4(A,1.), cb=uMVP*vec4(B,1.);
+  if(ca.w<0.05&&cb.w<0.05){ gl_Position=vec4(0.,0.,-3.,1.); vCol=vec3(0.); vY=1.; vW=0.; return; }
+  ca.w=max(ca.w,0.05); cb.w=max(cb.w,0.05);
+  vec2 sa=ca.xy/ca.w*uVP*0.5, sb=cb.xy/cb.w*uVP*0.5;
+  vec2 d=sb-sa; float L=max(length(d),1e-4); vec2 nrm=vec2(-d.y,d.x)/L;
+  float lit = length(A-aA)+length(B-aB);                  // the wave lights the fibers it moves
+  vec4 cc=mix(ca,cb,c.x);
+  cc.xy+=nrm*(c.y*aWP.x*uWMul)/(uVP*0.5)*cc.w;
+  gl_Position=cc; vCol=aCol*(1.0+lit*0.35)+vec3(0.4,0.33,0.2)*lit*0.12; vY=c.y; vW=lit;
+}`;
+const LINE_FS = `#version 300 es
+precision highp float;
+in vec3 vCol; in float vY; in float vW; out vec4 o;
+uniform float uAMul;
+void main(){ float t=1.0-abs(vY); o=vec4(vCol*(uAMul*t*t),1.0); }`;
+const SPR_VS = `#version 300 es
+layout(location=0) in vec3 aP; layout(location=1) in vec3 aCol; layout(location=2) in vec2 aSP;  // size · phase
+uniform mat4 uMVP; uniform vec2 uVP; uniform float uSMul;
+out vec3 vCol; out vec2 vUV;
+const vec2 C[6]=vec2[6](vec2(-1.,-1.),vec2(1.,-1.),vec2(1.,1.),vec2(-1.,-1.),vec2(1.,1.),vec2(-1.,1.));
+${MOVE}
+void main(){
+  vec2 c=C[gl_VertexID];
+  vec4 cc=uMVP*vec4(move(aP,aSP.y),1.);
+  if(cc.w<0.05){ gl_Position=vec4(0.,0.,-3.,1.); vCol=vec3(0.); vUV=vec2(2.); return; }
+  cc.xy+=c*(aSP.x*uSMul)/(uVP*0.5)*cc.w;
+  gl_Position=cc; vCol=aCol; vUV=c;
+}`;
+const SPR_FS = `#version 300 es
+precision highp float;
+in vec3 vCol; in vec2 vUV; out vec4 o;
+void main(){ float d=length(vUV); float a=pow(max(0.,1.-d),2.2)+pow(max(0.,1.-d*1.6),6.)*0.9; o=vec4(vCol*a,1.0); }`;
+const mk = (vs, fs) => { const c = (t, s) => { const h = gl.createShader(t); gl.shaderSource(h, s); gl.compileShader(h);
+    if (!gl.getShaderParameter(h, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(h)); return h; };
+  const pr = gl.createProgram(); gl.attachShader(pr, c(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, c(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); return pr; };
+const lineProg = mk(LINE_VS, LINE_FS), sprProg = mk(SPR_VS, SPR_FS);
+gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+
+const lineVAO = gl.createVertexArray(), lineBuf = gl.createBuffer();
+gl.bindVertexArray(lineVAO); gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
+gl.bufferData(gl.ARRAY_BUFFER, SEGS * 11 * 4, gl.STATIC_DRAW);
+for (const [loc, sz, off] of [[0, 3, 0], [1, 3, 12], [2, 3, 24], [3, 2, 36]]) {
+  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, sz, gl.FLOAT, false, 44, off); gl.vertexAttribDivisor(loc, 1); }
+const sprVAO = gl.createVertexArray(), sprBuf = gl.createBuffer();
+gl.bindVertexArray(sprVAO); gl.bindBuffer(gl.ARRAY_BUFFER, sprBuf);
+gl.bufferData(gl.ARRAY_BUFFER, N * 8 * 4, gl.STATIC_DRAW);
+for (const [loc, sz, off] of [[0, 3, 0], [1, 3, 12], [2, 2, 24]]) {
+  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, sz, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(loc, 1); }
+gl.bindVertexArray(null);
+function uploadBuffers() {                                 // geometry static; re-runs only on palette change
+  const d = new Float32Array(SEGS * 11);                   // aA aB col width phase — per curved sub-segment
+  for (let s = 0; s < SEGS; s++) {
+    const e = fiber.parent[s], a = edges[e * 2], b = edges[e * 2 + 1], o = s * 11, q = s * 6;
+    d[o] = fiber.segs[q]; d[o + 1] = fiber.segs[q + 1]; d[o + 2] = fiber.segs[q + 2];
+    d[o + 3] = fiber.segs[q + 3]; d[o + 4] = fiber.segs[q + 4]; d[o + 5] = fiber.segs[q + 5];
+    d[o + 6] = (colR[a] + colR[b]) * 0.5; d[o + 7] = (colG[a] + colG[b]) * 0.5; d[o + 8] = (colB[a] + colB[b]) * 0.5;
+    const taper = 0.8 + 0.45 * Math.sin(Math.PI * ((s % FD.SUBDIV) + 0.5) / FD.SUBDIV);
+    d[o + 9] = (0.8 + ((dna[a * 8 + 3] + dna[b * 8 + 3]) / 510) * 1.5) * taper;
+    d[o + 10] = dna[a * 8 + 4] / 255;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d);
+  const s = new Float32Array(N * 8);
+  for (let i = 0; i < N; i++) { const o = i * 8;
+    s[o] = rest[i * 3]; s[o + 1] = rest[i * 3 + 1]; s[o + 2] = rest[i * 3 + 2];
+    s[o + 3] = colR[i]; s[o + 4] = colG[i]; s[o + 5] = colB[i];
+    s[o + 6] = nSize[i]; s[o + 7] = dna[i * 8 + 4] / 255; }
+  gl.bindBuffer(gl.ARRAY_BUFFER, sprBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, s);
+}
+
+// ── the palette controls: rotate the spectrum by retuning class 0; the math does the rest ──
+function drawLegend() {
+  const c2 = $("legend").getContext("2d");
+  for (let c = 0; c < 96; c++) { const [r, g, b] = classRGB[c].rgb;
+    c2.fillStyle = `rgb(${r * 255 | 0},${g * 255 | 0},${b * 255 | 0})`;
+    c2.fillRect(c * 2, 0, 2, 10); }
+}
+function tuneLabel() { const k = classRGB[0];
+  $("tuneTxt").textContent = `R96[0] ≙ ${k.audioHz.toFixed(1)} Hz → ${k.nm.toFixed(1)} nm (${k.thz.toFixed(1)} THz)`; }
+function applyPalette(save = true) {
+  buildColors(); uploadBuffers(); drawLegend(); tuneLabel();
+  for (const a of document.querySelectorAll("#palModes a")) a.classList.toggle("on", a.dataset.m === pal.mode);
+  $("tuneRow").style.opacity = pal.mode === "ember" ? 0.35 : 1;
+  if (save) try { localStorage.setItem(PAL_KEY, JSON.stringify(pal)); } catch {}
+}
+$("palModes").addEventListener("click", (e) => { const a = e.target.closest("a[data-m]"); if (!a) return;
+  pal.mode = a.dataset.m; applyPalette(); });
+$("tune").value = String((((Math.log2(pal.baseHz / 220)) % 1) + 1) % 1);
+$("tune").addEventListener("input", (e) => { pal.baseHz = +(220 * Math.pow(2, +e.target.value)).toFixed(2); applyPalette(); });
+applyPalette(false);
+
+// ── camera (the hero sits right of the rail) ──
+const cam = { yaw: 0.6, pitch: 0.42, dist: 430 };
+let camPos = [0, 0, 0], fwd = [0, 0, -1], right = [1, 0, 0], up = [0, 1, 0];
+const MVP = new Float32Array(16);
+const norm3 = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+function updCamera() {
+  const railFrac = innerWidth > 760 ? 150 / innerWidth : 0;     // shift the torus off the rail
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  camPos = [cam.dist * cp * sy, cam.dist * sp, cam.dist * cp * cy];
+  const f = fwd = norm3([-camPos[0], -camPos[1], -camPos[2]]);
+  right = norm3(cross(f, [0, 1, 0])); up = cross(right, f);
+  const aspect = VW / VH, t = 1 / Math.tan(25 * Math.PI / 180), near = 4, far = 4000;
+  const R = right, U = up, e = camPos;
+  const V = [R[0], U[0], -f[0], 0, R[1], U[1], -f[1], 0, R[2], U[2], -f[2], 0,
+             -(R[0] * e[0] + R[1] * e[1] + R[2] * e[2]), -(U[0] * e[0] + U[1] * e[1] + U[2] * e[2]),
+             f[0] * e[0] + f[1] * e[1] + f[2] * e[2], 1];
+  const P = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, 2 * far * near / (near - far), 0];
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    MVP[c * 4 + r] = P[r] * V[c * 4] + P[4 + r] * V[c * 4 + 1] + P[8 + r] * V[c * 4 + 2] + P[12 + r] * V[c * 4 + 3];
+  MVP[12] += railFrac * 2 * MVP[15]; MVP[13] += railFrac * 2 * MVP[3];   // ndc x offset
+}
+function projectNode(i) {
+  const x = rest[i * 3], y = rest[i * 3 + 1], z = rest[i * 3 + 2];
+  const cw = MVP[3] * x + MVP[7] * y + MVP[11] * z + MVP[15];
+  if (cw < 0.05) return null;
+  return [(((MVP[0] * x + MVP[4] * y + MVP[8] * z + MVP[12]) / cw) + 1) / 2 * innerWidth,
+          (1 - (MVP[1] * x + MVP[5] * y + MVP[9] * z + MVP[13]) / cw) / 2 * innerHeight];
+}
+
+// ── navigation: orbit · zoom · hover · click-wave ──
+let dragging = false, lastX = 0, lastY = 0, lastMove = 0, ripple = [0, 0, 0, -1];
+cv.addEventListener("pointerdown", (e) => { dragging = true; cv.classList.add("grabbing");
+  cv.setPointerCapture(e.pointerId); lastX = e.clientX; lastY = e.clientY; lastMove = performance.now(); });
+cv.addEventListener("pointermove", (e) => {
+  lastMove = performance.now();
+  if (dragging) { cam.yaw -= (e.clientX - lastX) * 0.005;
+    cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + (e.clientY - lastY) * 0.004));
+    lastX = e.clientX; lastY = e.clientY; }
+  else hover(e.clientX, e.clientY);
+});
+const endDrag = () => { dragging = false; cv.classList.remove("grabbing"); };
+cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
+cv.addEventListener("wheel", (e) => { e.preventDefault(); lastMove = performance.now();
+  cam.dist = Math.max(220, Math.min(1100, cam.dist * Math.exp(e.deltaY * 0.0011))); }, { passive: false });
+cv.addEventListener("click", (e) => {                      // a wave from the nearest cell
+  const i = pick(e.clientX, e.clientY, 60); if (i < 0) return;
+  ripple = [rest[i * 3], rest[i * 3 + 1], rest[i * 3 + 2], performance.now() / 1000];
+});
+function pick(px, py, maxPx) {
+  let best = -1, bd = maxPx * maxPx;
+  for (let i = 0; i < N; i++) { const pr = projectNode(i); if (!pr) continue;
+    const d = (pr[0] - px) ** 2 + (pr[1] - py) ** 2;
+    if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+let lastHover = 0;
+function hover(px, py) {
+  const now = performance.now(); if (now - lastHover < 120) return; lastHover = now;
+  const i = pick(px, py, 20), tip = $("tip");
+  if (i < 0) { tip.style.display = "none"; return; }
+  const p = i >> 8, b = i & 0xff, k = classRGB[b % 96];
+  const chip = `<i class="chip" style="background:rgb(${k.rgb[0] * 255 | 0},${k.rgb[1] * 255 | 0},${k.rgb[2] * 255 | 0})"></i>`;
+  tip.innerHTML = `<span class="mono">Φ(${p},${b})</span> · R96[<b style="color:var(--accent)">${b % 96}</b>] ${chip}
+    <span class="k mono">${k.audioHz.toFixed(1)} Hz ≙ ${k.nm.toFixed(0)} nm</span>`;
+  tip.style.display = "block";
+  tip.style.left = Math.min(innerWidth - 180, px + 14) + "px"; tip.style.top = (py + 12) + "px";
+}
+
+// ── frame: uniforms only ──
+function frame(now) {
+  if (!dragging && !RM && now - lastMove > 2500) cam.yaw += 0.0011;
+  updCamera();
+  gl.clearColor(0.012, 0.02, 0.035, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const t = now / 1000;
+  const setU = (pr) => { gl.useProgram(pr);
+    gl.uniformMatrix4fv(gl.getUniformLocation(pr, "uMVP"), false, MVP);
+    gl.uniform2f(gl.getUniformLocation(pr, "uVP"), VW, VH);
+    gl.uniform1f(gl.getUniformLocation(pr, "uT"), t);
+    gl.uniform4f(gl.getUniformLocation(pr, "uRip"), ripple[0], ripple[1], ripple[2], ripple[3]);
+    gl.uniform1f(gl.getUniformLocation(pr, "uRM"), RM ? 1 : 0); };
+  setU(lineProg); gl.bindVertexArray(lineVAO);
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uWMul"), 5.6 * sc);
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uAMul"), 0.12);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, SEGS);
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uWMul"), 1.7 * sc);
+  gl.uniform1f(gl.getUniformLocation(lineProg, "uAMul"), 1.0);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, SEGS);
+  setU(sprProg); gl.bindVertexArray(sprVAO);
+  gl.uniform1f(gl.getUniformLocation(sprProg, "uSMul"), sc);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, N);
+  gl.bindVertexArray(null);
+  // frame-time-governed supersampling: spend the GPU's real headroom on resolution
+  const dt = Math.min(100, now - lastT); lastT = now;
+  frameEMA = frameEMA * 0.93 + dt * 0.07; frames++;
+  if (frames % 50 === 49) {
+    if (frameEMA < 9 && sc < scMax()) { sc = Math.min(sc * 1.12, scMax()); resize(); }
+    else if (frameEMA > 20 && sc > 0.75) { sc *= 0.85; resize(); }
+  }
+  if (now - lastFps > 800) { lastFps = now;
+    $("resline").textContent = `${cv.width}×${cv.height} · ${Math.round(1000 / Math.max(frameEMA, 1))} fps · ${SEGS.toLocaleString()} fiber segments`; }
+  requestAnimationFrame(frame);
+}
+let lastT = performance.now(), frames = 0, lastFps = 0;
+requestAnimationFrame(frame);
+window.__showcase = { ready: true, ok, cells: N, fibers: E, segments: SEGS, kappa: structKappa,
+  setPalette: (m) => { pal = { ...pal, ...m }; applyPalette(); }, palette: () => ({ ...pal }),
+  classColor: (c) => classRGB[c], res: () => [cv.width, cv.height] };
+</script>
+<!-- Holo UI — upstream canonical UI engine + token contract (ADR-0030/0057). -->
+<link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+<script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+</body>
+</html>

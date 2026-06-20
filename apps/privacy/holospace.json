@@ -1,0 +1,142 @@
+{
+  "$comment": "Holo Privacy the agentprivacy / blades framework (https://github.com/mitchuski/agentprivacy-docs) natively encoded for Hologram OS, expressed entirely in W3C privacy vocabulary (DPV + ODRL + Verifiable Credentials) so it interoperates with existing internet apps and agents. The user is the W3C VC holder / DPV data subject; a delegate agent acts for them but only ever receives minimal, purpose-bound selective disclosures (W3C Verifiable Presentations, IETF SD-JWT pattern), enforced at the agent (MCP) seam. Hand-authored (like apps/terms & apps/liberty) NOT generated from the hub catalog, so tools/gen-app-defs.mjs never touches it. Built by tools/build-app.mjs.",
+  "id": "org.hologram.HoloPrivacy",
+  "name": "Holo Privacy",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication",
+    "prov:Entity"
+  ],
+  "summary": "Control what an AI agent may learn about you minimum disclosure, for a stated purpose, never enough to track you.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "SecurityApplication",
+  "conforms": {
+    "specs": [
+      "holo-privacy",
+      "agent-privacy",
+      "dpv",
+      "odrl",
+      "vc-selective-disclosure",
+      "did-core",
+      "vc-data-integrity"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloPrivacy"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-privacy.js",
+    "holo-theme.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "An agent acting for you needs some data but should never become a surveillance channel."
+    },
+    {
+      "p": "Every disclosure is minimal, bound to a stated purpose, and issued as a signed, verifiable credential you are the data subject."
+    },
+    {
+      "ul": [
+        "Purpose-bound, minimal disclosures",
+        "Signed and verifiable",
+        "You control what each agent sees",
+        "The agent-facing companion to Holo Terms"
+      ]
+    }
+  ],
+  "categories": [
+    "System",
+    "Settings",
+    "Security"
+  ],
+  "keywords": [
+    "privacy",
+    "agent privacy",
+    "dpv",
+    "odrl",
+    "verifiable credentials",
+    "selective disclosure",
+    "sd-jwt",
+    "consent",
+    "data minimisation",
+    "did"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://hologram.os/apps/privacy",
+  "accent": "#2dd4bf",
+  "resources": [
+    {
+      "uri": "privacy/policies.json",
+      "name": "Holo Privacy disclosure policies (UOR)",
+      "type": "odrl:Policy",
+      "description": "The standard disclosure policies (W3C ODRL Sets binding a DPV Purpose to the personal-data categories it may touch): MINIMAL, MINIMAL-VERIFY, CONTACT, IDENTITY, PAYMENT. Each is a content-addressed UOR object carrying its plain-language statement + machine policy and re-derives to its did:holo (Law L5).",
+      "mimeType": "application/json"
+    }
+  ],
+  "tools": [
+    {
+      "name": "disclose_for_purpose",
+      "description": "Produce a W3C Verifiable Presentation that discloses only the personal-data claims the user's standing policy authorizes for a given DPV purpose and recipient (selective disclosure). Returns null if nothing is authorized (default-deny). Args: purpose (dpv:…), recipient, claims:[{category,name}].",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "purpose",
+          "recipient"
+        ]
+      }
+    },
+    {
+      "name": "verify_disclosure",
+      "description": "Verify a W3C Verifiable Presentation against its personal-data commitment: re-derive its content address (Law L5), verify the holder's data-integrity proof, and recompute every disclosed SD-JWT digest. Reports what was disclosed and how much (n of m). Args: presentation, commitment.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "presentation": {
+            "type": "object"
+          },
+          "commitment": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "presentation",
+          "commitment"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Stream Hologram OS</title>
+    <meta name="description" content="Holo Stream OBS Studio, hologram-native: live screen + camera streaming of an isolated holospace, entirely in the browser. Scenes, sources (Display/Window/Holospace/Camera/Mic), an audio mixer, recording to a content-addressed κ clip, and OBS's egress a serverless WebRTC mesh (holo://κ room) plus WHIP. 100% UOR content-addressable: recordings and rooms are their content." />
+    <meta name="holo-app" content="Holo Stream" />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); --acc: var(--holo-accent); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* Thin holospace chrome — identity · κ-address · lifecycle (same vocabulary as siblings). */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6rem; position: relative; z-index: 60;
+        padding: 0.3rem 0.7rem; background: #0d1117; border-bottom: 1px solid #1b2128;
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 600; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: #2dd4bf; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: #3fb950; } #bar .ver.bad { color: #f85149; }
+      #bar .sp { margin-left: auto; }
+      #bar .stat { color: var(--dim); font-variant-numeric: tabular-nums; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid #1b2128;
+        border-radius: 5px; padding: 0.18rem 0.5rem; cursor: pointer; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+
+      #stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #05070a; }
+
+      #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #161b22;
+        border: 1px solid #30363d; border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.85rem; font-size: var(--holo-text-sm, 1rem); opacity: 0;
+        transition: opacity 0.2s; z-index: 2147483003; pointer-events: none; max-width: 90vw; }
+      #toast.show { opacity: 1; }
+
+      @media (max-width: 640px) { #bar { flex-wrap: wrap; gap: 0.35rem 0.5rem; } #bar button { min-height: 40px; } #bar .stat { order: 99; flex-basis: 100%; max-width: 96vw; } }
+    </style>
+  </head>
+  <body>
+
+    <div id="bar">
+      <span class="name">Holo Stream</span>
+      <span class="tag">· holospace</span>
+      <span class="k" id="kaddr" title="content address of the current recording / live room (Law L5)">holo://local</span>
+      <span class="ver" id="ver" title="Law L5: the recorded bytes re-derive to their κ"></span>
+      <span class="sp"></span>
+      <span class="stat" id="stat"></span>
+      <button id="fsBtn" title="Fullscreen">⛶ fullscreen</button>
+    </div>
+    <div id="stage"></div>
+    <div id="toast"></div>
+
+    <!-- The OBS-model engine + the serverless mesh (Hologram Meet's engine, reused for egress). -->
+    <script src="/.holo/sha256/76afc3e832806fa2e7a73bfe14f8cf6a6dc7f667a4ab59d308acc25c3c81f18d.js" data-holo-shared="holo-obs.js"></script>
+    <script src="/.holo/sha256/371a11f60b4631a0e9883e634839c3cfa9a914ae78221c319464c4f22b92300f.js" data-holo-shared="holo-rtc.js"></script>
+    <!-- Owncast channel (LL-HLS segmenter + API model) + pump.fun creator coin + the chat CvRDT. -->
+    <script src="/.holo/sha256/4e5f70986b872a4bf11a295a367f3d1572cf80344b5417c3b9d34b977bc90aae.js" data-holo-shared="holo-owncast.js"></script>
+    <script src="/.holo/sha256/96578eea512b71253392b6d097eb729c6b2b94f0882052ad43114804eb6d22e4.js" data-holo-shared="holo-pump.js"></script>
+    <script src="/.holo/sha256/95525119b3406504eb9fde1503174f73519977810b9f1c523794b35c96ea0bef.js" data-holo-shared="holo-collab.js"></script>
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script src="stream.js"></script>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      let toastT; const toast = (m) => { const e = $("toast"); e.textContent = m; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2000); };
+      window.__streamToast = toast;
+
+      $("fsBtn").addEventListener("click", () => { document.fullscreenElement ? document.exitFullscreen() : (document.documentElement.requestFullscreen && document.documentElement.requestFullscreen()); });
+
+      // nestability: a parent holospace can hand us a room to watch, or just mount the studio.
+      // { type:"holo-stream", watch:{ room, relay } }  → join + render the live program.
+      addEventListener("message", (e) => { const m = e.data; if (!m || typeof m !== "object") return;
+        if (m.type === "holo-stream" && m.watch && window.holoStream) window.holoStream.watch(m.watch.room, m.watch.relay || ""); });
+
+      // boot: mount the studio; ?watch=1 + #k=<room>&r=<relay> opens viewer mode.
+      window.HoloStreamUI.mount($("stage"));
+      const h = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+      const room = h.get("k") || params.get("room");
+      if ((params.get("watch") === "1" || params.has("watch")) && room && window.holoStream) window.holoStream.watch(room, h.get("r") || params.get("r") || "");
+      try { parent !== window && parent.postMessage({ type: "holo-stream-ready" }, "*"); } catch {}
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

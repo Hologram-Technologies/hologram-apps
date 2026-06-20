@@ -1,0 +1,46 @@
+{
+  "$comment": "κ-pins for a chunked v86 holo app. Engine + BIOSes content-addressed + gated; the disk is a chunked part-DAG (image.chunked) — manifest root sealed, parts streamed + re-derived per L5.",
+  "algo": "sha256",
+  "engine": {
+    "libv86": {
+      "url": "./vendor/v86/libv86.js",
+      "name": "v86 — x86 emulator (libv86.js, BSD-2-Clause)",
+      "sha256": "65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "did": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "bytes": 352483
+    },
+    "wasm": {
+      "url": "./vendor/v86/v86.wasm",
+      "name": "v86 JIT core (x86→wasm)",
+      "sha256": "3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "did": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "bytes": 2066716
+    },
+    "seabios": {
+      "url": "./vendor/v86/seabios.bin",
+      "name": "SeaBIOS",
+      "sha256": "43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "did": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "bytes": 131072
+    },
+    "vgabios": {
+      "url": "./vendor/v86/vgabios.bin",
+      "name": "VGA BIOS",
+      "sha256": "eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "did": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "bytes": 34816
+    }
+  },
+  "image": {
+    "chunked": {
+      "$comment": "Chunked part-DAG (use_parts). 'root' = closure κ over all part κs; each part re-derived at read (L5). url is the v86 part-base; parts stream from the manifest's host.",
+      "manifest": "./images/freegem.parts.json",
+      "name": "Freedos with FreeGEM disk (chunked κ-DAG)",
+      "url": "https://i.copy.sh/freegem/.bin",
+      "size": 209715200,
+      "chunkSize": 262144,
+      "drive": "hda",
+      "root": "did:holo:sha256:fe7a8a23daf235e23a450377ecfec239c17c53fe0787f2f61c738cb4602e6150"
+    }
+  }
+}

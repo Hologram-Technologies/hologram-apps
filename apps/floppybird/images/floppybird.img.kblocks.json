@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "floppybird.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:5db1b469e25e9eda7b8c0f666d6b655bab083c85618a9453ee72f1201cca840f"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 3,
+  "dedup": "50.0%",
+  "root": "did:holo:sha256:fff1b335fd2ccb33863ad537dd68bb29b82da1e707670a3f09f990ddf9f93414",
+  "blocks": [
+    "did:holo:sha256:6f56745950fc36eee3c9a4ad608ffb976c67311382324caaab0fb6cc64e60c1b",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da"
+  ]
+}

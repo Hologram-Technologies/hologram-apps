@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Video Hologram OS</title>
+    <meta name="description" content="Holo Video the hologram-native video player: content-addressed, adaptive (HLS/DASH), low-latency, WebGPU present. Plays any holospace video in any browser." />
+    <!-- The native video engine: video.js 8 (HTML5 <video> + Media Source Extensions),
+         pinned + sha256-verified in _shared/videojs/ (PROVENANCE.txt, Law L5). The
+         HLS/DASH adaptive source handler (@videojs/http-streaming, "VHS") is bundled
+         INTO video.min.js — one engine file, no CDN — so 4K/8K ABR + Low-Latency HLS
+         work offline. The icon font is embedded in the CSS (no external font). -->
+    <link rel="stylesheet" href="/.holo/sha256/69933a9ee9f1c6c0152919103522e86222124964e2195d28eb2d0c043c26f59c.css" data-holo-shared="videojs/video-js.min.css" />
+    <!-- The shared mobile conformance layer (WCAG 2.2 reflow / 48px targets / safe-area /
+         no iOS auto-zoom) every shipped holospace adopts (enforce-witnesses gate). -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column;
+        font: var(--holo-text-sm, 1rem)/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* Thin holospace chrome — identity · κ-address · lifecycle. Same vocabulary as
+         os.html so a video holospace reads like any other (ADR-026). */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem;
+        padding: 0.3rem 0.8rem; background: #0d1117; border-bottom: 1px solid #1b2128;
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 600; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: #58a6ff; word-break: break-all; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .sp { margin-left: auto; }
+      #bar .stat { color: var(--dim); font-variant-numeric: tabular-nums; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: #3fb950; } #bar .ver.bad { color: #f85149; }
+      #bar .dot { color: #d29922; } #bar .dot.on { color: #3fb950; } #bar .dot.off { color: #f85149; }
+      #bar button { font: inherit; color: var(--dim); background: transparent;
+        border: 1px solid #1b2128; border-radius: 5px; padding: 0.15rem 0.5rem; cursor: pointer; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+
+      /* The player fills the rest, full-bleed and letterboxed (object-fit), so a 4K
+         source presents at the device's real pixels on PC and mobile alike. */
+      #stage { position: relative; flex: 1 1 auto; min-height: 0; background: #000; }
+      .video-js { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .video-js .vjs-tech { object-fit: contain; }
+      .vjs-default-skin { --vjs-theme-primary: #58a6ff; }
+      /* Hologram OS WebGPU present surface: the decoded frame, rendered zero-copy
+         through the GPU pipeline. JS sizes it to the video's contained rect (correct
+         aspect, stage = letterbox). Sits above the source <video>, below the controls;
+         pointer-events pass straight through to video.js's controls. */
+      #gpu { position: absolute; display: none; z-index: 2; pointer-events: none; image-rendering: auto; }
+      body.gpu-on #gpu { display: block; }
+      body.gpu-on .vjs-tech { opacity: 0; }   /* keep decoding + audio; present via GPU */
+      .video-js .vjs-control-bar, .video-js .vjs-big-play-button { z-index: 3; }
+      #bar button.on { color: #d2a8ff; border-color: #8957e5; }
+
+      /* Pre-play status / error panel over the player. */
+      #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: var(--bg); transition: opacity 0.25s; z-index: 5; pointer-events: none; }
+      #overlay.hidden { opacity: 0; }
+      #panel { max-width: 40rem; padding: 1.5rem 1.75rem; text-align: center; }
+      #panel .ttl { color: #e6edf3; font-size: 1.05rem; font-weight: 600; margin-bottom: 0.2rem; }
+      #panel .sub { color: var(--dim); }
+      #panel.err .ttl { color: #f85149; }
+      #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #161b22;
+        border: 1px solid #30363d; border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.8rem; font-size: var(--holo-text-sm, 1rem); opacity: 0;
+        transition: opacity 0.2s; z-index: 9; pointer-events: none; }
+      #toast.show { opacity: 1; }
+    </style>
+  </head>
+  <body data-no-teleport>
+
+    <div id="bar">
+      <span class="name">Holo Video</span>
+      <span class="k" id="kaddr" title="content address" style="display:none">holo://local</span>
+      <span class="ver" id="ver" title="Content-verified in your browser"></span>
+      <span class="sp"></span>
+      <span class="stat" id="res"></span>
+      <button id="audioBtn" title="Mute / unmute">🔊</button>
+      <button id="gearBtn" title="Settings" aria-label="Settings" onclick="var a=document.getElementById('adv');a.hidden=!a.hidden;this.classList.toggle('on',!a.hidden)">⚙</button>
+      <span id="adv" hidden>
+        <button id="qualBtn" title="Quality — Auto adapts to your connection; Max forces the highest">Quality: Auto</button>
+        <button id="protoBtn" style="display:none">HLS</button>
+        <button id="gpuBtn" title="GPU enhance">Enhance</button>
+        <button id="srBtn" title="Sharpen — render toward your display's native pixels">Sharpen</button>
+      </span>
+      <span class="dot" id="dot" style="display:none">●</span>
+      <span class="tag" id="state" style="display:none">idle</span>
+      <button id="fsBtn" title="Fullscreen (f)">⛶</button>
+    </div>
+    <div id="stage">
+      <!-- video.js upgrades this <video>. playsinline = no iOS takeover; the engine
+           hands 4K to the platform's hardware decoder. -->
+      <video id="player" class="video-js vjs-default-skin vjs-big-play-centered"
+             playsinline controls preload="auto"></video>
+      <canvas id="gpu" aria-hidden="true"></canvas>
+      <div id="overlay"><div id="panel">
+        <div class="ttl" id="ptitle">Holo Video</div>
+        <div class="sub" id="pstatus">loading engine…</div>
+      </div></div>
+    </div>
+    <div id="toast"></div>
+
+    <!-- The pinned native video engine (video.js 8 UMD global `videojs`). -->
+    <script src="/.holo/sha256/efac16dea9821877702781ba25db9691722541e320a594647af4f810b823ead1.js" data-holo-shared="videojs/video.min.js"></script>
+    <!-- Hologram OS WebGPU present layer: zero-copy importExternalTexture + an O(1)
+         content-addressed LUT grade. Returns null where WebGPU is absent → plain video. -->
+    <script src="/.holo/sha256/ab919f1f476ee215efb4d0a536a9311291d794571b01884061ef893ab6347eb6.js" data-holo-shared="holo-gpu.js"></script>
+    <!-- Share affordance + content-address provenance (#k=) + Law-L5 re-derivation. -->
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const bool = (v, d) => (v == null ? d : v !== "0" && v !== "false");
+
+      let toastT;
+      const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show");
+        clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); };
+      const setState = (t, cls) => { $("state").textContent = t; $("dot").className = "dot" + (cls ? " " + cls : ""); };
+      const showOverlay = (ttl, sub, err) => { const o = $("overlay"); o.classList.remove("hidden");
+        $("ptitle").textContent = ttl; $("pstatus").textContent = sub; $("panel").classList.toggle("err", !!err); };
+      const hideOverlay = () => $("overlay").classList.add("hidden");
+      const extType = (u) => /\.m3u8(\?|$)/i.test(u) ? "application/x-mpegURL"
+        : /\.mpd(\?|$)/i.test(u) ? "application/dash+xml"
+        : /\.webm(\?|$)/i.test(u) ? "video/webm" : "video/mp4";
+
+      // ── what to play ─────────────────────────────────────────────────────────
+      // Interop contract (so ANY holospace can hand this player a video):
+      //   ?src=<url|holo://κ/path>   the resolvable media (HLS/DASH/MP4/WebM)
+      //   ?k=/?id=/?addr=/?v=<κ>     the content address to DISPLAY + VERIFY (Law L5)
+      //   ?type= ?poster= ?autoplay= ?muted= ?loop= ?live=
+      // No params → the bundled CMAF ladder (one content-addressed fMP4 segment set
+      // served as BOTH HLS and DASH; ?proto=dash plays the SAME segments via the MPD).
+      const kparam = params.get("k") || params.get("id") || params.get("addr") || params.get("v") || "";
+      // Bundled CMAF: identical κ-segments, two open-standard manifests.
+      const CMAF = { hls: { src: "video/cmaf/master.m3u8", key: "cmaf/master.m3u8" },
+                     dash: { src: "video/cmaf/stream.mpd", key: "cmaf/stream.mpd" } };
+      const DEFAULT = CMAF[params.get("proto") === "dash" ? "dash" : "hls"];
+      let source = {
+        src: params.get("src") || DEFAULT.src,
+        type: params.get("type") || extType(params.get("src") || DEFAULT.src),
+        kappa: kparam || "",
+        key: params.get("src") ? "" : DEFAULT.key,
+      };
+
+      const showKaddr = (k) => { $("kaddr").textContent = k ? (k.startsWith("holo://") ? k : "holo://" + k) : "holo://local"; };
+
+      // ── the engine ───────────────────────────────────────────────────────────
+      // VHS tuned for fast start + adaptive quality up to the source maximum (4K/8K):
+      //   enableLowInitialPlaylist  → start on the lowest rendition = first frame ASAP
+      //   limitRenditionByPlayerDimensions / useDevicePixelRatio → never fetch more
+      //     pixels than the device shows (efficiency), but allow up to native on 4K
+      //   useNetworkInformationApi / useBandwidthFromLocalStorage → smarter ABR
+      //   liveui + handlePartialData → Low-Latency HLS (partial segments) for live
+      const player = videojs($("player"), {
+        controls: true, preload: "auto", playsinline: true, fill: true, responsive: true,
+        liveui: true,
+        playbackRates: [0.5, 1, 1.25, 1.5, 2],
+        html5: { vhs: {
+          overrideNative: true,
+          enableLowInitialPlaylist: true,
+          limitRenditionByPlayerDimensions: true,
+          useDevicePixelRatio: true,
+          useNetworkInformationApi: true,
+          useBandwidthFromLocalStorage: true,
+          handlePartialData: true,
+        }, nativeAudioTracks: false, nativeVideoTracks: false },
+      });
+      window.player = player;   // witness / automation handle (repo idiom)
+
+      function load(s, opts = {}) {
+        source = { ...source, ...s };
+        showKaddr(source.kappa);
+        $("ver").textContent = ""; $("ver").className = "ver";
+        // Cross-origin streams (e.g. a remote 4K HLS ladder): fetch with CORS so the
+        // segments load even on a cross-origin-isolated page (COEP require-corp), which
+        // admits CORS responses. Same-origin content-addressed content needs none.
+        try { player.crossOrigin(/^https?:\/\//i.test(source.src) ? "anonymous" : null); } catch {}
+        player.src({ src: source.src, type: source.type });
+        if (params.get("poster") || opts.poster) player.poster(params.get("poster") || opts.poster);
+        player.muted(bool(params.get("muted"), true));     // muted → instant autoplay is allowed
+        player.loop(bool(params.get("loop"), false));
+        setState("loading", "");
+        showOverlay("Holo Video", "buffering " + source.src.split("/").pop() + " …");
+        if (bool(params.get("autoplay") ?? opts.autoplay, true)) player.play().catch(() => {
+          setState("paused", ""); showOverlay("Ready", "press play"); });
+        verify();   // Law L5, in parallel
+      }
+
+      // ── Law L5: the played bytes re-derive to their pinned κ ───────────────────
+      // For bundled content we know the pin (video-manifest.json); re-derive the
+      // top-level object and show ✓. Each HLS SEGMENT is additionally verified by the
+      // holo:// engine at resolve time (path→κ→bytes), so the whole stream is covered.
+      async function verify() {
+        try {
+          let want = source.kappa;
+          if (!want && source.key) {
+            const man = await (await fetch("video/video-manifest.json", { cache: "no-store" })).json();
+            want = man[source.key]; source.kappa = want; showKaddr(want);
+          }
+          if (!want) { $("ver").textContent = "· unverified source"; return; }
+          const buf = new Uint8Array(await (await fetch(source.src, { cache: "no-store" })).arrayBuffer());
+          if (window.HoloTeleport) { HoloTeleport.stamp(want); }
+          // Verify with the SAME algorithm the κ declares: a sha256-pinned object must
+          // be checked with sha256, never the substrate wasm's blake3 (which would
+          // falsely refuse it). Only fall back to kappaOf for non-sha256 addresses.
+          const want2 = String(want);
+          const got = want2.startsWith("sha256:") ? await sha256(buf) : await (window.HoloTeleport ? HoloTeleport.kappaOf(buf) : sha256(buf));
+          const ok = !!got && got.split(":").pop() === want2.split(":").pop();
+          $("ver").textContent = ok ? "✓ κ verified" : "✗ κ mismatch refused";
+          $("ver").className = "ver " + (ok ? "ok" : "bad");
+          if (!ok) { player.pause(); showOverlay("Refused", "content does not match its hash (Law L5)", true); setState("refused", "off"); }
+        } catch { $("ver").textContent = "· unverified source"; }
+      }
+      async function sha256(u8) { const d = await crypto.subtle.digest("SHA-256", u8);
+        return "sha256:" + Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join(""); }
+
+      // ── chrome wiring ──────────────────────────────────────────────────────────
+      const fmtRes = () => { const w = player.videoWidth?.() || 0, h = player.videoHeight?.() || 0;
+        const tier = h >= 4320 ? "8K" : h >= 2160 ? "4K" : h >= 1440 ? "1440p" : h >= 1080 ? "1080p" : h >= 720 ? "720p" : h ? h + "p" : "";
+        $("res").textContent = w && h ? `${w}×${h}` + (tier ? " · " + tier : "") : ""; };
+      // Quality control: VHS exposes the renditions; "max" pins the highest (forces
+      // 4K/8K regardless of window size), "auto" restores adaptive ABR. ?max=1 boots
+      // in max so a remote 4K ladder streams at full resolution on first play.
+      // ?height=<N> pins the rendition nearest N (e.g. height=1080 to feed the GPU
+      // super-resolution a 1080p source it reconstructs toward the 4K display).
+      let qualMode = bool(params.get("max"), false) ? "max" : "auto";
+      let heightPin = params.get("height") ? +params.get("height") : 0;
+      const reps = () => { try { return player.tech(true).vhs.representations() || []; } catch { return []; } };
+      function applyQuality() {
+        const rs = reps(); if (!rs.length) { $("qualBtn").textContent = "Quality: Auto"; return; }
+        if (heightPin) {
+          const tgt = rs.reduce((a, b) => (Math.abs((b.height || 0) - heightPin) < Math.abs((a.height || 0) - heightPin) ? b : a));
+          rs.forEach((r) => r.enabled(r === tgt));
+          $("qualBtn").textContent = "Quality: " + (tgt.height || "") + "p";
+          return;
+        }
+        const top = rs.reduce((a, b) => ((b.height || 0) > (a.height || 0) ? b : a));
+        rs.forEach((r) => r.enabled(qualMode === "auto" ? true : r === top));
+        $("qualBtn").textContent = qualMode === "max"
+          ? "Quality: " + (top.height >= 4320 ? "8K" : top.height >= 2160 ? "4K" : (top.height || "") + "p")
+          : "Quality: Auto";
+      }
+      player.on("loadedmetadata", () => { fmtRes(); applyQuality(); });
+
+      // ── streaming standard: HLS ⇄ MPEG-DASH over ONE content-addressed CMAF set ──
+      // For the bundled content the SAME fMP4 κ-segments are described by both a .m3u8
+      // and a .mpd; this swaps the manifest, not the bytes — a live proof of the
+      // CMAF unification. Disabled for a remote ?src (it just shows the protocol).
+      const curProto = () => (/\.mpd(\?|$)/i.test(source.src) || source.type === "application/dash+xml") ? "DASH" : "HLS";
+      const isBundledCmaf = () => source.key === CMAF.hls.key || source.key === CMAF.dash.key;
+      function updateProto() {
+        const p = curProto(), bundled = isBundledCmaf();
+        $("protoBtn").textContent = p; $("protoBtn").classList.toggle("on", bundled); $("protoBtn").disabled = !bundled;
+        $("protoBtn").title = bundled ? `${p} click to play the SAME content-addressed CMAF segments via ${p === "HLS" ? "MPEG-DASH" : "HLS"}` : `${p} stream`;
+      }
+      $("protoBtn").addEventListener("click", () => {
+        if (!isBundledCmaf()) return;
+        const toDash = curProto() === "HLS", c = toDash ? CMAF.dash : CMAF.hls;
+        load({ src: c.src, type: extType(c.src), kappa: "", key: c.key });
+        updateProto(); toast("streaming via " + (toDash ? "MPEG-DASH" : "HLS") + " · same κ-segments");
+      });
+      player.on("loadedmetadata", updateProto);
+      $("qualBtn").addEventListener("click", () => { heightPin = 0; qualMode = qualMode === "auto" ? "max" : "auto"; applyQuality(); toast("quality: " + qualMode); });
+      player.on("playing", () => { hideOverlay(); setState("playing", "on"); fmtRes(); postStatus("playing"); });
+      player.on("pause", () => { setState("paused", ""); postStatus("paused"); });
+      player.on("waiting", () => setState("buffering", ""));
+      player.on("ended", () => { setState("ended", ""); postStatus("ended"); });
+      player.on("error", () => { const e = player.error();
+        showOverlay("Playback error", e ? e.message : "could not play this source", true);
+        setState("error", "off"); postStatus("error"); });
+      player.on("timeupdate", () => postStatus("playing"));
+
+      $("fsBtn").addEventListener("click", () => { player.isFullscreen() ? player.exitFullscreen() : player.requestFullscreen(); });
+      addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        if (e.key === "f") $("fsBtn").click();
+        else if (e.key === " ") { e.preventDefault(); player.paused() ? player.play() : player.pause(); }
+      });
+
+      // ── nestability: a parent holospace can hand us a video over postMessage ────
+      // { type:"holo-video", src, kappa?, mime?, autoplay? }  →  load + play.
+      // We answer with { type:"holo-video-status", state, currentTime, duration,
+      // width, height, kappa } on every change, and "holo-video-ready" once up — so
+      // the player composes into ANY holospace as a drop-in media surface.
+      function postStatus(state) {
+        const msg = { type: "holo-video-status", state, kappa: source.kappa,
+          currentTime: player.currentTime?.() || 0, duration: player.duration?.() || 0,
+          width: player.videoWidth?.() || 0, height: player.videoHeight?.() || 0 };
+        try { parent !== window && parent.postMessage(msg, "*"); } catch {}
+        window.holoVideo.last = msg;
+      }
+      addEventListener("message", (e) => {
+        const m = e.data; if (!m || typeof m !== "object") return;
+        if (m.type === "holo-video" && (m.src || m.kappa)) {
+          load({ src: m.src || ("holo://" + m.kappa), type: m.mime || extType(m.src || ""), kappa: m.kappa || "", key: "" },
+               { autoplay: m.autoplay !== false });
+          toast("playing handoff from parent holospace");
+        } else if (m.type === "holo-video-control" && m.action) {
+          ({ play: () => player.play(), pause: () => player.pause(),
+             mute: () => player.muted(true), unmute: () => player.muted(false),
+             seek: () => player.currentTime(m.time || 0) }[m.action] || (() => {}))();
+        }
+      });
+
+      // ── Hologram OS WebGPU present (zero-copy frames + O(1) content-addressed LUT) ─
+      // Renders the decoded <video> through holo-gpu.js. Three modes cycle on the
+      // button: native (pristine present + the precomputed LUT grade) → holographic
+      // (adds chromatic shimmer / scanlines / bloom / grain) → off (plain <video>).
+      // Params: ?gpu=0 disables · ?fx=<0..1> boots holographic at that intensity ·
+      // ?grade=<0..1> sets the LUT mix. Absent WebGPU → the button says n/a, plain
+      // video plays (works in any browser).
+      const gpuCanvas = $("gpu");
+      let gpu = null, gpuMode = "off";
+      const _fx = params.get("fx");
+      const FX = _fx != null ? Math.max(0, Math.min(1, +_fx || 0)) : 0.65;        // holographic intensity
+      const GRADE = params.get("grade") != null ? Math.max(0, Math.min(1, +params.get("grade"))) : 0.4;
+      const bootHolo = _fx != null && +_fx > 0;
+      const techVideo = () => (player.tech && player.tech(true) && player.tech(true).el_) || document.querySelector("video.vjs-tech") || document.querySelector("video");
+
+      function fitGpu() {
+        if (!document.body.classList.contains("gpu-on")) return;
+        const stage = $("stage"), a = (player.videoWidth?.() || 16) / (player.videoHeight?.() || 9);
+        const sw = stage.clientWidth, sh = stage.clientHeight;
+        let w = sw, h = Math.round(sw / a); if (h > sh) { h = sh; w = Math.round(sh * a); }
+        gpuCanvas.style.width = w + "px"; gpuCanvas.style.height = h + "px";
+        gpuCanvas.style.left = Math.round((sw - w) / 2) + "px"; gpuCanvas.style.top = Math.round((sh - h) / 2) + "px";
+      }
+      new ResizeObserver(fitGpu).observe($("stage"));
+      addEventListener("resize", fitGpu);
+      player.on("loadedmetadata", fitGpu);
+
+      function setGpuMode(mode) {                       // "off" | "native" | "holo"
+        gpuMode = mode;
+        document.body.classList.toggle("gpu-on", mode !== "off");
+        $("gpuBtn").classList.toggle("on", mode !== "off");
+        if (gpu) { gpu.setGrade(mode === "off" ? 0 : GRADE); gpu.setFx(mode === "holo" ? FX : 0); }
+        $("gpuBtn").textContent = mode === "holo" ? "Enhance: Max" : mode === "native" ? "Enhance: On" : "Enhance: Off";
+        fitGpu();
+      }
+      $("gpuBtn").addEventListener("click", () => {
+        if (!gpu) return;
+        setGpuMode(gpuMode === "off" ? "native" : gpuMode === "native" ? "holo" : "off");
+        toast("present: " + gpuMode + (gpuMode !== "off" ? " · LUT κ " + (gpu.lutKappa || "").slice(7, 19) + "…" : ""));
+      });
+
+      // ── GPU super-resolution (Lanczos reconstruction toward native pixels) ───────
+      // Needs the GPU present; turning SR on also flips present to native if it was off.
+      let srOn = bool(params.get("sr"), false);
+      function setSR(on) {
+        srOn = !!on;
+        if (gpu) gpu.setSR(srOn);
+        $("srBtn").classList.toggle("on", srOn);
+        $("srBtn").textContent = srOn ? "Sharpen: On" : "Sharpen";
+        if (srOn && gpuMode === "off") setGpuMode("native");
+      }
+      $("srBtn").addEventListener("click", () => {
+        if (!gpu) return;
+        setSR(!srOn);
+        const s = gpu.srcSize;
+        toast(srOn ? `super-resolution ON · Lanczos ${s[0]}×${s[1]} → display` : "super-resolution off");
+      });
+
+      // ── audio — verify every video's track plays ────────────────────────────────
+      // Non-destructive: webkitAudioDecodedByteCount proves an AAC track is decoding
+      // (it advances even while muted); the button toggles mute. Default muted=true so
+      // autoplay is allowed; ?muted=0 starts audible (needs a play gesture).
+      let _lastAB = 0, audioRate = 0;
+      const audioPresent = (el) => !!(el && ((el.webkitAudioDecodedByteCount || 0) > 0 || (el.audioTracks && el.audioTracks.length) || el.mozHasAudio)) || (player.audioTracks && player.audioTracks().length > 0);
+      function updateAudio() {
+        const el = techVideo(), present = audioPresent(el), muted = player.muted() || player.volume() === 0;
+        $("audioBtn").textContent = !present ? "🔇 no audio" : muted ? "🔈 muted" : (audioRate > 0 ? "🔊 audio" : "🔊 audio");
+        $("audioBtn").classList.toggle("on", present && !muted);
+        $("audioBtn").title = present
+          ? `AAC audio track decoding (${audioRate.toFixed(0)} KB/s) click to ${muted ? "unmute" : "mute"}`
+          : "no audio track in this source";
+      }
+      $("audioBtn").addEventListener("click", () => {
+        const m = !player.muted(); player.muted(m); if (!m && player.volume() === 0) player.volume(1);
+        updateAudio(); toast(m ? "muted" : "unmuted");
+      });
+      player.on("loadedmetadata", updateAudio); player.on("volumechange", updateAudio); player.on("playing", updateAudio);
+      setInterval(() => { const el = techVideo(); const ab = el ? (el.webkitAudioDecodedByteCount || 0) : 0; audioRate = Math.max(0, ab - _lastAB) / 1024; _lastAB = ab; updateAudio(); }, 1000);
+
+      async function initGpu() {
+        if (!bool(params.get("gpu"), true)) { $("gpuBtn").textContent = "Enhance: Off"; $("gpuBtn").disabled = true; $("srBtn").disabled = true; return; }
+        if (!window.HoloGPU || !HoloGPU.available()) { $("gpuBtn").textContent = "Enhance: n/a"; $("gpuBtn").disabled = true; $("srBtn").disabled = true;
+          $("gpuBtn").title = "WebGPU unavailable here playing plain <video> (runs in any browser)"; return; }
+        try { gpu = await HoloGPU.attach(techVideo(), gpuCanvas, { fx: 0, grade: GRADE, sr: srOn, maxDpr: Math.max(1, Math.min(4, +params.get("maxdpr") || 3)) }); } catch { gpu = null; }
+        if (!gpu) { $("gpuBtn").textContent = "Enhance: n/a"; $("gpuBtn").disabled = true; $("srBtn").disabled = true; return; }
+        setGpuMode(bootHolo ? "holo" : "native");      // GPU present is the default experience
+        setSR(srOn);                                   // honor ?sr=1
+        toast("Hologram WebGPU present · O(1) LUT κ " + (gpu.lutKappa || "").slice(7, 19) + "… · " + (gpu.adapter?.description || gpu.adapter?.vendor || "gpu"));
+      }
+
+      // Public handle for witnesses / parents loaded in the same context.
+      window.holoVideo = { player, load, verify, get source() { return source; }, get gpu() { return gpu; }, get gpuMode() { return gpuMode; },
+        get sr() { return srOn; },
+        get audio() { const el = techVideo(); return { present: audioPresent(el), rate: audioRate, muted: player.muted(), decodedBytes: el ? (el.webkitAudioDecodedByteCount || 0) : 0 }; },
+        last: null };
+
+      // ── boot ───────────────────────────────────────────────────────────────────
+      player.ready(() => {
+        load(source, { autoplay: bool(params.get("autoplay"), true) });
+        initGpu();
+        try { parent !== window && parent.postMessage({ type: "holo-video-ready" }, "*"); } catch {}
+      });
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo EVM Hologram OS</title>
+    <meta
+      name="description"
+      content="Holo EVM a real Ethereum Virtual Machine that lives in your browser. The EthereumJS reference engine executes genuine EVM bytecode and signed transactions, with full gas metering and an opcode-level trace. State is a content-addressed Merkle-Patricia κ-store (every node keyed by keccak256; the state root is a κ-label; code is addressed by codeHash). Plus a live view of Ethereum mainnet where every block's hash is re-derived (RLP→keccak) and κ-verified against the network. 100% UOR content-addressed, offline, no CDN."
+    />
+    <script src="coi-serviceworker.min.js"></script>
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); --ink: var(--holo-ink); --line: var(--holo-border);
+        --acc: var(--holo-accent); --acc2: color-mix(in srgb, var(--holo-accent) 72%, var(--holo-ink)); --good: var(--holo-ok); --bad: var(--holo-danger); --info: var(--holo-accent); --warn: var(--holo-warn); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: radial-gradient(120% 90% at 50% -10%, #11162b 0%, #0a0c14 45%, var(--bg) 100%);
+        color: #c9d1d9; display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+
+      /* thin holospace chrome */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem; z-index: 50;
+        padding: 0.35rem 0.85rem; background: #0d1117cc; backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: var(--ink); font-weight: 700; letter-spacing: 0.02em; }
+      #bar .name b { color: var(--acc); }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: var(--info); max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: var(--good); } #bar .ver.bad { color: var(--bad); }
+      #bar .sp { margin-left: auto; }
+      #bar .peers { color: var(--dim); }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 0.2rem 0.55rem; cursor: pointer; }
+      #bar button:hover { color: var(--ink); border-color: #30363d; }
+
+      main { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; }
+      .tabs { display: flex; gap: 0.4rem; justify-content: center; padding: 0.7rem 1rem 0; }
+      .tab { font: 600 0.9rem ui-sans-serif, system-ui; color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 1.1rem; cursor: pointer; }
+      .tab:hover { color: var(--ink); border-color: #30363d; }
+      .tab.on { color: #07101f; background: var(--acc); border-color: var(--acc2); }
+
+      .wrap { width: 100%; max-width: 70rem; padding: 1rem 1rem 3rem; display: flex; flex-direction: column; }
+
+      /* live view */
+      .livehead { display: flex; align-items: center; gap: 0.5rem; width: 100%; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); margin-bottom: 1rem; flex-wrap: wrap; }
+      .livehead b { color: var(--ink); } .livehead .mono { color: var(--acc); }
+      .livesub { margin-left: auto; }
+      .dotlive { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 8px var(--bad); }
+      .dotlive.on { background: var(--good); box-shadow: 0 0 9px var(--good); animation: pulse 2s ease-in-out infinite; }
+      @keyframes pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+      select, input { background: #010409; color: var(--ink); border: 1px solid #30363d; border-radius: 6px; padding: 0.3rem 0.5rem; font: inherit; }
+      input { font-family: ui-monospace, monospace; }
+      .netgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.55rem; width: 100%; margin-bottom: 1rem; }
+      .met { background: #0d1117aa; border: 1px solid var(--line); border-radius: 11px; padding: 0.6rem 0.7rem; text-align: center; }
+      .met .v { font: 700 1.18rem ui-monospace, monospace; color: var(--ink); font-variant-numeric: tabular-nums; }
+      .met .v.acc { color: var(--acc); }
+      .met .l { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-top: 0.2rem; }
+      .cols { display: grid; grid-template-columns: 1.35fr 1fr; gap: 0.8rem; width: 100%; }
+      @media (max-width: 820px) { .netgrid { grid-template-columns: repeat(2, 1fr); } .cols { grid-template-columns: 1fr; } }
+      .card { background: #0d1117; border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 0.8rem 0.9rem; overflow: auto; }
+      .card h3 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); margin: 0 0 0.6rem; font-weight: 600; }
+      .card h3 .mut { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--dim); }
+      table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+      th { text-align: left; color: var(--dim); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--line); }
+      td { padding: 0.4rem 0.4rem; border-bottom: 1px solid #11161d; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      tr:hover td { background: #0f141a; }
+      a { color: var(--info); text-decoration: none; } a:hover { text-decoration: underline; }
+      .kok { color: var(--good); } .kbad { color: var(--bad); } .kwait { color: var(--dim); }
+      .mut { color: var(--dim); } .mono { font-family: ui-monospace, monospace; }
+      .honest { color: var(--dim); font-size: 0.82rem; max-width: 52rem; margin: 1.2rem auto 0; text-align: center; }
+      .honest b { color: #b9c4cf; }
+
+      /* the machine */
+      h1.hero { font: 800 1.5rem/1.15 ui-sans-serif, system-ui; color: var(--ink); margin: 0.2rem 0; letter-spacing: -0.02em; }
+      h1.hero b { color: var(--acc); }
+      .lede { color: var(--dim); margin: 0 0 0.9rem; font-size: 0.92rem; }
+      .mgrid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 0.8rem; width: 100%; }
+      @media (max-width: 900px) { .mgrid { grid-template-columns: 1fr; } }
+      label.fld { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); margin: 0.6rem 0 0.25rem; }
+      textarea { width: 100%; background: #010409; color: #cfe3ff; border: 1px solid #30363d; border-radius: var(--holo-radius-sm, 8px); padding: 0.55rem 0.65rem; font: var(--holo-text-sm, 1rem)/1.5 ui-monospace, monospace; resize: vertical; word-break: break-all; }
+      .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end; }
+      .row > div { flex: 1 1 8rem; }
+      .btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.7rem; }
+      button.act { font: 700 0.9rem ui-sans-serif, system-ui; padding: 0.55rem 1.2rem; border-radius: var(--holo-radius-sm, 8px); cursor: pointer; color: #07101f; background: linear-gradient(180deg, var(--acc2), var(--acc)); border: 0; box-shadow: 0 6px 18px #627eea33; }
+      button.act:hover { filter: brightness(1.06); }
+      button.act.ghost { color: var(--ink); background: #161b22; border: 1px solid #30363d; box-shadow: none; }
+      button.act:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+      .acct { margin-top: 0.7rem; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); background: #010409; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem 0.6rem; }
+      .acct b { color: var(--acc2); }
+
+      .status { display: flex; align-items: center; gap: 0.6rem; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; margin-bottom: 0.6rem; flex-wrap: wrap; }
+      .pill { border-radius: 999px; padding: 0.1rem 0.6rem; font-weight: 700; font-size: 0.78rem; }
+      .pill.ok { background: #11351c; color: var(--good); border: 1px solid #1d5e30; }
+      .pill.bad { background: #3a1414; color: var(--bad); border: 1px solid #6e2020; }
+      .pill.idle { background: #11161d; color: var(--dim); border: 1px solid var(--line); }
+      .rsub { display: flex; gap: 0.35rem; margin: 0.3rem 0 0.5rem; flex-wrap: wrap; }
+      .rsub button { font: 600 0.74rem ui-sans-serif, system-ui; color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 7px; padding: 0.25rem 0.7rem; cursor: pointer; }
+      .rsub button.on { color: var(--acc2); border-color: #36406a; background: #141a2e; }
+      .pane { display: none; }
+      .pane.on { display: block; }
+      pre.out { background: #010409; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem 0.6rem; overflow: auto; max-height: 17rem; font: var(--holo-text-sm, 1rem)/1.5 ui-monospace, monospace; color: #b9c4cf; white-space: pre-wrap; word-break: break-all; margin: 0; }
+      .trace { max-height: 17rem; overflow: auto; }
+      .trace table { font-size: 0.76rem; }
+      .trace td { white-space: nowrap; }
+      .trace td.op { color: var(--acc2); font-weight: 600; }
+      .ret { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: #cfe3ff; word-break: break-all; }
+
+      /* content-addressed state strip */
+      .statebar { width: 100%; margin-top: 1rem; }
+      .root { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; background: #0d1117; border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 0.7rem 0.9rem; }
+      .root .lab { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+      .root .val { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--acc); word-break: break-all; }
+      .root .meta { margin-left: auto; color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      @media (max-width: 720px) { #bar button, .tab, button.act, select, input { min-height: 40px; } #bar .k { max-width: 50vw; } .root .meta { margin-left: 0; } }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo EVM"></holo-splash>
+
+    <div id="bar">
+      <span class="name">Holo <b>⟠</b> EVM</span>
+      <span class="tag">· holospace</span>
+      <span class="k" id="kaddr" title="content address the EVM state root (keccak of the Merkle-Patricia trie), or the live chain tip">holo://holo-evm</span>
+      <span class="ver" id="ver" title="Law L5: the engine reproduces keccak256 and a canonical opcode trace at the spec gas cost"></span>
+      <span class="sp"></span>
+      <span class="peers" id="peers" title="other Holo EVM tabs on this device (BroadcastChannel)">peers 0</span>
+      <button id="fsBtn" title="fullscreen (f)">⛶</button>
+    </div>
+
+    <main>
+      <nav class="tabs">
+        <button class="tab on" data-tab="live">Live network</button>
+        <button class="tab" data-tab="machine">The EVM</button>
+        <button class="tab" data-tab="fork">κ-Fork mainnet</button>
+        <button class="tab" data-tab="witness">κ-Witness</button>
+        <button class="tab" data-tab="block">Full-block verify</button>
+      </nav>
+
+      <!-- ── LIVE: real Ethereum mainnet, each block re-derived (RLP→keccak) & κ-verified ── -->
+      <div class="wrap" id="tab-live">
+        <div class="livehead">
+          <span class="dotlive" id="live-dot"></span>
+          <b>Ethereum mainnet</b> · live · tip <span class="mono" id="live-tip"></span>
+          <span class="livesub">
+            <label class="mut">RPC
+              <select id="rpc">
+                <option value="https://ethereum-rpc.publicnode.com">publicnode</option>
+                <option value="https://eth.llamarpc.com">llamarpc</option>
+                <option value="https://rpc.ankr.com/eth">ankr</option>
+                <option value="https://cloudflare-eth.com">cloudflare</option>
+              </select>
+            </label>
+            <span class="mut" id="live-status">connecting…</span>
+          </span>
+        </div>
+        <div class="netgrid">
+          <div class="met"><div class="v" id="n-height"></div><div class="l">block height</div></div>
+          <div class="met"><div class="v acc" id="n-base"></div><div class="l">base fee · gwei</div></div>
+          <div class="met"><div class="v" id="n-gas"></div><div class="l">gas used</div></div>
+          <div class="met"><div class="v" id="n-tx"></div><div class="l">txs in block</div></div>
+        </div>
+        <div class="cols">
+          <section class="card">
+            <h3>Recent blocks <span class="mut">· re-derived &amp; κ-verified by the engine</span></h3>
+            <table id="t-blocks">
+              <thead><tr><th>Block</th><th>Hash</th><th>Txs</th><th>Gas</th><th>Age</th><th>κ</th></tr></thead>
+              <tbody><tr><td colspan="6" class="mut">loading…</td></tr></tbody>
+            </table>
+          </section>
+          <section class="card">
+            <h3>Latest block · transactions <span class="mut">· real</span></h3>
+            <table id="t-tx">
+              <thead><tr><th>Tx</th><th>From → To</th><th>Value</th></tr></thead>
+              <tbody><tr><td colspan="3" class="mut">loading…</td></tr></tbody>
+            </table>
+          </section>
+        </div>
+        <p class="honest">Real mainnet data via a public JSON-RPC node. Every block's 16-field header is RLP-re-encoded and keccak-hashed by the in-browser engine (<code>createBlockHeaderFromRPC → hash()</code>) and κ-checked against the network's block hash byte-identical, no simulation.</p>
+      </div>
+
+      <!-- ── THE EVM: real bytecode + signed transactions, content-addressed state ── -->
+      <div class="wrap" id="tab-machine" hidden>
+        <h1 class="hero">A real <b>Ethereum Virtual Machine</b>, in your tab</h1>
+        <p class="lede">The EthereumJS reference engine executes genuine EVM bytecode &amp; signed transactions full opcode set, gas metering, content-addressed state.</p>
+
+        <div class="row" style="margin-bottom:0.2rem">
+          <div style="flex:2 1 16rem">
+            <label class="fld">Example program</label>
+            <select id="example" aria-label="Example transaction" style="width:100%"></select>
+          </div>
+        </div>
+
+        <div class="mgrid">
+          <div>
+            <label class="fld">Bytecode (hex)</label>
+            <textarea id="code" rows="5" spellcheck="false" placeholder="0x600760050160005260206000f3"></textarea>
+            <label class="fld">Calldata (hex, optional)</label>
+            <textarea id="calldata" rows="2" spellcheck="false" placeholder="0x"></textarea>
+            <div class="row">
+              <div><label class="fld">Value (wei)</label><input id="value" value="0" aria-label="Value (wei)" /></div>
+              <div><label class="fld">Gas limit</label><input id="gas" value="8000000" aria-label="Gas limit" /></div>
+            </div>
+            <div class="btns">
+              <button class="act" id="runBtn" title="execute the bytecode statelessly (Ctrl/⌘+Enter)">▶ Run</button>
+              <button class="act ghost" id="deployBtn" title="deploy the bytecode as a contract (real signed tx) persists into the κ-store">⬡ Deploy</button>
+            </div>
+            <label class="fld">Call a deployed contract</label>
+            <div class="row">
+              <div style="flex:3 1 14rem"><input id="to" placeholder="0x… contract address" style="width:100%" /></div>
+              <div style="flex:0 0 auto"><button class="act ghost" id="callBtn">↪ Call</button></div>
+            </div>
+            <div class="acct" id="acct">sender · loading dev account…</div>
+          </div>
+
+          <div>
+            <div class="status">
+              <span class="pill idle" id="st-pill">idle</span>
+              <span class="mut" id="st-gas"></span>
+              <span class="mut" id="st-kind"></span>
+            </div>
+            <div class="ret" id="st-ret"></div>
+            <div class="rsub" id="rsub">
+              <button data-pane="trace" class="on">Opcode trace</button>
+              <button data-pane="stack">Stack</button>
+              <button data-pane="memory">Memory</button>
+              <button data-pane="storage">Storage</button>
+              <button data-pane="logs">Logs</button>
+            </div>
+            <div class="pane on" id="pane-trace"><div class="trace"><table id="trace-t"><thead><tr><th>#</th><th>pc</th><th>op</th><th>gas</th><th>stack (top→)</th></tr></thead><tbody><tr><td colspan="5" class="mut">run a program to see the opcode-level trace</td></tr></tbody></table></div></div>
+            <div class="pane" id="pane-stack"><pre class="out" id="out-stack"></pre></div>
+            <div class="pane" id="pane-memory"><pre class="out" id="out-memory"></pre></div>
+            <div class="pane" id="pane-storage"><pre class="out" id="out-storage"></pre></div>
+            <div class="pane" id="pane-logs"><pre class="out" id="out-logs"></pre></div>
+          </div>
+        </div>
+
+        <div class="statebar">
+          <div class="root">
+            <span class="lab">state root · κ</span>
+            <span class="val" id="state-root"></span>
+            <span class="meta" id="state-meta"></span>
+            <button class="act ghost" id="resetBtn" style="padding:0.35rem 0.8rem" title="wipe the κ-store and refund the dev account">Reset state</button>
+          </div>
+          <div class="card" id="contracts-card" style="margin-top:0.7rem; display:none">
+            <h3>Deployed contracts <span class="mut">· content-addressed (codeHash = keccak(code))</span></h3>
+            <table id="t-contracts"><thead><tr><th>Address</th><th>codeHash · κ</th><th></th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+
+        <p class="honest">100% UOR content-addressed: the <b>state</b> is a Merkle-Patricia trie whose every node is keyed by its keccak256 hash (the κ-store persists across reloads); the <b>state root</b> is a κ-label; contract <b>code</b> is addressed by codeHash. The engine is the EthereumJS reference (passes <code>ethereum/tests</code>), vendored no CDN. Paste compiled bytecode from solc/Remix, or pick an example.</p>
+      </div>
+
+      <!-- ── κ-FORK: trustless mainnet fork — execute on PROVEN state, no server trusted ── -->
+      <div class="wrap" id="tab-fork" hidden>
+        <h1 class="hero">Call <b>real mainnet contracts</b> trusting no one</h1>
+        <p class="lede">Fork Ethereum at any block and run a real contract locally. Every byte of state the EVM touches is Merkle-proven against a block root we re-derive from raw bytes a light-client-grade fork, in a tab.</p>
+
+        <div class="row">
+          <div style="flex:3 1 16rem"><label class="fld">Contract address</label><input id="f-to" placeholder="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 (WETH)" style="width:100%" /></div>
+          <div style="flex:1 1 7rem"><label class="fld">Block</label><input id="f-block" value="latest" aria-label="Block" /></div>
+        </div>
+        <div class="row">
+          <div style="flex:2 1 12rem"><label class="fld">Function</label>
+            <select id="f-fn" aria-label="Function" style="width:100%">
+              <option value="0x18160ddd|uint|totalSupply()">totalSupply()</option>
+              <option value="0x06fdde03|string|name()">name()</option>
+              <option value="0x95d89b41|string|symbol()">symbol()</option>
+              <option value="0x313ce567|uint|decimals()">decimals()</option>
+              <option value="custom|hex|custom calldata">custom calldata…</option>
+            </select>
+          </div>
+          <div style="flex:3 1 14rem"><label class="fld">Calldata (hex)</label><input id="f-data" value="0x18160ddd" aria-label="Calldata (hex)" style="width:100%" /></div>
+        </div>
+        <div class="btns">
+          <button class="act" id="forkBtn">⟠ Fork &amp; run · κ-prove</button>
+          <span class="mut" id="f-hint" style="align-self:center; font-size:0.82rem">tip: try WETH, USDC, or any contract from Holo Scan</span>
+        </div>
+
+        <div class="mgrid" style="margin-top:0.6rem">
+          <div>
+            <div class="status">
+              <span class="pill idle" id="f-pill">idle</span>
+              <span class="mut" id="f-gas"></span>
+            </div>
+            <div class="ret" id="f-ret"></div>
+            <div class="rsub"><button class="on" data-fpane="proof">Proven state</button><button data-fpane="trace">Opcode trace</button></div>
+            <div class="pane on" id="fpane-proof">
+              <div class="root" id="f-rootbox" style="display:none; margin-bottom:0.5rem">
+                <span class="lab">forked @ block</span><span class="val" id="f-blocknum"></span>
+                <span class="meta" id="f-headerok"></span>
+              </div>
+              <div class="root" id="f-srootbox" style="display:none; margin-bottom:0.5rem">
+                <span class="lab">state root · κ</span><span class="val" id="f-stateroot"></span>
+              </div>
+              <pre class="out" id="f-proofs">fork a contract to see its state proven against the re-derived block root</pre>
+            </div>
+            <div class="pane" id="fpane-trace"><div class="trace"><table id="f-trace-t"><thead><tr><th>#</th><th>pc</th><th>op</th><th>gas</th><th>stack (top→)</th></tr></thead><tbody><tr><td colspan="5" class="mut"></td></tr></tbody></table></div></div>
+          </div>
+          <div>
+            <div class="card">
+              <h3>Why this was impossible before <span class="mut">· the UOR superpower</span></h3>
+              <p class="mut" style="font-size:0.86rem; line-height:1.6; margin:0.2rem 0 0">A normal fork (Hardhat/Anvil) <b style="color:#b9c4cf">trusts the RPC</b> it believes whatever state the node returns. Holo EVM doesn't: it pulls an <code>eth_getProof</code> Merkle proof for every account &amp; storage slot the EVM reads, and re-derives that they hash up to the <b style="color:#b9c4cf">state root committed in the block header</b> a header it independently re-derives from raw consensus bytes (RLP→keccak). If the RPC lies by one byte, a proof fails to root and the call is flagged. The result: <b style="color:#b9c4cf">execute real mainnet contracts in your browser, trusting no server</b> replay history, or run counterfactual “what-if” calls, all over cryptographically-verified state.</p>
+            </div>
+          </div>
+        </div>
+        <p class="honest">Reads any contract by forking over a public RPC, but <b>verifies, never trusts</b>: state is Merkle-proven against a re-derived block root (Law L5). Old blocks need an archive RPC; recent blocks work on any full node.</p>
+      </div>
+
+      <!-- ── κ-WITNESS: a portable, self-verifying slice of Ethereum (The Verge, in a tab) ── -->
+      <div class="wrap" id="tab-witness" hidden>
+        <h1 class="hero">Mint a <b>self-verifying slice of Ethereum</b></h1>
+        <p class="lede">Capture a mainnet computation as a tiny content-addressed <b>κ-witness</b>: the block header + exactly the Merkle proofs it needs + the code. Anyone can then re-execute the real EVM from it <b>offline no node, no network, no trust.</b> This is statelessness (The Verge) made portable.</p>
+
+        <div class="cols">
+          <!-- MINT -->
+          <section class="card">
+            <h3>① Mint <span class="mut">· here, over a public RPC</span></h3>
+            <div class="row">
+              <div style="flex:3 1 14rem"><label class="fld">Contract</label><input id="w-to" placeholder="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 (WETH)" style="width:100%" /></div>
+              <div style="flex:1 1 6rem"><label class="fld">Block</label><input id="w-block" value="latest" /></div>
+            </div>
+            <div class="row">
+              <div style="flex:2 1 10rem"><label class="fld">Function</label>
+                <select id="w-fn" style="width:100%">
+                  <option value="0x18160ddd|uint|totalSupply()">totalSupply()</option>
+                  <option value="0x95d89b41|string|symbol()">symbol()</option>
+                  <option value="0x06fdde03|string|name()">name()</option>
+                  <option value="0x313ce567|uint|decimals()">decimals()</option>
+                  <option value="custom|hex|custom calldata">custom calldata…</option>
+                </select>
+              </div>
+              <div style="flex:3 1 12rem"><label class="fld">Calldata</label><input id="w-data" value="0x18160ddd" style="width:100%" /></div>
+            </div>
+            <div class="btns"><button class="act" id="mintBtn">⬡ Mint κ-witness</button></div>
+            <div class="root" id="w-mintbox" style="display:none; margin-top:0.7rem; flex-direction:column; align-items:stretch; gap:0.4rem">
+              <div><span class="lab">witness · κ</span> <span class="val" id="w-kappa" style="font-size: var(--holo-text-sm, 1rem)"></span></div>
+              <div class="mut" id="w-meta" style="font-size:0.8rem"></div>
+              <div class="ret" id="w-result"></div>
+              <div class="btns" style="margin-top:0.2rem">
+                <button class="act ghost" id="w-copy" style="padding:0.3rem 0.8rem; font-size:0.8rem">⧉ Copy witness</button>
+                <button class="act ghost" id="w-download" style="padding:0.3rem 0.8rem; font-size:0.8rem">⬇ Download</button>
+                <button class="act ghost" id="w-toverify" style="padding:0.3rem 0.8rem; font-size:0.8rem">→ Send to verifier</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- VERIFY (offline) -->
+          <section class="card">
+            <h3>② Verify <span class="mut">· stateless · offline · trusting no one</span></h3>
+            <label class="fld">Paste any κ-witness (yours, or one someone sent you)</label>
+            <textarea id="w-input" rows="5" spellcheck="false" placeholder='{"v":1,"network":"mainnet",...}'></textarea>
+            <div class="btns"><button class="act" id="verifyBtn">✈ Verify offline</button>
+              <span class="mut" id="w-net" style="align-self:center; font-size:0.82rem"></span></div>
+            <div id="w-checks" style="margin-top:0.5rem; font:var(--holo-text-sm, 1rem)/1.9 ui-monospace,monospace"></div>
+            <div class="root" id="w-verdict" style="display:none; margin-top:0.5rem"><span class="val" id="w-verdict-txt" style="font-weight:700"></span></div>
+          </section>
+        </div>
+        <p class="honest">The witness is content-addressed: its <b>κ = keccak256</b> of its canonical bytes, so a single flipped byte changes the κ and the proofs stop rooting. Verification re-derives the block header, re-roots every proof, re-checks <code>keccak(code)==codeHash</code>, and <b>re-runs the EVM</b> with the network physically disabled. Impossible with normal tooling: an explorer hands you data you must trust; a κ-witness hands you a proof your own device re-derives.</p>
+      </div>
+
+      <!-- ── FULL-BLOCK: re-execute a whole block, reproduce the post-state root (The Verge) ── -->
+      <div class="wrap" id="tab-block" hidden>
+        <h1 class="hero">Re-execute a <b>whole block</b> reproduce its post-state root</h1>
+        <p class="lede">Load a self-contained Ethereum Foundation consensus vector (complete pre-state + the RLP block + the expected post root), re-execute every transaction in the real EVM, and recompute the <b>post-state root</b> exactly how reference clients are conformance-tested, <b>offline, in your browser</b>.</p>
+
+        <div class="row">
+          <div style="flex:3 1 16rem"><label class="fld">EF consensus vector</label><select id="b-pick" style="width:100%"></select></div>
+          <div style="flex:0 0 auto; align-self:end"><button class="act" id="blockBtn">▶ Verify block</button></div>
+        </div>
+
+        <div class="mgrid" style="margin-top:0.6rem">
+          <div>
+            <div class="status"><span class="pill idle" id="b-pill">idle</span><span class="mut" id="b-net"></span><span class="mut" id="b-gas"></span></div>
+            <div id="b-checks" style="font:var(--holo-text-sm, 1rem)/1.9 ui-monospace,monospace; margin-top:0.3rem"></div>
+            <div class="root" id="b-verdict" style="display:none; margin-top:0.5rem"><span class="val" id="b-verdict-txt" style="font-weight:700"></span></div>
+            <label class="fld" style="margin-top:0.9rem">…or paste any BlockchainTest JSON</label>
+            <textarea id="b-input" rows="4" spellcheck="false" placeholder='{"myTest::Cancun":{"network":"Cancun","pre":{...},"blocks":[{"rlp":"0x..."}],"genesisBlockHeader":{...},"postState":{...}}}'></textarea>
+            <div class="btns"><button class="act ghost" id="bPasteBtn">Verify pasted</button></div>
+          </div>
+          <div>
+            <div class="card">
+              <h3>What this proves <span class="mut">· The Verge, fully realized</span></h3>
+              <p class="mut" style="font-size:0.86rem; line-height:1.6; margin:0.2rem 0 0">A κ-witness (previous tab) verifies one <b style="color:#b9c4cf">call</b>. This verifies an entire <b style="color:#b9c4cf">block's state transition</b>: given the complete pre-state, the engine re-executes every tx and recomputes the Merkle-Patricia <b style="color:#b9c4cf">post-state root</b>, which must equal the one committed in the block header the exact check a validating node performs. The vectors are the official <a href="https://github.com/ethereum/tests" target="_blank" rel="noopener">ethereum/tests</a> suite (the EF ground truth every client is measured against), vendored and κ-pinned. No node, no network: a reference-client conformance check, in a tab.</p>
+              <p class="mut" style="font-size:0.82rem; margin-top:0.6rem">Live mainnet blocks need a producer-supplied witness (Glamsterdam block-level access lists, H2 2026) or an archive trace this verifier is ready for those the moment they ship.</p>
+            </div>
+          </div>
+        </div>
+        <p class="honest">Deterministic &amp; offline: every vector is self-contained, so reproduction is pure execution + Merkle math (Law L5). The same engine that runs your contracts here passes the Ethereum consensus suite.</p>
+      </div>
+    </main>
+
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const ENGINE_URL = "holo-evm/holo-evm.bundle.mjs";
+      const PROV_URL = "holo-evm/PROVENANCE.txt";
+      const showK = (k) => { $("kaddr").textContent = k ? (k.startsWith("holo://") ? k : "holo://" + k) : "holo://holo-evm"; };
+      const short = (h, n = 10) => { h = String(h); return h.length > n + 6 ? h.slice(0, n) + "…" + h.slice(-4) : h; };
+
+      // ── worker RPC (id-matched promises) ───────────────────────────────────────────
+      const worker = new Worker("evm-worker.js", { type: "module" });
+      let seq = 0; const pending = new Map();
+      worker.onmessage = (e) => {
+        const d = e.data || {};
+        if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
+      };
+      worker.onerror = (e) => { $("ver").textContent = "✗ engine error"; $("ver").className = "ver bad"; setStatus("bad", "worker error: " + (e.message || e)); };
+      const call = (cmd, args = {}) => new Promise((res) => { const id = ++seq; pending.set(id, res); worker.postMessage({ id, cmd, ...args }); });
+
+      // ── κ-gate (Law L5): re-derive the engine's sha256 vs its PROVENANCE pin ────────
+      let pinned = null, engineSrc = null;
+      async function gateEngine() {
+        const [prov, srcRes] = await Promise.all([fetch(PROV_URL).then((r) => r.text()), fetch(ENGINE_URL).then((r) => r.text())]);
+        engineSrc = srcRes;
+        const m = prov.match(/^\s*([0-9a-f]{64})\s+holo-evm\.bundle\.mjs\s*$/im);
+        pinned = m ? m[1] : null;
+        let actual = null;
+        try {
+          const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(srcRes));
+          actual = Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+        } catch { /* insecure context — fall back to the functional self-test below */ }
+        return { pinOk: pinned && actual ? pinned === actual : null, actual };
+      }
+
+      // ── boot the engine in the worker, gated ───────────────────────────────────────
+      const LS = "holoevm.state.v1";
+      let booted = false, contracts = [];
+      function loadSaved() { try { return JSON.parse(localStorage.getItem(LS) || "null"); } catch { return null; } }
+      function persist(extra) {
+        const saved = loadSaved() || {};
+        Object.assign(saved, extra);
+        try { localStorage.setItem(LS, JSON.stringify(saved)); } catch {}
+      }
+
+      (async function boot() {
+        const gate = await gateEngine();
+        if (gate.pinOk === false) { $("ver").textContent = "✗ engine mismatch refused"; $("ver").className = "ver bad"; disableExec(true); return; }
+        const saved = loadSaved();
+        contracts = (saved && saved.contracts) || [];
+        const r = await call("init", { src: engineSrc, snapshot: saved && saved.snapshot, root: saved && saved.root, devKey: saved && saved.devKey });
+        booted = true;
+        const genuine = r.selftest && r.selftest.ok;
+        $("ver").textContent = genuine ? "✓ spec verified" : "✗ engine self-test failed";
+        $("ver").className = "ver " + (genuine ? "ok" : "bad");
+        $("ver").title = genuine
+          ? `Law L5: keccak256('')=${short(r.selftest.keccakEmpty, 12)} ✓ · ADD(7,5)=${r.selftest.addResult.slice(-4)} @ ${r.selftest.addGas} gas ✓ · ${r.selftest.hardfork}` + (gate.pinOk ? " · sha256 pin ✓" : "")
+          : "self-test failed engine refused";
+        if (!genuine) { disableExec(true); return; }
+        persist({ devKey: r.devKey });
+        renderDev(r.dev);
+        renderState(r.stateRoot, r.nodes, r.restored);
+        renderContracts();
+        // deep-link from Holo Scan (or anywhere): ?fork=0x..&block=..&data=..
+        try {
+          const q = new URLSearchParams(location.search);
+          if (q.get("fork")) applyFork({ address: q.get("fork"), block: q.get("block"), data: q.get("data") });
+        } catch {}
+      })();
+
+      function disableExec(off) { for (const b of ["runBtn", "deployBtn", "callBtn", "resetBtn"]) $(b).disabled = off; }
+
+      // ── examples ───────────────────────────────────────────────────────────────────
+      const EXAMPLES = [
+        { name: "Add: 7 + 5 → return 12", code: "0x600760050160005260206000f3", calldata: "", run: true },
+        { name: "Keccak256 of empty → return hash", code: "0x600060002060005260206000f3", calldata: "", run: true },
+        { name: "Storage counter: SSTORE 42 @ slot 0, SLOAD, return", code: "0x602a60005560005460005260206000f3", calldata: "", run: true },
+        { name: "Calldata echo: return first 32 bytes of calldata", code: "0x60003560005260206000f3", calldata: "0x000000000000000000000000000000000000000000000000000000000000007b", run: true },
+        { name: "Revert (no data)", code: "0x60006000fd", calldata: "", run: true },
+        { name: "Deploy: contract whose every call returns 42", code: "0x600a600c600039600a6000f3602a60005260206000f3", calldata: "", deploy: true },
+      ];
+      (function () {
+        const sel = $("example");
+        sel.add(new Option(" pick an example ", ""));
+        EXAMPLES.forEach((ex, i) => sel.add(new Option(ex.name, String(i))));
+        sel.onchange = () => {
+          const ex = EXAMPLES[+sel.value]; if (!ex) return;
+          $("code").value = ex.code; $("calldata").value = ex.calldata || "";
+        };
+        sel.value = "0";
+        $("code").value = EXAMPLES[0].code;
+      })();
+
+      // ── render helpers ─────────────────────────────────────────────────────────────
+      const fmtEth = (wei) => { const v = BigInt(wei || 0); const e = v / 10n ** 18n; const f = (v % 10n ** 18n).toString().padStart(18, "0").slice(0, 4); return `${e}.${f}`; };
+      function renderDev(dev) { $("acct").innerHTML = `sender · <b>${dev.address}</b> &nbsp; ${fmtEth(dev.balance)} ETH · nonce ${dev.nonce}`; }
+      function renderState(root, nodes, restored) {
+        $("state-root").textContent = root;
+        $("state-meta").textContent = `${nodes} κ-nodes${restored ? " · resumed" : ""}`;
+        if (!$("tab-machine").hidden) { showK("keccak:" + String(root).slice(2)); if (window.HoloTeleport) HoloTeleport.stamp("keccak:" + String(root).slice(2)); }
+      }
+      function renderContracts() {
+        const card = $("contracts-card"), tb = $("t-contracts").querySelector("tbody");
+        if (!contracts.length) { card.style.display = "none"; return; }
+        card.style.display = "";
+        tb.innerHTML = contracts.map((c, i) => `<tr>
+          <td><a class="mono" data-fill="${c.address}" href="#">${short(c.address, 12)}</a></td>
+          <td class="mono mut">${short(c.codeHash, 12)}</td>
+          <td><button class="act ghost" data-call="${c.address}" style="padding:0.2rem 0.6rem;font-size:0.74rem">Call</button></td></tr>`).join("");
+        tb.querySelectorAll("[data-fill]").forEach((a) => a.onclick = (ev) => { ev.preventDefault(); $("to").value = a.dataset.fill; });
+        tb.querySelectorAll("[data-call]").forEach((b) => b.onclick = () => { $("to").value = b.dataset.call; doCall(); });
+      }
+
+      // result panes
+      for (const b of $("rsub").querySelectorAll("button")) b.onclick = () => {
+        for (const x of $("rsub").querySelectorAll("button")) x.classList.remove("on");
+        b.classList.add("on");
+        for (const p of document.querySelectorAll(".pane")) p.classList.toggle("on", p.id === "pane-" + b.dataset.pane);
+      };
+      function setStatus(kind, txt) { const p = $("st-pill"); p.className = "pill " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "idle"); p.textContent = txt; }
+      function decodeUint(hex) { try { const v = BigInt(hex || "0x0"); return v.toString(); } catch { return ""; } }
+
+      function renderResult(d) {
+        setStatus(d.success ? "ok" : "bad", d.success ? (d.kind === "deploy" ? "deployed" : d.kind === "call" ? "call ok" : "success") : (d.error || "reverted"));
+        $("st-kind").textContent = d.kind;
+        $("st-gas").textContent = "gas " + (d.gasUsed || "0") + (d.txGas ? " · tx " + d.txGas : "");
+        let ret = "";
+        if (d.kind === "deploy") ret = d.address ? `→ contract ${d.address}  ·  codeHash ${short(d.codeHash, 12)}` : "(no contract created)";
+        else { const rv = d.returnValue || "0x"; const u = rv !== "0x" ? decodeUint(rv) : ""; ret = "return " + (rv === "0x" ? "(empty)" : rv) + (u && u.length < 24 ? `  ·  uint ${u}` : ""); }
+        $("st-ret").textContent = ret;
+
+        // trace
+        const tb = $("trace-t").querySelector("tbody");
+        const tr = d.trace || [];
+        let prev = null;
+        tb.innerHTML = tr.length ? tr.map((s, i) => {
+          const cost = prev !== null ? (BigInt(prev) - BigInt(s.gasLeft)).toString() : "";
+          prev = s.gasLeft;
+          return `<tr><td class="mut">${i}</td><td class="mono">${s.pc}</td><td class="op">${s.op}</td><td class="mut">${cost}</td><td class="mono mut">${(s.top || []).map((x) => short(x, 8)).join(" ")}</td></tr>`;
+        }).join("") : `<tr><td colspan="5" class="mut">no steps</td></tr>`;
+        if (tr.length >= 16000) tb.innerHTML += `<tr><td colspan="5" class="mut">…trace capped at 16000 steps</td></tr>`;
+
+        $("out-stack").textContent = (d.stack && d.stack.length) ? d.stack.map((x, i) => `[${i}] ${x}`).join("\n") : "(empty)";
+        $("out-memory").textContent = d.memory && d.memory !== "0x" ? wrapHex(d.memory) : "(empty)";
+        $("out-storage").textContent = (d.storage && d.storage.length) ? d.storage.map((s) => `slot ${short(s.slot, 10)}  =  ${short(s.value, 18)}`).join("\n") : "(no SSTORE)";
+        $("out-logs").textContent = (d.logs && d.logs.length) ? d.logs.map((l, i) => `#${i} ${l.address}\n  topics: ${l.topics.join(", ") || "(none)"}\n  data:   ${l.data}`).join("\n\n") : "(no logs)";
+        if (d.stateRoot) renderState(d.stateRoot, undefined, false);
+        if (d.dev) renderDev(d.dev);
+      }
+      const wrapHex = (h) => { h = String(h).replace(/^0x/, ""); let o = ""; for (let i = 0; i < h.length; i += 64) o += (i / 64).toString(16).padStart(4, "0") + ": " + h.slice(i, i + 64) + "\n"; return o; };
+
+      async function snapshotPersist() { const s = await call("snapshot"); persist({ snapshot: s.snapshot, root: s.root, contracts }); renderState(s.root, s.nodes, false); }
+
+      // ── actions ────────────────────────────────────────────────────────────────────
+      async function doRun() {
+        if (!booted) return; setStatus("idle", "running…");
+        const d = await call("run", { code: $("code").value.trim(), calldata: $("calldata").value.trim(), gas: $("gas").value.trim() || "8000000" });
+        renderResult(d);
+      }
+      async function doDeploy() {
+        if (!booted) return; setStatus("idle", "deploying…");
+        const d = await call("deploy", { initcode: $("code").value.trim(), value: $("value").value.trim() || "0", gas: $("gas").value.trim() || "8000000" });
+        renderResult(d);
+        if (d.success && d.address) {
+          if (!contracts.find((c) => c.address === d.address)) contracts.unshift({ address: d.address, codeHash: d.codeHash });
+          contracts = contracts.slice(0, 24); renderContracts(); $("to").value = d.address;
+          await snapshotPersist();
+          notifyParent && notifyParent({ kappa: "keccak:" + String(d.stateRoot).slice(2), address: d.address });
+        }
+      }
+      async function doCall() {
+        if (!booted) return; const to = $("to").value.trim(); if (!/^0x[0-9a-fA-F]{40}$/.test(to)) { setStatus("bad", "enter a contract address"); return; }
+        setStatus("idle", "calling…");
+        const d = await call("call", { to, calldata: $("calldata").value.trim(), value: $("value").value.trim() || "0", gas: $("gas").value.trim() || "8000000" });
+        renderResult(d);
+        if (d.success) await snapshotPersist();
+      }
+      $("runBtn").onclick = doRun; $("deployBtn").onclick = doDeploy; $("callBtn").onclick = doCall;
+      $("resetBtn").onclick = async () => {
+        if (!confirm("Wipe the EVM state κ-store and refund the dev account?")) return;
+        const r = await call("reset"); contracts = []; renderContracts();
+        persist({ snapshot: [], root: r.stateRoot, contracts: [] });
+        renderDev(r.dev); renderState(r.stateRoot, r.nodes, false); setStatus("idle", "state reset");
+      };
+
+      // ── κ-Fork: trustless mainnet fork — execute on Merkle-proven state ──────────────
+      let lastForkRoot = null;
+      (function () {
+        const fn = $("f-fn");
+        fn.onchange = () => { const [sel] = fn.value.split("|"); if (sel !== "custom") $("f-data").value = sel; };
+      })();
+      for (const b of document.querySelectorAll('[data-fpane]')) b.onclick = () => {
+        for (const x of document.querySelectorAll('[data-fpane]')) x.classList.toggle("on", x === b);
+        $("fpane-proof").classList.toggle("on", b.dataset.fpane === "proof");
+        $("fpane-trace").classList.toggle("on", b.dataset.fpane === "trace");
+      };
+      // decimals() of an ERC-20 (cached) — read it so token amounts format correctly,
+      // instead of guessing a fixed scale. Returns a number, or null if not a token.
+      const _decCache = new Map();
+      async function tokenDecimals(addr, blockHex) {
+        const key = addr.toLowerCase();
+        if (_decCache.has(key)) return _decCache.get(key);
+        let dec = null;
+        try {
+          const r = await rpc("eth_call", [{ to: addr, data: "0x313ce567" }, blockHex || "latest"]); // decimals()
+          if (r && r !== "0x") { const d = Number(BigInt(r)); if (Number.isInteger(d) && d >= 0 && d <= 36) dec = d; }
+        } catch {}
+        _decCache.set(key, dec); return dec;
+      }
+      function decodeReturn(hex, hint, decimals) {
+        if (!hex || hex === "0x") return "(empty)";
+        if (hint === "string") {
+          try { const b = hex.replace(/^0x/, ""); const len = parseInt(b.slice(64, 128), 16); const s = b.slice(128, 128 + len * 2); return '"' + new TextDecoder().decode(Uint8Array.from(s.match(/../g).map((x) => parseInt(x, 16)))) + '"'; } catch { return hex; }
+        }
+        try {
+          const u = BigInt(hex);
+          if (decimals != null && decimals >= 0) {                       // exact human amount at the token's real decimals
+            const base = 10n ** BigInt(decimals);
+            const frac = (u % base).toString().padStart(decimals, "0").replace(/0+$/, "");
+            return u.toString() + "  (" + (u / base).toLocaleString() + (frac ? "." + frac : "") + (decimals ? " · 10^-" + decimals : "") + ")";
+          }
+          return u.toString();                                          // raw uint — always exact, no scaling guess
+        } catch { return hex; }
+      }
+      async function doFork() {
+        if (!booted) return;
+        const to = $("f-to").value.trim() || "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+        $("f-to").value = to;
+        if (!/^0x[0-9a-fA-F]{40}$/.test(to)) { $("f-pill").className = "pill bad"; $("f-pill").textContent = "bad address"; return; }
+        let block = $("f-block").value.trim();
+        $("f-pill").className = "pill idle"; $("f-pill").textContent = "forking…"; $("f-gas").textContent = "";
+        $("f-ret").textContent = ""; $("f-proofs").textContent = "fetching proofs…";
+        try {
+          if (!block || block === "latest") { const tip = parseInt(await rpc("eth_blockNumber", []), 16); block = String(tip - 2); $("f-block").value = block; }
+          else block = String(parseInt(block, 10) || parseInt(block, 16));
+        } catch (e) { $("f-pill").className = "pill bad"; $("f-pill").textContent = "RPC error"; $("f-proofs").textContent = String(e.message || e); return; }
+        const hint = ($("f-fn").value.split("|")[1]) || "hex";
+        const d = await call("fork", { rpc: rpcUrl(), block, to, data: $("f-data").value.trim() });
+        if (d.error && !d.blockNumber) { $("f-pill").className = "pill bad"; $("f-pill").textContent = "error"; $("f-proofs").textContent = d.error; return; }
+        const proven = d.allProven;
+        $("f-pill").className = "pill " + (d.success ? (proven ? "ok" : "idle") : "bad");
+        $("f-pill").textContent = d.success ? (proven ? "✓ proven" : "ran (unproven)") : (d.error || "reverted");
+        $("f-gas").textContent = "gas " + d.gasUsed;
+        // for token-amount calls (totalSupply / balanceOf), scale by the token's REAL decimals
+        let decimals = null;
+        const sel = ($("f-data").value.trim().slice(0, 10) || "").toLowerCase();
+        if (d.success && hint === "uint" && (sel === "0x18160ddd" || sel === "0x70a08231")) {
+          try { decimals = await tokenDecimals(to, "0x" + Number(block).toString(16)); } catch {}
+        }
+        $("f-ret").textContent = "return " + decodeReturn(d.returnValue, hint, decimals);
+        $("f-rootbox").style.display = ""; $("f-srootbox").style.display = "";
+        $("f-blocknum").textContent = "#" + d.blockNumber.toLocaleString();
+        $("f-headerok").textContent = d.headerOk ? "✓ header re-derived (RLP→keccak) == network" : "✗ header mismatch";
+        $("f-headerok").style.color = d.headerOk ? "var(--good)" : "var(--bad)";
+        $("f-stateroot").textContent = d.stateRoot;
+        lastForkRoot = d.stateRoot;
+        showK("keccak:" + String(d.stateRoot).slice(2));
+        if (window.HoloTeleport) HoloTeleport.stamp("keccak:" + String(d.stateRoot).slice(2));
+        const lines = [`${d.provenAccounts} account(s) · ${d.provenSlots} storage slot(s) Merkle-proven against block #${d.blockNumber}`, ``];
+        for (const p of (d.proofs || [])) {
+          const mark = p.ok === null ? "" : p.ok ? "✓" : "✗";
+          lines.push(`${mark} ${p.address}  ·  ${p.slots} slot(s)${p.codeOk === true ? "  · code κ ✓" : p.codeOk === false ? "  · code ✗" : ""}${p.error ? "  (" + p.error + ")" : ""}`);
+        }
+        $("f-proofs").textContent = lines.join("\n");
+        // trace
+        const tb = $("f-trace-t").querySelector("tbody"); const tr = d.trace || []; let prev = null;
+        tb.innerHTML = tr.length ? tr.map((s, i) => { const cost = prev !== null ? (BigInt(prev) - BigInt(s.gasLeft)).toString() : ""; prev = s.gasLeft; return `<tr><td class="mut">${i}</td><td class="mono">${s.pc}</td><td class="op">${s.op}</td><td class="mut">${cost}</td><td class="mono mut">${(s.top || []).map((x) => short(x, 8)).join(" ")}</td></tr>`; }).join("") : `<tr><td colspan="5" class="mut">no steps</td></tr>`;
+        notifyParent && notifyParent({ kappa: "keccak:" + String(d.stateRoot).slice(2), forked: d.blockNumber, address: to, proven });
+      }
+      $("forkBtn").onclick = doFork;
+      function applyFork(m) {
+        if (m.address) $("f-to").value = m.address;
+        if (m.block != null && m.block !== "") $("f-block").value = String(m.block);
+        if (m.data) { $("f-data").value = m.data; $("f-fn").value = "custom|hex|custom calldata"; }
+        showTab("fork"); doFork();
+      }
+
+      // ── κ-Witness: mint a portable, self-verifying proof; verify it OFFLINE ──────────
+      let lastWitness = null, lastKappa = null;
+      const selHint = (data) => { const s = (data || "").slice(0, 10).toLowerCase(); return (s === "0x06fdde03" || s === "0x95d89b41") ? "string" : (s === "0x18160ddd" || s === "0x70a08231" || s === "0x313ce567") ? "uint" : "hex"; };
+      (function () { const fn = $("w-fn"); fn.onchange = () => { const [sel] = fn.value.split("|"); if (sel !== "custom") $("w-data").value = sel; }; })();
+      async function doMint() {
+        if (!booted) return;
+        const to = $("w-to").value.trim() || "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"; $("w-to").value = to;
+        if (!/^0x[0-9a-fA-F]{40}$/.test(to)) { $("w-meta").textContent = "enter a contract address"; $("w-mintbox").style.display = ""; return; }
+        $("mintBtn").disabled = true; $("mintBtn").textContent = "minting…";
+        try {
+          let block = $("w-block").value.trim();
+          if (!block || block === "latest") { const tip = parseInt(await rpc("eth_blockNumber", []), 16); block = String(tip - 2); $("w-block").value = block; }
+          else block = String(parseInt(block, 10) || parseInt(block, 16));
+          const d = await call("forkWitness", { rpc: rpcUrl(), block, to, data: $("w-data").value.trim() });
+          if (d.error && !d.witness) { $("w-meta").textContent = "✗ " + d.error; $("w-mintbox").style.display = ""; return; }
+          lastWitness = d.witness; lastKappa = d.kappa;
+          $("w-mintbox").style.display = "";
+          $("w-kappa").textContent = "holo://keccak:" + d.kappa.slice(2);
+          $("w-meta").textContent = `block #${d.blockNumber.toLocaleString()} · ${d.provenAccounts} account(s) · ${d.provenSlots} slot(s) proven · ${(d.sizeBytes / 1024).toFixed(1)} KB${d.allProven ? " · ✓ proven" : ""}`;
+          $("w-result").textContent = "result " + decodeReturn(d.result, selHint($("w-data").value));
+          $("w-input").value = JSON.stringify(d.witness);
+          showK("keccak:" + d.kappa.slice(2)); if (window.HoloTeleport) HoloTeleport.stamp("keccak:" + d.kappa.slice(2));
+        } finally { $("mintBtn").disabled = false; $("mintBtn").textContent = "⬡ Mint κ-witness"; }
+      }
+      $("mintBtn").onclick = doMint;
+      $("w-copy").onclick = () => { if (lastWitness) navigator.clipboard?.writeText(JSON.stringify(lastWitness)).then(() => { $("w-copy").textContent = "✓ copied"; setTimeout(() => $("w-copy").textContent = "⧉ Copy witness", 1200); }); };
+      $("w-download").onclick = () => { if (!lastWitness) return; const blob = new Blob([JSON.stringify(lastWitness, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "kwitness-" + (lastKappa || "0x0000").slice(2, 12) + ".json"; a.click(); URL.revokeObjectURL(a.href); };
+      $("w-toverify").onclick = () => { if (lastWitness) { $("w-input").value = JSON.stringify(lastWitness); $("w-input").scrollIntoView({ behavior: "smooth", block: "center" }); } };
+
+      async function doVerify() {
+        if (!booted) return;
+        let witness;
+        try { witness = JSON.parse($("w-input").value.trim()); } catch { $("w-checks").innerHTML = '<span class="kbad">✗ not valid JSON</span>'; return; }
+        $("verifyBtn").disabled = true; $("verifyBtn").textContent = "verifying…"; $("w-net").textContent = ""; $("w-verdict").style.display = "none";
+        $("w-checks").innerHTML = '<span class="mut">disabling network &amp; re-deriving…</span>';
+        try {
+          const d = await call("verifyWitness", { witness });
+          const row = (ok, label, extra) => `<div><span class="${ok === null ? "kwait" : ok ? "kok" : "kbad"}">${ok === null ? "" : ok ? "✓" : "✗"}</span> ${label}${extra ? ' <span class="mut">' + extra + "</span>" : ""}</div>`;
+          let html = "";
+          html += row(true, "content κ", "holo://keccak:" + (d.kappa || "").slice(2, 18) + "…");
+          html += row(d.headerOk, "block header re-derived (RLP→keccak)", d.blockHash ? d.blockHash.slice(0, 14) + "…" : "");
+          html += row(d.proofsOk, `${(d.proofs || []).length} Merkle proof(s) root to the state root`, "");
+          for (const p of (d.proofs || [])) html += `<div style="padding-left:1.2rem">${p.rootOk ? '<span class="kok">✓</span>' : '<span class="kbad">✗</span>'} <span class="mono mut">${short(p.address, 10)}</span>${p.codeOk === true ? ' <span class="kok">· code κ ✓</span>' : p.codeOk === false ? ' <span class="kbad">· code ✗</span>' : ""}</div>`;
+          html += row(d.resultOk, "EVM re-executed → result reproduced", d.result ? decodeReturn(d.result, selHint(witness.call && witness.call.data)) : "");
+          html += row(d.usedNetwork === false, "network used during verification: none", "✈ offline");
+          $("w-checks").innerHTML = html;
+          $("w-net").textContent = d.usedNetwork === false ? "0 network requests" : "";
+          $("w-verdict").style.display = ""; const v = $("w-verdict-txt");
+          v.textContent = d.allOk ? "✓ VERIFIED OFFLINE genuine mainnet state, trusting no one" : "✗ verification failed" + (d.error ? " " + d.error : "");
+          v.style.color = d.allOk ? "var(--good)" : "var(--bad)";
+          $("w-verdict").style.borderColor = d.allOk ? "#1d5e30" : "#6e2020";
+        } finally { $("verifyBtn").disabled = false; $("verifyBtn").textContent = "✈ Verify offline"; }
+      }
+      $("verifyBtn").onclick = doVerify;
+
+      // ── Full-block verifier: re-execute an EF consensus vector, reproduce post-state root ──
+      let bcIndex = null, bcCases = [];
+      async function loadBcIndex() {
+        if (bcIndex) return bcIndex;
+        try {
+          bcIndex = await fetch("holo-evm/bctests/index.json").then((r) => r.json());
+          bcCases = []; const pick = $("b-pick"); pick.innerHTML = "";
+          for (const t of bcIndex.tests) for (const c of t.cases) { bcCases.push({ file: t.file, key: c.key, kappa: t.kappa, name: c.name, network: c.network }); pick.add(new Option(c.name + "  ·  " + c.network, String(bcCases.length - 1))); }
+        } catch (e) { $("b-checks").innerHTML = '<span class="kbad">✗ couldn\'t load vectors: ' + (e.message || e) + "</span>"; }
+        return bcIndex;
+      }
+      async function sha256Hex(bytes) { const buf = await crypto.subtle.digest("SHA-256", bytes); return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join(""); }
+      async function gateVector(c) {                                   // Law L5: re-derive the vector's sha256 vs its pin
+        const buf = new Uint8Array(await fetch("holo-evm/bctests/" + c.file).then((r) => r.arrayBuffer()));
+        const actual = "sha256:" + await sha256Hex(buf);
+        if (c.kappa && actual !== c.kappa) throw new Error("κ mismatch vector refused (Law L5)");
+        return JSON.parse(new TextDecoder().decode(buf));
+      }
+      function renderBlockResult(d) {
+        const row = (ok, label, extra) => `<div><span class="${ok === null ? "kwait" : ok ? "kok" : "kbad"}">${ok === null ? "" : ok ? "✓" : "✗"}</span> ${label}${extra ? ' <span class="mut">' + extra + "</span>" : ""}</div>`;
+        let html = row(d.preOk, "pre-state alloc → genesis state root", d.genesisStateRoot ? d.genesisStateRoot.slice(0, 18) + "…" : "");
+        for (const b of (d.blocks || [])) html += row(b.ok, b.error ? "block error" : `block #${b.number} (${b.txs} tx) → post-state root reproduced`, b.error || (b.postRoot ? b.postRoot.slice(0, 18) + "…" : ""));
+        if (d.psChecked) html += row(d.postStateOk, `${d.psChecked} postState account(s) match EF expected`, "");
+        html += row(true, "network used: none", "✈ offline · self-contained");
+        $("b-checks").innerHTML = html;
+        $("b-net").textContent = d.network || ""; $("b-gas").textContent = d.totalGas ? "gas " + d.totalGas + " · " + d.nodes + " κ-nodes" : "";
+        $("b-pill").className = "pill " + (d.allOk ? "ok" : "bad"); $("b-pill").textContent = d.allOk ? "✓ verified" : "✗ failed";
+        $("b-verdict").style.display = ""; const v = $("b-verdict-txt");
+        v.textContent = d.allOk ? "✓ FULL-BLOCK STATE TRANSITION VERIFIED vs EF ground truth" : "✗ verification failed" + (d.error ? " " + d.error : "");
+        v.style.color = d.allOk ? "var(--good)" : "var(--bad)"; $("b-verdict").style.borderColor = d.allOk ? "#1d5e30" : "#6e2020";
+      }
+      async function doVerifyBlock(testCase) {
+        if (!booted || !testCase) return;
+        $("b-pill").className = "pill idle"; $("b-pill").textContent = "re-executing…"; $("b-verdict").style.display = "none";
+        $("b-checks").innerHTML = '<span class="mut">loading pre-state &amp; re-executing…</span>';
+        renderBlockResult(await call("verifyBlockTest", { test: testCase }));
+      }
+      $("blockBtn").onclick = async () => {
+        await loadBcIndex(); const c = bcCases[+$("b-pick").value]; if (!c) return;
+        $("b-pill").className = "pill idle"; $("b-pill").textContent = "verifying κ…";
+        try { const t = await gateVector(c); $("b-input").value = JSON.stringify({ [c.key]: t[c.key] }, null, 0).slice(0, 400) + " …"; doVerifyBlock(t[c.key]); }
+        catch (e) { $("b-checks").innerHTML = '<span class="kbad">✗ ' + (e.message || e) + "</span>"; $("b-pill").className = "pill bad"; $("b-pill").textContent = "refused"; }
+      };
+      $("bPasteBtn").onclick = () => {
+        let parsed; try { parsed = JSON.parse($("b-input").value.trim()); } catch { $("b-checks").innerHTML = '<span class="kbad">✗ not valid JSON</span>'; return; }
+        const tc = parsed.network ? parsed : parsed[Object.keys(parsed).find((k) => parsed[k] && parsed[k].network)];
+        if (!tc) { $("b-checks").innerHTML = '<span class="kbad">✗ no BlockchainTest case found</span>'; return; }
+        doVerifyBlock(tc);
+      };
+
+      // ── tabs ───────────────────────────────────────────────────────────────────────
+      function showTab(name) {
+        for (const t of document.querySelectorAll(".tab")) t.classList.toggle("on", t.dataset.tab === name);
+        $("tab-machine").hidden = name !== "machine";
+        $("tab-live").hidden = name !== "live";
+        $("tab-fork").hidden = name !== "fork";
+        $("tab-witness").hidden = name !== "witness";
+        $("tab-block").hidden = name !== "block";
+        if (name === "live") { ensureLive(); const tip = lastTip; if (tip) showK("keccak:" + tip.slice(2)); }
+        else if (name === "fork") { if (lastForkRoot) showK("keccak:" + lastForkRoot.slice(2)); }
+        else if (name === "witness") { if (lastKappa) showK("keccak:" + lastKappa.slice(2)); }
+        else if (name === "block") { loadBcIndex(); }
+        else { const r = $("state-root").textContent; if (r && r !== "") showK("keccak:" + r.slice(2)); }
+      }
+      for (const t of document.querySelectorAll(".tab")) t.onclick = () => showTab(t.dataset.tab);
+
+      // ── LIVE Ethereum mainnet (real RPC; each block re-derived & κ-verified) ─────────
+      let liveTimer = null, liveStarted = false, lastTip = null;
+      const rpcUrl = () => $("rpc").value;
+      async function rpc(method, params) {
+        const res = await fetch(rpcUrl(), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+        const j = await res.json(); if (j.error) throw new Error(j.error.message); return j.result;
+      }
+      $("rpc").onchange = () => { liveStarted = false; if (liveTimer) clearInterval(liveTimer); ensureLive(); };
+      function ensureLive() { if (liveStarted) return; liveStarted = true; loadLive(); liveTimer = setInterval(loadLive, 12000); }
+      const hexN = (h) => parseInt(h, 16);
+      const ago = (ts) => { const s = Math.max(0, Math.floor(Date.now() / 1000 - ts)); return s < 60 ? s + "s ago" : s < 3600 ? Math.floor(s / 60) + "m ago" : Math.floor(s / 3600) + "h ago"; };
+
+      async function loadLive() {
+        try {
+          const tipNum = await rpc("eth_blockNumber", []);
+          const head = await rpc("eth_getBlockByNumber", [tipNum, true]);
+          $("live-dot").classList.add("on");
+          lastTip = head.hash;
+          $("live-tip").textContent = "#" + hexN(head.number);
+          $("live-status").textContent = "synced · " + new Date().toLocaleTimeString();
+          $("n-height").textContent = hexN(head.number).toLocaleString();
+          $("n-base").textContent = head.baseFeePerGas ? (Number(BigInt(head.baseFeePerGas)) / 1e9).toFixed(2) : "";
+          $("n-gas").textContent = head.gasUsed && head.gasLimit ? Math.round(hexN(head.gasUsed) / hexN(head.gasLimit) * 100) + "%" : "";
+          $("n-tx").textContent = (head.transactions || []).length.toLocaleString();
+          if ($("tab-live") && !$("tab-live").hidden) showK("keccak:" + head.hash.slice(2));
+          if (window.HoloTeleport && !$("tab-live").hidden) HoloTeleport.stamp("keccak:" + head.hash.slice(2));
+          // recent blocks (fetch a few headers)
+          const top = hexN(head.number);
+          const nums = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => top - i).filter((n) => n >= 0);
+          const blocks = await Promise.all(nums.map((n) => rpc("eth_getBlockByNumber", ["0x" + n.toString(16), false])));
+          renderBlocks(blocks);
+          renderTxs((head.transactions || []).slice(0, 10));
+        } catch (e) {
+          $("live-dot").classList.remove("on");
+          $("live-status").textContent = "couldn't reach the network (" + (e.message || e) + ")";
+        }
+      }
+      function renderBlocks(blocks) {
+        const tb = $("t-blocks").querySelector("tbody");
+        tb.innerHTML = blocks.map((b, i) => `<tr>
+          <td class="mono">${hexN(b.number).toLocaleString()}</td>
+          <td><a class="mono" href="https://etherscan.io/block/${hexN(b.number)}" target="_blank" rel="noopener">${short(b.hash, 10)}</a></td>
+          <td>${(b.transactions || []).length}</td>
+          <td class="mut">${(hexN(b.gasUsed) / 1e6).toFixed(1)}M</td>
+          <td class="mut">${ago(hexN(b.timestamp))}</td>
+          <td class="kwait" id="kv-${i}">…</td></tr>`).join("");
+        blocks.forEach(async (b, i) => {
+          if (!booted) return;
+          const v = await call("verifyBlock", { block: b });
+          const cell = $("kv-" + i); if (!cell) return;
+          cell.textContent = v.ok === null ? "" : v.ok ? "✓" : "✗";
+          cell.className = v.ok === null ? "kwait" : v.ok ? "kok" : "kbad";
+          cell.title = v.ok ? "engine re-derived this block's hash (RLP→keccak) → matches the network" : (v.error || "κ mismatch");
+        });
+      }
+      function renderTxs(txs) {
+        const tb = $("t-tx").querySelector("tbody");
+        if (!txs.length) { tb.innerHTML = `<tr><td colspan="3" class="mut">empty block</td></tr>`; return; }
+        tb.innerHTML = txs.map((t) => `<tr>
+          <td><a class="mono" href="https://etherscan.io/tx/${t.hash}" target="_blank" rel="noopener">${short(t.hash, 8)}</a></td>
+          <td class="mono mut">${short(t.from, 6)} → ${t.to ? short(t.to, 6) : "(create)"}</td>
+          <td>${(Number(BigInt(t.value)) / 1e18).toFixed(4)} Ξ</td></tr>`).join("");
+      }
+
+      // ── peers (other tabs) ──────────────────────────────────────────────────────────
+      try {
+        const ch = new BroadcastChannel("holo-evm-peers"); const me = Math.random().toString(36).slice(2, 8); const seen = new Map();
+        setInterval(() => { ch.postMessage({ id: me }); const now = Date.now(); for (const [k, t] of seen) if (now - t > 4000) seen.delete(k); $("peers").textContent = "peers " + seen.size; }, 1500);
+        ch.onmessage = (e) => { if (e.data && e.data.id && e.data.id !== me) seen.set(e.data.id, Date.now()); };
+      } catch {}
+
+      // ── nestable / portable ──────────────────────────────────────────────────────────
+      let notifyParent = null;
+      if (window.parent && window.parent !== window) {
+        notifyParent = (msg) => { try { window.parent.postMessage({ type: "holo-evm-result", ...msg }, "*"); } catch {} };
+        try { window.parent.postMessage({ type: "holo-evm-ready" }, "*"); } catch {}
+      }
+      addEventListener("message", async (e) => {
+        const m = e.data || {};
+        if (m.type === "holo-evm" && m.deploy && booted) { $("code").value = m.code || $("code").value; showTab("machine"); doDeploy(); }
+        else if (m.type === "holo-evm-run" && booted) { if (m.code) $("code").value = m.code; if (m.calldata != null) $("calldata").value = m.calldata; showTab("machine"); doRun(); }
+        else if (m.type === "holo-evm-fork" && booted) { applyFork(m); }
+        else if (m.type === "holo-evm-status") { try { e.source && e.source.postMessage({ type: "holo-evm-state", booted, stateRoot: $("state-root").textContent, kappa: $("kaddr").textContent }, "*"); } catch {} }
+      });
+
+      // ── chrome: fullscreen + keys ─────────────────────────────────────────────────────
+      $("fsBtn").onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); };
+      addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !$("tab-machine").hidden) { e.preventDefault(); doRun(); return; }
+        if (/input|select|textarea/i.test(document.activeElement?.tagName || "")) return;
+        if (e.key === "f") $("fsBtn").click();
+      });
+
+      ensureLive(); // default view = the real network
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,81 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloAmp",
+  "name": "Holo Amp",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A classic skinnable audio player, verified and serverless.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "MultimediaApplication",
+  "conforms": {
+    "specs": [
+      "winamp",
+      "winamp-holospace"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloWinamp"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js",
+    "teleport.js",
+    "webamp/PROVENANCE.txt",
+    "webamp/base-2.91.wsz",
+    "webamp/skins/",
+    "webamp/skins/skins.json",
+    "webamp/webamp.bundle.min.js"
+  ],
+  "engines": [],
+  "loader": "winamp.html",
+  "description": [
+    {
+      "p": "A music player should be fun, personal and yours skins and all."
+    },
+    {
+      "p": "The classic player runs in the browser with the genuine skin format and Web Audio playback; its skins are content-addressed."
+    },
+    {
+      "ul": [
+        "A classic skinnable player interface",
+        "Genuine .wsz skins (13 content-pinned)",
+        "Spectrum analyzer and oscilloscope",
+        "Full Web Audio playback"
+      ]
+    }
+  ],
+  "categories": [
+    "AudioVideo",
+    "Audio",
+    "Player",
+    "Music"
+  ],
+  "keywords": [
+    "mp3",
+    "music",
+    "player",
+    "skins",
+    "visualizer"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/winamp",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.5.0",
+      "date": "2026-06-08",
+      "description": "Webamp 1.5.0 with 13 κ-pinned classic skins and the classic visualizers."
+    }
+  ],
+  "accent": "#ffcc00"
+}

@@ -1,0 +1,91 @@
+{
+  "id": "org.hologram.HoloNotepadPP",
+  "name": "Holo Notepad++",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A fast, lightweight source-code editor in your browser tabs, line numbers, syntax highlighting for many languages, and find and replace.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "codemirror-6",
+      "content-addressing",
+      "law-l4-no-cdn",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloNotepadPP"
+    ]
+  },
+  "shared": [
+    "holo-ui-kernel.js",
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-ux.js",
+    "holo-mobile.css",
+    "holo-phi.css"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "Editing a quick note or a source file shouldn't need an install, a server, or a network. Open a tab and type."
+    },
+    {
+      "p": "A fast, lightweight code editor that runs entirely in the browser. The editor engine is CodeMirror 6, vendored byte-for-byte and served from your own machine no CDN, no telemetry. It opens many files at once in tabs, highlights dozens of languages, and finds and replaces across the document."
+    },
+    {
+      "ul": [
+        "Open many files at once in tabs",
+        "Syntax highlighting for JavaScript, Python, C/C++, HTML, CSS, JSON, Markdown and more",
+        "Line numbers, code folding, bracket matching and word wrap",
+        "Find and replace (Ctrl+F)",
+        "Served from your own machine no server, no CDN"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "Office",
+    "Utility"
+  ],
+  "keywords": [
+    "notepad",
+    "notepad++",
+    "editor",
+    "text editor",
+    "code editor",
+    "source editor",
+    "codemirror",
+    "syntax highlighting",
+    "tabs",
+    "find replace",
+    "markdown",
+    "developer tools",
+    "content-addressing",
+    "uor",
+    "law-l4",
+    "law-l5",
+    "serverless"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/notepadpp",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-14",
+      "description": "Holo Notepad++ a fast, lightweight, browser-native source-code editor in the spirit of Notepad++. The editor engine is CodeMirror 6, vendored verbatim and bundled offline (Law L4: no CDN); the host shell adds tabs, a language picker with auto-detection from the file name, line numbers, code folding, bracket matching, word wrap, find and replace, and local session persistence. Serverless and content-addressed (Law L5)."
+    }
+  ],
+  "accent": "#7bd88f"
+}

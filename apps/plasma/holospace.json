@@ -1,0 +1,71 @@
+{
+  "id": "org.kde.PlasmaDesktop",
+  "name": "Plasma Desktop",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Your real KDE Plasma desktop, mounted live in an app over VNC.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "System",
+  "conforms": {
+    "specs": [
+      "plasma",
+      "vnc",
+      "rfb"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.kde.PlasmaDesktop"
+    ],
+    "permissions": [
+      "fullscreen",
+      "clipboard-read",
+      "clipboard-write"
+    ],
+    "channels": []
+  },
+  "shared": [
+    "holo-mobile.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "Your full desktop environment should be reachable from any browser, unmodified."
+    },
+    {
+      "p": "A standards VNC client (RFB, RFC 6143) mounts your genuine, running Plasma session live in a window with zero reimplementation."
+    },
+    {
+      "ul": [
+        "Your real, unmodified Plasma session",
+        "Standards VNC/RFB transport (RFC 6143)",
+        "Full desktop UX windows, widgets, effects",
+        "Rendered in a holospace window"
+      ]
+    }
+  ],
+  "categories": [
+    "System",
+    "Utility"
+  ],
+  "keywords": [
+    "plasma",
+    "kde",
+    "desktop",
+    "vnc",
+    "rfb",
+    "novnc",
+    "wsl"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://hologram.os/apps/plasma",
+  "accent": "#3daee9"
+}

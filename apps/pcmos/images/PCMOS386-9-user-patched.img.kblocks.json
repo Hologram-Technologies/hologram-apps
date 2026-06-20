@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "PCMOS386-9-user-patched.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:363f6ee37a17f2f44a6e0cbc8b58b64e17eb66e072b6d1b15c333fee62af2e15"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:54e635065bf1e40785dc098fded53a2ddfde5b0cb92992eb170a3399013c83c4",
+  "blocks": [
+    "did:holo:sha256:8aa008a8af42270e5f24f27fed8a988d9268cb6e504ab126ca6d226c691bc861",
+    "did:holo:sha256:86c3088a744a7333b6ecf73358d4d0413683f0ad494d0d5029e93beadc16e01c",
+    "did:holo:sha256:0a160851b498905c1f49290f8e00801eacd98bef982baf94e84e655e136e7844",
+    "did:holo:sha256:c375bc3880a3a67ffcb556a8385835747225995cac074b8af2e33e44c0728d71",
+    "did:holo:sha256:cda9f3e716f68cfd8632070136f5fd047c90a6c1926c332dff5e535003976dee",
+    "did:holo:sha256:10dc7baddbef11c35d0454bb05a269d9a2bfdd13429fa72a85e4235b61a5fc07"
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloBtc",
+  "name": "BTC Miner",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A real self-custodial Bitcoin wallet and live network view, entirely in your browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "CommunicationApplication",
+  "conforms": {
+    "specs": [
+      "btc"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloBtc"
+    ]
+  },
+  "shared": [
+    "btc-wallet",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-theme.css",
+    "holo-theme.js",
+    "holo-ux.js",
+    "prism-btc",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "btc.html",
+  "description": [
+    {
+      "p": "Holding real Bitcoin shouldn't mean trusting a custodian or installing software."
+    },
+    {
+      "p": "Real secp256k1 keys and bech32 addresses are generated and signed on-device with audited cryptography, against the live Bitcoin network."
+    },
+    {
+      "ul": [
+        "Self-custodial keys, generated and signed on-device",
+        "Send and receive real BTC on the live network",
+        "No install, server or simulation",
+        "Auditable and content-addressed"
+      ]
+    }
+  ],
+  "categories": [
+    "Network",
+    "Finance",
+    "Development"
+  ],
+  "keywords": [
+    "bitcoin",
+    "btc",
+    "wallet",
+    "mining",
+    "miner",
+    "send",
+    "receive",
+    "sha256",
+    "secp256k1",
+    "browsercoin",
+    "prism",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://hologram.os/apps/btc",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "0.3",
+      "date": "2026-06-08",
+      "description": "BrowserCoin experience for real BTC: a real self-custodial wallet (secp256k1/bech32, testnet-first send/receive) + live network + prism-κ-verified blocks."
+    }
+  ],
+  "accent": "#f7931a"
+}

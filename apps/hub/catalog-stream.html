@@ -1,0 +1,195 @@
+<!doctype html>
+<!-- catalog-stream.html — Holo Hub Phase 2a: a real catalog of live, verified κ-streaming tiles.
+     Each tile is a real κ-object; clicking it streams the object into the focused player — each chunk
+     re-derives to its DECLARED κ (Law L5) before it decodes, verified bytes persist in the
+     OpfsKappaStore. Three magical moments only this substrate can do:
+       · DEDUP-INSTANT — a tile that shares κ with one already streamed materializes with ZERO network
+         (resident, O(1) — Law L1). The store gets faster as you browse.
+       · SHOW-ME-THE-κ — click ⓘ to see the object's κ + provenance and re-verify it live.
+       · OFFLINE-EVERYTHING — cut the origin; everything you've streamed keeps playing from the κ-store.
+     Additive to Hub (does not touch the sealed index.html). Drives the OpfsKappaStore directly
+     (putVerified/getByKey) so it works on localhost where the SW runs DEV (cache-first off). -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holo Hub — catalog (κ-streaming)</title>
+<style>
+  :root { --bg:#06070a; --panel:#0f131c; --panel2:#141a26; --line:#222a39; --ink:#eaeefb; --dim:#8a93a6; --acc:#5b8cff; --ok:#3fb950; --warn:#e3b341; --mono:ui-monospace,"SF Mono",Menlo,monospace; }
+  * { box-sizing:border-box; } html,body { margin:0; }
+  body { background:radial-gradient(1100px 600px at 70% -15%, #11182b 0%, var(--bg) 60%); color:var(--ink);
+    font:15px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; padding:24px; }
+  .wrap { width:min(1180px,96vw); margin:0 auto; }
+  h1 { font-size:1.1rem; font-weight:600; margin:0 0 2px; } h1 small { color:var(--dim); font-weight:400; }
+  .lead { color:var(--dim); font-size:.86rem; margin:0 0 16px; }
+  /* focused player */
+  .stage { position:relative; aspect-ratio:16/9; max-height:54vh; width:100%; background:#000; border:1px solid var(--line);
+    border-radius:14px; overflow:hidden; box-shadow:0 30px 80px -30px #000; }
+  .stage:fullscreen { max-height:none; border:0; border-radius:0; }
+  video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; opacity:0; transition:opacity .4s; cursor:pointer; }
+  video.live { opacity:1; }
+  .empty { position:absolute; inset:0; display:grid; place-items:center; color:var(--dim); font:.9rem/1 var(--mono); }
+  .pill { position:absolute; top:11px; z-index:3; background:#000b; border:1px solid var(--line); border-radius:999px; padding:5px 11px; font:600 .72rem/1 var(--mono); display:flex; align-items:center; gap:7px; }
+  .pill.badge { left:11px; } .pill.src { right:11px; color:var(--dim); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--warn); } .badge.ok .dot { background:var(--ok); } .badge.dedup .dot { background:var(--acc); }
+  .soundhint { position:absolute; inset:0; z-index:4; display:grid; place-items:center; cursor:pointer; background:#0007; }
+  .soundhint span { background:#000c; border:1px solid var(--line); border-radius:999px; padding:10px 18px; font:600 .85rem/1 var(--mono); }
+  .soundhint.hide { display:none; }
+  /* controls */
+  .bar { display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; }
+  button { font:600 .88rem/1 inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 16px; cursor:pointer; transition:.14s; }
+  button:hover:not(:disabled) { border-color:var(--acc); } button:disabled { opacity:.4; cursor:default; }
+  button.on { background:var(--ok); color:#052; border-color:var(--ok); }
+  button.kill { border-color:#46232a; color:#ff9b9b; } button.kill.armed { background:#ff5a5a; color:#1a0606; border-color:#ff5a5a; }
+  /* catalog grid */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+  .tile { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; transition:.15s; }
+  .tile:hover { border-color:var(--acc); transform:translateY(-2px); }
+  .tile.focused { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc) inset; }
+  .thumb { position:relative; aspect-ratio:16/9; background:#000 50%/cover no-repeat; }
+  .thumb .tbadge { position:absolute; top:8px; left:8px; background:#000b; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font:600 .64rem/1 var(--mono); display:flex; align-items:center; gap:5px; }
+  .thumb .info { position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:50%; background:#000b; border:1px solid var(--line); display:grid; place-items:center; font:600 .7rem/1 var(--mono); color:var(--dim); }
+  .thumb .info:hover { color:var(--ink); border-color:var(--acc); }
+  .meta { padding:10px 12px; } .meta .t { font-weight:600; font-size:.9rem; } .meta .s { color:var(--dim); font-size:.74rem; margin-top:2px; }
+  /* κ modal */
+  .modal { position:fixed; inset:0; z-index:20; background:#000a; display:none; place-items:center; padding:24px; }
+  .modal.open { display:grid; }
+  .card { width:min(560px,94vw); background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .card h3 { margin:0 0 10px; font-size:1rem; } .card .kv { font:.76rem/1.7 var(--mono); color:var(--dim); word-break:break-all; }
+  .card .kv b { color:var(--ink); } .card .ok { color:var(--ok); }
+  .card pre { background:#0009; border:1px solid var(--line); border-radius:8px; padding:10px; font:.7rem/1.5 var(--mono); color:var(--dim); max-height:200px; overflow:auto; white-space:pre-wrap; }
+  .card .x { float:right; cursor:pointer; color:var(--dim); } .card .x:hover { color:var(--ink); }
+</style>
+
+<div class="wrap">
+  <h1>Holo Hub <small>— catalog · every tile is a live, self-verifying κ-stream</small></h1>
+  <p class="lead">Click a tile to stream it. Each chunk re-derives to its declared κ (L5) before it decodes, and persists in the κ-store. Open the <b>shared</b> tile — it materializes instantly from the κ-store (dedup, zero network). Cut the origin — everything you've streamed keeps playing.</p>
+
+  <div class="stage" id="stage">
+    <video id="vid" muted playsinline></video>
+    <div class="empty" id="empty">▶ pick a tile to start streaming</div>
+    <div class="pill badge" id="badge" style="display:none"><span class="dot"></span><span id="badgeText">—</span></div>
+    <div class="pill src" id="srcPill" style="display:none">source: —</div>
+    <div class="soundhint hide" id="soundHint"><span>🔊 click for sound</span></div>
+  </div>
+
+  <div class="bar">
+    <button id="btnSound" class="on">🔊 Enable sound</button>
+    <button id="btnFull">⛶ Fullscreen</button>
+    <button id="btnCut" class="kill">⏻ Cut the origin</button>
+    <span id="net" style="color:var(--dim);font:.78rem/2.4 var(--mono)"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="modal" id="modal"><div class="card">
+  <span class="x" id="kx">✕ close</span><h3 id="kt">κ</h3>
+  <div class="kv" id="kbody"></div>
+  <pre id="kreceipt" style="display:none"></pre>
+</div></div>
+
+<script type="module">
+  import { OpfsKappaStore } from "./holo-opfs-kappastore.mjs";
+  const $ = (id) => document.getElementById(id);
+  const DEFAULT_CODEC = 'video/mp4; codecs="avc1.640033, mp4a.40.2"';
+  const FILES = ["init.mp4", "seg_000.m4s"];
+  const sha256hex = async (u8) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", u8)), (b) => b.toString(16).padStart(2, "0")).join("");
+
+  const TILES = [
+    { id: "bbb4k", title: "Big Buck Bunny · 4K", sub: "native 1080p → 4K · 22 Mbps", asset: "asset" },
+    { id: "bbb4k-share", title: "Big Buck Bunny · 4K — shared with you", sub: "same κ · should be instant", asset: "asset" },
+    { id: "bbb4k-classic", title: "Big Buck Bunny · 4K — classic", sub: "different κ · the 360p upscale", asset: "asset2" },
+  ];
+  const base = (t) => new URL("./" + t.asset + "/", location.href).href;
+
+  const state = { store: null, focused: null, source: "—", verified: 0, total: 0, dedupHits: 0, originBytes: 0, originCut: false, kappaShown: null, busy: false };
+  window.__holo = { state: () => ({ ...state }) };
+
+  async function open() { if (!state.store) state.store = await OpfsKappaStore.open("hub-catalog"); return state.store; }
+
+  // render the catalog
+  $("grid").innerHTML = TILES.map((t) => `
+    <div class="tile" id="tile-${t.id}">
+      <div class="thumb" style="background-image:url(${t.asset}/poster.jpg)">
+        <div class="tbadge" id="tb-${t.id}"><span class="dot" style="width:7px;height:7px;border-radius:50%;background:var(--dim)"></span><span>κ</span></div>
+        <div class="info" id="kappa-${t.id}" title="show me the κ">ⓘ</div>
+      </div>
+      <div class="meta"><div class="t">${t.title}</div><div class="s">${t.sub}</div></div>
+    </div>`).join("");
+
+  for (const t of TILES) {
+    $("tile-" + t.id).onclick = (e) => { if (e.target.id === "kappa-" + t.id) return; focus(t); };
+    $("kappa-" + t.id).onclick = (e) => { e.stopPropagation(); showKappa(t); };
+  }
+
+  async function getBytes(t, file, hex) {
+    const store = await open();
+    if (await store.hasKey("sha256", hex)) { state.dedupHits++; return { u8: await store.getByKey("sha256", hex), from: "κ-store" }; }
+    if (state.originCut) throw new Error("origin cut · not in κ-store");
+    const u8 = new Uint8Array(await (await fetch(base(t) + file, { cache: "no-store" })).arrayBuffer());
+    state.originBytes += u8.length;
+    return { u8, from: "origin" };
+  }
+
+  async function focus(t) {
+    if (state.busy) return; state.busy = true;
+    document.querySelectorAll(".tile").forEach((el) => el.classList.remove("focused"));
+    $("tile-" + t.id).classList.add("focused");
+    $("empty").style.display = "none"; $("badge").style.display = ""; $("srcPill").style.display = "";
+    state.focused = t.id; state.verified = 0; state.dedupHits = 0; state.originBytes = 0; state.source = "—";
+    $("badge").className = "pill badge"; $("badgeText").textContent = "verifying…";
+    const v = $("vid"); v.classList.remove("live"); v.pause(); v.removeAttribute("src"); v.load();
+
+    try {
+      const pins = await (await fetch(base(t) + "manifest.json", { cache: "no-store" })).json();
+      const codec = pins.codec || DEFAULT_CODEC;
+      state.total = FILES.length;
+      const canDecode = ("MediaSource" in window) && MediaSource.isTypeSupported(codec);
+      let ms = null, sb = null, append = async () => {};
+      if (canDecode) {
+        ms = new MediaSource(); v.src = URL.createObjectURL(ms);
+        await new Promise((r) => ms.addEventListener("sourceopen", r, { once: true }));
+        sb = ms.addSourceBuffer(codec);
+        append = (u8) => new Promise((res, rej) => { sb.addEventListener("updateend", res, { once: true }); sb.addEventListener("error", rej, { once: true }); sb.appendBuffer(u8); });
+      }
+      for (const file of FILES) {
+        const hex = String(pins[file]).split(":").pop();
+        const { u8, from } = await getBytes(t, file, hex);
+        if (from === "origin" && await sha256hex(u8) !== hex) { $("badgeText").textContent = "κ mismatch — refused"; state.busy = false; return; }
+        await (await open()).putVerified("sha256", hex, u8);
+        await append(u8);
+        state.verified++; state.source = from;
+        $("srcPill").textContent = "source: " + from + (state.dedupHits === FILES.length ? " · dedup" : "");
+      }
+      const dedup = state.dedupHits === FILES.length;
+      $("badge").className = "pill badge " + (dedup ? "dedup" : "ok");
+      $("badgeText").textContent = dedup ? "κ-store · dedup · 0 network" : "verified · L5";
+      $("tb-" + t.id).querySelector(".dot").style.background = dedup ? "var(--acc)" : "var(--ok)";
+      $("net").textContent = dedup ? "↯ instant — every chunk was already resident (O(1), Law L1)" : `streamed ${(state.originBytes / 1048576).toFixed(1)} MB · verified · stored`;
+      if (canDecode) { ms.endOfStream(); v.classList.add("live"); try { await v.play(); } catch {} if (v.muted) $("soundHint").classList.remove("hide"); }
+      else { $("badgeText").textContent += " (no codec)"; }
+    } catch (e) { $("badge").className = "pill badge"; $("badgeText").textContent = String(e.message || e); $("net").textContent = "⏻ " + (e.message || e); }
+    state.busy = false;
+  }
+
+  async function showKappa(t) {
+    const pins = await (await fetch(base(t) + "manifest.json", { cache: "no-store" })).json();
+    const hex = String(pins["seg_000.m4s"]).split(":").pop();
+    state.kappaShown = hex;
+    $("kt").textContent = t.title;
+    const resident = await (await open()).hasKey("sha256", hex);
+    let reverify = resident ? "<span class=ok>✓ re-derived from κ-store (L5)</span>" : "stream it first to verify locally";
+    if (resident) { const u8 = await (await open()).getByKey("sha256", hex); reverify = (await sha256hex(u8) === hex) ? "<span class=ok>✓ resident bytes re-derive to this κ (L5)</span>" : "<span style=color:#ff6b6b>✗ mismatch</span>"; }
+    $("kbody").innerHTML = `<div><b>init.mp4</b> → sha256:${String(pins["init.mp4"]).split(":").pop().slice(0, 24)}…</div>
+      <div><b>seg_000.m4s</b> → sha256:${hex.slice(0, 24)}…</div><div style="margin-top:8px">${reverify}</div>`;
+    try { const r = await fetch(base(t) + "receipt.jsonld", { cache: "no-store" }); if (r.ok) { $("kreceipt").style.display = ""; $("kreceipt").textContent = "provenance receipt (receipt.jsonld):\n" + (await r.text()).slice(0, 900); } else if (pins.note) { $("kreceipt").style.display = ""; $("kreceipt").textContent = "provenance: " + pins.note; } else $("kreceipt").style.display = "none"; } catch { $("kreceipt").style.display = "none"; }
+    $("modal").classList.add("open");
+  }
+  $("kx").onclick = () => { $("modal").classList.remove("open"); state.kappaShown = null; };
+  $("modal").onclick = (e) => { if (e.target.id === "modal") $("kx").onclick(); };
+
+  function enableSound() { const v = $("vid"); v.muted = false; v.volume = 1; v.play().catch(() => {}); $("btnSound").textContent = "🔊 Sound on"; $("soundHint").classList.add("hide"); }
+  $("btnSound").onclick = enableSound; $("soundHint").onclick = enableSound;
+  $("btnFull").onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else $("stage").requestFullscreen?.(); };
+  $("vid").ondblclick = $("btnFull").onclick;
+  $("btnCut").onclick = () => { state.originCut = !state.originCut; $("btnCut").classList.toggle("armed", state.originCut); $("btnCut").textContent = state.originCut ? "⏻ Origin CUT — κ-store only" : "⏻ Cut the origin"; $("net").textContent = state.originCut ? "origin cut — only κ-store objects will play" : ""; };
+</script>

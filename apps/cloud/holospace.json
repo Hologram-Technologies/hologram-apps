@@ -1,0 +1,80 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloCloud",
+  "name": "Holo Cloud",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Your files — end-to-end encrypted, verified, and shared without a server.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "CommunicationApplication",
+  "conforms": {
+    "specs": [
+      "cloud-holospace",
+      "holo-files",
+      "webdav-ocs",
+      "nextcloud-api"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloCloud"
+    ]
+  },
+  "shared": [
+    "favicon.png",
+    "holo-collab.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js",
+    "holo-webdav.js"
+  ],
+  "engines": [],
+  "loader": "cloud.html",
+  "description": [
+    {
+      "p": "A personal cloud shouldn't require a server you rent and trust."
+    },
+    {
+      "p": "Files are stored as deduplicated, content-addressed blocks and shared in real time a shared file IS its content address."
+    },
+    {
+      "ul": [
+        "Deduplicated content-addressed storage",
+        "Real-time multi-user sharing",
+        "WebDAV + OCS, client-side",
+        "A hub for Docs, Talk and Music"
+      ]
+    }
+  ],
+  "categories": [
+    "Network",
+    "FileTransfer",
+    "Utility"
+  ],
+  "keywords": [
+    "files",
+    "cloud",
+    "sync",
+    "webdav",
+    "storage",
+    "nextcloud"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://hologram.os/apps/cloud",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Files core + Hub, content-addressed κ-store, sealed multiuser sharing."
+    }
+  ],
+  "accent": "#0082c9"
+}

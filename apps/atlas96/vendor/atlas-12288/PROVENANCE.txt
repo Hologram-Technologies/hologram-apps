@@ -1,0 +1,23 @@
+Vendored, verbatim, from the canonical upstream:
+
+  Repository : https://github.com/UOR-Foundation/atlas-12288
+  Commit     : aef42a6fd5c323373222b6362050b439690136a1  (pinned, see .pinned-commit)
+  Retrieved  : 2026-06-10
+  License    : MIT — Copyright (c) 2025 Alex Flom (see LICENSE, included verbatim)
+
+These files are the AUTHORITY for Holo Atlas 96. Not one byte of the
+Φ-Atlas-12288 / Prime Structure mathematics is re-implemented here; the
+structure is ENCODED into the UOR substrate by content-addressing these
+exact bytes (each appears in holospace.lock.json by its did:holo κ) and
+projecting their documented invariants into a W3C semantic object
+(../../atlas-12288.uor.jsonld). To re-verify any claim, re-hash the file.
+
+Files (paths preserved from upstream):
+  LICENSE                          — MIT license, verbatim
+  ffi/c/minimal_wrapper.c          — the Lean-free, self-contained reference C (the math)
+  ffi/c/uor_ffi.h                  — the C API surface + invariants (the spec, in comments)
+  pkg/node/lib/index.js            — the Node binding: PhiCoordinate / ResonanceClass / Conservation
+  pkg/node/lib/index.d.ts          — the typed API surface
+  lean/UOR/Prime/Structure.lean    — Pages=48, Bytes=256, R96=96, classifyByte (the formal source)
+  lean/UOR/Atlas/Core.lean         — the Φ-Atlas-12288 Core structure (boundary of the holographic bulk)
+  docs/guides/mathematics.md       — the mathematical background (the prose spec)

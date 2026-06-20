@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Holo IPFS the dweb, verified</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.svg" alt="Holo IPFS" width="40" height="40" />
+      <nav><a href="index.html" class="on">Home</a><a href="about.html">About</a></nav>
+    </header>
+
+    <main>
+      <span class="badge">✓ every byte κ-verified in your browser</span>
+      <h1>You are browsing IPFS.</h1>
+      <p class="lede">This entire page its HTML, this stylesheet, the logo, and the link you're
+        about to click was fetched as content-addressed blocks and <b>re-derived against its CID
+        by a service worker before it rendered</b>. No gateway was trusted. This is the dweb,
+        and it loads like the web.</p>
+
+      <div class="grid">
+        <div class="card"><h3>Content-addressed</h3><p>The page's address <i>is</i> the hash of its bytes. Change a byte and the address changes so tampering is impossible to hide.</p></div>
+        <div class="card"><h3>Trustless</h3><p>The browser is the verifier. A wrong or malicious block simply fails re-derivation and is refused (Law L5).</p></div>
+        <div class="card"><h3>Serverless</h3><p>No origin server owns this site. It lives as a Merkle-DAG of blocks that any peer or your own node can serve.</p></div>
+        <div class="card"><h3>One address space</h3><p>The same CID is a <code>did:holo</code> and a <code>holo://</code> name on the UOR substrate. IPFS isn't bridged here it's adopted.</p></div>
+      </div>
+
+      <p><a class="cta" href="about.html">How this works →</a></p>
+    </main>
+
+    <footer>Served locally by holo-serve as a trustless gateway · rendered by the Holo IPFS service worker.</footer>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+winamp/ — the bundled, content-addressed default playlist for the Holo Winamp holospace.
+
+These are ORIGINAL, royalty-free chiptune tracks — not samples of any third-party work —
+synthesized DETERMINISTICALLY by make-tracks.mjs (no randomness, no external input), so
+they re-derive to a fixed κ on any machine (Law L5). Format is PCM 16-bit WAV (RIFF/WAVE),
+the canonical uncompressed audio container, decoded natively by every browser's
+HTMLMediaElement; their square/triangle voices give Winamp's spectrum analyzer and
+oscilloscope real signal to render.
+
+Tracks:
+  kappa-groove.wav   "Kappa Groove"  — Hologram OS   (square bass + triangle arpeggio)
+  boot-chime.wav     "Boot Chime"    — Hologram OS   (rising triangle pad)
+
+sha256 (pinned in winamp-manifest.json; the witness re-derives these):
+  2e59350c8171dad4f664b134890a0dde0c2ab53ee65970643745878c6b6b2b73  kappa-groove.wav
+  b26535e1a3a6bf5c3b5059b9d20d907908b1121d53ad7beda31d33585ba5edca  boot-chime.wav
+
+Reproduce (byte-for-byte):
+  node winamp/make-tracks.mjs

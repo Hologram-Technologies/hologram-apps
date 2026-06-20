@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plasma Desktop</title>
+    <!-- Holo UI: mobile mechanics + theme runtime; the chrome follows the OS palette (a Holo UI citizen), the noVNC body is a remote pixel surface. -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <style>
+      html, body { margin: 0; height: 100%; background: var(--holo-bg, #1d2330); color: var(--holo-ink, #eff0f1); font: var(--holo-text-sm, 1rem) var(--holo-font-sans, system-ui, sans-serif); overflow: hidden; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; background: var(--holo-surface, #2a2e36cc); backdrop-filter: blur(8px); z-index: 10; border-bottom: 1px solid var(--holo-border, #00000040); }
+      #bar b { color: var(--holo-accent, #3daee9); }
+      #status { color: var(--holo-ink-dim, #9aa7b4); flex: 1; }
+      #bar input { width: 280px; background: var(--holo-surface-2, #1b1e25); border: 1px solid var(--holo-border, #3a3f4b); color: var(--holo-ink, #eff0f1); border-radius: 6px; padding: 5px 9px; font: inherit; outline: none; }
+      #bar button { background: var(--holo-accent, #3daee9); border: 0; color: var(--holo-accent-ink, #06080c); border-radius: 6px; padding: 5px 14px; cursor: pointer; font: inherit; font-weight: 600; }
+      #screen { position: absolute; inset: 32px 0 0 0; background: var(--holo-bg, #1d2330); }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Plasma Desktop"></holo-splash>
+
+    <div id="bar"><b>Plasma 6</b><span id="status">enter your session's VNC WebSocket (krfb + websockify), then Connect</span><input id="ws" /><button id="go">Connect</button></div>
+    <div id="screen"></div>
+    <!-- The canonical noVNC client (RFC 6143 / RFB), loaded as-is — no reimplementation. It streams
+         the real, unmodified Plasma 6 session running in WSL2 (krfb → websockify → this WebSocket). -->
+    <script type="module">
+      import RFB from "./vendor/novnc/core/rfb.js";
+      const q = new URLSearchParams(location.search);
+      const wsi = document.getElementById("ws"), status = (t) => (document.getElementById("status").textContent = t);
+      const def = q.get("ws") || "ws://localhost:6080";
+      wsi.value = def;
+      let rfb = null;
+      function connect(url) {
+        status("connecting to " + url + " …");
+        try { if (rfb) rfb.disconnect(); } catch {}
+        try {
+          rfb = new RFB(document.getElementById("screen"), url, {});
+          rfb.scaleViewport = true; rfb.resizeSession = true; rfb.clipViewport = false;
+          rfb.addEventListener("connect", () => status("connected · real KDE Plasma 6"));
+          rfb.addEventListener("disconnect", (e) => status("disconnected" + (e.detail && e.detail.clean ? "" : " is krfb + websockify running in WSL?")));
+          rfb.addEventListener("securityfailure", () => status("authentication failed"));
+        } catch (e) { status("noVNC failed to load/connect: " + e.message); }
+      }
+      document.getElementById("go").onclick = () => connect(wsi.value.trim());
+      if (q.get("ws") || q.get("autoconnect")) connect(def);
+      window.__plasma = { connect, get rfb() { return rfb; } };
+    </script>
+  </body>
+</html>

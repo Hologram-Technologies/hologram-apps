@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Search</title>
+    <!-- Forwarder: this app package opens its own self-contained Holo Search page (search.html in
+         this same package), which boots inside the World shell. Carries ?q through so a deep link
+         still searches. The OS supplies the shared runtime (../../_shared); the app brings the rest. -->
+    <link rel="stylesheet" href="../../_shared/holo-mobile.css" />
+    <style>html,body{margin:0;height:100%;background:var(--holo-bg,#0b0f14)}</style>
+    <script>location.replace("./search.html" + location.search + location.hash);</script>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Search"></holo-splash>
+
+    <noscript>
+      <meta http-equiv="refresh" content="0; url=./search.html" />
+      Open <a href="./search.html">Holo Search</a>.
+    </noscript>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "netboot.xyz.iso",
+    "bytes": 2398208,
+    "did": "did:holo:sha256:bc1128ac6b94e468af04059164e06b23cc6cec4d32a00dc6808a4ab5c648e13b"
+  },
+  "blockSize": 262144,
+  "blockCount": 10,
+  "uniqueBlocks": 10,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:cd5ddda227a8f926676cce80d5414f815e624a2072df80fc84c3b1cd149a6c84",
+  "blocks": [
+    "did:holo:sha256:952557ee646dd323cf26d9588e6bfcae54fe706f5aecddda81ee9ff7167bd65b",
+    "did:holo:sha256:cb34f26ef318907b0d4bbf9006dda73aca19524171b77eed3690ea285b0e9cbc",
+    "did:holo:sha256:cab486dafde455e62126bf7a666194a255af3145ca1e80389999e0a7397894af",
+    "did:holo:sha256:7a068ae0bca50d6646d84e4157638ea14c06032519b120fff2d7fdd25470ff48",
+    "did:holo:sha256:4221314b00543d9bd6adc354cc24dd0f5ef1fed1e5e4951d8579adc2c394015e",
+    "did:holo:sha256:9f2728d1de0415cda3b27f668a5c95d9bbf3e62d8b639915888e12640217f414",
+    "did:holo:sha256:2f864370feb24bc3e4af09bc2445dd209f550ee41436a868f045af3ddeed4d19",
+    "did:holo:sha256:f9b76099bda50d606341b12b8d43d5df8f5b31beca409606c2e34263f2e7fd21",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:027973d089e9ed6de4388fc918085e2ab276e4503b484a34e40e378d2d68c3d6"
+  ]
+}

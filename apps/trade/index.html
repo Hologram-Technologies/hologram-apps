@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Trade Hologram OS</title>
+    <meta
+      name="description"
+      content="Holo Trade a self-sovereign trading terminal over Hyperliquid (on-chain order-book DEX). Phase 0: the live read plane perp markets, a per-market live order book and trade firehose, and read-only account positions & fills straight from the official Hyperliquid Info API + WebSocket, key-less, serverless, in your browser. No signing in P0 (ADR-0070)."
+    />
+    <style>
+      /* Self-contained dark trading theme. Token names mirror Holo Theme so the OS-served
+         (sealed) theme upgrades these in-place; the fallbacks keep P0 renderable standalone. */
+      :root {
+        color-scheme: dark;
+        --holo-bg: #0a0d12; --holo-surface: #0d1117; --holo-surface-2: #11161d; --holo-border: #1e2630;
+        --holo-ink: #e6edf3; --holo-ink-dim: #8b949e; --holo-accent: #f2c14e;
+        --holo-ok: #3fb950; --holo-danger: #f85149; --holo-warn: #d29922;
+        --bg: var(--holo-bg); --panel: var(--holo-surface); --panel2: var(--holo-surface-2); --line: var(--holo-border);
+        --ink: var(--holo-ink); --dim: var(--holo-ink-dim); --acc: var(--holo-accent);
+        --good: var(--holo-ok); --bad: var(--holo-danger); --warn: var(--holo-warn);
+        --bidc: #1f6f37; --askc: #6e2528;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; overflow-x: hidden; }   /* never a horizontal scrollbar — the layout fits its pane at any width */
+      body {
+        background: var(--bg); color: var(--ink); overflow: hidden;
+        display: grid; grid-template-rows: auto 1fr;
+        font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+      .mut { color: var(--dim); }
+      .up { color: var(--good); } .dn { color: var(--bad); }
+      h1, h2, h3 { margin: 0; font-weight: 700; }
+      input { font: inherit; color: var(--ink); background: #010409; border: 1px solid var(--line); border-radius: 7px; padding: 0.4rem 0.6rem; }
+      input:focus { outline: none; border-color: color-mix(in srgb, var(--acc) 60%, var(--line)); }
+
+      /* ── top bar ── */
+      #bar { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.9rem;
+        background: #0d1117cc; backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); user-select: none; }
+      #bar .brand { font-weight: 800; display: flex; align-items: center; gap: 0.5rem; letter-spacing: .2px; }
+      #bar .brand .dia { width: 17px; height: 17px; color: var(--acc); }
+      #bar .brand b { color: color-mix(in srgb, var(--acc) 78%, var(--ink)); }
+      #bar .tag { color: var(--dim); font: 11px ui-monospace, monospace; padding: .1rem .45rem; border: 1px solid var(--line); border-radius: 999px; }
+      #bar .sp { margin-left: auto; }
+      #bar .live { display: inline-flex; align-items: center; gap: 0.4rem; font: 11px ui-monospace, monospace; color: var(--dim); }
+      #bar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 6px var(--bad); transition: background .2s, box-shadow .2s; }
+      #bar .dot.on { background: var(--good); box-shadow: 0 0 7px var(--good); }
+      #bar .ep { font: 11px ui-monospace, monospace; color: var(--dim); max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* ── 3-column grid ── */
+      #grid { display: grid; grid-template-columns: 300px 1fr 320px; min-height: 0; }
+      .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--line); }
+      .col:last-child { border-right: 0; }
+      .colhd { flex: 0 0 auto; display: flex; align-items: center; gap: .5rem; padding: .55rem .75rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+      .colhd h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+      .colbody { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
+
+      /* ── markets list ── */
+      .mkt { display: grid; grid-template-columns: 1fr auto auto; gap: .4rem; align-items: baseline; padding: .42rem .75rem; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+      .mkt:hover { background: var(--panel2); }
+      .mkt.sel { background: color-mix(in srgb, var(--acc) 12%, transparent); box-shadow: inset 2px 0 0 var(--acc); }
+      .mkt .c { font-weight: 700; } .mkt .c small { color: var(--dim); font-weight: 400; }
+      .mkt .px { font: 12px ui-monospace, monospace; text-align: right; }
+      .mkt .ch { font: 11px ui-monospace, monospace; text-align: right; min-width: 56px; }
+      #mktsearch { margin: 0; width: 110px; }
+
+      /* ── market header ── */
+      #mhead { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 1.1rem; padding: .7rem .9rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+      #mhead .coin { font-size: 20px; font-weight: 800; }
+      #mhead .mark { font: 18px ui-monospace, monospace; }
+      #mhead .stat { display: flex; flex-direction: column; gap: 1px; }
+      #mhead .stat .l { font: 10px ui-monospace, monospace; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+      #mhead .stat .v { font: 12px ui-monospace, monospace; }
+
+      /* ── chart (TradingView Lightweight Charts, vendored verbatim) ── */
+      #chartwrap { flex: 3 1 0; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+      #ivtabs { flex: 0 0 auto; display: flex; align-items: center; gap: 5px; padding: .35rem .6rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+      #ivtabs .lbl { font: 10px ui-monospace, monospace; color: var(--dim); text-transform: uppercase; letter-spacing: .07em; margin-right: .2rem; }
+      #ivtabs .iv { font: 11px ui-monospace, monospace; color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: .12rem .52rem; cursor: pointer; transition: color .12s, background .12s, border-color .12s; }
+      #ivtabs .iv:hover { color: var(--ink); border-color: #30363d; }
+      #ivtabs .iv.on { color: #0a0d12; background: var(--acc); border-color: var(--acc); font-weight: 700; }
+      #chart { flex: 1 1 auto; min-height: 0; position: relative; }
+
+      /* ── order book ── */
+      #bookwrap { flex: 2 1 0; display: grid; grid-template-rows: 1fr auto 1fr; min-height: 0; }
+      .bookhalf { overflow: hidden; display: flex; flex-direction: column; }
+      .bookhalf.asks { justify-content: flex-end; }
+      .bookrow { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem; padding: .08rem .9rem; font: 12px ui-monospace, monospace; }
+      .bookrow .depth { position: absolute; top: 0; bottom: 0; right: 0; opacity: .16; z-index: 0; }
+      .bookrow span { position: relative; z-index: 1; }
+      .bookrow .px { text-align: left; } .bookrow .sz { text-align: right; color: var(--ink); } .bookrow .tot { text-align: right; color: var(--dim); }
+      .asks .bookrow .px { color: var(--bad); } .asks .bookrow .depth { background: var(--bad); }
+      .bids .bookrow .px { color: var(--good); } .bids .bookrow .depth { background: var(--good); }
+      .bookhd { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem; padding: .25rem .9rem; font: 10px ui-monospace, monospace; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--line); }
+      .bookhd .sz, .bookhd .tot { text-align: right; }
+      #spread { display: flex; align-items: center; justify-content: center; gap: .6rem; padding: .3rem; border-block: 1px solid var(--line); background: var(--panel2); font: 12px ui-monospace, monospace; }
+      #spread .mid { font-weight: 700; font-size: 14px; }
+
+      /* ── trades firehose ── */
+      .trow { display: grid; grid-template-columns: 1fr 1fr auto; gap: .5rem; padding: .12rem .75rem; font: 11px ui-monospace, monospace; border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent); animation: fadein .4s; }
+      @keyframes fadein { from { background: color-mix(in srgb, var(--acc) 18%, transparent); } to { background: transparent; } }
+      .trow .px { text-align: left; } .trow .sz { text-align: right; color: var(--dim); } .trow .tm { text-align: right; color: var(--dim); }
+
+      /* ── account panel ── */
+      #acct { border-top: 1px solid var(--line); }
+      #acctform { display: flex; gap: .4rem; padding: .6rem .75rem; }
+      #acctform input { flex: 1 1 auto; min-width: 0; }
+      #acctform button { font: inherit; color: #0a0d12; background: var(--acc); border: 0; border-radius: 7px; padding: .4rem .7rem; font-weight: 700; cursor: pointer; }
+      .pos { display: grid; grid-template-columns: 1fr auto; gap: .15rem .5rem; padding: .45rem .75rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); font: 11px ui-monospace, monospace; }
+      .pos .c { font-weight: 700; font-size: 12px; } .pos .side { font-size: 10px; padding: 0 .3rem; border-radius: 4px; }
+      .pos .side.long { color: var(--good); background: color-mix(in srgb, var(--good) 16%, transparent); }
+      .pos .side.short { color: var(--bad); background: color-mix(in srgb, var(--bad) 16%, transparent); }
+      .pad { padding: 1.1rem .9rem; color: var(--dim); font-size: 12px; }
+      .lawnote { padding: .55rem .75rem; font: 11px ui-sans-serif, system-ui; color: var(--dim); border-top: 1px solid var(--line); }
+      .lawnote b { color: color-mix(in srgb, var(--acc) 70%, var(--ink)); }
+      .skel { color: var(--dim); padding: 1rem .9rem; }
+
+      /* ── order ticket (signed write side, ADR-0070) ── */
+      #ticket { flex: 0 0 auto; border-bottom: 1px solid var(--line); }
+      #ticket .colhd { gap: .4rem; }
+      .tkbadge { font: 10px ui-monospace, monospace; padding: .08rem .4rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+      .tkbadge.net { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+      .tkbadge.sdk.ok { color: var(--good); border-color: #1f6f37; }
+      .tkbadge.sdk.bad { color: var(--bad); border-color: #6e2528; }
+      .tkbody { padding: .6rem .75rem; display: flex; flex-direction: column; gap: .5rem; }
+      .tkside, .tktype { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+      .tkside .sd, .tktype .ty { font: 12px ui-sans-serif, system-ui; color: var(--dim); background: #010409; border: 1px solid var(--line); border-radius: 7px; padding: .4rem; cursor: pointer; font-weight: 600; }
+      .tkside .sd.buy.on { color: #0a0d12; background: var(--good); border-color: var(--good); }
+      .tkside .sd.sell.on { color: #fff; background: var(--bad); border-color: var(--bad); }
+      .tktype .ty.on { color: var(--ink); border-color: color-mix(in srgb, var(--acc) 60%, var(--line)); background: color-mix(in srgb, var(--acc) 12%, transparent); }
+      .tkf { display: flex; flex-direction: column; gap: .2rem; font: 11px ui-monospace, monospace; color: var(--dim); }
+      .tkf input { width: 100%; }
+      .tkmeta { display: flex; justify-content: space-between; font: 11px ui-monospace, monospace; color: var(--dim); }
+      .tkmeta b { color: var(--ink); }
+      .tkactions { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+      .tkactions button { font: inherit; font-weight: 700; border-radius: 7px; padding: .45rem; cursor: pointer; border: 1px solid var(--acc); background: var(--acc); color: #0a0d12; }
+      .tkactions button.alt { background: transparent; color: var(--acc); }
+      .tkactions button:disabled { opacity: .45; cursor: not-allowed; }
+      .tkout { font: 11px ui-monospace, monospace; max-height: 168px; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent); padding-top: .45rem; }
+      .tkout .pad { padding: .2rem 0; font: 11px ui-sans-serif, system-ui; }
+      .tkout .vc { color: var(--good); } .tkout .vx { color: var(--bad); }
+      .tkout .kv { color: var(--dim); } .tkout .kv b { color: color-mix(in srgb, var(--acc) 70%, var(--ink)); }
+      .tkout .k { color: var(--link); word-break: break-all; }
+      .tkkey { font: 10px ui-monospace, monospace; padding: 0 .75rem .25rem; }
+      .tksigner { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 0 .75rem .5rem; }
+      .tksigner .lnk { font: 11px ui-sans-serif, system-ui; color: var(--acc); background: transparent; border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--line)); border-radius: 6px; padding: .2rem .5rem; cursor: pointer; }
+      .tksigner .lnk:hover { background: color-mix(in srgb, var(--acc) 12%, transparent); }
+      .tksigner .lnk:disabled { opacity: .45; cursor: not-allowed; }
+      .tksigner .mut { font: 10px ui-monospace, monospace; }
+      .tksigner .k { color: var(--link); }
+
+      @media (max-width: 980px) {
+        #grid { grid-template-columns: 1fr; grid-auto-rows: minmax(0, auto); overflow-y: auto; overflow-x: hidden; }
+        .col { border-right: 0; border-bottom: 1px solid var(--line); }
+        body { overflow-y: auto; overflow-x: hidden; }
+      }
+    </style>
+    <!-- Wired to the canonical Holo UI/UX engine (ADR-0030/0057/0062) — inherits the design tokens,
+         readability floor, reduced-motion guard + native-OS feel from the one shared source. -->
+    <script src="../../_shared/holo-theme.js"></script>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Trade"></holo-splash>
+
+    <div id="bar">
+      <span class="brand">
+        <svg class="dia" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 22 12 12 22 2 12Z"/></svg>
+        Holo&nbsp;<b>Trade</b>
+      </span>
+      <span class="tag">Hyperliquid · HyperCore</span>
+      <span class="tag" title="Phase 0 of ADR-0070: read plane only no key, no signing.">read-only · P0</span>
+      <span class="sp"></span>
+      <span class="ep mono" id="ep"></span>
+      <span class="live"><span class="dot" id="dot"></span><span id="livetxt">connecting…</span></span>
+    </div>
+
+    <div id="grid">
+      <!-- markets -->
+      <section class="col" id="mktcol">
+        <div class="colhd"><h2>Markets</h2><span class="sp" style="margin-left:auto"></span><input id="mktsearch" placeholder="filter…" autocomplete="off" /></div>
+        <div class="colbody" id="mkts"><div class="skel">Loading perp markets…</div></div>
+      </section>
+
+      <!-- center: header + book -->
+      <section class="col" id="bookcol">
+        <div id="mhead"><div class="skel">Select a market.</div></div>
+        <div id="chartwrap">
+          <div id="ivtabs"></div>
+          <div id="chart"></div>
+        </div>
+        <div id="bookwrap">
+          <div class="bookhalf asks"><div class="bookhd"><span class="px">Price</span><span class="sz">Size</span><span class="tot">Total</span></div><div id="asks"></div></div>
+          <div id="spread"><span class="mut">spread</span><span id="spreadv" class="mono"></span><span class="mid mono" id="midv"></span></div>
+          <div class="bookhalf bids"><div id="bids"></div></div>
+        </div>
+      </section>
+
+      <!-- right: order ticket + trades + account -->
+      <section class="col" id="rightcol">
+        <div id="ticket">
+          <div class="colhd"><h2>Order Ticket</h2><span class="sp" style="margin-left:auto"></span><span class="tkbadge net" id="tknet">TESTNET</span><span class="tkbadge sdk" id="tksdk" title="SDK integrity (Law L5)">SDK …</span></div>
+          <div class="tkbody">
+            <div class="tkside"><button class="sd buy on" data-side="buy">Buy / Long</button><button class="sd sell" data-side="sell">Sell / Short</button></div>
+            <div class="tktype"><button class="ty on" data-type="limit">Limit</button><button class="ty" data-type="market">Market</button></div>
+            <label class="tkf"><span>Size · <span id="tkcoin"></span></span><input id="tksz" inputmode="decimal" placeholder="0.0" autocomplete="off" /></label>
+            <label class="tkf" id="tkpxrow"><span>Limit price · USD</span><input id="tkpx" inputmode="decimal" placeholder="" autocomplete="off" /></label>
+            <div class="tkmeta"><span>Notional <b id="tknotional">$0</b></span><span>Conscience cap <b id="tkcap">$10,000</b></span></div>
+            <div class="tkactions"><button id="tksign">Sign · preview</button><button id="tkplace" class="alt">Place · testnet</button></div>
+            <div id="tkout" class="tkout"><div class="pad">Pick side, size &amp; price. <b>Sign · preview</b> runs the conscience gate and signs with your session agent key <b>nothing is sent</b>. <b>Place · testnet</b> broadcasts to Hyperliquid testnet (no real funds).</div></div>
+          </div>
+          <div class="tkkey mut">signer · <span id="tkaddr" class="mono">…</span></div>
+          <div class="tksigner"><button id="tkconnect" class="lnk">Connect Holo Wallet</button><button id="tkgrant" class="lnk" disabled>Grant agent · 8h</button><span id="tkgrantinfo" class="mut"></span></div>
+        </div>
+        <div class="colhd"><h2>Live Trades</h2></div>
+        <div class="colbody" id="trades" style="flex:1 1 50%"><div class="skel"></div></div>
+        <div id="acct">
+          <div class="colhd"><h2>Account · read-only</h2></div>
+          <form id="acctform"><input id="acctaddr" placeholder="0x… address (positions & fills)" spellcheck="false" autocomplete="off" /><button type="submit">View</button></form>
+          <div id="acctbody"><div class="pad">Paste any <span class="mono">0x</span> address to read its HyperCore positions and recent fills. No key, no signing Phase 0 is the verify-don't-trust read plane.</div></div>
+        </div>
+        <div class="lawnote">Read plane: live, key-less Hyperliquid Info API + WebSocket. Write plane: the <b>official Hyperliquid SDK, vendored &amp; sealed</b> (κ-verified at load) every order is <b>conscience-gated before it's signed</b> and sealed as a re-derivable receipt (ADR-0070, Law L1/L5). The master key never enters the tab.</div>
+      </section>
+    </div>
+
+    <!-- TradingView Lightweight Charts v5.2.0 — official standalone build, vendored verbatim (Apache-2.0). -->
+    <script src="./_shared/vendor/lightweight-charts.standalone.production.js"></script>
+    <script type="module">
+      import { HyperCore } from "./_shared/holo-hypercore.js";
+      import { HcStream } from "./_shared/holo-hypercore-stream.js";
+      import { HoloHyperliquid, SDK, verifySdk, connectWallet } from "./_shared/holo-hyperliquid-exchange.mjs";
+
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const INFO = params.get("info") || "https://api.hyperliquid.xyz/info";
+      const WS = params.get("ws") || "wss://api.hyperliquid.xyz/ws";
+      const hc = new HyperCore(INFO);
+      const st = new HcStream(WS);
+      $("ep").textContent = INFO.replace(/^https?:\/\//, "");
+
+      const fmtPx = (n) => { n = +n; if (!isFinite(n)) return ""; const a = Math.abs(n); const d = a >= 1000 ? 1 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6; return n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }); };
+      const fmtSz = (n) => { n = +n; if (!isFinite(n)) return ""; return n.toLocaleString(undefined, { maximumFractionDigits: n >= 1000 ? 0 : n >= 1 ? 3 : 4 }); };
+      const fmtUsd = (n) => { n = +n; if (!isFinite(n)) return ""; const a = Math.abs(n); if (a >= 1e9) return "$" + (n / 1e9).toFixed(2) + "B"; if (a >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M"; if (a >= 1e3) return "$" + (n / 1e3).toFixed(1) + "K"; return "$" + n.toFixed(2); };
+      const fmtPct = (n) => { n = +n; if (!isFinite(n)) return ""; return (n >= 0 ? "+" : "") + n.toFixed(2) + "%"; };
+      const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+      let markets = [];          // [{coin, markPx, change24h, ...}]
+      let sel = null;            // selected coin
+      const byCoin = new Map();  // coin -> market row element
+
+      // ── chart (TradingView Lightweight Charts, fed by the official Hyperliquid candle API) ──
+      const LWC = window.LightweightCharts;
+      const INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"];
+      const IVMS = { "1m": 6e4, "5m": 3e5, "15m": 9e5, "1h": 36e5, "4h": 144e5, "1d": 864e5 };
+      let curIv = "15m";
+      let chart, candleSeries, volSeries, candleSub = null, lastBarTime = 0;
+      const cssv = (n) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || undefined);
+      // Hyperliquid candle {t,T,s,i,o,h,l,c,v,n} → Lightweight Charts bars (time in unix seconds)
+      const cBar = (c) => ({ time: Math.floor(+c.t / 1000), open: +c.o, high: +c.h, low: +c.l, close: +c.c });
+      const cVol = (c) => ({ time: Math.floor(+c.t / 1000), value: +c.v, color: (+c.c >= +c.o ? "rgba(63,185,80,.38)" : "rgba(248,81,73,.38)") });
+
+      function initChart() {
+        if (!LWC) return;
+        chart = LWC.createChart($("chart"), {
+          autoSize: true,
+          layout: { background: { type: LWC.ColorType.Solid, color: "transparent" }, textColor: cssv("--dim"), fontFamily: "ui-monospace, monospace" },
+          grid: { vertLines: { color: "rgba(255,255,255,.04)" }, horzLines: { color: "rgba(255,255,255,.04)" } },
+          rightPriceScale: { borderColor: cssv("--line") },
+          timeScale: { borderColor: cssv("--line"), timeVisible: true, secondsVisible: false },
+          crosshair: { mode: LWC.CrosshairMode.Normal },
+        });
+        candleSeries = chart.addSeries(LWC.CandlestickSeries, {
+          upColor: cssv("--good"), downColor: cssv("--bad"),
+          borderUpColor: cssv("--good"), borderDownColor: cssv("--bad"),
+          wickUpColor: cssv("--good"), wickDownColor: cssv("--bad"),
+        });
+        volSeries = chart.addSeries(LWC.HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "" });
+        volSeries.priceScale().applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
+      }
+      function renderIvTabs() {
+        const host = $("ivtabs"); if (!host) return;
+        host.innerHTML = `<span class="lbl">interval</span>` + INTERVALS.map((iv) => `<button class="iv${iv === curIv ? " on" : ""}" data-iv="${iv}">${iv}</button>`).join("");
+        host.querySelectorAll(".iv").forEach((b) => { b.onclick = () => { if (b.dataset.iv === curIv) return; curIv = b.dataset.iv; renderIvTabs(); if (sel) loadChart(sel); }; });
+      }
+      async function loadChart(coin) {
+        if (!chart) return;
+        if (candleSub) { st.unsubscribe(candleSub); candleSub = null; }
+        const iv = curIv, end = Date.now(), start = end - 500 * (IVMS[iv] || 9e5);
+        let candles = [];
+        // candleSnapshot is the official Info request, sent through the existing generic post()
+        try { candles = await hc.post({ type: "candleSnapshot", req: { coin, interval: iv, startTime: start, endTime: end } }); } catch {}
+        if (sel !== coin || curIv !== iv) return;                 // raced past this load
+        const seen = new Map();
+        for (const c of (candles || [])) seen.set(+c.t, c);        // dedupe by open-time
+        const ordered = [...seen.values()].sort((a, b) => a.t - b.t);
+        candleSeries.setData(ordered.map(cBar));
+        volSeries.setData(ordered.map(cVol));
+        lastBarTime = ordered.length ? Math.floor(+ordered[ordered.length - 1].t / 1000) : 0;
+        chart.timeScale().fitContent();
+        candleSub = { type: "candle", coin, interval: iv };
+        st.subscribe(candleSub);
+      }
+      // O(1) live update of the forming bar — the low-latency path
+      st.on("candle", (c) => {
+        if (!candleSub || !c || c.s !== candleSub.coin || c.i !== candleSub.interval) return;
+        const t = Math.floor(+c.t / 1000); if (t < lastBarTime) return;
+        candleSeries.update(cBar(c)); volSeries.update(cVol(c)); lastBarTime = t;
+      });
+
+      // ── markets list ──
+      async function loadMarkets() {
+        try {
+          markets = await hc.markets();
+        } catch (e) { $("mkts").innerHTML = `<div class="pad">Couldn't reach the Info API.<br><span class="mut">${esc(e.message || e)}</span></div>`; return; }
+        renderMarkets();
+        if (!sel && markets.length) selectMarket(markets[0].coin);
+      }
+      function renderMarkets() {
+        const q = ($("mktsearch").value || "").trim().toUpperCase();
+        const list = q ? markets.filter((m) => m.coin.toUpperCase().includes(q)) : markets;
+        byCoin.clear();
+        const frag = document.createDocumentFragment();
+        for (const m of list) {
+          const el = document.createElement("div");
+          el.className = "mkt" + (m.coin === sel ? " sel" : "");
+          el.innerHTML = `<div class="c">${esc(m.coin)} <small>${m.maxLeverage ? m.maxLeverage + "×" : ""}</small></div>
+            <div class="px" data-px>${fmtPx(m.markPx)}</div>
+            <div class="ch ${m.change24h >= 0 ? "up" : "dn"}" data-ch>${fmtPct(m.change24h)}</div>`;
+          el.onclick = () => selectMarket(m.coin);
+          byCoin.set(m.coin, el);
+          frag.appendChild(el);
+        }
+        const host = $("mkts"); host.innerHTML = ""; host.appendChild(frag);
+      }
+      $("mktsearch").addEventListener("input", renderMarkets);
+
+      // live mids → repaint market prices + the selected mark
+      st.on("mids", (mids) => {
+        for (const m of markets) {
+          const p = +mids[m.coin]; if (!isFinite(p) || !p) continue;
+          if (m.prevDayPx) m.change24h = (p - m.prevDayPx) / m.prevDayPx * 100;
+          const prevMark = m.markPx; m.markPx = p;
+          const el = byCoin.get(m.coin); if (el) { const px = el.querySelector("[data-px]"); if (px) { px.textContent = fmtPx(p); px.style.color = p > prevMark ? "var(--good)" : p < prevMark ? "var(--bad)" : ""; } const ch = el.querySelector("[data-ch]"); if (ch) { ch.textContent = fmtPct(m.change24h); ch.className = "ch " + (m.change24h >= 0 ? "up" : "dn"); } }
+          if (m.coin === sel) { const mk = $("markpx"); if (mk) { mk.textContent = fmtPx(p); mk.style.color = p > prevMark ? "var(--good)" : p < prevMark ? "var(--bad)" : ""; } }
+        }
+      });
+
+      // ── select a market ──
+      function selectMarket(coin) {
+        if (coin === sel) return;
+        if (sel) { st.unsubscribe({ type: "l2Book", coin: sel }); st.unsubscribe({ type: "trades", coin: sel }); }
+        sel = coin;
+        for (const [c, el] of byCoin) el.classList.toggle("sel", c === coin);
+        renderHead(); $("asks").innerHTML = `<div class="skel">…</div>`; $("bids").innerHTML = ""; $("trades").innerHTML = `<div class="skel">…</div>`;
+        st.subscribe({ type: "l2Book", coin }); st.subscribe({ type: "trades", coin });
+        loadChart(coin);
+        if (tkHl) tkSyncMarket();
+        // seed with a REST snapshot so the book paints instantly (then WS keeps it live)
+        hc.l2Book(coin).then((b) => { if (sel === coin) paintBook(b); }).catch(() => {});
+        hc.recentTrades(coin).then((ts) => { if (sel === coin) { $("trades").innerHTML = ""; for (const t of (ts || []).slice(0, 40)) addTrade(t, false); } }).catch(() => {});
+      }
+      function renderHead() {
+        const m = markets.find((x) => x.coin === sel) || { coin: sel };
+        $("mhead").innerHTML = `
+          <div class="coin">${esc(m.coin)}<span class="mut" style="font-size:12px;font-weight:600"> ·PERP</span></div>
+          <div class="mark mono" id="markpx" style="color:var(--ink)">${fmtPx(m.markPx)}</div>
+          <div class="stat"><span class="l">24h</span><span class="v ${m.change24h >= 0 ? "up" : "dn"}">${fmtPct(m.change24h)}</span></div>
+          <div class="stat"><span class="l">Funding</span><span class="v ${m.funding >= 0 ? "up" : "dn"}">${m.funding != null ? (m.funding * 100).toFixed(4) + "%" : ""}</span></div>
+          <div class="stat"><span class="l">Open Interest</span><span class="v">${fmtUsd((m.openInterest || 0) * (m.markPx || 0))}</span></div>
+          <div class="stat"><span class="l">24h Volume</span><span class="v">${fmtUsd(m.dayNtlVlm)}</span></div>
+          <div class="stat"><span class="l">Oracle</span><span class="v">${fmtPx(m.oraclePx)}</span></div>`;
+      }
+
+      // ── order book ──
+      function levels(book) {
+        // l2Book → { levels: [ bids[], asks[] ] }, level = {px, sz, n}
+        const lv = book && book.levels; if (!Array.isArray(lv)) return { bids: [], asks: [] };
+        return { bids: lv[0] || [], asks: lv[1] || [] };
+      }
+      function paintBook(book) {
+        const { bids, asks } = levels(book);
+        const N = 9;
+        const topAsks = asks.slice(0, N), topBids = bids.slice(0, N);
+        const maxTot = Math.max(
+          topAsks.reduce((s, l) => s + +l.sz, 0),
+          topBids.reduce((s, l) => s + +l.sz, 0), 1e-9);
+        const rows = (arr, cls) => { let tot = 0; return arr.map((l) => { tot += +l.sz; const w = Math.min(100, tot / maxTot * 100); return `<div class="bookrow"><div class="depth" style="width:${w}%"></div><span class="px">${fmtPx(l.px)}</span><span class="sz">${fmtSz(l.sz)}</span><span class="tot">${fmtSz(tot)}</span></div>`; }).join(""); };
+        // asks shown high→low (reverse so best ask sits next to spread)
+        $("asks").innerHTML = rows(topAsks.slice().reverse(), "asks");
+        $("bids").innerHTML = rows(topBids, "bids");
+        const bestAsk = +(topAsks[0]?.px), bestBid = +(topBids[0]?.px);
+        if (isFinite(bestAsk) && isFinite(bestBid)) {
+          const mid = (bestAsk + bestBid) / 2, spr = bestAsk - bestBid;
+          $("midv").textContent = fmtPx(mid);
+          $("spreadv").textContent = fmtPx(spr) + " (" + (spr / mid * 100).toFixed(3) + "%)";
+        }
+      }
+      st.on("book", (data) => { if (data && data.coin === sel) paintBook(data); });
+
+      // ── trades firehose ──
+      function addTrade(t, animate = true) {
+        const host = $("trades"); if (!host) return;
+        const buy = (t.side === "B" || t.side === "Buy" || t.side === "b");
+        const row = document.createElement("div"); row.className = "trow"; if (!animate) row.style.animation = "none";
+        const tm = t.time ? new Date(t.time).toLocaleTimeString(undefined, { hour12: false }) : "";
+        row.innerHTML = `<span class="px ${buy ? "up" : "dn"}">${fmtPx(t.px)}</span><span class="sz">${fmtSz(t.sz)}</span><span class="tm">${tm}</span>`;
+        host.insertBefore(row, host.firstChild);
+        while (host.childElementCount > 60) host.removeChild(host.lastChild);
+      }
+      st.on("trade", (t) => { if (t && t.coin === sel) addTrade(t); });
+
+      // ── connection status ──
+      st.on("status", ({ connected }) => {
+        $("dot").classList.toggle("on", !!connected);
+        $("livetxt").textContent = connected ? "live" : "reconnecting…";
+      });
+      st.subscribe({ type: "allMids" });
+      st.connect();
+
+      // ── read-only account ──
+      $("acctform").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const addr = ($("acctaddr").value || "").trim();
+        if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) { $("acctbody").innerHTML = `<div class="pad">That doesn't look like a <span class="mono">0x</span> address.</div>`; return; }
+        $("acctbody").innerHTML = `<div class="skel">Reading account…</div>`;
+        try {
+          const [state, fills] = await Promise.all([hc.userState(addr), hc.userFills(addr).catch(() => [])]);
+          renderAccount(addr, state, fills);
+        } catch (err) { $("acctbody").innerHTML = `<div class="pad">Couldn't read that account.<br><span class="mut">${esc(err.message || err)}</span></div>`; }
+      });
+      function renderAccount(addr, state, fills) {
+        const av = +(state?.marginSummary?.accountValue || 0);
+        const positions = (state?.assetPositions || []).map((a) => a.position).filter(Boolean);
+        let html = `<div class="pos" style="border-bottom:1px solid var(--line)"><div><span class="c">Account value</span></div><div>${fmtUsd(av)}</div></div>`;
+        if (!positions.length) html += `<div class="pad">No open positions.</div>`;
+        for (const p of positions) {
+          const szi = +p.szi, long = szi >= 0, pnl = +(p.unrealizedPnl || 0);
+          html += `<div class="pos">
+            <div><span class="c">${esc(p.coin)}</span> <span class="side ${long ? "long" : "short"}">${long ? "LONG" : "SHORT"}</span></div>
+            <div>${fmtSz(Math.abs(szi))} ${esc(p.coin)}</div>
+            <div class="mut">entry ${fmtPx(p.entryPx)} · ${p.leverage?.value ? p.leverage.value + "×" : ""}</div>
+            <div class="${pnl >= 0 ? "up" : "dn"}">${pnl >= 0 ? "+" : ""}${fmtUsd(pnl)}</div></div>`;
+        }
+        const recent = (fills || []).slice(0, 12);
+        if (recent.length) {
+          html += `<div class="colhd" style="border-top:1px solid var(--line)"><h2>Recent fills</h2></div>`;
+          for (const f of recent) {
+            const buy = (f.side === "B" || f.side === "Buy" || f.side === "b");
+            html += `<div class="pos"><div><span class="c">${esc(f.coin)}</span> <span class="side ${buy ? "long" : "short"}">${buy ? "BUY" : "SELL"}</span></div><div class="mono">${fmtSz(f.sz)} @ ${fmtPx(f.px)}</div></div>`;
+          }
+        }
+        $("acctbody").innerHTML = html;
+      }
+
+      // ── order ticket (signed write side — official sealed SDK, conscience-gated, receipts) ──
+      const TKLIMITS = { scope: "agent", maxNotionalUsd: 10000, maxLeverage: 20 };
+      let tkSide = "buy", tkType = "limit", tkHl = null;
+      const tkAssetIx = new Map();
+      const round8 = (n) => Math.round(n * 1e8) / 1e8;
+      const tkRandKey = () => "0x" + [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      function tkPrice() {
+        const m = markets.find((x) => x.coin === sel) || {};
+        if (tkType === "market") return (m.markPx || 0) * (tkSide === "buy" ? 1.05 : 0.95);
+        return +(($("tkpx").value || "").replace(/,/g, "")) || 0;
+      }
+      function tkCalc() { const sz = +$("tksz").value || 0; $("tknotional").textContent = "$" + (sz * tkPrice()).toLocaleString(undefined, { maximumFractionDigits: 2 }); }
+      function tkSyncMarket() { $("tkcoin").textContent = sel || ""; const m = markets.find((x) => x.coin === sel); if (m && tkType !== "market") $("tkpx").value = String(round8(m.markPx)); tkCalc(); }
+      function tkOrderObj() { return { a: tkAssetIx.get(sel), isBuy: tkSide === "buy", px: String(round8(tkPrice())), sz: String(+$("tksz").value || 0), tif: tkType === "market" ? "Ioc" : "Gtc" }; }
+      async function tkSubmit(broadcast) {
+        const out = $("tkout");
+        if (tkAssetIx.get(sel) == null) { out.innerHTML = `<div class="vx">No asset index for ${esc(sel || "")} pick a perp market.</div>`; return; }
+        if (!(+$("tksz").value)) { out.innerHTML = `<div class="vx">Enter a size.</div>`; return; }
+        const o = tkOrderObj();
+        $("tksign").disabled = $("tkplace").disabled = true;
+        out.innerHTML = `<div class="kv">${broadcast ? "signing + broadcasting to testnet…" : "screening + signing (no broadcast)…"}</div>`;
+        try {
+          if (!broadcast) {
+            const { intent, receipt } = await tkHl.previewOrder(o, "na");
+            out.innerHTML = `<div class="vc">✓ conscience: accept · signed (not sent)</div>`
+              + `<div class="kv">action <b>${o.isBuy ? "BUY" : "SELL"} ${o.sz} ${esc(sel)} @ ${tkType === "market" ? "mkt" : o.px}</b></div>`
+              + `<div class="kv">nonce ${intent.nonce}</div>`
+              + `<div class="kv">sig.r <span class="k">${intent.signature.r.slice(0, 38)}…</span></div>`
+              + `<div class="kv">receipt κ <span class="k">${receipt.id}</span></div>`
+              + `<div class="pad mut">Signed by your agent key <b>not sent</b>. This is the exact payload Hyperliquid would receive.</div>`;
+          } else {
+            const { result, receipt } = await tkHl.order(o, "na");
+            out.innerHTML = `<div class="vc">✓ broadcast · testnet</div><div class="kv">${esc(JSON.stringify(result).slice(0, 220))}</div><div class="kv">receipt κ <span class="k">${receipt.id}</span></div>`;
+          }
+        } catch (e) {
+          const msg = String(e?.message || e);
+          if (/conscience gate/.test(msg)) out.innerHTML = `<div class="vx">⛔ ${esc(msg)}</div><div class="pad mut">Blocked before signing <b>no signature was produced</b> (ADR-0033 / Law L5).</div>`;
+          else if (/does not exist/i.test(msg)) out.innerHTML = `<div class="vc">✓ signature accepted by testnet</div><div class="kv">${esc(msg)}</div><div class="pad mut">Hyperliquid recovered your agent address the signing is spec-correct. Fund this testnet account to rest the order.</div>`;
+          else out.innerHTML = `<div class="vx">${esc(msg.slice(0, 240))}</div>`;
+        } finally { $("tksign").disabled = $("tkplace").disabled = false; }
+      }
+      async function initTicket() {
+        const wallet = SDK.agentWallet(tkRandKey());
+        tkHl = new HoloHyperliquid({ wallet, testnet: true, limits: TKLIMITS });
+        $("tkaddr").textContent = wallet.address;
+        $("tkcap").textContent = "$" + TKLIMITS.maxNotionalUsd.toLocaleString();
+        try { const v = await verifySdk("./_shared/vendor/"); const b = $("tksdk"); b.textContent = v.ok ? "SDK ✓" : "SDK ✗"; b.classList.add(v.ok ? "ok" : "bad"); b.title = (v.ok ? "re-derives to " : "MISMATCH expected ") + (v.head || v.expected || ""); } catch {}
+        try { const meta = await tkHl.info.meta(); (meta.universe || []).forEach((u, i) => tkAssetIx.set(u.name, i)); } catch {}
+        document.querySelectorAll(".tkside .sd").forEach((b) => b.onclick = () => { tkSide = b.dataset.side; document.querySelectorAll(".tkside .sd").forEach((x) => x.classList.toggle("on", x === b)); tkCalc(); });
+        document.querySelectorAll(".tktype .ty").forEach((b) => b.onclick = () => { tkType = b.dataset.type; document.querySelectorAll(".tktype .ty").forEach((x) => x.classList.toggle("on", x === b)); $("tkpxrow").style.display = tkType === "market" ? "none" : ""; tkSyncMarket(); });
+        ["tksz", "tkpx"].forEach((id) => $(id).addEventListener("input", tkCalc));
+        $("tksign").onclick = () => tkSubmit(false);
+        $("tkplace").onclick = () => tkSubmit(true);
+        $("tkaddr").textContent = wallet.address + " · session agent";
+        // master path: sign through the REAL Holo Wallet (key never enters the tab; default-deny)
+        $("tkconnect").onclick = async () => {
+          const c = $("tkconnect"); c.textContent = "connecting…"; c.disabled = true; $("tkgrantinfo").textContent = "approve in Holo Wallet…";
+          try {
+            const master = await connectWallet("ethereum");
+            tkHl = new HoloHyperliquid({ wallet: master, testnet: true, limits: { scope: "master", maxNotionalUsd: TKLIMITS.maxNotionalUsd, maxLeverage: TKLIMITS.maxLeverage, allowFundMovement: true } });
+            try { const meta = await tkHl.info.meta(); tkAssetIx.clear(); (meta.universe || []).forEach((u, i) => tkAssetIx.set(u.name, i)); } catch {}
+            $("tkaddr").textContent = master.address + " · master (wallet)"; c.textContent = "wallet connected ✓"; $("tkgrant").disabled = false; $("tkgrantinfo").textContent = "key stays in the wallet";
+          } catch (e) { c.textContent = "Connect Holo Wallet"; c.disabled = false; $("tkgrantinfo").textContent = "no wallet open (open Holo Wallet)"; }
+        };
+        // approveAgent → a withdrawal-less, revocable, attenuated /trade grant (ADR-0042)
+        $("tkgrant").onclick = async () => {
+          $("tkgrantinfo").textContent = "approving agent (sign in wallet)…";
+          try {
+            const { agent, agentKey, grant } = await tkHl.grantAgent({ ttlMs: 8 * 3600e3 });
+            tkHl.useGrant(grant, SDK.agentWallet(agentKey));
+            $("tkaddr").textContent = agent.address + " · agent (/trade · 8h)";
+            $("tkgrantinfo").innerHTML = `granted <span class="k">${grant.id.slice(0, 22)}…</span> · revocable`;
+            $("tkgrant").disabled = true;
+          } catch (e) { $("tkgrantinfo").textContent = String(e.message || e).slice(0, 56); }
+        };
+        tkSyncMarket();
+      }
+
+      // ── boot ──
+      initChart(); renderIvTabs();
+      loadMarkets();
+      initTicket();
+      setInterval(() => { hc.markets().then((m) => { const byc = new Map(m.map((x) => [x.coin, x])); for (const row of markets) { const u = byc.get(row.coin); if (u) { row.funding = u.funding; row.openInterest = u.openInterest; row.dayNtlVlm = u.dayNtlVlm; row.oraclePx = u.oraclePx; row.prevDayPx = u.prevDayPx; } } if (sel) renderHead(); }).catch(() => {}); }, 30000);
+    </script>
+  </body>
+</html>

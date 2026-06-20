@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Privacy Hologram OS</title>
+    <meta name="description" content="Holo Privacy control what an AI agent may learn about you. You are the data subject; agents acting for you get only the minimum needed for a stated purpose, as a signed verifiable disclosure, and never enough to track you. W3C DPV / ODRL / Verifiable Credentials." />
+    <meta name="holo-app" content="Holo Privacy" />
+    <meta name="holo-app-id" content="org.hologram.HoloPrivacy" />
+    <script>window.__holoPrivacyBadge = false;</script>
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/af0f2b5ff47f414281246d8e8e786edc6302bed6731174897f74f105dd2f93f3.css" data-holo-shared="holo-phi.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --s8: 8px; --s13: 13px; --s21: 21px; --s34: 34px; --s55: 55px; --s89: 89px;
+        --bg: var(--holo-bg, #07100e);
+        --ink: var(--holo-ink, #e6f3ef);
+        --muted: #7f9690;
+        --line: #16291f;
+        --surface: #0c1a16;
+        --surface2: #102420;
+        --accent: #2dd4bf;     /* the Holo Privacy shield */
+        --good: #7ee7c7;       /* shown · verified */
+        --warn: #e0b352;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: radial-gradient(120% 78% at 90% -12%, #0f2c25 0%, transparent 56%), var(--bg);
+        color: var(--ink); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+        font: var(--holo-text-sm, 1rem)/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; overflow-x: hidden;
+      }
+      .app { height: 100vh; display: grid; grid-template-rows: var(--s55) 1fr var(--s34); }
+      .bar { display: flex; align-items: center; gap: var(--s13); padding: 0 var(--s21); border-bottom: 1px solid var(--line); }
+      .brand { display: flex; align-items: center; gap: var(--s8); font-weight: 650; letter-spacing: 0.01em; white-space: nowrap; }
+      .brand svg { width: 22px; height: 22px; color: var(--accent); flex: none; }
+      .spacer { flex: 1; }
+      .you { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: 1px solid var(--line);
+        color: var(--muted); border-radius: 999px; padding: 7px 13px; font: var(--holo-text-sm, 1rem)/1 ui-monospace, monospace; cursor: pointer;
+        max-width: 46vw; overflow: hidden; white-space: nowrap; flex: none; }
+      .you:hover { color: var(--ink); border-color: #2a4a40; }
+      .you .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); flex: none; }
+
+      .stage { min-height: 0; display: grid; grid-template-columns: var(--holo-phi-fr) 1fr; }
+      .controls { min-height: 0; overflow: auto; border-right: 1px solid var(--line);
+        padding: clamp(var(--s21), 4vw, var(--s55)); display: flex; flex-direction: column; gap: var(--s34); }
+      .eyebrow { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.16em; }
+      .lede h1 { margin: 0.45rem 0 0.6rem; font-size: clamp(1.5rem, 1.1rem + 1.5vw, 2.25rem); font-weight: 600; letter-spacing: -0.015em; }
+      .lede p { max-width: 40rem; color: #cfe6df; font-size: clamp(1.02rem, 1rem + 0.4vw, 1.22rem); }
+
+      .chips { display: flex; gap: var(--s13); flex-wrap: wrap; }
+      .chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 14px;
+        padding: 12px 16px; cursor: pointer; text-align: left; min-width: 12rem; transition: border-color .12s, background .12s; }
+      .chip:hover { border-color: #2a4a40; }
+      .chip .c { display: block; font: 700 var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--muted); letter-spacing: 0.05em; }
+      .chip .n { display: block; font-size: 0.9rem; margin-top: 3px; }
+      .chip.on { border-color: var(--accent); background: #0f2722; box-shadow: inset 0 0 0 1px #2dd4bf55; }
+      .chip.on .c { color: var(--accent); }
+
+      .ogrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s13); }
+      .ocard { border: 1px dashed var(--line); border-radius: 14px; padding: var(--s13) var(--s13) var(--s21); background: #0a1714; cursor: pointer; transition: border-color .12s; }
+      .ocard:hover { border-color: #2a4a40; }
+      .ocard.on { border-style: solid; border-color: var(--accent); background: #0f2722; }
+      .ocard .c { font: 700 var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--muted); letter-spacing: 0.04em; display: flex; justify-content: space-between; }
+      .ocard.on .c { color: var(--accent); }
+      .ocard .n { font-weight: 600; font-size: 0.86rem; margin: 0.2rem 0 0.25rem; }
+      .ocard .d { color: var(--muted); font-size: 0.76rem; line-height: 1.45; }
+
+      .data .fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s13); }
+      .data label { display: block; }
+      .data .lbl { font-size: 0.74rem; color: var(--muted); margin-bottom: 4px; }
+      .data input { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; color: var(--ink);
+        padding: 10px 12px; font: var(--holo-text-sm, 1rem) ui-sans-serif, system-ui; }
+      .data input:focus { outline: none; border-color: var(--accent); }
+      .data .actions { display: flex; align-items: center; gap: var(--s13); margin-top: var(--s13); flex-wrap: wrap; }
+      .btn { background: var(--accent); color: #04121f; border: 1px solid var(--accent); border-radius: 10px; padding: 9px 16px; font: 600 var(--holo-text-sm, 1rem) ui-sans-serif; cursor: pointer; }
+      .btn.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+      .btn.ghost:hover { color: var(--ink); border-color: #2a4a40; }
+      .kappa { color: #5d7068; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .discipline { margin-top: auto; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); padding-top: var(--s21); }
+      .discipline b { color: var(--ink); font-weight: 600; }
+
+      .right { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--s21);
+        padding: clamp(var(--s21), 3vw, var(--s55)) clamp(var(--s21), 2.4vw, var(--s34));
+        background: linear-gradient(180deg, #0a1714, transparent 24%); }
+      .sec-h { display: flex; align-items: baseline; justify-content: space-between; }
+      .demo-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+      .pbtn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 8px 14px; cursor: pointer; font: var(--holo-text-sm, 1rem) ui-sans-serif; }
+      .pbtn:hover { border-color: var(--accent); color: #fff; }
+      .result { border: 1px solid var(--line); background: var(--surface); border-radius: var(--holo-radius-lg, 16px); padding: var(--s21); min-height: 7rem; }
+      .result .head { display: flex; align-items: center; gap: var(--s8); margin-bottom: 11px; }
+      .result .ver { color: var(--good); font-size: var(--holo-text-sm, 1rem); display: inline-flex; align-items: center; gap: 3px; }
+      .result .none { color: var(--muted); }
+      .shown { display: flex; flex-direction: column; gap: 7px; }
+      .shown .g { font-size: 0.85rem; color: #d7ece6; background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; }
+      .shown .g b { color: #fff; }
+      .level { margin-top: 12px; color: var(--muted); font-size: 0.82rem; }
+      .level .hid { color: var(--good); }
+      .appcard { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: var(--s13) var(--s21) var(--s21); }
+      .appcard .top { display: flex; align-items: center; gap: var(--s8); }
+      .appcard .nm { font-weight: 600; flex: 1; }
+      .appcard .pill { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--accent); border: 1px solid #214a40; border-radius: 999px; padding: 2px 8px; }
+      .appcard .meta { margin-top: 9px; color: var(--muted); font-size: 0.8rem; }
+      .appcard .revoke { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 9px; padding: 6px 12px; cursor: pointer; font: var(--holo-text-sm, 1rem) ui-sans-serif; margin-top: 11px; }
+      .appcard .revoke:hover { border-color: #7a3b4a; color: #ffb4b4; }
+      .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: var(--holo-radius-lg, 16px); padding: var(--s34) var(--s21); text-align: center; line-height: 1.6; }
+
+      .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s13); padding: 0 var(--s21);
+        border-top: 1px solid var(--line); color: var(--muted); font-size: 0.72rem; }
+      .foot a { color: var(--muted); text-decoration: none; } .foot a:hover { color: var(--ink); }
+
+      @media (max-width: 1180px) { .ogrid { grid-template-columns: 1fr; } }
+      @media (max-width: 900px) {
+        .app { height: auto; min-height: 100vh; grid-template-rows: auto auto auto; }
+        .bar { position: sticky; top: 0; z-index: 5; background: var(--bg); height: auto; min-height: var(--s55); flex-wrap: wrap; row-gap: 6px; padding: 8px var(--s21); overflow: hidden; }
+        .stage { grid-template-columns: 1fr; }
+        .controls { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+        .right { overflow: visible; }
+        .data .fields { grid-template-columns: 1fr; }
+        .foot { flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--s13) var(--s21); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Privacy"></holo-splash>
+
+    <div class="app">
+      <header class="bar">
+        <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 3.2v5.5c0 5-3.3 8.4-8 10-4.7-1.6-8-5-8-10V5.7z"/><circle cx="12" cy="10.8" r="2.6" stroke="#7ee7c7"/><path d="M12 13.4V16.4" stroke="#7ee7c7"/></svg> Holo&nbsp;Privacy</div>
+        <div class="spacer"></div>
+        <button class="you" id="you" title="your identity click to copy"><span class="dot"></span> you · <span id="meShort">…</span></button>
+      </header>
+
+      <main class="stage">
+        <section class="controls">
+          <div class="lede">
+            <div class="eyebrow">what an agent may learn about you</div>
+            <h1>Your data stays yours.<br />Agents get the minimum with proof.</h1>
+            <p>You are the <b>data subject</b>. An agent acting for you never holds your data; it only ever receives a small, signed disclosure enough for one purpose, never enough to track you.</p>
+          </div>
+
+          <div class="choose">
+            <div class="eyebrow" style="margin-bottom:var(--s13)">Your stance how agents may use your data</div>
+            <div class="chips" id="stanceChips"></div>
+          </div>
+
+          <div class="overlays">
+            <div class="eyebrow" style="margin-bottom:var(--s13)">Allow specific purposes off until you turn them on</div>
+            <div class="ogrid" id="overlayCards"></div>
+          </div>
+
+          <div class="data">
+            <div class="eyebrow" style="margin-bottom:var(--s13)">Your personal data kept by you, committed by content address</div>
+            <div class="fields">
+              <label><div class="lbl">Name (dpv-pd:Name)</div><input id="f-name" placeholder="e.g. Ilya" autocomplete="off" /></label>
+              <label><div class="lbl">Email (dpv-pd:EmailAddress)</div><input id="f-email" placeholder="e.g. ilya@example.org" autocomplete="off" /></label>
+              <label><div class="lbl">Date of birth (dpv-pd:Age)</div><input id="f-dob" placeholder="YYYY-MM-DD" autocomplete="off" /></label>
+              <label><div class="lbl">Phone (dpv-pd:TelephoneNumber)</div><input id="f-phone" placeholder="optional" autocomplete="off" /></label>
+            </div>
+            <div class="actions">
+              <button class="btn" id="save">Save &amp; commit</button>
+              <span class="kappa" id="commitK">no personal data committed yet</span>
+            </div>
+            <div class="kappa" style="margin-top:6px">🔒 Encrypted at rest on this device (AES-GCM); the values never leave in cleartext. Decrypted only in memory to make a disclosure.</div>
+          </div>
+
+          <div class="discipline">An agent acting for you is a <b>different identity</b> from the one that holds your data, and only ever sees a minimal disclosure. Prove a fact <b>“over 18”</b> without revealing the value behind it.</div>
+        </section>
+
+        <aside class="right">
+          <div>
+            <div class="sec-h"><span class="eyebrow">See it work an agent asks for your data</span></div>
+            <p style="color:var(--muted);font-size:0.84rem;margin:.5rem 0 .8rem">Pick a purpose. The agent gets only what your stance allows and you’ll see exactly what stayed private.</p>
+            <div class="demo-btns" id="demoBtns"></div>
+            <div class="result" id="result" style="margin-top:var(--s13)"><span class="none">No request yet. Save some data, then let an agent ask.</span></div>
+          </div>
+          <div>
+            <div class="sec-h"><span class="eyebrow">Agents you’ve disclosed to</span><span class="kappa" id="agentCount"></span></div>
+            <div id="agents" style="display:flex;flex-direction:column;gap:var(--s13);margin-top:var(--s13)"></div>
+            <div class="kappa" id="history" style="margin-top:var(--s13)"></div>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="foot">
+        <span>You are the data subject. Agents get the minimum, for one purpose. The OS enforces it.</span>
+        <span><a href="https://w3id.org/dpv" target="_blank" rel="noopener">W3C DPV · ODRL · Verifiable Credentials</a> signed &amp; re-derived (Law L5)</span>
+      </footer>
+    </div>
+
+    <script src="/.holo/sha256/0e603168d8cae8ac903501e5001a94323658c7fc22ca0c39e7b59d83d8a62f73.js" data-holo-shared="holo-privacy.js"></script>
+    <script>
+      (async () => {
+        const HP = window.HoloPrivacy;
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        const NAME_LABEL = { name: "your name", email: "your email", phone: "your phone number", birthDate: "your date of birth", age_over_18: "that you are over 18", location: "your location" };
+        const fmt = (v) => v === true ? "yes" : v === false ? "no" : v;
+        const claimLabel = (n) => NAME_LABEL[n] || n;
+
+        const did = await HP.dataSubject();
+        $("meShort").textContent = did.replace("did:key:", "").slice(0, 10) + "…";
+        $("you").title = did + "  (click to copy)";
+        $("you").onclick = async () => { try { await navigator.clipboard.writeText(did); const s = $("meShort"); const t = s.textContent; s.textContent = "copied ✓"; setTimeout(() => (s.textContent = t), 1100); } catch {} };
+
+        const r = await HP.roster();
+        const stances = r.policies.filter((p) => p.category === "stance");
+        const overlays = r.policies.filter((p) => p.category === "purpose");
+        const byCode = (c) => r.policies.find((p) => p.code === c);
+        const PURPOSE_OF = Object.fromEntries(r.policies.map((p) => [p.code, p["dpv:hasPurpose"]]));
+
+        function renderStance() {
+          const active = HP.standing() || r.default;
+          $("stanceChips").innerHTML = "";
+          for (const p of stances) {
+            const b = document.createElement("button");
+            b.className = "chip" + (p.code === active ? " on" : "");
+            b.innerHTML = `<span class="c">${esc(p.code)}</span><span class="n">${esc(p["schema:name"])}</span>`;
+            b.title = p["schema:description"];
+            b.onclick = () => { HP.setStanding(p.code); renderStance(); };
+            $("stanceChips").appendChild(b);
+          }
+        }
+        function renderOverlays() {
+          const on = new Set(HP.activeOverlayCodes());
+          $("overlayCards").innerHTML = "";
+          for (const p of overlays) {
+            const d = document.createElement("div");
+            d.className = "ocard" + (on.has(p.code) ? " on" : "");
+            d.innerHTML = `<div class="c">${esc(p.code)} <span>${on.has(p.code) ? "on" : "off"}</span></div><div class="n">${esc(p["schema:name"])}</div><div class="d">${esc(p["schema:description"])}</div>`;
+            d.onclick = () => { HP.setOverlay(p.code, !on.has(p.code)); renderOverlays(); };
+            $("overlayCards").appendChild(d);
+          }
+        }
+
+        function loadFields() {
+          // SECURITY: never prefill the values back into the form — the openings stay inside the module;
+          // the API only exposes what's committed (names + the commitment κ), never the values. (F1)
+          const c = HP.commitment(); const s = HP.status();
+          if (c) $("commitK").textContent = c.id + (s.names.length ? " · committed: " + s.names.map((n) => claimLabel(n.name)).join(", ") : "");
+        }
+        async function saveData() {
+          const PD = { Name: "dpv-pd:Name", Email: "dpv-pd:EmailAddress", Phone: "dpv-pd:TelephoneNumber", Age: "dpv-pd:Age" };
+          const claims = [];
+          const name = $("f-name").value.trim(), email = $("f-email").value.trim(), dob = $("f-dob").value.trim(), phone = $("f-phone").value.trim();
+          if (name) claims.push({ category: PD.Name, name: "name", value: name });
+          if (email) claims.push({ category: PD.Email, name: "email", value: email });
+          if (phone) claims.push({ category: PD.Phone, name: "phone", value: phone });
+          if (dob) {
+            claims.push({ category: PD.Age, name: "birthDate", value: dob });
+            const yr = +String(dob).slice(0, 4); const over18 = yr && (new Date().getFullYear() - yr) >= 18;
+            claims.push({ category: PD.Age, name: "age_over_18", value: !!over18 });   // a derived, value-hiding claim
+          }
+          if (!claims.length) { $("commitK").textContent = "add at least one detail first"; return; }
+          await HP.commitPersonalData(claims);
+          for (const id of ["f-name", "f-email", "f-dob", "f-phone"]) $(id).value = "";   // don't leave values in the DOM
+          loadFields();
+          renderAgents();
+        }
+        $("save").onclick = saveData;
+
+        // the demo: an agent (a delegate acting for you) asks for data for a purpose
+        const RECIPIENT = "org.demo.Assistant";
+        const DEMOS = [
+          { code: "SERVICE", label: "Deliver a service", purpose: "dpv:ServiceProvision", claims: [{ category: "dpv-pd:Name", name: "name" }] },
+          { code: "CONTACT", label: "Reach me", purpose: "dpv:CommunicationManagement", claims: [{ category: "dpv-pd:EmailAddress", name: "email" }] },
+          { code: "IDENTITY", label: "Check I’m over 18", purpose: "dpv:IdentityVerification", claims: [{ category: "dpv-pd:Age", name: "birthDate" }] },
+          { code: "PAYMENT", label: "Pay for me", purpose: "dpv:Payment", claims: [{ category: "dpv-pd:Financial", name: "card" }] },
+        ];
+        function renderDemoBtns() {
+          $("demoBtns").innerHTML = "";
+          for (const d of DEMOS) {
+            const b = document.createElement("button"); b.className = "pbtn"; b.textContent = d.label;
+            b.onclick = () => runDemo(d); $("demoBtns").appendChild(b);
+          }
+        }
+        async function runDemo(d) {
+          const box = $("result");
+          const c = HP.commitment();
+          if (!c) { box.innerHTML = '<span class="none">Save some personal data first, then an agent can ask.</span>'; return; }
+          box.innerHTML = '<span class="none">Asking…</span>';
+          const out = await HP.gate({ purpose: d.purpose, recipient: RECIPIENT, claims: d.claims });
+          if (!out) { box.innerHTML = `<div class="head"><b>Nothing shared.</b></div><div class="none">Your stance didn’t allow this or you declined, or there’s no such detail to show. That’s default-deny working.</div>`; renderAgents(); return; }
+          const ok = await HP.verifyDisclosure(out.vp, c);
+          const shown = out.vp.disclosures.map((x) => `<div class="g"><b>${esc(claimLabel(x.name))}</b>: ${esc(fmt(x.value))}</div>`).join("");
+          const shownNames = new Set(out.vp.disclosures.map((x) => x.name));
+          const hidden = HP.status().names.filter((n) => !shownNames.has(n.name)).map((n) => claimLabel(n.name));
+          box.innerHTML = `
+            <div class="head"><b>Shown to the agent</b>${ok ? '<span class="ver">✓ verified</span>' : '<span style="color:#ff9">unverified</span>'}</div>
+            <div class="shown">${shown || '<span class="none">nothing</span>'}</div>
+            <div class="level">${out.level.disclosed} of ${out.level.total} details shared${hidden.length ? ` · <span class="hid">${esc(hidden.join(", "))} stayed private</span>` : ""}</div>`;
+          renderAgents();
+        }
+
+        function renderAgents() {
+          const led = HP.ledger(); const ids = Object.keys(led);
+          $("agentCount").textContent = ids.length ? ids.length + (ids.length === 1 ? " agent" : " agents") : "";
+          const box = $("agents");
+          if (!ids.length) { box.innerHTML = '<div class="empty">No agent has been shown anything yet.</div>'; return; }
+          box.innerHTML = ids.map((id) => {
+            const e = led[id];
+            return `<div class="appcard"><div class="top"><span class="nm">${esc(id)}</span><span class="pill">${esc((e.purpose || "").replace("dpv:", ""))}</span></div><div class="meta">Shown ${e.level.disclosed} of ${e.level.total} details · ${esc((e.reveal || []).map(claimLabel).join(", "))}</div><button class="revoke" data-id="${esc(id)}">Revoke</button></div>`;
+          }).join("");
+          box.querySelectorAll(".revoke").forEach((b) => b.onclick = () => { HP.revoke(b.dataset.id); renderAgents(); });
+        }
+
+        async function renderHistory() {
+          const el = $("history"); if (!el) return;
+          const log = HP.log(); if (!log.length) { el.textContent = ""; return; }
+          const intact = await HP.verifyLog().catch(() => false);
+          el.innerHTML = `Disclosure history: ${log.length} ${log.length === 1 ? "entry" : "entries"} · ${intact ? '<span style="color:var(--good)">✓ chain intact</span>' : '<span style="color:#ff9">⚠ broken</span>'} · content-addressed, self-verifying`;
+        }
+        const _ra = renderAgents; renderAgents = () => { _ra(); renderHistory(); };
+        function render() { renderStance(); renderOverlays(); renderDemoBtns(); loadFields(); renderAgents(); }
+        await HP.unlock().catch(() => {});                 // device-key auto-unlock the encrypted wallet (no passphrase set)
+        render();
+        window.holoPrivacyUI = { render, ready: true };
+      })().catch((e) => { const s = document.getElementById("meShort"); if (s) s.textContent = "error"; console.error("Holo Privacy UI", e); });
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

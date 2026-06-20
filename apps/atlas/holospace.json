@@ -1,0 +1,79 @@
+{
+  "id": "org.hologram.HoloAtlas",
+  "name": "Holo Atlas",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A live map of every app — discover, verify and monitor the whole OS by its verified identity.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "holo-atlas"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloAtlas"
+    ]
+  },
+  "shared": [
+    "favicon.png",
+    "holo-atlas.js",
+    "holo-icons.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-object.js",
+    "holo-phi.css",
+    "holo-theme.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "You can trust a directory ranked by content; you can't trust one ranked by popularity."
+    },
+    {
+      "p": "Every holospace's identity is its content address (did:holo), so the map shows verifiable truth each entry re-derives to prove it is genuine (Law L5)."
+    },
+    {
+      "ul": [
+        "A constellation graph and searchable directory of every holospace",
+        "Identity is the content hash no registry to trust",
+        "A live in-tab verification badge",
+        "Discover, verify and monitor the whole OS in one place"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "System"
+  ],
+  "keywords": [
+    "atlas",
+    "map",
+    "directory",
+    "ecosystem",
+    "uor",
+    "content-addressed",
+    "holospace",
+    "graph",
+    "self-verifying"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Hologram-Technologies/hologram-os",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-09",
+      "description": "The content-addressed community map: live discovery from the app index, a force-directed closure-graph constellation plus a searchable directory, per-app live κ re-derivation (Law L5), agent-door coverage, all sealed as one re-derivable atlas κ."
+    }
+  ],
+  "accent": "#7c83ff"
+}

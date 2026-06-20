@@ -1,0 +1,14 @@
+{
+  "_comment": "Holo Capture κ-manifest (Law L5). The bundled sample frame re-derives to this κ; capture.html?demo=1 and the witnesses verify it before use. Regenerate: node capture/make-sample.mjs",
+  "algo": "sha256",
+  "samples": {
+    "capture/sample.png": "sha256:c8a1f7d45550ee6fbc5f41636d773e0150ca9bdbc80e682aca6883ae995a38a8"
+  },
+  "meta": {
+    "capture/sample.png": {
+      "width": 1000,
+      "height": 640,
+      "type": "image/png"
+    }
+  }
+}

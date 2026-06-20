@@ -1,0 +1,113 @@
+name: Build & release the native Hologram host
+
+# Cuts a cross-platform, content-addressed release of the native host (ADR-0063, project at
+# apps/tauri). Push a tag like `native-v0.1.0` (or run manually) → the OFFICIAL tauri-action builds +
+# bundles on macOS, Linux and Windows and uploads the installers to a GitHub Release; then
+# pin-release.mjs re-derives each artifact's sha256 κ and attaches release.json, the manifest the
+# single-link bootstrap resolves.
+#
+# Cross-repo: make-dist flattens the OS from the SEPARATE Hologram OS2 repo. Set the repo variable
+# HOLO_OS2_REPO (e.g. owner/hologram-os2) so CI checks it out next to this one. Signing is OPTIONAL —
+# with no certs the binaries still install and are κ-verified, they just show "unknown publisher".
+
+on:
+  push:
+    tags: ["native-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # make-dist reads these (it defaults to local absolute paths otherwise).
+  HOLO_APPS_DIR: ${{ github.workspace }}
+  HOLO_OS2_DIR: ${{ github.workspace }}/_os2/system/os
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest      # universal (Apple Silicon + Intel)
+            args: "--target universal-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout apps (this repo)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout the OS (Hologram OS2)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HOLO_OS2_REPO }}
+          path: _os2
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/tauri/src-tauri -> target
+
+      - name: Linux WebView deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install front-end deps
+        working-directory: apps/tauri
+        run: npm ci || npm install
+
+      - name: Generate the platform icon set
+        working-directory: apps/tauri
+        run: npm run tauri icon src-tauri/icons/icon.png
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ── optional code-signing (set these repo secrets to ship warning-free) ──
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: "Hologram ${{ github.ref_name }}"
+          releaseBody: "The native, content-addressed Hologram host (ADR-0063). Verified by κ at install — every byte re-derives to its address (Law L5)."
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  pin:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Re-derive κ for each artifact and attach release.json
+        working-directory: apps/tauri
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node pin-release.mjs ${{ github.ref_name }}

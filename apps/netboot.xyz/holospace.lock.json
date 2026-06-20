@@ -1,0 +1,265 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:90119598e89deebdde99b4daee7168a7bc89770f5eb30c069a2509be773693ea",
+  "identifier": "org.hologram.V86netbootxyz",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 9194,
+    "page": 35,
+    "byte": 234,
+    "r96": 42,
+    "phi": 9194
+  },
+  "files": 27,
+  "closure": {
+    "apps/netboot.xyz/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/netboot.xyz/holospace.json": {
+      "kappa": "did:holo:sha256:ad6059d3fa2a963f5bdd67077ae594902de5ddd379c41af892b5f79dac992163",
+      "sri": "sha256-rWBZ0/oqlj9b3WcHeuWUkC3l3dN5xBr4krX3nayZIWM=",
+      "multibase": "uEiCtYFnT-iqWP1vdZwd65ZSQLeXd03nEGviStfedrJkhYw",
+      "bytes": 879,
+      "alsoKnownAs": [
+        "did:holo:blake3:c493cb685a1098cff0238a8c10dd2c3b9809bcbc34a980fe1cdb058ad1d668f1"
+      ]
+    },
+    "apps/netboot.xyz/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso": {
+      "kappa": "did:holo:sha256:bc1128ac6b94e468af04059164e06b23cc6cec4d32a00dc6808a4ab5c648e13b",
+      "sri": "sha256-vBEorGuU5GivBAWRZOBrI8xs7E0yoA3GgIpKtcZI4Ts=",
+      "multibase": "uEiC8ESisa5TkaK8EBZFk4GsjzGzsTTKgDcaAikq1xkjhOw",
+      "bytes": 2398208,
+      "alsoKnownAs": [
+        "did:holo:blake3:3bb0292183f5d9f11398e86dcdac5b27c091398436d61a72e51e2204c8734009"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/027973d089e9ed6de4388fc918085e2ab276e4503b484a34e40e378d2d68c3d6": {
+      "kappa": "did:holo:sha256:027973d089e9ed6de4388fc918085e2ab276e4503b484a34e40e378d2d68c3d6",
+      "sri": "sha256-Anlz0Inp7W3kOI/JGAheKrJ25FA7SEo05A43jS1ow9Y=",
+      "multibase": "uEiACeXPQientbeQ4j8kYCF4qsnbkUDtISjTkDjeNLWjD1g",
+      "bytes": 38912,
+      "alsoKnownAs": [
+        "did:holo:blake3:4af4cae8151421d53993879ee1236fe21a3e802075b2c01c009c60f4e73aeb1f"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/2f864370feb24bc3e4af09bc2445dd209f550ee41436a868f045af3ddeed4d19": {
+      "kappa": "did:holo:sha256:2f864370feb24bc3e4af09bc2445dd209f550ee41436a868f045af3ddeed4d19",
+      "sri": "sha256-L4ZDcP6yS8Pkrwm8JEXdIJ9VDuQUNqho8EWvPd7tTRk=",
+      "multibase": "uEiAvhkNw_rJLw-SvCbwkRd0gn1UO5BQ2qGjwRa893u1NGQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:dcdf7d74ae8ba3c9d174d0a5ea958d3a476a9f8a1695fff960c2152927ff994e"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/4221314b00543d9bd6adc354cc24dd0f5ef1fed1e5e4951d8579adc2c394015e": {
+      "kappa": "did:holo:sha256:4221314b00543d9bd6adc354cc24dd0f5ef1fed1e5e4951d8579adc2c394015e",
+      "sri": "sha256-QiExSwBUPZvWrcNUzCTdD17x/tHl5JUdhXmtwsOUAV4=",
+      "multibase": "uEiBCITFLAFQ9m9atw1TMJN0PXvH-0eXklR2Fea3Cw5QBXg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:bba8c5fb7157e9786d2145b9edc3963ecda832d4440d6922de7c6d86d1bfbd03"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/7a068ae0bca50d6646d84e4157638ea14c06032519b120fff2d7fdd25470ff48": {
+      "kappa": "did:holo:sha256:7a068ae0bca50d6646d84e4157638ea14c06032519b120fff2d7fdd25470ff48",
+      "sri": "sha256-egaK4LylDWZG2E5BV2OOoUwGAyUZsSD/8tf90lRw/0g=",
+      "multibase": "uEiB6BorgvKUNZkbYTkFXY46hTAYDJRmxIP_y1_3SVHD_SA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:b6ef7d72a9f4cfe1a178e7899a0dd704aa9c01049761410e9e465ccff9cc9cfd"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90": {
+      "kappa": "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+      "sri": "sha256-ijnSq9OZmrc8NNskdoSc3fMDzjibNYJoUPmnAFibSpA=",
+      "multibase": "uEiCKOdKr05matzw02yR2hJzd8wPOOJs1gmhQ-acAWJtKkA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:86bb2b521a10612d5a1d38204fac4fa632466d1866144d8a6a7e3afc050ce7ae"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/952557ee646dd323cf26d9588e6bfcae54fe706f5aecddda81ee9ff7167bd65b": {
+      "kappa": "did:holo:sha256:952557ee646dd323cf26d9588e6bfcae54fe706f5aecddda81ee9ff7167bd65b",
+      "sri": "sha256-lSVX7mRt0yPPJtlYjmv8rlT+cG9a7N3age6f9xZ71ls=",
+      "multibase": "uEiCVJVfuZG3TI88m2ViOa_yuVP5wb1rs3dqB7p_3FnvWWw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:cf6ff472ef0a1e67950528a27222c003756e765c78b4527f1725f7f5d20e41de"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/9f2728d1de0415cda3b27f668a5c95d9bbf3e62d8b639915888e12640217f414": {
+      "kappa": "did:holo:sha256:9f2728d1de0415cda3b27f668a5c95d9bbf3e62d8b639915888e12640217f414",
+      "sri": "sha256-nyco0d4EFc2jsn9milyV2bvz5i2LY5kViI4SZAIX9BQ=",
+      "multibase": "uEiCfJyjR3gQVzaOyf2aKXJXZu_PmLYtjmRWIjhJkAhf0FA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:9c31535a38e4df78ddd505353db1a5bb7e18837ec764efdf53730b708072660c"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/cab486dafde455e62126bf7a666194a255af3145ca1e80389999e0a7397894af": {
+      "kappa": "did:holo:sha256:cab486dafde455e62126bf7a666194a255af3145ca1e80389999e0a7397894af",
+      "sri": "sha256-yrSG2v3kVeYhJr96ZmGUolWvMUXKHoA4mZngpzl4lK8=",
+      "multibase": "uEiDKtIba_eRV5iEmv3pmYZSiVa8xRcoegDiZmeCnOXiUrw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:6b1e4a623de728d551b75be67efb6b084cb03f71e33d172837b1a08c7d680a6f"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/cb34f26ef318907b0d4bbf9006dda73aca19524171b77eed3690ea285b0e9cbc": {
+      "kappa": "did:holo:sha256:cb34f26ef318907b0d4bbf9006dda73aca19524171b77eed3690ea285b0e9cbc",
+      "sri": "sha256-yzTybvMYkHsNS7+QBt2nOsoZUkFxt37tNpDqKFsOnLw=",
+      "multibase": "uEiDLNPJu8xiQew1Lv5AG3ac6yhlSQXG3fu02kOooWw6cvA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:6f4ef93bf660bf7dace3f695fea2440eff49c8365cad92d2a9dce086d27f8775"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks/.holo/sha256/f9b76099bda50d606341b12b8d43d5df8f5b31beca409606c2e34263f2e7fd21": {
+      "kappa": "did:holo:sha256:f9b76099bda50d606341b12b8d43d5df8f5b31beca409606c2e34263f2e7fd21",
+      "sri": "sha256-+bdgmb2lDWBjQbErjUPV349bMb7KQJYGwuNCY/Ln/SE=",
+      "multibase": "uEiD5t2CZvaUNYGNBsSuNQ9Xfj1sxvspAlgbC40Jj8uf9IQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:d17550e5b2202214671e12bc846867e7d878392a78228091faed91e44e616fa5"
+      ]
+    },
+    "apps/netboot.xyz/images/netboot.xyz.iso.kblocks.json": {
+      "kappa": "did:holo:sha256:5fb95f2ef57c772c0cd22b510c5545060de9d7b6fea15116514cb15829fe8c9c",
+      "sri": "sha256-X7lfLvV8dywM0itRDFVFBg3p17b+oVEWUUyxWCn+jJw=",
+      "multibase": "uEiBfuV8u9Xx3LAzSK1EMVUUGDenXtv6hURZRTLFYKf6MnA",
+      "bytes": 1527,
+      "alsoKnownAs": [
+        "did:holo:blake3:b4247029ac94c4df18d7be7e056dd90f8b5be86d0309198220ee4fc14bdca20c"
+      ]
+    },
+    "apps/netboot.xyz/index.html": {
+      "kappa": "did:holo:sha256:5ecbecfeb83bec8973d56bfe877b198fa0ac7ba8b903fa441abb0863401b348b",
+      "sri": "sha256-Xsvs/rg77Ilz1Wv+h3sZj6Cse6i5A/pEGrsIY0AbNIs=",
+      "multibase": "uEiBey-z-uDvsiXPVa_6HexmPoKx7qLkD-kQauwhjQBs0iw",
+      "bytes": 24456,
+      "alsoKnownAs": [
+        "did:holo:blake3:663ab976d793e247f8e55bbec4ae9a354bd97c8c8ddcc06b655d7a3b9c109289"
+      ]
+    },
+    "apps/netboot.xyz/kappa.json": {
+      "kappa": "did:holo:sha256:b7da83395a704b20f3a69125909546a635df9935438f3f66ef54d50ce189a378",
+      "sri": "sha256-t9qDOVpwSyDzppElkJVGpjXfmTVDjz9m71TVDOGJo3g=",
+      "multibase": "uEiC32oM5WnBLIPOmkSWQlUamNd-ZNUOPP2bvVNUM4YmjeA",
+      "bytes": 1940,
+      "alsoKnownAs": [
+        "did:holo:blake3:2704c9e32ee27c9e0623d52ac9b10f2d48f392a98290b4dd46c5124a75c39c51"
+      ]
+    },
+    "apps/netboot.xyz/sw.js": {
+      "kappa": "did:holo:sha256:e9e5341d0a6c846f8c0cbcbb2881c74591b5550c4e3c185c45ed8d5281f4f0c8",
+      "sri": "sha256-6eU0HQpshG+MDLy7KIHHRZG1VQxOPBhcRe2NUoH08Mg=",
+      "multibase": "uEiDp5TQdCmyEb4wMvLsogcdFkbVVDE48GFxF7Y1SgfTwyA",
+      "bytes": 5024,
+      "alsoKnownAs": [
+        "did:holo:blake3:6517fc59225c445c0f6c32315b1cb43d68b52b99aa880ab9835adb9d7996efcd"
+      ]
+    },
+    "apps/netboot.xyz/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/netboot.xyz/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/netboot.xyz/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/netboot.xyz/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/netboot.xyz/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/netboot.xyz/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/netboot.xyz/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/netboot.xyz/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

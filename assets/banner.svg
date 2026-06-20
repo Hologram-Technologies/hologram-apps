@@ -1,0 +1,66 @@
+<svg viewBox="0 0 1080 540" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HOLO APPS">
+<title>Holo Apps</title>
+<desc>Thirty-seven hexagonal application tiles tessellated into a single large hexagon — a vivid app-color core fading to a grayscale field — breathing with a concentric brightness ripple, above the HOLO APPS wordmark on black.</desc>
+<defs>
+  <polygon id="hx" points="26,0 13,22.52 -13,22.52 -26,0 -13,-22.52 13,-22.52"/>
+  <style>
+    .grid use{ animation:puls 2.8s ease-in-out infinite; }
+    @keyframes puls{ 0%{opacity:var(--b)} 30%{opacity:var(--p)} 60%{opacity:var(--b)} 100%{opacity:var(--b)} }
+    .grid{ animation:breathe 4.6s ease-in-out infinite; transform-origin:540px 168px; }
+    @keyframes breathe{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.014)} }
+    .wm{ font-family:"Helvetica Neue",Helvetica,Arial,system-ui,"Segoe UI",sans-serif; font-weight:400; font-size:88px; letter-spacing:.02em; fill:#fff; }
+    @media (prefers-reduced-motion: reduce){ .grid,.grid use{ animation:none } }
+  </style>
+</defs>
+
+<rect width="1080" height="540" fill="#000"/>
+
+<g class="grid"><g transform="translate(540,168) scale(0.62)" fill="#fff">
+<!-- column q=-3 (x=-135), outer ring -->
+<use href="#hx" x="-135" y="-77.94" style="--b:0.18;--p:0.70;animation-delay:-1.95s" opacity="0.18"/>
+<use href="#hx" x="-135" y="-25.98" style="--b:0.18;--p:0.70;animation-delay:-1.95s" opacity="0.18"/>
+<use href="#hx" x="-135" y="25.98" style="--b:0.18;--p:0.70;animation-delay:-1.95s" opacity="0.18"/>
+<use href="#hx" x="-135" y="77.94" style="--b:0.18;--p:0.70;animation-delay:-1.95s" opacity="0.18"/>
+<!-- column q=-2 (x=-90) -->
+<use href="#hx" x="-90" y="-103.92" style="--b:0.18;--p:0.70;animation-delay:-1.99s" opacity="0.18"/>
+<use href="#hx" x="-90" y="-51.96" style="--b:0.40;--p:0.95;animation-delay:-1.44s" opacity="0.40"/>
+<use href="#hx" x="-90" y="0" style="--b:0.40;--p:0.95;animation-delay:-1.44s" opacity="0.40"/>
+<use href="#hx" x="-90" y="51.96" fill="#609926" style="--b:0.62;--p:1.00;animation-delay:-1.44s" opacity="0.62"/>
+<use href="#hx" x="-90" y="103.92" style="--b:0.18;--p:0.70;animation-delay:-1.99s" opacity="0.18"/>
+<!-- column q=-1 (x=-45) -->
+<use href="#hx" x="-45" y="-129.9" style="--b:0.18;--p:0.70;animation-delay:-2.03s" opacity="0.18"/>
+<use href="#hx" x="-45" y="-77.94" style="--b:0.40;--p:0.95;animation-delay:-1.48s" opacity="0.40"/>
+<use href="#hx" x="-45" y="-25.98" fill="#7ee787" style="--b:0.85;--p:1.00;animation-delay:-0.93s" opacity="0.85"/>
+<use href="#hx" x="-45" y="25.98" fill="#c77bff" style="--b:0.85;--p:1.00;animation-delay:-0.93s" opacity="0.85"/>
+<use href="#hx" x="-45" y="77.94" style="--b:0.40;--p:0.95;animation-delay:-1.48s" opacity="0.40"/>
+<use href="#hx" x="-45" y="129.9" style="--b:0.18;--p:0.70;animation-delay:-2.03s" opacity="0.18"/>
+<!-- column q=0 (x=0), center spine -->
+<use href="#hx" x="0" y="-155.88" style="--b:0.18;--p:0.70;animation-delay:-2.07s" opacity="0.18"/>
+<use href="#hx" x="0" y="-103.92" style="--b:0.40;--p:0.95;animation-delay:-1.52s" opacity="0.40"/>
+<use href="#hx" x="0" y="-51.96" fill="#d97757" style="--b:0.85;--p:1.00;animation-delay:-0.97s" opacity="0.85"/>
+<use href="#hx" x="0" y="0" style="--b:1.00;--p:1.00;animation-delay:-0.42s" opacity="1.00"/>
+<use href="#hx" x="0" y="51.96" fill="#4dd0e1" style="--b:0.85;--p:1.00;animation-delay:-0.97s" opacity="0.85"/>
+<use href="#hx" x="0" y="103.92" style="--b:0.40;--p:0.95;animation-delay:-1.52s" opacity="0.40"/>
+<use href="#hx" x="0" y="155.88" style="--b:0.18;--p:0.70;animation-delay:-2.07s" opacity="0.18"/>
+<!-- column q=1 (x=45) -->
+<use href="#hx" x="45" y="-129.9" style="--b:0.18;--p:0.70;animation-delay:-2.11s" opacity="0.18"/>
+<use href="#hx" x="45" y="-77.94" style="--b:0.40;--p:0.95;animation-delay:-1.56s" opacity="0.40"/>
+<use href="#hx" x="45" y="-25.98" fill="#f2c14e" style="--b:0.85;--p:1.00;animation-delay:-1.01s" opacity="0.85"/>
+<use href="#hx" x="45" y="25.98" fill="#1db954" style="--b:0.85;--p:1.00;animation-delay:-1.01s" opacity="0.85"/>
+<use href="#hx" x="45" y="77.94" style="--b:0.40;--p:0.95;animation-delay:-1.56s" opacity="0.40"/>
+<use href="#hx" x="45" y="129.9" style="--b:0.18;--p:0.70;animation-delay:-2.11s" opacity="0.18"/>
+<!-- column q=2 (x=90) -->
+<use href="#hx" x="90" y="-103.92" style="--b:0.18;--p:0.70;animation-delay:-2.15s" opacity="0.18"/>
+<use href="#hx" x="90" y="-51.96" fill="#5b8cff" style="--b:0.62;--p:1.00;animation-delay:-1.60s" opacity="0.62"/>
+<use href="#hx" x="90" y="0" style="--b:0.40;--p:0.95;animation-delay:-1.60s" opacity="0.40"/>
+<use href="#hx" x="90" y="51.96" style="--b:0.40;--p:0.95;animation-delay:-1.60s" opacity="0.40"/>
+<use href="#hx" x="90" y="103.92" style="--b:0.18;--p:0.70;animation-delay:-2.15s" opacity="0.18"/>
+<!-- column q=3 (x=135), outer ring -->
+<use href="#hx" x="135" y="-77.94" style="--b:0.18;--p:0.70;animation-delay:-2.19s" opacity="0.18"/>
+<use href="#hx" x="135" y="-25.98" style="--b:0.18;--p:0.70;animation-delay:-2.19s" opacity="0.18"/>
+<use href="#hx" x="135" y="25.98" style="--b:0.18;--p:0.70;animation-delay:-2.19s" opacity="0.18"/>
+<use href="#hx" x="135" y="77.94" style="--b:0.18;--p:0.70;animation-delay:-2.19s" opacity="0.18"/>
+</g></g>
+
+<text class="wm" x="540" y="430" text-anchor="middle">HOLO APPS</text>
+</svg>

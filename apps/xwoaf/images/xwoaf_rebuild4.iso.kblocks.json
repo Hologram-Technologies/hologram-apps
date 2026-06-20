@@ -1,0 +1,25 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "xwoaf_rebuild4.iso",
+    "bytes": 2205696,
+    "did": "did:holo:sha256:2d0c2fe89b5d8013227701ae9927d88cbc8d0a2832ad9f1ff5a1d5d883da3c05"
+  },
+  "blockSize": 262144,
+  "blockCount": 9,
+  "uniqueBlocks": 9,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:267f95e2e89127024f468f3b756c6e5caccd4728327adcd46b366ddf3155437f",
+  "blocks": [
+    "did:holo:sha256:96ce443e4c9f0d3b5fe0e8dd26e97e02a201cfc6a175401e7d16ebbc4a6ccc14",
+    "did:holo:sha256:2650368feddf2eca27812b50b7ac4523ce6d512905f0cf88f7209d0b9b991fc2",
+    "did:holo:sha256:0ee812492080ba913aa9bef2928977240b46718ee19c642629abecbe61f07611",
+    "did:holo:sha256:88a5f16f23aecbc68a481d81178a06df3a6b7a5b80e6ae30c7deb2e32738a316",
+    "did:holo:sha256:0ec8d5b57d320ade50ea52ee7a92da1ad26f646136da14e6d82b7579af9bc9ef",
+    "did:holo:sha256:8aafa4e3a6f89b25926a25dcaca1f30907572eaf2a8f4d8200362ef5f7b581a2",
+    "did:holo:sha256:a946570328c58ea3e9950e9f978a1e0ae48dba26b172ab12ec59d2da05bd6f0f",
+    "did:holo:sha256:dd0d40c9fe4acd24b56fe031fb3834a0a15b6f27ed5e5c839c8b281e9b054acc",
+    "did:holo:sha256:961ab898db9bc7ca0daa730287a96c462125b1f10bbc84ccb1afeea352599e00"
+  ]
+}

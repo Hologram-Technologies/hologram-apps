@@ -1,0 +1,18 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "ibm-exploring.img",
+    "bytes": 368640,
+    "did": "did:holo:sha256:4c87cad7d2baa71461bf598e1e827829f18d3ec4289fb44d800e2ad74cb0e220"
+  },
+  "blockSize": 262144,
+  "blockCount": 2,
+  "uniqueBlocks": 2,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:364abaa9c555c03cd649345e49be95593ea6d1abdd6b943c6fba8b1c2c6e56e6",
+  "blocks": [
+    "did:holo:sha256:772369cf07e0af923a80e31809d2d1404da81a4b6341e6d9f9f33723535bb972",
+    "did:holo:sha256:b3a2eae718af954a27e6632705b711b3487b2d338b7478f7fe747653262401e9"
+  ]
+}

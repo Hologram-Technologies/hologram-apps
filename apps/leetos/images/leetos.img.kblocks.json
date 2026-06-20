@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "leetos.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:d9f81bbe0b3db4b553606300a0548fabd2fd6684bf52f1d270754d20baa57c40"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:14318462bc3a58b44be9c3e15e25f92924723ee3813b1aca7299544f50576a9b",
+  "blocks": [
+    "did:holo:sha256:c0d7cfce6316ddfd25c49edfe0ec924ae6e4cd10ae44d05f1da85fd52f3721fe",
+    "did:holo:sha256:5ef3f4deeff1a01f9bdf27a7882f39c9fff6e064e40df958014a8ca59bce7ce4",
+    "did:holo:sha256:88fe15d0b5c5d5d57d6adf0f3e221950efe65be7cb3eca46e062ac08c8139c5f",
+    "did:holo:sha256:a2a3502cc8d6bdc176428dac305152ca21d6aeed44637f71e38aa0a449c0ad5a",
+    "did:holo:sha256:90010c7e7c45c62b483d784d186679e166791d24006e51873a1c2e34a3afd8bd",
+    "did:holo:sha256:7fc05d7971fa84e6c5d874cf80d6452f19d93426d8859e4abf9a439fa862fdab"
+  ]
+}

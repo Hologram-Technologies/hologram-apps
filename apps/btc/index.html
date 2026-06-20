@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>BTC Miner Hologram OS</title>
+    <meta name="description" content="A real, self-custodial Bitcoin wallet + live network, entirely in your browser BrowserCoin's experience applied to real BTC. Real secp256k1 keys, real bech32 address, real send/receive (testnet-first), real blocks/mempool, every block prism-κ-verified. No simulation." />
+    <script src="coi-serviceworker.min.js"></script>
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <link rel="stylesheet" href="/.holo/sha256/af0f2b5ff47f414281246d8e8e786edc6302bed6731174897f74f105dd2f93f3.css" data-holo-shared="holo-phi.css" />
+    <script type="module" src="/.holo/sha256/f06225898cce8ded3bddebb5abf6a4f2478e40b7eac828905d38290cebb820de.js" data-holo-shared="holo-ux.js"></script>
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); --ink: var(--holo-ink); --line: var(--holo-border); --card: var(--holo-surface);
+        --acc: var(--holo-accent); --acc2: color-mix(in srgb, var(--holo-accent) 72%, var(--holo-ink)); --good: var(--holo-ok); --bad: var(--holo-danger); --info: var(--holo-accent); --r: 16px; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body { background: radial-gradient(140% 80% at 85% -10%, #17120a 0%, #0a0c11 40%, var(--bg) 100%); background-attachment: fixed;
+        color: #c4ccd6; font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+        display: flex; flex-direction: column; overflow: hidden; }
+
+      #bar { flex: 0 0 auto; z-index: 50; display: flex; align-items: center; gap: 0.7rem; padding: 0.45rem 0.95rem;
+        background: #0b0f15ee; backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); font: var(--holo-text-sm, 1rem) ui-monospace, Menlo, Consolas, monospace; }
+      #bar .name { color: var(--ink); font-weight: 700; } #bar .name b { color: var(--acc); }
+      #bar .k { color: var(--info); max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: var(--good); } #bar .ver.bad { color: var(--bad); }
+      #bar .sp { margin-left: auto; }
+      .netseg { display: inline-flex; border: 1px solid #30363d; border-radius: 999px; overflow: hidden; }
+      .netseg button { background: transparent; color: var(--dim); border: 0; padding: 0.22rem 0.7rem; cursor: pointer; font: inherit; }
+      .netseg button.on { background: var(--acc); color: #1a1205; font-weight: 700; }
+      #bar button.icon { color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 0.2rem 0.5rem; cursor: pointer; }
+      #bar button.icon:hover { color: var(--ink); border-color: #30363d; }
+
+      /* fill the whole screen · golden-ratio columns (φ:1) and flexible rows (1:φ) */
+      main { flex: 1 1 auto; min-height: 0; width: 100%; padding: 18px; display: grid;
+        grid-template-columns: var(--holo-phi-fr) 1fr; grid-template-rows: auto minmax(0, 1fr) minmax(0, var(--holo-phi-fr)); gap: 18px; }
+      @media (max-width: 880px) { html, body { height: auto; } body { overflow: auto; }
+        main { grid-template-columns: 1fr; grid-template-rows: none; padding: 12px; gap: 12px; } .card { height: auto; } }
+
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 1rem 1.1rem; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
+      .card > h3 { margin: 0 0 0.85rem; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+      .card > h3 .sp { margin-left: auto; }
+      .card > h3 a { color: var(--info); text-decoration: none; font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 0.8rem; }
+      .card > h3 a:hover { text-decoration: underline; }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 7px var(--bad); flex: 0 0 auto; }
+      .dot.on { background: var(--good); box-shadow: 0 0 8px var(--good); animation: pulse 2s ease-in-out infinite; }
+      @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+      .mono { font-family: ui-monospace, monospace; } .mut { color: var(--dim); }
+      a { color: var(--info); }
+
+      /* WALLET */
+      .wal-top { display: flex; align-items: flex-start; gap: 1rem; }
+      .wal-left { flex: 1 1 auto; min-width: 0; }
+      .bal { font: 800 1.9rem/1 ui-monospace, monospace; color: var(--ink); letter-spacing: -0.02em; }
+      .bal .u { font-size: 0.95rem; color: var(--acc); font-weight: 700; margin-left: 0.3rem; }
+      .bal-sub { color: var(--dim); font-size: 0.78rem; margin-top: 0.3rem; }
+      .addrline { display: flex; gap: 0.4rem; margin-top: 0.9rem; }
+      .addrline input { flex: 1 1 auto; min-width: 0; background: #060a0f; color: var(--ink); border: 1px solid #262d38; border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.6rem; font: 0.78rem ui-monospace, monospace; }
+      .qr { flex: 0 0 auto; width: 104px; height: 104px; background: #fff; border-radius: 10px; padding: 6px; }
+      .qr svg { width: 100%; height: 100%; display: block; }
+      .btnrow { display: flex; gap: 0.45rem; margin-top: 0.85rem; flex-wrap: wrap; }
+      button.b { font: 600 0.82rem ui-sans-serif, system-ui; border-radius: 9px; padding: 0.5rem 0.95rem; cursor: pointer; border: 1px solid #2a323d; background: #161c25; color: var(--ink); }
+      button.b:hover { border-color: #3a444f; }
+      button.b.pri { background: linear-gradient(180deg, var(--acc2), var(--acc)); color: #1a1205; border: 0; font-weight: 700; box-shadow: 0 6px 16px #f7931a33; }
+      button.b.sm { padding: 0.35rem 0.6rem; font-size: 0.76rem; }
+      .links { display: flex; gap: 0.7rem; margin-top: 0.7rem; font-size: 0.76rem; }
+      .links a, .links button.link { background: none; border: 0; color: var(--info); cursor: pointer; font: inherit; padding: 0; }
+      .links a:hover, .links button.link:hover { text-decoration: underline; }
+
+      .panel { margin-top: 0.85rem; border-top: 1px solid var(--line); padding-top: 0.85rem; }
+      .panel.hidden { display: none; }
+      .field { margin-bottom: 0.6rem; }
+      .field label { display: block; font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+      .field input { width: 100%; background: #060a0f; color: var(--ink); border: 1px solid #262d38; border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem 0.6rem; font: 0.85rem ui-monospace, monospace; }
+      .amt { display: flex; gap: 0.4rem; } .amt input { flex: 1; }
+      .sendmsg { font-size: 0.78rem; margin-top: 0.5rem; min-height: 1.1em; }
+      .sendmsg.ok { color: var(--good); } .sendmsg.err { color: var(--bad); }
+      .warn { color: #e3b341; font-size: 0.74rem; margin-top: 0.5rem; }
+
+      /* MINING */
+      .mine-nums { display: flex; gap: 1.6rem; align-items: flex-end; }
+      .mine-nums .n { font: 800 1.7rem/1 ui-monospace, monospace; color: var(--ink); font-variant-numeric: tabular-nums; }
+      .mine-nums .n.acc { color: var(--acc); }
+      .mine-nums .l { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); margin-bottom: 0.3rem; }
+      .mine-ctl { display: flex; align-items: center; gap: 0.6rem; margin: 0.9rem 0 0.2rem; flex-wrap: wrap; }
+      select { background: #060a0f; color: var(--ink); border: 1px solid #2a323d; border-radius: 7px; padding: 0.32rem 0.5rem; font: inherit; cursor: pointer; }
+      .stopbtn { font: 700 0.82rem ui-sans-serif, system-ui; border-radius: 999px; padding: 0.45rem 1.3rem; cursor: pointer; border: 0; background: linear-gradient(180deg,var(--acc2),var(--acc)); color: #1a1205; }
+      .stopbtn.on { background: #1c232c; color: var(--ink); border: 1px solid #30363d; }
+      .mine-foot { margin-top: 0.7rem; color: var(--dim); font-size: 0.74rem; }
+
+      /* tables */
+      .scroll { overflow: auto; min-height: 0; flex: 1 1 auto; scrollbar-width: thin; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+      thead th { position: sticky; top: 0; background: var(--card); text-align: left; color: var(--dim); font-weight: 500; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.32rem 0.4rem; border-bottom: 1px solid var(--line); }
+      td { padding: 0.4rem 0.4rem; border-bottom: 1px solid #11161d; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      tr:hover td { background: #10161d; }
+      td a { color: var(--info); text-decoration: none; } td a:hover { text-decoration: underline; }
+      .kok { color: var(--good); } .kbad { color: var(--bad); } .kwait { color: var(--dim); }
+      .pos { color: var(--good); } .neg { color: var(--acc2); }
+      .empty { color: var(--dim); font-size: 0.82rem; padding: 1rem 0.2rem; text-align: center; }
+
+      /* NETWORK stat list */
+      .netlist { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 1rem; align-items: baseline; }
+      .netlist .l { color: var(--dim); } .netlist .v { color: var(--ink); font-family: ui-monospace, monospace; text-align: right; }
+      .netlist .v.g { color: var(--good); } .netlist .v.a { color: var(--acc); }
+
+      footer { flex: 0 0 auto; padding: 0.4rem 1rem; color: var(--dim); font-size: 0.72rem; border-top: 1px solid var(--line); background: #0b0f15aa; }
+      #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(14px); z-index: 80; opacity: 0; pointer-events: none;
+        background: #11161d; border: 1px solid #2a323d; border-radius: 11px; padding: 0.6rem 1rem; color: var(--ink); font-size: 0.84rem; box-shadow: 0 16px 44px #000a; transition: opacity .25s, transform .25s; max-width: 90vw; }
+      #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      #toast.ok { border-color: #1d6b33; } #toast.err { border-color: #6b2420; }
+      @media (max-width: 880px) { #bar .k { display: none; } button.b, .stopbtn, select, .netseg button { min-height: 42px; } .scroll { max-height: 50vh; } }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="BTC Miner"></holo-splash>
+
+    <div id="bar">
+      <span class="name">BTC <b>₿</b> Miner</span>
+      <span class="netseg" id="netseg"><button data-net="testnet" class="on">testnet</button><button data-net="mainnet">mainnet</button></span>
+      <span class="k" id="kaddr">holo://prism-btc</span>
+      <span class="ver" id="ver" title="Law L5: the prism engine reproduces Bitcoin's genesis hash"></span>
+      <span class="sp"></span>
+      <button class="icon" id="fsBtn" title="fullscreen (f)">⛶</button>
+    </div>
+
+    <main>
+      <!-- WALLET -->
+      <div class="card" id="card-wallet">
+        <h3>Your wallet <span class="sp"></span><a id="w-open" target="_blank" rel="noopener">Open in explorer →</a></h3>
+        <div class="wal-top">
+          <div class="wal-left">
+            <div class="bal"><span id="w-bal">0.00000000</span><span class="u" id="w-coin">tBTC</span></div>
+            <div class="bal-sub" id="w-balsub"></div>
+            <div class="addrline">
+              <input id="w-addr" readonly value="" title="your address share it to receive" />
+              <button class="b sm" id="w-copy">Copy</button>
+            </div>
+            <div class="btnrow">
+              <button class="b pri" id="w-send-btn">Send</button>
+              <button class="b" id="w-recv-btn">Receive</button>
+              <button class="b" id="w-refresh">↻</button>
+            </div>
+            <div class="links">
+              <button class="link" id="w-new">New</button>
+              <button class="link" id="w-import">Import</button>
+              <button class="link" id="w-export">Export key</button>
+              <a id="w-faucet" target="_blank" rel="noopener">Faucet ↗</a>
+            </div>
+          </div>
+          <div class="qr" id="w-qr" title="scan to receive"></div>
+        </div>
+
+        <div class="panel hidden" id="send-panel">
+          <div class="field"><label>Send to address</label><input id="s-to" placeholder="tb1q… recipient" autocomplete="off" /></div>
+          <div class="field"><label>Amount (<span class="s-coin">tBTC</span>)</label>
+            <div class="amt"><input id="s-amt" placeholder="0.0001" inputmode="decimal" autocomplete="off" /><button class="b sm" id="s-max">Max</button></div>
+          </div>
+          <div class="btnrow"><button class="b pri" id="s-send">Sign &amp; broadcast</button><button class="b" id="s-cancel">Cancel</button></div>
+          <div class="sendmsg" id="s-msg"></div>
+        </div>
+
+        <div class="panel hidden" id="recv-panel">
+          <div class="field"><label>Your address (<span class="s-coin">testnet</span>)</label><input id="r-addr" readonly /></div>
+          <div class="warn" id="r-hint"></div>
+        </div>
+
+        <div class="panel hidden" id="key-panel">
+          <div class="field"><label id="k-label">Private key (WIF)</label><input id="k-val" autocomplete="off" spellcheck="false" /></div>
+          <div class="btnrow"><button class="b pri" id="k-action">OK</button><button class="b" id="k-cancel">Cancel</button></div>
+          <div class="warn" id="k-warn"></div>
+        </div>
+      </div>
+
+      <!-- MINING -->
+      <div class="card" id="card-mining">
+        <h3>Mining <span class="mut" style="text-transform:none;letter-spacing:0;font-weight:400">· prism sha256d, browser-native chain</span></h3>
+        <div class="mine-nums">
+          <div><div class="l">Hashrate</div><div class="n" id="m-hps">0 H/s</div></div>
+          <div><div class="l">Difficulty</div><div class="n acc" id="m-diff"></div></div>
+          <div><div class="l">Blocks</div><div class="n" id="m-height">0</div></div>
+        </div>
+        <div class="mine-ctl">
+          <button class="stopbtn" id="m-start">Start mining</button>
+          <label class="mut" style="font-size:.8rem">cores <select id="m-cores"></select></label>
+          <span class="dot" id="m-peerdot"></span><span class="mut" id="m-peers" style="font-size:.78rem">0 peers</span>
+        </div>
+        <div class="mine-foot" id="m-foot">Real <code>sha256d</code> proof-of-work but a browser can't out-hash mainnet's ASICs (~2⁻⁷⁷/block), so this mines its own content-addressed chain, not mainnet.</div>
+      </div>
+
+      <!-- RECENT ACTIVITY -->
+      <div class="card" id="card-activity">
+        <h3>Recent activity <span class="sp"></span><a id="a-all" target="_blank" rel="noopener">View all →</a></h3>
+        <div class="scroll">
+          <table id="t-act"><thead><tr><th>Status</th><th>Dir</th><th>Amount</th><th>When</th><th>Tx</th></tr></thead>
+            <tbody><tr><td colspan="5" class="empty">No activity yet share your address to receive, or send.</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- NETWORK -->
+      <div class="card" id="card-network">
+        <h3><span class="dot" id="n-dot"></span> Network <span class="sp"></span><span class="mut" id="n-name" style="text-transform:none;letter-spacing:0">testnet</span></h3>
+        <div class="netlist">
+          <span class="l">Status</span><span class="v g" id="n-status">connecting…</span>
+          <span class="l">Height</span><span class="v" id="n-height"></span>
+          <span class="l">Difficulty</span><span class="v" id="n-diff"></span>
+          <span class="l">Network hashrate</span><span class="v a" id="n-hr"></span>
+          <span class="l">Mempool</span><span class="v" id="n-mp"></span>
+          <span class="l">Tip age</span><span class="v" id="n-age"></span>
+        </div>
+      </div>
+
+      <!-- RECENT BLOCKS -->
+      <div class="card" id="card-blocks">
+        <h3>Recent blocks <span class="sp"></span><span class="mut" style="text-transform:none;letter-spacing:0">κ-verified by prism</span></h3>
+        <div class="scroll">
+          <table id="t-blocks"><thead><tr><th>Height</th><th>Hash</th><th>Txs</th><th>Miner</th><th>Age</th><th>κ</th></tr></thead>
+            <tbody><tr><td colspan="6" class="empty">loading…</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- PENDING TRANSACTIONS -->
+      <div class="card" id="card-pending">
+        <h3>Pending transactions <span class="sp"></span><span class="mut" style="text-transform:none;letter-spacing:0">mempool</span></h3>
+        <div class="scroll">
+          <table id="t-pending"><thead><tr><th>TXID</th><th>Value</th><th>Fee</th></tr></thead>
+            <tbody><tr><td colspan="3" class="empty">loading…</td></tr></tbody></table>
+        </div>
+      </div>
+    </main>
+
+    <footer>Real <span id="f-net">testnet</span> data via mempool.space · keys are generated &amp; signed on-device (scure-btc-signer) · every block re-derived through the prism <code>sha256d</code> engine no simulation.</footer>
+
+    <div id="toast"></div>
+
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      import * as W from "./_shared/btc-wallet/wallet.js";
+      import prismInit, { JsBlockHeader as PrismHeader, mine_range as prismMine } from "./_shared/prism-btc/prism_btc_wasm.js";
+      const prismReady = prismInit().then(() => true).catch(() => false);
+
+      const $ = (id) => document.getElementById(id);
+      const txt = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+      const showK = (k) => txt("kaddr", k ? (k.startsWith("holo://") ? k : "holo://" + k) : "holo://prism-btc");
+      const revHex = (hex) => Uint8Array.from(hex.match(/../g).map((x) => parseInt(x, 16))).reverse();
+      const short = (h, n = 10) => String(h).slice(0, n) + "…";
+      const sats2btc = (s) => (s / 1e8).toFixed(8);
+      let toastT;
+      function toast(msg, kind) { const t = $("toast"); t.innerHTML = msg; t.className = "show " + (kind || ""); clearTimeout(toastT); toastT = setTimeout(() => (t.className = ""), kind === "err" ? 6000 : 4000); }
+
+      // ── prism self-test (genesis) ─────────────────────────────────────────────
+      (async function () {
+        if (!(await prismReady)) { txt("ver", "✗ engine failed"); $("ver").className = "ver bad"; return; }
+        try {
+          const jsh = new PrismHeader(1, new Uint8Array(32), revHex("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"), 1231006505, 0x1d00ffff);
+          const r = prismMine(jsh, 0x1d00ffff, 2083236893, 1);
+          const ok = r.found && r.hash_hex() === "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f";
+          r.free(); jsh.free();
+          txt("ver", ok ? "✓ prism verified" : "✗ engine mismatch"); $("ver").className = "ver " + (ok ? "ok" : "bad");
+        } catch {}
+      })();
+
+      // ── wallet state ──────────────────────────────────────────────────────────
+      let priv = null, netKey = "testnet", addr = "";
+      function loadWallet() {
+        try {
+          const s = JSON.parse(localStorage.getItem("btcwallet.v1") || "null");
+          if (s && s.privHex) { priv = W.importSecret(s.privHex).priv; netKey = s.network || "testnet"; return; }
+        } catch {}
+        priv = W.newKey(); netKey = "testnet"; saveWallet();        // auto-generate on first visit (BrowserCoin model)
+      }
+      function saveWallet() { try { localStorage.setItem("btcwallet.v1", JSON.stringify({ privHex: W.privHex(priv), network: netKey })); } catch {} }
+
+      function renderWalletShell() {
+        const N = W.NETWORKS[netKey];
+        addr = W.deriveAddress(priv, netKey);
+        txt("w-coin", N.coin); document.querySelectorAll(".s-coin").forEach((e) => (e.textContent = netKey === "testnet" ? N.coin : "BTC"));
+        $("w-addr").value = addr; $("r-addr").value = addr;
+        $("w-qr").innerHTML = W.qrSvg(addr);
+        $("w-open").href = N.explorer + "/address/" + addr;
+        $("a-all").href = N.explorer + "/address/" + addr;
+        $("w-faucet").style.display = N.faucet ? "" : "none"; if (N.faucet) $("w-faucet").href = N.faucet;
+        $("r-hint").textContent = netKey === "testnet" ? "Testnet coins have no value grab some from the faucet to test Send." : "";
+        txt("n-name", netKey); txt("f-net", netKey);
+        for (const b of $("netseg").children) b.classList.toggle("on", b.dataset.net === netKey);
+        showK("addr:" + addr);
+        if (window.HoloTeleport) HoloTeleport.stamp("btc-" + netKey + ":" + addr);
+      }
+      async function refreshWallet() {
+        renderWalletShell();
+        try {
+          const b = await W.getBalance(addr, netKey);
+          txt("w-bal", sats2btc(b.confirmed));
+          txt("w-balsub", (b.pending ? (b.pending > 0 ? "+" : "") + sats2btc(b.pending) + " pending · " : "") + b.txCount + " txs");
+          renderActivity(await W.getHistory(addr, netKey));
+        } catch (e) { txt("w-balsub", "couldn't reach the network"); }
+      }
+      function renderActivity(rows) {
+        const tb = $("t-act").querySelector("tbody");
+        if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No activity yet share your address to receive, or send.</td></tr>'; return; }
+        const N = W.NETWORKS[netKey];
+        tb.innerHTML = rows.slice(0, 40).map((r) => `<tr>
+          <td>${r.confirmed ? "✓ conf" : "<span class='mut'>pending</span>"}</td>
+          <td>${r.dir === "in" ? "<span class='pos'>recv</span>" : "<span class='neg'>sent</span>"}</td>
+          <td class="${r.dir === "in" ? "pos" : "neg"}">${r.net >= 0 ? "+" : ""}${sats2btc(r.net)}</td>
+          <td class="mut">${r.time ? new Date(r.time * 1000).toLocaleDateString() : ""}</td>
+          <td><a href="${N.explorer}/tx/${r.txid}" target="_blank" rel="noopener">${short(r.txid, 8)}</a></td></tr>`).join("");
+      }
+
+      // panels
+      const hideAll = () => ["send-panel", "recv-panel", "key-panel"].forEach((p) => $(p).classList.add("hidden"));
+      const toggle = (id) => { const was = $(id).classList.contains("hidden"); hideAll(); if (was) $(id).classList.remove("hidden"); };
+      $("w-send-btn").onclick = () => toggle("send-panel");
+      $("w-recv-btn").onclick = () => toggle("recv-panel");
+      $("s-cancel").onclick = hideAll;
+      $("w-copy").onclick = () => { navigator.clipboard?.writeText(addr); toast("Address copied"); };
+
+      $("s-max").onclick = async () => { try { const b = await W.getBalance(addr, netKey); const r = await W.feeRate(netKey); const max = Math.max(0, b.confirmed - (110 * r)); $("s-amt").value = sats2btc(max); } catch {} };
+      $("s-send").onclick = async () => {
+        const to = $("s-to").value.trim(); const amt = Math.round(parseFloat($("s-amt").value) * 1e8);
+        const msg = $("s-msg");
+        if (!to || !(amt > 0)) { msg.className = "sendmsg err"; msg.textContent = "Enter a recipient and amount."; return; }
+        msg.className = "sendmsg"; msg.textContent = "building, signing, broadcasting…"; $("s-send").disabled = true;
+        try {
+          const res = await W.send({ priv, toAddr: to, amountSats: amt, netKey });
+          const link = W.NETWORKS[netKey].explorer + "/tx/" + res.txid;
+          msg.className = "sendmsg ok"; msg.innerHTML = `broadcast ✓ fee ${res.fee} sats · <a href="${link}" target="_blank" rel="noopener">${short(res.txid, 12)}</a>`;
+          toast(`Sent <a href="${link}" target="_blank" rel="noopener" style="color:#6cb6ff">view tx ↗</a>`, "ok");
+          $("s-to").value = $("s-amt").value = ""; setTimeout(refreshWallet, 1500);
+        } catch (e) { msg.className = "sendmsg err"; msg.textContent = "✗ " + (e.message || e); }
+        $("s-send").disabled = false;
+      };
+
+      // key management
+      $("w-new").onclick = () => { if (!confirm("Generate a NEW wallet? Your current key is erased unless you exported it.")) return; priv = W.newKey(); saveWallet(); refreshWallet(); toast("New wallet generated"); };
+      $("w-import").onclick = () => { hideAll(); $("k-label").textContent = "Paste a private key (WIF or 64-hex)"; $("k-val").value = ""; $("k-val").type = "text"; $("k-action").textContent = "Import"; $("k-warn").textContent = ""; $("k-panel").classList.remove("hidden"); $("k-action").onclick = doImport; };
+      $("w-export").onclick = () => { hideAll(); $("k-label").textContent = "Private key (WIF) keep it secret!"; $("k-val").value = W.toWIF(priv, netKey); $("k-val").readOnly = true; $("k-action").textContent = "Copy"; $("k-warn").textContent = "Anyone with this key controls the funds."; $("k-panel").classList.remove("hidden"); $("k-action").onclick = () => { navigator.clipboard?.writeText($("k-val").value); toast("Private key copied"); }; };
+      $("k-cancel").onclick = hideAll;
+      function doImport() {
+        try { const r = W.importSecret($("k-val").value); priv = r.priv; if (r.netKey) netKey = r.netKey; saveWallet(); hideAll(); refreshWallet(); toast("Wallet imported"); }
+        catch (e) { $("k-warn").textContent = "✗ " + e.message; }
+      }
+      $("w-refresh").onclick = () => { refreshWallet(); loadLive(); };
+
+      // network toggle
+      for (const b of $("netseg").children) b.onclick = () => {
+        const target = b.dataset.net;
+        if (target === "mainnet" && netKey !== "mainnet" && !confirm("Switch to MAINNET this wallet will hold REAL bitcoin. Continue?")) return;
+        netKey = target; saveWallet(); refreshWallet(); loadLive();
+        $("m-foot").innerHTML = netKey === "mainnet"
+          ? "Real <code>sha256d</code> proof-of-work a browser can't out-hash mainnet's ASICs (~2⁻⁷⁷/block), so this mines its own content-addressed chain, not mainnet."
+          : "Real <code>sha256d</code> proof-of-work on a browser-native chain. Mainnet would need ASICs that wall is physics, not code.";
+      };
+
+      loadWallet(); refreshWallet();
+      setInterval(() => { refreshWallet(); }, 60000);
+
+      // ── live network (real, network-aware) ──────────────────────────────────────
+      const ago = (ts) => { const s = Math.max(0, Math.floor(Date.now() / 1000 - ts)); return s < 60 ? s + "s" : s < 3600 ? Math.floor(s / 60) + "m" : Math.floor(s / 3600) + "h"; };
+      const fmtHR = (h) => { h = +h; return h >= 1e18 ? (h / 1e18).toFixed(1) + " EH/s" : h >= 1e15 ? (h / 1e15).toFixed(0) + " PH/s" : h >= 1e12 ? (h / 1e12).toFixed(1) + " TH/s" : (h / 1e9).toFixed(0) + " GH/s"; };
+      const fmtDiff = (d) => { d = +d; return d >= 1e12 ? (d / 1e12).toFixed(2) + " T" : d >= 1e9 ? (d / 1e9).toFixed(2) + " G" : (d / 1e6).toFixed(1) + " M"; };
+
+      async function kappaVerify(b) {
+        if (!(await prismReady)) return null;
+        try { const jsh = new PrismHeader(b.version >>> 0, revHex(b.previousblockhash), revHex(b.merkle_root), b.timestamp >>> 0, b.bits >>> 0);
+          const r = prismMine(jsh, b.bits >>> 0, b.nonce >>> 0, 1); const ok = r.found && r.hash_hex() === b.id; r.free(); jsh.free(); return ok; } catch { return null; }
+      }
+      async function loadLive() {
+        const api = W.NETWORKS[netKey].api, ex = W.NETWORKS[netKey].explorer;
+        try {
+          const [blks, hr, mp, recent] = await Promise.all([
+            fetch(api + "/v1/blocks").then((r) => r.json()),
+            fetch(api + "/v1/mining/hashrate/3d").then((r) => r.json()).catch(() => ({})),
+            fetch(api + "/mempool").then((r) => r.json()),
+            fetch(api + "/mempool/recent").then((r) => r.json()),
+          ]);
+          $("n-dot").classList.add("on");
+          txt("n-status", "online");
+          txt("n-height", blks[0].height.toLocaleString());
+          txt("n-diff", hr.currentDifficulty ? fmtDiff(hr.currentDifficulty) : "");
+          txt("n-hr", hr.currentHashrate ? fmtHR(hr.currentHashrate) : "");
+          txt("n-mp", (mp.count || 0).toLocaleString() + " tx");
+          txt("n-age", ago(blks[0].timestamp) + " ago");
+          renderBlocks(blks.slice(0, 12), ex); renderPending(recent.slice(0, 12), ex);
+        } catch (e) { $("n-dot").classList.remove("on"); txt("n-status", "offline"); }
+      }
+      function renderBlocks(blks, ex) {
+        $("t-blocks").querySelector("tbody").innerHTML = blks.map((b, i) => {
+          const pool = (b.extras && b.extras.pool && b.extras.pool.name) || "";
+          return `<tr><td class="mono">${b.height}</td>
+            <td><a class="mono" href="${ex}/block/${b.id}" target="_blank" rel="noopener">${short(b.id)}</a></td>
+            <td>${b.tx_count.toLocaleString()}</td><td>${pool}</td><td class="mut">${ago(b.timestamp)}</td>
+            <td class="kwait" id="kv-${i}">…</td></tr>`;
+        }).join("");
+        blks.forEach(async (b, i) => { const ok = await kappaVerify(b); const c = $("kv-" + i); if (!c) return;
+          c.textContent = ok === null ? "" : ok ? "✓" : "✗"; c.className = ok === null ? "kwait" : ok ? "kok" : "kbad";
+          c.title = ok ? "prism re-derived this block's sha256d → matches the network" : "mismatch"; });
+      }
+      function renderPending(txs, ex) {
+        $("t-pending").querySelector("tbody").innerHTML = txs.map((t) => `<tr>
+          <td><a class="mono" href="${ex}/tx/${t.txid}" target="_blank" rel="noopener">${short(t.txid)}</a></td>
+          <td>${(t.value / 1e8).toFixed(4)} ₿</td><td class="mut">${Math.round(t.fee / Math.max(t.vsize, 1))} s/vB</td></tr>`).join("");
+      }
+      loadLive(); setInterval(loadLive, 30000);
+
+      // ── mining (local prism PoW, content-addressed chain) ───────────────────────
+      function nbitsForBits(D) { const sig = 256 - D, nb = Math.ceil(sig / 8), tb = sig - (nb - 1) * 8; let m = (1 << tb) - 1; if (nb >= 2) m = (m << 8) | 0xff; if (nb >= 3) m = (m << 8) | 0xff; let e = nb; if (m & 0x800000) { m >>>= 8; e += 1; } return (((e & 0xff) << 24) | (m & 0xffffff)) >>> 0; }
+      const randHex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
+      const fmtHps = (h) => h >= 1e6 ? (h / 1e6).toFixed(2) + " MH/s" : h >= 1e3 ? (h / 1e3).toFixed(1) + " kH/s" : Math.round(h) + " H/s";
+      const CORES = navigator.hardwareConcurrency || 4;
+      let coreCount = Math.min(4, CORES), workers = [], mining = false, height = 0, prevHex = "0".repeat(64), curD = 20, bestZero = 0;
+      const hpsByWid = new Map();
+      try { const s = JSON.parse(localStorage.getItem("btcminer.chain") || "null"); if (s && s.prevHex) { height = s.height | 0; prevHex = s.prevHex; bestZero = s.best | 0; } } catch {}
+      const persistChain = () => { try { localStorage.setItem("btcminer.chain", JSON.stringify({ height, prevHex, best: bestZero })); } catch {} };
+      (function () { const sel = $("m-cores"); for (let n = 1; n <= Math.max(1, CORES); n++) sel.add(new Option(n, n)); sel.value = String(coreCount); sel.onchange = () => { coreCount = +sel.value || 1; if (mining) { hardStop(); startMining(); } }; })();
+      const aggHps = () => { let s = 0; for (const v of hpsByWid.values()) s += v; return s; };
+      function nextNbits() { curD = Math.max(16, Math.min(30, Math.round(Math.log2(Math.max(aggHps(), 6e4) * 2.5)))); return nbitsForBits(curD); }
+      function mineAll() { const nbits = nextNbits(); txt("m-diff", curD + " bits"); txt("m-height", height); for (const w of workers) w.postMessage({ cmd: "mine", wid: w.wid, height, header: { version: 0x20000000, prevHash: prevHex, merkleRoot: randHex(32), timestamp: (Date.now() / 1000) >>> 0, bits: nbits }, nbits, slice: 60000 }); }
+      function startMining() { if (mining) return; mining = true; $("m-start").textContent = "Stop"; $("m-start").classList.add("on"); $("card-mining").style.borderColor = "#3a2f12";
+        for (let i = 0; i < coreCount; i++) { const w = new Worker("btc-worker.js", { type: "module" }); w.wid = i; w.onmessage = (e) => onWk(e.data); workers.push(w); } mineAll();
+        statTimer = setInterval(() => { txt("m-hps", fmtHps(mining ? aggHps() : 0)); }, 150); }
+      function hardStop() { for (const w of workers) { try { w.postMessage({ cmd: "stop" }); w.terminate(); } catch {} } workers = []; hpsByWid.clear(); }
+      function stopMining() { mining = false; $("m-start").textContent = "Start mining"; $("m-start").classList.remove("on"); $("card-mining").style.borderColor = ""; hardStop(); clearInterval(statTimer); txt("m-hps", "0 H/s"); persistChain(); }
+      let statTimer = null;
+      $("m-start").onclick = () => (mining ? stopMining() : startMining());
+      function onWk(d) { if (d.type === "progress" || d.type === "found") hpsByWid.set(d.wid, d.hps || 0); if (d.type === "found" && d.height === height) { height++; prevHex = d.hashHex; if (d.zeroBits > bestZero) bestZero = d.zeroBits; txt("m-height", height); persistChain(); if (mining) mineAll(); } }
+      txt("m-height", height);
+
+      // peers (other tabs)
+      try { const ch = new BroadcastChannel("btc-miner-peers"); const me = randHex(4); const seen = new Map();
+        setInterval(() => { ch.postMessage({ id: me }); const now = Date.now(); for (const [k, t] of seen) if (now - t > 4000) seen.delete(k); txt("m-peers", seen.size + " peers"); $("m-peerdot").classList.toggle("on", seen.size > 0); }, 1500);
+        ch.onmessage = (e) => { if (e.data && e.data.id && e.data.id !== me) seen.set(e.data.id, Date.now()); }; } catch {}
+
+      $("fsBtn").onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); };
+      addEventListener("keydown", (e) => { if (/input|select|textarea/i.test(document.activeElement?.tagName || "")) return; if (e.key === "f") $("fsBtn").click(); });
+
+      // nestable: announce + answer a parent holospace
+      if (window.parent && window.parent !== window) { try { window.parent.postMessage({ type: "holo-btc-ready" }, "*"); } catch {} }
+      addEventListener("message", (e) => { const m = e.data || {}; if (m.type === "holo-btc-status") { try { e.source && e.source.postMessage({ type: "holo-btc-result", network: netKey, address: addr, mining }, "*"); } catch {} } });
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+  </body>
+</html>

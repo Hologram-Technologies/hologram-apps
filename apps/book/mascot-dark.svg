@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 200" role="img" aria-label="Echo, the cyber-dolphin of Holo Guide">
+  <!-- Echo — the cyber-dolphin mascot of Holo Guide. Glossy kawaii cartoon (bold outline, sparkle eyes,
+       holographic body). DARK-BACKGROUND variant (light outline so it pops on dark). -->
+  <defs>
+    <linearGradient id="holo" x1="0.15" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#9bf0ff" />
+      <stop offset="0.5" stop-color="#46b1f5" />
+      <stop offset="1" stop-color="#2f73dc" />
+    </linearGradient>
+    <linearGradient id="belly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2feff" />
+      <stop offset="1" stop-color="#c4f0ff" />
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.4" cy="0.3" r="0.55">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+    <clipPath id="bodyclip">
+      <path d="M40 95 C41 68 60 50 88 50 C112 50 134 68 151 103 C157 116 158 125 154 133 C138 152 108 159 83 151 C64 145 49 129 43 110 C41 105 40 100 40 95 Z" />
+    </clipPath>
+  </defs>
+
+  <!-- echo / sonar waves off the snout -->
+  <g fill="none" stroke="#46e4d2" stroke-width="6" stroke-linecap="round">
+    <path d="M31 84 Q19 95 31 107" opacity="0.95" />
+    <path d="M21 76 Q4 95 21 115" opacity="0.6" />
+  </g>
+
+  <!-- silhouette parts share the bold LIGHT outline (for dark backgrounds) -->
+  <g stroke="#eaf6ff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M97 55 C100 32 118 27 126 34 C122 46 112 54 101 58 Z" fill="#2f7fd8" />
+    <path d="M147 103 C172 95 191 98 201 88 C195 107 187 117 181 123 C192 128 199 140 203 151 C183 146 166 139 151 130 Z" fill="#2f7fd8" />
+    <path d="M40 95 C41 68 60 50 88 50 C112 50 134 68 151 103 C157 116 158 125 154 133 C138 152 108 159 83 151 C64 145 49 129 43 110 C41 105 40 100 40 95 Z" fill="url(#holo)" />
+  </g>
+
+  <!-- belly two-tone + glossy sheen, clipped to the body -->
+  <g clip-path="url(#bodyclip)">
+    <ellipse cx="96" cy="130" rx="40" ry="24" fill="url(#belly)" opacity="0.92" />
+    <ellipse cx="72" cy="78" rx="30" ry="22" fill="url(#sheen)" />
+    <circle cx="118" cy="74" r="6" fill="#ffffff" opacity="0.6" />
+  </g>
+
+  <!-- pectoral flipper (in front) -->
+  <path d="M82 139 C74 158 67 171 75 177 C87 171 96 157 98 142 Z" fill="#2f7fd8" stroke="#eaf6ff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" />
+
+  <!-- blowhole + happy smile -->
+  <ellipse cx="83" cy="52" rx="3.2" ry="1.8" fill="#0f2336" />
+  <path d="M41 103 C49 112 60 112 68 106" fill="none" stroke="#0f2336" stroke-width="4.5" stroke-linecap="round" />
+
+  <!-- big sparkly eye -->
+  <ellipse cx="66" cy="91" rx="15.5" ry="17.5" fill="#ffffff" stroke="#0f2336" stroke-width="5" />
+  <circle cx="69" cy="93" r="8.5" fill="#16263a" />
+  <circle cx="64.5" cy="86" r="4.3" fill="#ffffff" />
+  <circle cx="73" cy="98" r="2.3" fill="#ffffff" />
+</svg>

@@ -1,0 +1,19 @@
+{
+  "id": "org.hologram.HoloHub",
+  "name": "Holo Hub",
+  "type": ["schema:SoftwareApplication", "schema:WebApplication"],
+  "summary": "The store for everything you can run discover, try, own and run every holo-native thing by its verified identity, 100% serverless, for people and AI agents alike.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "BusinessApplication",
+  "conforms": { "specs": ["holo-hub"] },
+  "capabilities": { "storage": ["org.hologram.HoloHub"] },
+  "shared": [],
+  "engines": [],
+  "description": [
+    { "p": "A product here is a holo app: its identity is its content address (did:holo κ), so the store shows verifiable truth every item re-derives in your tab to prove it is genuine (Law L5)." },
+    { "p": "Opening an item renders the live thing from its address, in place try before you own, no install. Stores nest inside stores, endlessly, each still verifying itself." },
+    { "p": "The commerce model is Medusa, adopted as a byte-pinned contract and compiled to run in-tab never a server. Owning mints a portable title you hold; paying settles through the wallet." },
+    { "p": "One experience, two audiences: every screen a person uses has an equal door for an AI agent. Powered by on-device Holo Q. Built on the open semantic web (schema.org / W3C)." }
+  ]
+}

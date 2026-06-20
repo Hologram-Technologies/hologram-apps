@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hologram Meet</title>
+    <meta name="description" content="Hologram Meet completely serverless, end-to-end-encrypted, peer-to-peer video conferencing. A Jitsi-style meeting that runs in the tab, with no media server." />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); --line: var(--holo-border); --accent: var(--holo-accent); --pull: #d2a8ff; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* ── chrome ───────────────────────────────────────────────────────────── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+        padding: 0.3rem 0.8rem; background: #0d1117; border-bottom: 1px solid var(--line);
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 700; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: #58a6ff; max-width: 26vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: #3fb950; }
+      #bar .sec { color: var(--accent); } #bar .room { color: var(--pull); }
+      #bar .sp { margin-left: auto; } #bar .count { color: #e6edf3; font-variant-numeric: tabular-nums; }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid var(--line);
+        border-radius: 5px; padding: 0.15rem 0.5rem; cursor: pointer; min-height: 28px; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+      #recDot { display: none; color: #f85149; } body.recording #recDot { display: inline; animation: blink 1s steps(1) infinite; }
+      @keyframes blink { 50% { opacity: 0.2; } }
+
+      /* ── layout: stage + side drawer ──────────────────────────────────────── */
+      #wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+      #stage { flex: 1 1 auto; min-width: 0; position: relative; }
+      #grid { position: absolute; inset: 0; display: grid; gap: 8px; padding: 10px; overflow: auto;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-content: center; justify-content: center; }
+      /* spotlight: one big tile + a filmstrip of the rest */
+      body.spotlight #grid { grid-template-columns: 1fr; grid-auto-rows: min-content; align-content: stretch; }
+      body.spotlight #grid .tile { aspect-ratio: auto; }
+      body.spotlight #grid .tile.pinned { grid-row: 1; height: calc(100vh - 220px); }
+      body.spotlight #grid .tile:not(.pinned) { display: inline-block; width: 200px; height: 112px; vertical-align: top; }
+      body.spotlight #grid .strip { grid-row: 2; white-space: nowrap; overflow-x: auto; }
+
+      .tile { position: relative; background: #11161d; border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); overflow: hidden;
+        aspect-ratio: 16 / 9; min-height: 0; cursor: pointer; }
+      .tile.speaking { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+      .tile.pinned { border-color: var(--pull); }
+      .tile video { width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
+      .tile.camoff video { opacity: 0; }
+      /* Holo Compositor present surface (WebGPU SR); shown when the tile is enhanced. */
+      .tile .gpu { position: absolute; inset: 0; width: 100%; height: 100%; display: none; object-fit: cover; }
+      .tile.enhanced .gpu { display: block; } .tile.enhanced video { opacity: 0; }
+      .tile .badge.res { color: #99f6e4; font: 600 var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      .tile .badge.res.sr { color: #d2a8ff; }
+      .tile .avatar { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+        font-size: clamp(28px, 8vw, 64px); color: var(--accent); background: #0e1620; }
+      .tile.camoff .avatar { display: flex; }
+      .tile .label { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 16px);
+        padding: 3px 8px; border-radius: 6px; background: #000a; backdrop-filter: blur(4px); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: #e6edf3;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tile .label .mut { color: #f85149; } .tile .label .you { color: var(--dim); }
+      .tile .badges { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; font-size: var(--holo-text-sm, 1rem); }
+      .tile .badge { background: #000a; border-radius: 6px; padding: 2px 5px; backdrop-filter: blur(4px); }
+      .tile .raise { color: #f2cc60; display: none; } .tile.raised .raise { display: inline; }
+      .tile .present { color: var(--accent); display: none; } .tile.present .present { display: inline; }
+      .tile .pip { position: absolute; top: 8px; left: 8px; display: none; background: #000a; border: 0; color: #c9d1d9; border-radius: 6px;
+        padding: 2px 6px; cursor: pointer; font-size: var(--holo-text-sm, 1rem); } .tile:hover .pip { display: inline; }
+      .tile .q { position: absolute; bottom: 9px; right: 8px; display: flex; gap: 2px; align-items: flex-end; height: 14px; }
+      .tile .q i { width: 3px; background: #3fb950; border-radius: 1px; opacity: 0.25; }
+      .tile .q i:nth-child(1) { height: 5px; } .tile .q i:nth-child(2) { height: 9px; } .tile .q i:nth-child(3) { height: 14px; }
+      .tile .q.t1 i:nth-child(-n+1), .tile .q.t2 i:nth-child(-n+2), .tile .q.t3 i:nth-child(-n+3) { opacity: 1; }
+      .tile .q.t1 i { background: #f85149; } .tile .q.t2 i { background: #d29922; }
+      .tile .reactions { position: absolute; left: 0; right: 0; bottom: 40px; text-align: center; pointer-events: none; }
+      .float { display: inline-block; font-size: 38px; animation: floatUp 2.2s ease-out forwards; }
+      @keyframes floatUp { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
+
+      /* ── side drawer (chat / participants / settings) ─────────────────────── */
+      #drawer { flex: 0 0 330px; max-width: 86vw; display: none; flex-direction: column; background: #0d1117; border-left: 1px solid var(--line); }
+      body.drawer-open #drawer { display: flex; }
+      #drawer .tabs { display: flex; border-bottom: 1px solid var(--line); }
+      #drawer .tabs button { flex: 1; min-height: 44px; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--dim); cursor: pointer; font: var(--holo-text-sm, 1rem) system-ui; }
+      #drawer .tabs button.on { color: #e6edf3; border-bottom-color: var(--accent); }
+      .pane { flex: 1 1 auto; overflow: auto; display: none; flex-direction: column; }
+      .pane.on { display: flex; }
+      /* chat */
+      #log { flex: 1 1 auto; overflow: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+      #log .msg .who { color: var(--accent); font: 600 var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      #log .msg .body { color: #d4d4d4; white-space: pre-wrap; word-break: break-word; }
+      #log .file a { color: #58a6ff; }
+      #log .sys { color: var(--dim); font-style: italic; font-size: var(--holo-text-sm, 1rem); }
+      .compose { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); align-items: center; }
+      .compose input[type=text] { flex: 1 1 auto; min-height: 40px; background: #161b22; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); color: #e6edf3; padding: 0 10px; font-size: 16px; }
+      .compose .icon { min-height: 40px; min-width: 40px; border-radius: var(--holo-radius-sm, 8px); border: 1px solid var(--line); background: #161b22; color: #c9d1d9; cursor: pointer; }
+      .compose .send { min-height: 40px; padding: 0 14px; border-radius: var(--holo-radius-sm, 8px); border: 1px solid #155e58; background: #0f3b38; color: #99f6e4; cursor: pointer; }
+      /* participants */
+      #people { padding: 6px; }
+      .prow { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: var(--holo-radius-sm, 8px); }
+      .prow:hover { background: #161b22; }
+      .prow .pa { width: 30px; height: 30px; border-radius: 50%; background: #0e1620; color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; flex: 0 0 auto; }
+      .prow .pn { flex: 1 1 auto; color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .prow .pi { color: var(--dim); font-size: var(--holo-text-sm, 1rem); } .prow .pi.bad { color: #f85149; } .prow .pi.warn { color: #f2cc60; }
+      /* settings */
+      #settings { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+      #settings label { color: var(--dim); font-size: var(--holo-text-sm, 1rem); display: block; margin-bottom: 4px; }
+      #settings input, #settings select { width: 100%; min-height: 44px; background: #161b22; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); color: #e6edf3; padding: 0 10px; font-size: 16px; }
+
+      /* ── control dock ─────────────────────────────────────────────────────── */
+      #controls { flex: 0 0 auto; position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+        padding: 10px; background: #0d1117; border-top: 1px solid var(--line); }
+      .ctl { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 54px; min-height: 48px; padding: 6px 10px;
+        border-radius: 10px; border: 1px solid var(--line); background: #161b22; color: #c9d1d9; cursor: pointer; font: var(--holo-text-sm, 1rem) system-ui; }
+      .ctl:hover { border-color: #30363d; } .ctl .ic { font-size: 18px; line-height: 1; }
+      .ctl.off { color: #f85149; border-color: #5a1f1f; background: #2a1515; }
+      .ctl.on { color: var(--accent); border-color: #155e58; }
+      .ctl.leave { color: #fff; background: #b62324; border-color: #d23b3c; }
+      .ctl[disabled] { opacity: 0.4; cursor: not-allowed; }
+      #reactPicker { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); display: none; gap: 6px; padding: 8px 10px;
+        background: #161b22; border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); box-shadow: 0 12px 36px #0008; }
+      #reactPicker.on { display: flex; } #reactPicker button { font-size: 22px; background: transparent; border: 0; cursor: pointer; min-width: 40px; min-height: 40px; }
+      #qualityMenu { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; gap: 2px; padding: 6px; background: #161b22; border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); box-shadow: 0 12px 36px #0008; min-width: 170px; z-index: 5; }
+      #qualityMenu.on { display: flex; } #qualityMenu .hd { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; padding: 4px 10px; }
+      #qualityMenu button { background: transparent; border: 0; color: #c9d1d9; cursor: pointer; min-height: 38px; text-align: left; padding: 0 10px; border-radius: var(--holo-radius-sm, 8px); font: var(--holo-text-sm, 1rem) system-ui; display: flex; justify-content: space-between; }
+      #qualityMenu button:hover { background: #0e1620; } #qualityMenu button.on { color: var(--accent); } #qualityMenu button .sub { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+
+      /* ── overlays ─────────────────────────────────────────────────────────── */
+      #overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: #0b0e13ee; transition: opacity 0.25s; }
+      #overlay.hidden { opacity: 0; pointer-events: none; }
+      #panel { width: min(92vw, 26rem); padding: 1.6rem; border: 1px solid var(--line); border-radius: var(--holo-radius-lg, 16px); background: #0d1117; text-align: center; }
+      #panel .ttl { color: #e6edf3; font-size: 1.2rem; font-weight: 800; margin-bottom: 0.15rem; }
+      #panel .sub { color: var(--dim); margin-bottom: 1rem; }
+      #panel.err .ttl { color: #f85149; }
+      #panel input[type=text], #panel select { width: 100%; min-height: 48px; background: #161b22; border: 1px solid var(--line); border-radius: 10px; color: #e6edf3; padding: 0 12px; font-size: 16px; margin-bottom: 0.8rem; }
+      #panel .opts { display: flex; gap: 10px; justify-content: center; margin-bottom: 1rem; }
+      #panel .opt { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #161b22; color: #c9d1d9; cursor: pointer; font: var(--holo-text-sm, 1rem) system-ui; }
+      #panel .opt.off { color: #f85149; border-color: #5a1f1f; }
+      #joinBtn { width: 100%; min-height: 50px; border-radius: var(--holo-radius, 12px); border: 1px solid var(--accent); background: #0f3b38; color: #99f6e4; font: 800 var(--holo-text-sm, 1rem) system-ui; cursor: pointer; }
+      #joinBtn:hover { background: #155e58; }
+      #help { position: absolute; inset: 0; z-index: 19; display: none; align-items: center; justify-content: center; background: #0b0e13dd; }
+      body.help-open #help { display: flex; }
+      #help .card { width: min(92vw, 24rem); padding: 1.4rem; border: 1px solid var(--line); border-radius: var(--holo-radius-lg, 16px); background: #0d1117; }
+      #help h3 { margin: 0 0 0.8rem; color: #e6edf3; } #help .row { display: flex; justify-content: space-between; padding: 4px 0; color: #c9d1d9; }
+      #help kbd { background: #161b22; border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      #toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); background: #161b22; border: 1px solid #30363d; border-radius: var(--holo-radius-sm, 8px);
+        padding: 0.45rem 0.8rem; font-size: var(--holo-text-sm, 1rem); opacity: 0; transition: opacity 0.2s; z-index: 25; pointer-events: none; max-width: 88vw; }
+      #toast.show { opacity: 1; }
+
+      @media (max-width: 760px) {
+        #drawer { position: absolute; inset: 0; flex-basis: auto; z-index: 12; }
+        .ctl span:last-child { display: none; } .ctl { min-width: 48px; padding: 6px; }
+      }
+    </style>
+  </head>
+  <body data-no-teleport>
+
+    <div id="bar">
+      <span class="name">Hologram Meet</span>
+      <span class="tag">· holospace</span>
+      <span class="k" id="kaddr" title="this holospace's own content address (Law L5: the served bytes re-derive to it)">holo://meet</span>
+      <span class="ver" id="ver" title="the served page re-derives to its content hash"></span>
+      <span class="sec" id="sec" title="media is end-to-end encrypted (DTLS-SRTP, direct peer-to-peer); all data is sealed (AES-GCM) + content-addressed on a content-blind relay">🔒 serverless · E2E</span>
+      <span class="room" id="room" title="this room's unguessable id (derived from the secret in the link)"></span>
+      <span class="sp"></span>
+      <span class="count" id="count" title="participants">👥 1</span>
+      <span id="recDot" title="recording locally">● REC</span>
+      <button id="inviteBtn" title="copy the invite link (carries the room secret in the URL fragment never sent to any server)">⤴ invite</button>
+      <button id="helpBtn" title="keyboard shortcuts (?)">?</button>
+      <button id="fsBtn" title="fullscreen (f)">⛶</button>
+    </div>
+
+    <div id="wrap">
+      <div id="stage">
+        <div id="grid"></div>
+        <div id="help"><div class="card">
+          <h3>Keyboard shortcuts</h3>
+          <div class="row"><span>Mute / unmute mic</span><kbd>m</kbd></div>
+          <div class="row"><span>Start / stop camera</span><kbd>v</kbd></div>
+          <div class="row"><span>Share / stop screen</span><kbd>d</kbd></div>
+          <div class="row"><span>Raise / lower hand</span><kbd>r</kbd></div>
+          <div class="row"><span>Toggle chat</span><kbd>c</kbd></div>
+          <div class="row"><span>Toggle participants</span><kbd>p</kbd></div>
+          <div class="row"><span>Push to talk (hold)</span><kbd>space</kbd></div>
+          <div class="row"><span>Fullscreen</span><kbd>f</kbd></div>
+          <div class="row"><span>This help</span><kbd>?</kbd></div>
+        </div></div>
+      </div>
+      <div id="drawer">
+        <div class="tabs">
+          <button data-tab="chat" class="on">💬 Chat</button>
+          <button data-tab="people">👥 People</button>
+          <button data-tab="settings">⚙ Settings</button>
+        </div>
+        <div class="pane on" id="pane-chat">
+          <div id="log"></div>
+          <div class="compose">
+            <button class="icon" id="attachBtn" title="share a file (end-to-end encrypted, content-addressed)">📎</button>
+            <input id="fileInput" type="file" style="display:none" />
+            <input id="chatInput" type="text" placeholder="Message end-to-end encrypted" autocomplete="off" />
+            <button class="send" id="chatSend">Send</button>
+          </div>
+        </div>
+        <div class="pane" id="pane-people"><div id="people"></div></div>
+        <div class="pane" id="pane-settings"><div id="settings">
+          <div><label>Display name</label><input id="nameEdit" type="text" maxlength="40" /></div>
+          <div><label>Video quality</label><select id="qualSel"></select><span id="qualHint" class="sys" style="color:var(--dim);font-size: var(--holo-text-sm, 1rem)"></span></div>
+          <div><label style="display:flex;align-items:center;gap:8px;color:#c9d1d9"><input type="checkbox" id="enhanceChk" style="width:auto;min-height:0;margin:0" /> Holo Compositor GPU super-resolution (toward your display, up to 4K)</label><span id="enhanceHint" class="sys" style="color:var(--dim);font-size: var(--holo-text-sm, 1rem)"></span></div>
+          <div><label>Camera</label><select id="camSel"></select></div>
+          <div><label>Microphone</label><select id="micSel"></select></div>
+          <div><label>Speaker</label><select id="spkSel"></select></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <div id="reactPicker"></div>
+      <div id="qualityMenu"></div>
+      <button class="ctl on" id="micBtn"><span class="ic">🎤</span><span>Mic</span></button>
+      <button class="ctl on" id="camBtn"><span class="ic">🎥</span><span>Camera</span></button>
+      <button class="ctl" id="qualityBtn" title="video quality adapts to your device + network; click to set manually"><span class="ic">📶</span><span id="qualityLbl">Auto</span></button>
+      <button class="ctl" id="enhanceBtn" title="Holo Compositor GPU super-resolution toward your display's native pixels (up to 4K)"><span class="ic">✦</span><span>HD</span></button>
+      <button class="ctl" id="shareBtn"><span class="ic">🖥</span><span>Share</span></button>
+      <button class="ctl" id="raiseBtn"><span class="ic">✋</span><span>Raise</span></button>
+      <button class="ctl" id="reactBtn"><span class="ic">😀</span><span>React</span></button>
+      <button class="ctl" id="chatBtn"><span class="ic">💬</span><span>Chat</span></button>
+      <button class="ctl" id="peopleBtn"><span class="ic">👥</span><span>People</span></button>
+      <button class="ctl" id="recBtn"><span class="ic">⏺</span><span>Record</span></button>
+      <button class="ctl" id="settingsBtn"><span class="ic">⚙</span><span>Settings</span></button>
+      <button class="ctl leave" id="leaveBtn"><span class="ic">⏻</span><span>Leave</span></button>
+    </div>
+
+    <div id="overlay"><div id="panel">
+      <div class="ttl">Hologram Meet</div>
+      <div class="sub" id="pstatus">Serverless · end-to-end encrypted · peer-to-peer</div>
+      <input id="nameInput" type="text" placeholder="Your name" maxlength="40" />
+      <div class="opts">
+        <button class="opt on" id="preMic"><span>🎤</span><span>Mic on</span></button>
+        <button class="opt on" id="preCam"><span>🎥</span><span>Camera on</span></button>
+      </div>
+      <button id="joinBtn">Join meeting</button>
+    </div></div>
+    <div id="toast"></div>
+
+    <script src="/.holo/sha256/371a11f60b4631a0e9883e634839c3cfa9a914ae78221c319464c4f22b92300f.js" data-holo-shared="holo-rtc.js"></script>
+    <!-- The Holo Compositor — the repo's WebGPU present layer (zero-copy
+         importExternalTexture + Lanczos super-resolution). It reconstructs a
+         received stream toward the display's native pixels (e.g. 720p → 4K), so a
+         capable device shows the best available quality regardless of what the
+         mesh could send. Absent WebGPU → attach() returns null → plain <video>. -->
+    <script src="/.holo/sha256/ab919f1f476ee215efb4d0a536a9311291d794571b01884061ef893ab6347eb6.js" data-holo-shared="holo-gpu.js"></script>
+    <script type="module">
+      import { WsKappaSync } from "./holo-kappa-sync.mjs";
+      import { BrokerKappaSync } from "./holo-broker-sync.mjs";
+
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const bool = (v, d) => (v == null ? d : v !== "0" && v !== "false");
+      const esc = (s) => String(s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+      const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
+
+      let toastT;
+      const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2200); };
+
+      // ── room secret + relay in the URL fragment (never sent to a server) ──────
+      function readHash() { return new URLSearchParams((location.hash || "").replace(/^#/, "")); }
+      let h = readHash();
+      let secret = h.get("k") || params.get("k") || "";
+      if (!secret) {
+        secret = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const relayKept = h.get("r") || params.get("r");
+        location.hash = "k=" + secret + (relayKept ? "&r=" + encodeURIComponent(relayKept) : ""); h = readHash();
+      }
+      const relayUrl = h.get("r") || params.get("r") || "";
+      const stunOff = params.get("stun") === "off" || params.get("stun") === "0";
+      const iceServers = stunOff ? [] : [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
+
+      crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret)).then((d) => {
+        const hx = Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join(""); $("room").textContent = "· room " + hx.slice(0, 8); });
+      (async () => { try {
+        const buf = new Uint8Array(await (await fetch(location.pathname, { cache: "no-store" })).arrayBuffer());
+        const hx = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)), (b) => b.toString(16).padStart(2, "0")).join("");
+        $("kaddr").textContent = "holo://sha256:" + hx.slice(0, 12) + "…"; $("ver").textContent = "✓ κ"; $("ver").className = "ver ok";
+      } catch {} })();
+
+      // ── tiles ─────────────────────────────────────────────────────────────────
+      let mesh = null, pinnedId = null;
+      const tiles = new Map();   // id|"local" → { el, video, label, q }
+      const chatLog = [], reactionLog = [], receivedFiles = [];
+
+      function makeTile(id, name, local) {
+        const el = document.createElement("div"); el.className = "tile" + (local ? " local" : ""); el.id = "tile-" + id; el.dataset.id = id;
+        el.innerHTML = `<video id="video-${id}" autoplay playsinline ${local ? "muted" : ""}></video>`
+          + `<canvas class="gpu" aria-hidden="true"></canvas>`
+          + `<div class="avatar">${esc((name || "?").slice(0, 1).toUpperCase())}</div>`
+          + `<button class="pip" title="picture-in-picture">⧉</button>`
+          + `<div class="badges"><span class="badge res" style="display:none"></span><span class="badge raise">✋</span><span class="badge present">🖥</span></div>`
+          + `<div class="reactions"></div>`
+          + `<div class="label"><span class="nm"></span><span class="mut" style="display:none">🔇</span>${local ? '<span class="you">(you)</span>' : ""}</div>`
+          + `<div class="q t3"><i></i><i></i><i></i></div>`;
+        $("grid").appendChild(el);
+        const t = { el, video: el.querySelector("video"), canvas: el.querySelector(".gpu"), res: el.querySelector(".res"), label: el.querySelector(".nm"), q: el.querySelector(".q") };
+        t.label.textContent = name || id.slice(0, 6); tiles.set(id, t);
+        el.addEventListener("click", (e) => { if (e.target.classList.contains("pip")) return; togglePin(id); });
+        el.querySelector(".pip").addEventListener("click", async (e) => { e.stopPropagation(); try { t.video !== document.pictureInPictureElement ? await t.video.requestPictureInPicture() : await document.exitPictureInPicture(); } catch { toast("picture-in-picture unavailable"); } });
+        if (spkId) try { t.video.setSinkId && t.video.setSinkId(spkId); } catch {}
+        updateCount(); return t;
+      }
+      function dropTile(id) { const t = tiles.get(id); if (t) { t.el.remove(); tiles.delete(id); if (pinnedId === id) togglePin(id); updateCount(); } }
+      function updateCount() { $("count").textContent = "👥 " + tiles.size; }
+      function togglePin(id) {
+        pinnedId = pinnedId === id ? null : id;
+        document.body.classList.toggle("spotlight", !!pinnedId);
+        for (const [k, t] of tiles) t.el.classList.toggle("pinned", k === pinnedId);
+        refreshEnhance();
+      }
+      function setSpeaking(id) { for (const [k, t] of tiles) t.el.classList.toggle("speaking", k === id); }
+      function setConnQuality(id, q) { const t = tiles.get(id); if (t && q) t.q.className = "q t" + q.tier; }
+      function applyState(r) {
+        const t = tiles.get(r.id) || (r.you ? null : makeTile(r.id, r.name)); if (!t) return;
+        t.label.textContent = r.name + (r.you ? "" : ""); t.el.querySelector(".mut").style.display = r.mic ? "none" : "inline";
+        t.el.classList.toggle("camoff", !r.cam); t.el.classList.toggle("raised", !!r.raised); t.el.classList.toggle("present", !!r.sharing);
+      }
+      function floatReact(id, emoji) { const t = tiles.get(id); if (!t) return; const s = document.createElement("span"); s.className = "float"; s.textContent = emoji; t.el.querySelector(".reactions").appendChild(s); setTimeout(() => s.remove(), 2300); }
+
+      // ── chat / files ───────────────────────────────────────────────────────────
+      function addChat(m, mine) { chatLog.push(m); const row = document.createElement("div"); row.className = "msg";
+        row.innerHTML = `<span class="who">${esc(mine ? "You" : (m.name || m.from.slice(0, 6)))}</span> <span class="body"></span>`;
+        row.querySelector(".body").textContent = m.text; $("log").appendChild(row); $("log").scrollTop = $("log").scrollHeight;
+        if (!mine && !document.body.classList.contains("drawer-open")) toast("💬 " + (m.name || "peer") + ": " + m.text.slice(0, 40)); }
+      function addSys(text) { const row = document.createElement("div"); row.className = "sys"; row.textContent = text; $("log").appendChild(row); $("log").scrollTop = $("log").scrollHeight; }
+      function addFile(m, mine) { const row = document.createElement("div"); row.className = "msg file";
+        const kb = Math.max(1, Math.round((m.file.size || 0) / 1024));
+        row.innerHTML = `<span class="who">${esc(mine ? "You" : (m.name || m.from.slice(0, 6)))}</span> <span class="body">📎 <a href="#">${esc(m.file.name)}</a> · ${kb} KB <span class="sys">content-addressed · ${esc((m.file.kappa || "").slice(0, 18))}…</span></span>`;
+        const a = row.querySelector("a"); a.addEventListener("click", async (e) => { e.preventDefault(); const blob = await m.file.get(); if (!blob) return toast("file unavailable"); const u = URL.createObjectURL(blob); const dl = document.createElement("a"); dl.href = u; dl.download = m.file.name; dl.click(); setTimeout(() => URL.revokeObjectURL(u), 4000); });
+        $("log").appendChild(row); $("log").scrollTop = $("log").scrollHeight; if (!mine) { receivedFiles.push(m.file); toast("📎 file from " + (m.name || "peer") + ": " + m.file.name); } }
+
+      // ── join ─────────────────────────────────────────────────────────────────
+      let spkId = "";
+      async function join(name) {
+        $("pstatus").textContent = "requesting camera / microphone…";
+        const sync = relayUrl.startsWith("ws") ? new WsKappaSync(relayUrl) : new BrokerKappaSync(DEFAULT_BROKER);
+        try { await sync.ready; } catch { $("panel").classList.add("err"); $("pstatus").textContent = "the rendezvous relay is unreachable check the link's #r= relay"; return; }
+        mesh = await HoloRTC.join({
+          secret, sync, name, iceServers, audio: preMicOn, video: preCamOn, quality: params.get("q") || "auto",
+          onlocalstream: (stream) => { const t = tiles.get("local") || makeTile("local", name, true); t.video.srcObject = stream;
+            t.el.classList.toggle("camoff", !(stream.getVideoTracks()[0] && stream.getVideoTracks()[0].enabled)); },
+          onpeer: (id, info) => { const t = tiles.get(id) || makeTile(id, info.name); t.label.textContent = info.name; addSys(info.name + " joined"); },
+          ontrack: (id, stream) => { const t = tiles.get(id) || makeTile(id, id.slice(0, 6)); t.video.srcObject = stream; t.video.play && t.video.play().catch(() => {}); },
+          onstate: (id, st) => { const t = tiles.get(id); if (t && (st === "failed" || st === "disconnected")) t.q.className = "q t0"; },
+          onleave: (id) => { dropTile(id); addSys("a participant left"); },
+          onspeaker: (id) => setSpeaking(id),
+          onsendquality: (tier, det) => updateQualityLabel(tier, det),
+          onroster: (roster) => { renderPeople(roster); roster.forEach(applyState); refreshEnhance(); },
+          onreact: (m) => { reactionLog.push(m); floatReact(m.from, m.emoji); },
+          onraise: (id, on) => { const r = mesh.roster().find((x) => x.id === id); if (on && r) toast("✋ " + r.name + " raised their hand"); },
+          onsharing: (id, on) => { if (on) { togglePin(id !== pinnedId ? (pinnedId = null, id) : id); const r = mesh.roster().find((x) => x.id === id); toast("🖥 " + (r ? r.name : "someone") + " is presenting"); if (pinnedId !== id) togglePin(id); } },
+          onquality: (id, q) => setConnQuality(id, q),
+          onfile: (m) => addFile(m, false),
+          onchat: (m) => addChat(m, false),
+          onerror: (e) => console.warn("[holo-rtc]", (e && e.message) || e),
+        });
+        window.holoMeet.mesh = mesh;
+        $("overlay").classList.add("hidden");
+        syncBtn($("micBtn"), mesh.micOn()); syncBtn($("camBtn"), mesh.camOn());
+        if (!mesh.canShareScreen()) { $("shareBtn").disabled = true; $("shareBtn").title = "screen share isn't available on this browser (e.g. iOS Safari)"; }
+        $("nameEdit").value = name; populateDevices();
+        toast("joined · share the invite link to bring others in");
+        try { parent !== window && parent.postMessage({ type: "holo-meet-ready", room: secret }, "*"); } catch {}
+      }
+      const syncBtn = (btn, on) => { btn.classList.toggle("on", on); btn.classList.toggle("off", !on); };
+
+      // ── participants panel ─────────────────────────────────────────────────────
+      function renderPeople(roster) {
+        $("people").innerHTML = roster.map((r) => {
+          const q = r.quality ? r.quality.tier : 3;
+          return `<div class="prow"><span class="pa">${esc((r.name || "?").slice(0, 1).toUpperCase())}</span>`
+            + `<span class="pn">${esc(r.name)}${r.you ? " (you)" : ""}</span>`
+            + (r.raised ? `<span class="pi warn">✋</span>` : "")
+            + (r.sharing ? `<span class="pi">🖥</span>` : "")
+            + `<span class="pi ${r.mic ? "" : "bad"}">${r.mic ? "🎤" : "🔇"}</span>`
+            + `<span class="pi ${r.cam ? "" : "bad"}">${r.cam ? "🎥" : "🚫"}</span>`
+            + `<span class="pi ${q <= 1 ? "bad" : q === 2 ? "warn" : ""}">${"▮".repeat(q) || "·"}</span></div>`;
+        }).join("");
+      }
+
+      // ── device selection ───────────────────────────────────────────────────────
+      async function populateDevices() {
+        const devs = await mesh.devices(); const fill = (sel, kind) => { sel.innerHTML = devs.filter((d) => d.kind === kind).map((d, i) => `<option value="${d.deviceId}">${esc(d.label || kind + " " + (i + 1))}</option>`).join(""); };
+        fill($("camSel"), "videoinput"); fill($("micSel"), "audioinput"); fill($("spkSel"), "audiooutput");
+      }
+      $("camSel").addEventListener("change", (e) => mesh && mesh.switchCamera(e.target.value).then(() => toast("camera switched")).catch(() => toast("could not switch camera")));
+      $("micSel").addEventListener("change", (e) => mesh && mesh.switchMic(e.target.value).then(() => toast("microphone switched")).catch(() => toast("could not switch mic")));
+      $("spkSel").addEventListener("change", (e) => { spkId = e.target.value; for (const t of tiles.values()) { try { t.video.setSinkId && t.video.setSinkId(spkId); } catch {} } toast("speaker switched"); });
+      $("nameEdit").addEventListener("change", (e) => { if (mesh) { const n = mesh.setName(e.target.value); const lt = tiles.get("local"); if (lt) lt.label.textContent = n; } });
+
+      // ── pre-join ───────────────────────────────────────────────────────────────
+      let preMicOn = bool(params.get("mic"), true), preCamOn = bool(params.get("cam"), true);
+      $("preMic").addEventListener("click", () => { preMicOn = !preMicOn; $("preMic").classList.toggle("on", preMicOn); $("preMic").classList.toggle("off", !preMicOn); $("preMic").lastChild.textContent = preMicOn ? "Mic on" : "Mic off"; });
+      $("preCam").addEventListener("click", () => { preCamOn = !preCamOn; $("preCam").classList.toggle("on", preCamOn); $("preCam").classList.toggle("off", !preCamOn); $("preCam").lastChild.textContent = preCamOn ? "Camera on" : "Camera off"; });
+      if (params.get("name")) $("nameInput").value = params.get("name");
+      $("joinBtn").addEventListener("click", () => { const n = ($("nameInput").value || "").trim() || ("Guest-" + Math.random().toString(16).slice(2, 6)); join(n); });
+      $("nameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
+
+      // ── controls ─────────────────────────────────────────────────────────────
+      $("micBtn").addEventListener("click", () => { if (mesh) { syncBtn($("micBtn"), mesh.toggleMic()); toast(mesh.micOn() ? "mic on" : "muted"); } });
+      $("camBtn").addEventListener("click", () => { if (mesh) { const on = mesh.toggleCam(); syncBtn($("camBtn"), on); const lt = tiles.get("local"); if (lt) lt.el.classList.toggle("camoff", !on); } });
+      $("shareBtn").addEventListener("click", async () => { if (!mesh) return;
+        if (mesh.isSharing()) { mesh.stopScreen(); syncBtn($("shareBtn"), false); $("shareBtn").querySelector("span:last-child").textContent = "Share"; toast("stopped sharing"); return; }
+        try { await mesh.shareScreen(); syncBtn($("shareBtn"), true); $("shareBtn").querySelector("span:last-child").textContent = "Stop"; togglePin("local"); toast("sharing your screen"); } catch { toast("screen share cancelled"); } });
+      $("raiseBtn").addEventListener("click", () => { if (mesh) { const on = mesh.raiseHand(); syncBtn($("raiseBtn"), on); const lt = tiles.get("local"); if (lt) lt.el.classList.toggle("raised", on); toast(on ? "hand raised" : "hand lowered"); } });
+      const REACTS = ["👍", "❤️", "😂", "🎉", "👏", "😮", "🙌"];
+      $("reactPicker").innerHTML = REACTS.map((e) => `<button>${e}</button>`).join("");
+      $("reactPicker").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { if (mesh) { mesh.react(b.textContent); floatReact("local", b.textContent); } $("reactPicker").classList.remove("on"); }));
+      $("reactBtn").addEventListener("click", () => $("reactPicker").classList.toggle("on"));
+      $("chatBtn").addEventListener("click", () => openDrawer("chat"));
+      $("peopleBtn").addEventListener("click", () => openDrawer("people"));
+      $("settingsBtn").addEventListener("click", () => openDrawer("settings"));
+      $("helpBtn").addEventListener("click", () => document.body.classList.toggle("help-open"));
+      $("leaveBtn").addEventListener("click", async () => { if (mesh) await mesh.leave(); location.reload(); });
+
+      function openDrawer(tab) {
+        const same = document.body.classList.contains("drawer-open") && curTab === tab;
+        document.body.classList.toggle("drawer-open", !same); if (same) return; selectTab(tab);
+      }
+      let curTab = "chat";
+      function selectTab(tab) { curTab = tab; $("drawer").querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+        ["chat", "people", "settings"].forEach((t) => $("pane-" + t).classList.toggle("on", t === tab)); }
+      $("drawer").querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+
+      // chat + file send
+      const sendChat = () => { const v = ($("chatInput").value || "").trim(); if (!v || !mesh) return; addChat(mesh.sendChat(v), true); $("chatInput").value = ""; };
+      $("chatSend").addEventListener("click", sendChat);
+      $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+      $("attachBtn").addEventListener("click", () => $("fileInput").click());
+      $("fileInput").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f || !mesh) return;
+        if (f.size > 240 * 1024 && relayUrl.includes("emqx")) return toast("public broker caps files at ~240 KB use a local relay for larger");
+        toast("sharing " + f.name + " …"); const meta = await mesh.sendFile(f); addFile({ from: mesh.myId, name: "You", file: { ...meta, get: () => mesh.fetchFile(meta.kappa) } }, true); e.target.value = ""; });
+
+      // invite
+      async function invite() { const url = location.href;
+        try { if (navigator.share) { await navigator.share({ title: "Join my Hologram Meet", text: "End-to-end encrypted, serverless video call:", url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+        try { await navigator.clipboard.writeText(url); toast("invite link copied paste it anywhere"); } catch { window.prompt && window.prompt("Invite link:", url); } }
+      $("inviteBtn").addEventListener("click", invite);
+
+      // ── local recording (serverless; the .webm is itself content-addressable) ──
+      let recorder = null, recChunks = [], recAC = null;
+      function startRecording() {
+        if (!window.MediaRecorder || !mesh) return toast("recording unavailable");
+        try {
+          const canvas = document.createElement("canvas"); canvas.width = 1280; canvas.height = 720; const ctx = canvas.getContext("2d");
+          recAC = new (window.AudioContext || window.webkitAudioContext)(); const dest = recAC.createMediaStreamDestination();
+          const addAudio = (s) => { try { if (s && s.getAudioTracks().length) recAC.createMediaStreamSource(s).connect(dest); } catch {} };
+          addAudio(mesh.localStream); for (const p of mesh.peers.values()) addAudio(p.stream);
+          let raf; const draw = () => { const vids = [...tiles.values()].map((t) => t.video).filter((v) => v.videoWidth); const n = Math.max(1, vids.length);
+            const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            vids.forEach((v, i) => { const cw = canvas.width / cols, ch = canvas.height / rows; const x = (i % cols) * cw, y = Math.floor(i / cols) * ch; try { ctx.drawImage(v, x, y, cw, ch); } catch {} });
+            raf = requestAnimationFrame(draw); }; draw();
+          const mix = new MediaStream([...canvas.captureStream(25).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+          recorder = new MediaRecorder(mix, { mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm" });
+          recChunks = []; recorder.ondataavailable = (e) => e.data.size && recChunks.push(e.data);
+          recorder.onstop = () => { cancelAnimationFrame(raf); try { recAC.close(); } catch {}; const blob = new Blob(recChunks, { type: "video/webm" }); const u = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = u; a.download = "hologram-meet-" + new Date().toISOString().replace(/[:.]/g, "-") + ".webm"; a.click(); setTimeout(() => URL.revokeObjectURL(u), 5000); toast("recording saved"); };
+          recorder.start(1000); document.body.classList.add("recording"); syncBtn($("recBtn"), true); toast("recording locally (saved to your device)");
+        } catch (e) { toast("recording failed"); console.warn(e); }
+      }
+      function stopRecording() { if (recorder && recorder.state !== "inactive") recorder.stop(); recorder = null; document.body.classList.remove("recording"); syncBtn($("recBtn"), false); }
+      $("recBtn").addEventListener("click", () => (recorder ? stopRecording() : startRecording()));
+
+      // fullscreen + keyboard shortcuts (Jitsi-style)
+      $("fsBtn").addEventListener("click", () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); });
+      let pttPrev = null;
+      addEventListener("keydown", (e) => { if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        const k = e.key.toLowerCase();
+        if (k === "m") $("micBtn").click(); else if (k === "v") $("camBtn").click(); else if (k === "d") $("shareBtn").click();
+        else if (k === "r") $("raiseBtn").click(); else if (k === "c") $("chatBtn").click(); else if (k === "p") $("peopleBtn").click();
+        else if (k === "f") $("fsBtn").click(); else if (e.key === "?") $("helpBtn").click();
+        else if (e.code === "Space" && mesh && !e.repeat) { e.preventDefault(); pttPrev = mesh.micOn(); if (!pttPrev) { syncBtn($("micBtn"), mesh.toggleMic(true)); toast("push-to-talk"); } } });
+      addEventListener("keyup", (e) => { if (e.code === "Space" && mesh && pttPrev === false) { syncBtn($("micBtn"), mesh.toggleMic(false)); pttPrev = null; } });
+
+      // ── adaptive video quality (manual override) ──────────────────────────────
+      const QUALITY_OPTS = [["auto", "Auto", "device + network"], ["4k", "4K", "≤2 peers · fast"], ["1080p", "1080p", ""], ["720p", "720p", ""], ["360p", "360p", ""], ["180p", "Data saver", ""]];
+      $("qualityMenu").innerHTML = `<div class="hd">Send quality</div>` + QUALITY_OPTS.map(([v, l, s]) => `<button data-q="${v}">${l}${s ? `<span class="sub">${s}</span>` : ""}</button>`).join("");
+      $("qualSel").innerHTML = QUALITY_OPTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+      let curMode = "auto";
+      function updateQualityLabel(tier, det) {
+        curMode = (det && det.mode) || curMode; const lbl = (det && det.label) || (tier || "").toUpperCase();
+        $("qualityLbl").textContent = curMode === "auto" ? "Auto·" + lbl : lbl;
+        $("qualityMenu").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.q === (curMode === "auto" ? "auto" : tier)));
+        $("qualSel").value = curMode === "auto" ? "auto" : tier;
+      }
+      function pickQuality(v) { if (!mesh) return; mesh.setQuality(v); if (v === "auto") { curMode = "auto"; $("qualityLbl").textContent = "Auto"; } toast("video quality: " + (v === "auto" ? "Auto (adaptive)" : v)); $("qualityMenu").classList.remove("on"); }
+      $("qualityBtn").addEventListener("click", () => $("qualityMenu").classList.toggle("on"));
+      $("qualityMenu").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => pickQuality(b.dataset.q)));
+      $("qualSel").addEventListener("change", (e) => pickQuality(e.target.value));
+
+      // ── Holo Compositor present (WebGPU super-resolution toward native pixels) ──
+      // One GPU device per attached tile, so enhance selectively: the spotlight tile,
+      // or all remote tiles when the call is small. Dispose off small/extra tiles.
+      const gpuCtl = new Map(); let enhanceOn = false;
+      const gpuAvail = !!(window.HoloGPU && HoloGPU.available());
+      if (!gpuAvail) { $("enhanceBtn").disabled = true; $("enhanceBtn").title = "WebGPU unavailable here plain video (still works in any browser)"; }
+      $("enhanceHint").textContent = gpuAvail ? "" : "WebGPU unavailable on this browser";
+      function eligible(id) { if (!enhanceOn || !gpuAvail || id === "local") return false; return pinnedId ? id === pinnedId : tiles.size <= 4; }
+      async function refreshEnhance() {
+        for (const [id, t] of tiles) {
+          const want = eligible(id);
+          if (want && !gpuCtl.has(id)) {
+            try {
+              const c = await HoloGPU.attach(t.video, t.canvas, { sr: true, grade: 0 });
+              if (c) { c.setSR(true); gpuCtl.set(id, c); t.el.classList.add("enhanced");
+                // Safety: if the compositor can't actually produce frames here (e.g. a
+                // software-WebGPU backend that won't import the video), revert to plain
+                // <video> rather than show a black tile.
+                setTimeout(() => { if (gpuCtl.get(id) === c && c.frames === 0) { try { c.dispose(); } catch {} gpuCtl.delete(id); t.el.classList.remove("enhanced"); } }, 1200);
+              }
+            } catch {}
+          } else if (!want && gpuCtl.has(id)) { try { gpuCtl.get(id).dispose(); } catch {} gpuCtl.delete(id); t.el.classList.remove("enhanced"); }
+        }
+      }
+      function setEnhance(on) { enhanceOn = on && gpuAvail; syncBtn($("enhanceBtn"), enhanceOn); $("enhanceChk").checked = enhanceOn; refreshEnhance(); }
+      $("enhanceBtn").addEventListener("click", () => { if (!gpuAvail) return; setEnhance(!enhanceOn); toast(enhanceOn ? "Holo Compositor on · GPU super-resolution toward your display" : "Holo Compositor off"); });
+      $("enhanceChk").addEventListener("change", (e) => setEnhance(e.target.checked));
+
+      // per-tile delivered-resolution badge (↑ = reconstructed by the compositor)
+      const tierOf = (h) => (h >= 2160 ? "4K" : h >= 1080 ? "1080p" : h >= 720 ? "720p" : h >= 360 ? "360p" : h ? h + "p" : "");
+      setInterval(() => { for (const [id, t] of tiles) { const w = t.video.videoWidth, hh = t.video.videoHeight;
+        if (!hh) { t.res.style.display = "none"; continue; }
+        const sr = gpuCtl.has(id), out = sr ? "↑" + tierOf(t.canvas.height || hh) : tierOf(hh);
+        t.res.textContent = out; t.res.className = "badge res" + (sr ? " sr" : ""); t.res.style.display = "inline";
+        t.res.title = `source ${w}×${hh}` + (sr ? ` · reconstructed toward ${t.canvas.width}×${t.canvas.height} by the Holo Compositor` : ""); } }, 2000);
+
+      // device-profile hint in settings (so manual 4K on a phone is honest)
+      setTimeout(() => { if (!mesh) return; const d = mesh.deviceProfile(); $("qualHint").textContent = `this device: ${d.cores}-core${d.mobile ? " · mobile" : ""} · best ≈ ${d.encCeil.toUpperCase()}`; }, 1500);
+
+      // nestability: a parent holospace can hand us a room over postMessage
+      addEventListener("message", (e) => { const m = e.data; if (!m || typeof m !== "object" || m.type !== "holo-meet" || !m.room) return;
+        location.hash = "k=" + m.room + (m.relay ? "&r=" + encodeURIComponent(m.relay) : ""); toast("joining room handed from parent holospace"); if (!mesh) $("joinBtn").click(); });
+
+      // witness / automation handle
+      window.holoMeet = window.__holoMeet = {
+        mesh: null, secret, relayUrl, iceServers,
+        join: (n) => join(n || "Witness-" + Math.random().toString(16).slice(2, 6)),
+        ready: () => !!(window.holoMeet.mesh && window.holoMeet.mesh.started),
+        myId: () => window.holoMeet.mesh && window.holoMeet.mesh.myId,
+        myName: () => window.holoMeet.mesh && window.holoMeet.mesh.name(),
+        roster: () => (window.holoMeet.mesh ? window.holoMeet.mesh.roster() : []),
+        connectedPeers: () => (window.holoMeet.mesh ? window.holoMeet.mesh.connectedPeers() : 0),
+        sendChat: (t) => window.holoMeet.mesh && window.holoMeet.mesh.sendChat(t), chatLog: () => chatLog,
+        raiseHand: (on) => window.holoMeet.mesh && window.holoMeet.mesh.raiseHand(on),
+        react: (em) => window.holoMeet.mesh && window.holoMeet.mesh.react(em), reactionLog: () => reactionLog,
+        sendBytes: async (name, mime, arr) => window.holoMeet.mesh && window.holoMeet.mesh.sendFile(new File([new Uint8Array(arr)], name, { type: mime })),
+        receivedFiles: () => receivedFiles, tileCount: () => tiles.size,
+        setQuality: (v) => window.holoMeet.mesh && window.holoMeet.mesh.setQuality(v),
+        sendTier: () => (window.holoMeet.mesh ? window.holoMeet.mesh.currentSendTier() : null),
+        deviceProfile: () => (window.holoMeet.mesh ? window.holoMeet.mesh.deviceProfile() : null),
+        enhance: (on) => setEnhance(!!on), enhancedCount: () => gpuCtl.size, gpuAvailable: () => gpuAvail,
+      };
+      if (bool(params.get("autojoin"), false)) $("joinBtn").click();
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "root": "bafybeig3l3vd2gzrpmfu4sou2eji7rm5p4ycykn5gkfnjbvqpczctl274e",
+  "holo": "holo://bafybeig3l3vd2gzrpmfu4sou2eji7rm5p4ycykn5gkfnjbvqpczctl274e",
+  "did": "did:holo:sha256:db5eea3d1b317b0b4e49d4d1128fc59d7f302c29bd328ad486b078b229af5fe1",
+  "entries": [
+    {
+      "name": "about.html",
+      "cid": "bafkreie25eouza6cfi37dlsk26yntyyyxpepcvlyp5q2enxj5wk5ekajhy",
+      "tsize": 1709
+    },
+    {
+      "name": "index.html",
+      "cid": "bafkreiewxil2vxtvb36tpnmkmedixcemhyv25fkzktpyfips4kpmmrbage",
+      "tsize": 1902
+    },
+    {
+      "name": "logo.svg",
+      "cid": "bafkreiadpk5v3iera25oux4uzdxviiwpivr54ves4rttwvpmykvwt6fsaq",
+      "tsize": 514
+    },
+    {
+      "name": "style.css",
+      "cid": "bafkreicfpd3j2a733ppovgzvwf7x57ppraurxmqpgsv6qw2u3cwwuuyqoi",
+      "tsize": 2269
+    }
+  ],
+  "builtFrom": "ipfs-demo/site"
+}

@@ -1,0 +1,29 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "mikeos.iso",
+    "bytes": 3311616,
+    "did": "did:holo:sha256:85b780a949100d4665cf22d25f272672087b8208e1a7db005244c9169760df94"
+  },
+  "blockSize": 262144,
+  "blockCount": 13,
+  "uniqueBlocks": 7,
+  "dedup": "46.2%",
+  "root": "did:holo:sha256:17029ce49ea25272eb8e7f8853c6d98da5e573892d257e5845603610c30b8563",
+  "blocks": [
+    "did:holo:sha256:b7e0eeb789ad87e00d7a61082b30ebc898cbcde4b5ee9d5b0b71f869c6f010c5",
+    "did:holo:sha256:c8d6ae83c5141f6ee3b6f6a42438e128591eac223cb18aa088231f1dd8657537",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:6aa99355cf286f16d99f112dfa856f3b89334121c12073f3251abe3de160c31f",
+    "did:holo:sha256:82583b5821d5fad62c4cc8e752e28b1225e8fcda18a8e3c118e5b5e4eef21750",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:058473defc8f01f546fde18a754c3610304aa54e24dd74e8ab5241b05a549229",
+    "did:holo:sha256:89d111e13da934fd2c233e48ca07bcae7c41da0d26b6423c0c47d40dca38bede"
+  ]
+}

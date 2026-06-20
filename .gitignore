@@ -1,0 +1,22 @@
+node_modules/
+.DS_Store
+*.log
+
+# Holo Q 2-bit model artifact — content-addressed weights, fetched not committed (belongs in holo-models).
+apps/q/_qwen7b.2bit/
+
+# Forge dev caches — local model blobs (GGUF/.holo, multi-GB) + KV cache. Fetched at runtime into the
+# IndexedDB κ-store, never part of an app's holospace closure, and far over the static-host file limit.
+# Excluded from every lock by relock's dot-dir skip; ignored here so they never reach git or the deploy.
+apps/*/forge/.models/
+apps/*/forge/.kvxproc/
+
+# Holo Q model weights + forge build artifacts — 13 GB total, far past GitHub's 100 MB/file + 1 GB Pages
+# limits. The runtime loads compiled κ-objects under models/<name>/; forge/gpu/*.bin|*.f32 are model-
+# COMPILER scratch (referenced only by forge/export-*.mjs), not runtime inputs. None ship in git or Pages.
+# The DEFAULT brain (models/falcon-e-3b/) is published as κ-named GitHub Release assets + pinned to IPFS,
+# and the Service Worker heals each block by κ (holo-fhs-sw WEIGHTS_RELEASE_BASE + IPFS). Other models are
+# opt-in: publish them the same way to enable them. CI checkout omits ignored files → the deploy is lean.
+# NOTE: these are already tracked — run `git rm -r --cached apps/q/models apps/q/forge/gpu` once.
+apps/q/models/
+apps/q/forge/gpu/

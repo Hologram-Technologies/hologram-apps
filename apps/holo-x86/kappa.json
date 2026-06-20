@@ -1,0 +1,50 @@
+{
+  "$comment": "κ-pins for the Holo x86 (v86) holo app. Every artifact — the v86 engine, its wasm, the BIOSes, and the OS image — is content-addressed; the loader re-derives sha256 and refuses to run on mismatch (Law L5). v86 is fed only κ-verified ArrayBuffers.",
+  "algo": "sha256",
+  "engine": {
+    "libv86": {
+      "url": "./vendor/v86/libv86.js",
+      "name": "v86 — x86 emulator (libv86.js, BSD-2-Clause)",
+      "sha256": "65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "did": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "bytes": 352483
+    },
+    "wasm": {
+      "url": "./vendor/v86/v86.wasm",
+      "name": "v86 JIT core (x86→wasm)",
+      "sha256": "3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "did": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "bytes": 2066716
+    },
+    "seabios": {
+      "url": "./vendor/v86/seabios.bin",
+      "name": "SeaBIOS",
+      "sha256": "43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "did": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "bytes": 131072
+    },
+    "vgabios": {
+      "url": "./vendor/v86/vgabios.bin",
+      "name": "VGA BIOS",
+      "sha256": "eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "did": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "bytes": 34816
+    }
+  },
+  "image": {
+    "cdrom": {
+      "url": "./images/linux4.iso",
+      "name": "Buildroot Linux (v86 linux4.iso)",
+      "sha256": "cb403835be0d857191cdeb86efc8d559b94a787d6fcb57e0a04667296405c223",
+      "did": "did:holo:sha256:cb403835be0d857191cdeb86efc8d559b94a787d6fcb57e0a04667296405c223",
+      "bytes": 7712768
+    },
+    "kblocks": {
+      "$comment": "The SAME Buildroot disk as a κ-block DAG (tools/holo-disk-encode.mjs): an ordered set of content-addressed blocks, resolved lazily by κ and re-derived per block before the guest sees a byte (Law L5). 'root' is the closure κ over the block set; index-kblocks.html gates on it. Used by the async-disk boot variant.",
+      "manifest": "./images/linux4.iso.kblocks.json",
+      "name": "Buildroot Linux (linux4.iso) as a κ-block DAG",
+      "blockSize": 262144,
+      "root": "did:holo:sha256:b276ae1350f85bbe00cd6c13ff15989c1d6fce142dbac612cde484d5f20b3b59"
+    }
+  }
+}

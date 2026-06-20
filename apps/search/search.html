@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Search Hologram OS</title>
+    <meta name="description" content="Holo Search Google for the entire Hologram OS, hologram-native. One bar searches every holospace, spec, doc and UOR object with an OpenSearch-faithful engine (BM25 + Query DSL + kNN), ranked by HoloRank (a verifiable PageRank), every result re-derivable to its did:holo (Law L5). Low-latency, semantic, object-oriented." />
+    <meta name="holo-app" content="Holo Search" />
+    <!-- A9 OpenSearch autodiscovery — any browser/client can add Holo Search as a provider (universal). -->
+    <link rel="search" type="application/opensearchdescription+xml" href="search/opensearch.xml" title="Holo Search" />
+    <!-- Shared mobile-conformance layer every shipped holospace adopts (enforce-witnesses gate). -->
+    <link rel="stylesheet" href="../../_shared/holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg, #0b0f14); --surface: var(--holo-surface, #0f141a);
+        --ink: var(--holo-ink, #e6edf3); --dim: var(--holo-ink-dim, #8b97a5); --acc: var(--holo-accent, #4f9cff);
+        --line: var(--holo-border, #1b2430); --mark: #ffd76633; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); overflow: hidden;
+        font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+      a { color: inherit; text-decoration: none; }
+      mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+      button { font: inherit; cursor: pointer; }
+      .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+
+      /* ── the search bar (Google-class): one rounded input + suggestions ── */
+      .logo { font-weight: 800; letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 0.4ch; }
+      .logo svg { width: 1.05em; height: 1.05em; stroke: var(--acc); }
+      .logo b { color: var(--acc); }
+      .searchwrap { position: relative; }
+      .sbar { display: flex; align-items: center; gap: 0.6rem; background: var(--surface);
+        border: 1px solid var(--line); border-radius: 28px; padding: 0.6rem 1.1rem; transition: box-shadow .15s, border-color .15s; }
+      .sbar:focus-within { border-color: var(--acc); box-shadow: 0 6px 28px #0007, 0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent); }
+      .sbar svg.mag { width: 20px; height: 20px; stroke: var(--dim); flex: none; }
+      .sbar input { flex: 1; background: transparent; border: 0; outline: 0; color: var(--ink); font: inherit; min-width: 0; }
+      .sbar .clr { color: var(--dim); background: transparent; border: 0; font-size: 20px; display: none; }
+      .sbar:focus-within .clr.show, .clr.show { display: block; }
+      .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 6px); background: var(--surface);
+        border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 40px #0009; overflow: hidden; z-index: 30; display: none; }
+      .suggest.open { display: block; }
+      .suggest .s { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 1.1rem; cursor: pointer; }
+      .suggest .s:hover, .suggest .s.sel { background: color-mix(in srgb, var(--acc) 12%, transparent); }
+      .suggest .s .si { width: 18px; height: 18px; flex: none; stroke: var(--dim); }
+      .suggest .s .sk { margin-left: auto; font-size: 0.72em; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+
+      /* ── hero (home) — clean, centered, Google-class ── */
+      #hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem 1.5rem 9vh; gap: 1.5rem; }
+      #hero .brand { display: inline-flex; align-items: center; gap: 0.4ch; font-size: clamp(2.4rem, 8vw, 4.4rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1; }
+      #hero .brand svg { width: 0.9em; height: 0.9em; stroke: var(--acc); stroke-width: 2.4; }
+      #hero .brand b { color: var(--acc); }
+      #hero .searchwrap { width: min(680px, 94vw); }
+      #hero .sbar { padding: 0.85rem 1.35rem; border-radius: 30px; }
+      #hero .sbar input { font-size: 1.05rem; }
+      #hero .btns { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; }
+      #hero .btns button { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 1.15rem; font-size: 0.9em; transition: border-color .15s, background .15s; }
+      #hero .btns button:hover { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 10%, var(--surface)); }
+      #hero .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: center; max-width: 40rem; }
+      .chip { border: 1px solid var(--line); background: var(--surface); color: var(--dim); border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.85em; }
+      .chip:hover { color: var(--ink); border-color: var(--acc); }
+      #hero .proof { color: var(--dim); font-size: 0.75em; text-align: center; max-width: 44rem; line-height: 1.7; }
+      #hero .proof .k { color: #2dd4bf; }
+      #hero .proof b { color: var(--ink); font-weight: 500; }
+
+      /* ── results state ── */
+      #app { flex: 1; display: none; flex-direction: column; min-height: 0; }
+      #app.on { display: flex; }
+      header.top { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 1.1rem; border-bottom: 1px solid var(--line); }
+      header.top .logo { font-size: 1.15rem; flex: none; cursor: pointer; }
+      header.top .searchwrap { flex: 1; max-width: 640px; }
+      header.top .sbar { padding: 0.45rem 1rem; }
+      header.top .fs { margin-left: auto; color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 7px; padding: 0.25rem 0.55rem; }
+      .stats { padding: 0.5rem 1.2rem 0; color: var(--dim); font-size: 0.85em; }
+      .stats b { color: var(--ink); }
+      .layout { flex: 1; display: grid; grid-template-columns: 200px 1fr 320px; gap: 1.2rem; padding: 0.8rem 1.2rem 1.2rem; overflow: hidden; min-height: 0; }
+      .col { overflow-y: auto; min-height: 0; }
+      .facets h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 0.8rem 0 0.4rem; }
+      .facets .f { display: flex; align-items: center; gap: 0.5rem; padding: 0.28rem 0.5rem; border-radius: 7px; color: var(--dim); cursor: pointer; font-size: 0.9em; }
+      .facets .f:hover { background: var(--surface); color: var(--ink); }
+      .facets .f.on { background: color-mix(in srgb, var(--acc) 16%, transparent); color: var(--ink); }
+      .facets .f .n { margin-left: auto; font-size: 0.82em; opacity: 0.7; }
+
+      .hit { padding: 0.85rem 0; border-bottom: 1px solid var(--line); display: flex; gap: 0.85rem; }
+      .hit .ico { width: 38px; height: 38px; flex: none; border-radius: 9px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); position: relative; }
+      .ico .appico { position: absolute; inset: 0; margin: auto; width: 22px; height: 22px; filter: invert(1) brightness(1.7); }
+      .panel .ph .ico .appico { width: 28px; height: 28px; }
+      .hit .ico img, .hit .ico svg { width: 22px; height: 22px; }
+      .hit .body { min-width: 0; flex: 1; }
+      .hit .kindline { font-size: 0.74em; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; display: flex; gap: 0.6rem; align-items: center; }
+      .hit .badge { border: 1px solid var(--line); border-radius: 999px; padding: 0 0.5rem; }
+      .hit h3 { margin: 0.12rem 0 0.2rem; font-size: 1.1rem; font-weight: 600; }
+      .hit:hover h3 { color: var(--acc); text-decoration: underline; }
+      .hit .snip { color: var(--dim); font-size: 0.92em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .hit .meta { display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap; font-size: 0.76em; color: var(--dim); }
+      .hit .k { color: #2dd4bf; cursor: pointer; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hit .k.ok { color: #3fb950; } .hit .k.bad { color: #f85149; }
+      .hit .why { display: inline-flex; gap: 0.5rem; }
+      .hit .why span { border: 1px solid var(--line); border-radius: 999px; padding: 0 0.45rem; }
+
+      .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 1rem; align-self: start; }
+      .panel .ph { display: flex; gap: 0.7rem; align-items: center; }
+      .panel .ph .ico { width: 46px; height: 46px; border-radius: 11px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--line); position: relative; }
+      .panel .ph .ico img, .panel .ph .ico svg { width: 28px; height: 28px; }
+      .panel h2 { margin: 0; font-size: 1.25rem; }
+      .panel .pt { color: var(--dim); font-size: 0.8em; }
+      .panel p { color: var(--ink); font-size: 0.92em; }
+      .panel .open { display: inline-block; background: var(--acc); color: #04101f; font-weight: 700; border-radius: 9px; padding: 0.45rem 0.9rem; margin-top: 0.4rem; }
+      .panel .row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.85em; padding: 0.3rem 0; border-top: 1px solid var(--line); color: var(--dim); }
+      .panel .row b { color: var(--ink); font-weight: 500; text-align: right; }
+      .panel .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
+      .panel .tags span { font-size: 0.75em; border: 1px solid var(--line); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--dim); }
+
+      .empty { color: var(--dim); padding: 2rem 0; text-align: center; }
+      footer.hud { padding: 0.4rem 1.2rem; border-top: 1px solid var(--line); color: var(--dim); font-size: 0.74em;
+        display: flex; gap: 1rem; align-items: center; }
+      footer.hud .k { color: #2dd4bf; }
+      footer.hud .sp { margin-left: auto; }
+      @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } .facets, .panel { display: none; } header.top .logo span:not(.b) { display: none; } }
+
+      /* ── open-web knowledge panel (Holo Find bundled in: one bar → your OS + the open web) ── */
+      #webpanel:empty { display: none; }
+      #webpanel { margin-bottom: 0.9rem; }
+      .webcard { animation: kfade .25s ease; }
+      @keyframes kfade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      .webcard .kpt { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+      .webcard .kpt b { color: var(--acc); }
+      .webcard h2 { margin: 0.3rem 0 0.5rem; font-size: 1.3rem; line-height: 1.2; }
+      .webcard h2 a { color: var(--ink); } .webcard h2 a:hover { color: var(--acc); }
+      .webcard .fact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; padding: 0.32rem 0; border-top: 1px solid var(--line); font-size: 0.9em; }
+      .webcard .fact .mark.ok { color: #3fb950; } .webcard .fact .mark.warn { color: #f0b72f; }
+      .webcard .fact .k { color: var(--dim); text-transform: uppercase; font-size: 0.76em; letter-spacing: 0.04em; }
+      .webcard .fact .v { color: var(--ink); }
+      .webcard .vs { color: var(--dim); margin: 0 0.35rem; font-size: 0.85em; }
+      .webcard .chip { font-size: 0.72em; border: 1px solid var(--line); border-radius: 999px; padding: 0.02rem 0.5rem; color: var(--dim); }
+      .webcard a.chip:hover { color: var(--ink); border-color: var(--acc); }
+      .webcard .agree { font-size: 0.72em; color: #3fb950; }
+      .webcard .ksee h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 0.7rem 0 0.2rem; }
+      .webcard .ksee .s { display: block; padding: 0.3rem 0; border-top: 1px solid var(--line); font-size: 0.88em; }
+      .webcard .ksee a.s:hover { color: var(--acc); }
+      .webcard .ksee .s .m { display: block; color: var(--dim); font-size: 0.82em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .webcard .kverify { color: var(--dim); font-size: 0.75em; margin-top: 0.55rem; }
+      .webcard.loading .shimmer { height: 0.7rem; border-radius: 6px; background: linear-gradient(90deg, var(--line), var(--surface), var(--line)); background-size: 200% 100%; animation: sh 1.1s infinite linear; margin: 0.55rem 0; }
+      @keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    </style>
+  </head>
+  <body>
+    <!-- ── HERO (home) ── -->
+    <section id="hero">
+      <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Holo&nbsp;<b>Search</b></span></div>
+      <div class="searchwrap">
+        <div class="sbar">
+          <svg class="mag" viewBox="0 0 24 24" fill="none" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="q0" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search the Hologram OS and the open web" aria-label="Search" />
+          <button class="clr" id="clr0" aria-label="Clear">×</button>
+        </div>
+        <div class="suggest" id="sug0"></div>
+      </div>
+      <div class="btns"><button id="btnSearch" type="button">Holo Search</button><button id="btnLucky" type="button">I'm feeling lucky</button></div>
+      <div class="chips" id="chips"></div>
+      <div class="proof" id="corpus0">indexing the OS…</div>
+    </section>
+
+    <!-- ── RESULTS ── -->
+    <main id="app">
+      <header class="top">
+        <div class="logo" id="home" title="Holo Search home"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Holo&nbsp;<b class="b">Search</b></span></div>
+        <div class="searchwrap">
+          <div class="sbar">
+            <svg class="mag" viewBox="0 0 24 24" fill="none" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="q1" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search" />
+            <button class="clr" id="clr1" aria-label="Clear">×</button>
+          </div>
+          <div class="suggest" id="sug1"></div>
+        </div>
+        <button class="fs" id="fs" title="Fullscreen">⛶</button>
+      </header>
+      <div class="stats" id="stats"></div>
+      <div class="layout">
+        <aside class="col facets" id="facets"></aside>
+        <section class="col" id="results"></section>
+        <aside class="col" id="panelwrap"><div id="webpanel"></div><div id="ospanel"></div></aside>
+      </div>
+      <footer class="hud">
+        <span>corpus κ <span class="k mono" id="ckappa"></span></span>
+        <span id="enginestat"></span>
+        <span class="sp">Holo Search · verify, don't trust every hit re-derives to its did:holo (Law L5)</span>
+      </footer>
+    </main>
+
+    <script type="module">
+      // Holo Find bundled in: the open-web knowledge answer (resolve/federate/answer), in-tab, no AI, no keys.
+      import { find as webFind, browserFetchJson, screen as webScreen } from "../../_shared/holo-find.js";
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const KIND_GLYPH = {
+        holospace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 9h18"/></svg>',
+        spec: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg>',
+        doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l3 3v15H6z"/><path d="M9 11h6M9 15h6"/></svg>',
+        object: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>',
+      };
+      const params = new URLSearchParams(location.search);
+
+      // ── the worker (OpenSearch + HoloRank, off the UI thread) ──
+      const worker = new Worker(new URL("search-worker.js", location.href), { type: "module" });
+      let ready = false; const pending = new Map(); let qid = 0;
+      const ask = (type, payload) => new Promise((res) => { const id = ++qid; pending.set(id, res); worker.postMessage({ type, id, ...payload }); });
+      worker.onmessage = (e) => {
+        const m = e.data || {};
+        if (m.type === "ready") { ready = true; onReady(m); return; }
+        if (m.type === "error") { console.warn("search worker:", m.error); }
+        if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+      };
+      worker.postMessage({ type: "init", corpusUrl: new URL("search/corpus.json", location.href).href });
+
+      let corpusKappa = "", total0 = 0;
+      function onReady(m) {
+        corpusKappa = m.corpusKappa; total0 = m.count;
+        $("corpus0").innerHTML = `<b>${m.count}</b> objects indexed · κ <span class="k mono">${esc(m.corpusKappa.slice(0, 18))}…</span> · every result re-derives to its <b>did:holo</b> (Law&nbsp;L5) · the open web answered with <b>no AI</b>`;
+        $("ckappa").textContent = m.corpusKappa.slice(0, 28) + "…";
+        $("enginestat").textContent = `${m.count} docs · OpenSearch BM25 × HoloRank × semantic`;
+        try { HoloTeleport && HoloTeleport.stamp && HoloTeleport.stamp(m.corpusKappa); } catch {}
+        const initial = params.get("q"); if (initial) { setInput(initial); doSearch(initial); }
+        else inputs.forEach((i) => i === $("q0") && i.focus());
+      }
+
+      // ── input wiring (hero + results share behaviour) ──
+      const inputs = [$("q0"), $("q1")];
+      let activeSug = null, sel = -1, lastSug = [];
+      function setInput(v) { inputs.forEach((i) => { i.value = v; }); toggleClear(); }
+      function toggleClear() { const v = inputs[0].value || inputs[1].value; document.querySelectorAll(".clr").forEach((b) => b.classList.toggle("show", !!v)); }
+
+      let sugTimer, qTimer;
+      function onType(e) {
+        const v = e.target.value; setInput(v); toggleClear();
+        activeSug = e.target.closest("#hero") ? $("sug0") : $("sug1");
+        clearTimeout(sugTimer); sugTimer = setTimeout(() => suggest(v), 80);
+        clearTimeout(qTimer);
+        if (v.trim().length >= 2) qTimer = setTimeout(() => doSearch(v, { keepSug: true }), 200);  // instant results
+      }
+      async function suggest(v) {
+        if (!ready || !v.trim()) { closeSug(); return []; }
+        if (!activeSug) activeSug = $("app").classList.contains("on") ? $("sug1") : $("sug0");  // programmatic calls
+        const r = await ask("suggest", { q: v }); lastSug = r.items || []; sel = -1;
+        if (!lastSug.length) { closeSug(); return; }
+        activeSug.innerHTML = lastSug.map((s, i) => `<div class="s" data-i="${i}">
+          <span class="si">${KIND_GLYPH[s.kind] || KIND_GLYPH.doc}</span><span>${esc(s.text)}</span><span class="sk">${esc(s.kind)}</span></div>`).join("");
+        activeSug.classList.add("open");
+        activeSug.querySelectorAll(".s").forEach((el) => el.onclick = () => { const s = lastSug[+el.dataset.i]; setInput(s.text); closeSug(); doSearch(s.text); });
+        return lastSug;
+      }
+      function closeSug() { [$("sug0"), $("sug1")].forEach((s) => s.classList.remove("open")); sel = -1; }
+
+      function onKey(e) {
+        const sug = activeSug && activeSug.classList.contains("open");
+        if (e.key === "ArrowDown" && sug) { e.preventDefault(); sel = Math.min(sel + 1, lastSug.length - 1); paintSel(); }
+        else if (e.key === "ArrowUp" && sug) { e.preventDefault(); sel = Math.max(sel - 1, -1); paintSel(); }
+        else if (e.key === "Enter") { e.preventDefault(); if (sug && sel >= 0) { const s = lastSug[sel]; setInput(s.text); closeSug(); doSearch(s.text); } else { closeSug(); doSearch(e.target.value); } }
+        else if (e.key === "Escape") closeSug();
+      }
+      function paintSel() { if (!activeSug) return; activeSug.querySelectorAll(".s").forEach((el, i) => el.classList.toggle("sel", i === sel)); }
+
+      inputs.forEach((i) => { i.addEventListener("input", onType); i.addEventListener("keydown", onKey); });
+      document.querySelectorAll(".clr").forEach((b) => b.onclick = () => { setInput(""); closeSug(); });
+      $("home").onclick = () => { $("app").classList.remove("on"); $("hero").style.display = "flex"; setInput(""); webToken++; $("webpanel").innerHTML = ""; $("ospanel").innerHTML = ""; history.replaceState(null, "", location.pathname); $("q0").focus(); };
+      $("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+      addEventListener("keydown", (e) => { if ((e.key === "/" || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k")) && document.activeElement.tagName !== "INPUT") { e.preventDefault(); (($("app").classList.contains("on")) ? $("q1") : $("q0")).focus(); } });
+      $("chips").innerHTML = ["ethereum", "ada lovelace", "ipfs", "marie curie", "bitcoin mining", "page rank", "containers"].map((c) => `<button class="chip">${c}</button>`).join("");
+      $("chips").querySelectorAll(".chip").forEach((b) => b.onclick = () => { setInput(b.textContent); doSearch(b.textContent); });
+
+      // ── the two homepage buttons (Google homage) ──
+      // "Holo Search" runs the query; "I'm feeling lucky" runs it AND jumps straight to the best answer —
+      // the top OS result if there is one (a holospace opens, in-shell if framed), else the open-web entity.
+      let lucky = false, luckyWeb = false;
+      $("btnSearch").onclick = () => { const v = $("q0").value.trim(); v ? doSearch(v) : $("q0").focus(); };
+      $("btnLucky").onclick = () => { const v = $("q0").value.trim(); if (!v) { $("q0").focus(); return; } lucky = true; doSearch(v); };
+      function jumpLucky(r) {
+        const h = r && r.hits && r.hits[0]; if (!h) return false;
+        if (h.kind === "holospace" && h.loader) {
+          if (parent !== window) { try { parent.postMessage({ type: "holo-launch", loader: h.loader, app: h.appId, title: h.title }, "*"); return true; } catch {} }
+          location.href = h.appId ? "holospace.html?app=" + encodeURIComponent(h.appId) : h.loader; return true;   // → World
+        }
+        if (h.url) { window.open(h.url, "_blank", "noopener"); return true; }
+        return false;
+      }
+
+      // ── search + render ──
+      let curFilters = {}, lastResults = null, lastQ = "";
+      async function doSearch(q, { keepSug = false } = {}) {
+        q = (q || "").trim(); if (!q || !ready) return;
+        lastQ = q; $("hero").style.display = "none"; $("app").classList.add("on");
+        setInput(q); if (!keepSug) closeSug();
+        history.replaceState(null, "", location.pathname + "?q=" + encodeURIComponent(q));
+        const r = await ask("query", { q, opts: { size: 14, ...curFilters } });
+        lastResults = r; renderStats(r); renderFacets(r); renderResults(r); renderPanel(r);
+        runWeb(q);   // ← in parallel: the open-web knowledge answer fills the right panel as it arrives
+        if (lucky) { lucky = false; if (!jumpLucky(r)) luckyWeb = true; }   // no OS hit → jump to the web entity when it lands
+      }
+
+      // ── the open web, beside your OS (Holo Find bundled in) ──────────────────────────────────
+      // The local corpus answers INSTANTLY (in-memory BM25 off-thread); the open web answers a beat
+      // later over the network — so the panel fills progressively. A token guards against races (a
+      // newer query supersedes an older in-flight one). The query is screened by the immune perimeter.
+      let webToken = 0;
+      async function runWeb(q) {
+        const token = ++webToken;
+        if (webScreen(q).decision === "block") { $("webpanel").innerHTML = ""; return; }
+        $("webpanel").innerHTML = `<div class="panel webcard loading"><div class="kpt">Open web · <b>no AI</b></div><div class="shimmer" style="width:82%"></div><div class="shimmer" style="width:54%"></div><div class="kverify">Reading Wikipedia · Wikidata · Crossref · Open Library · OpenStreetMap…</div></div>`;
+        let res = null;
+        try { res = await webFind(q, { fetchJson: browserFetchJson }); } catch (e) {}
+        if (token !== webToken) return;                 // a newer query won — drop this stale answer
+        renderWeb(res, q);
+      }
+      function renderWeb(res, q) {
+        if (!res || !res.answer) { $("webpanel").innerHTML = ""; luckyWeb = false; return; }
+        const a = res.answer;
+        if (luckyWeb) { luckyWeb = false; if (a.reconciledTo) window.open("https://www.wikidata.org/wiki/" + a.reconciledTo, "_blank", "noopener"); }
+        const hasContent = (a.facts && a.facts.length) || (a.conflicts && a.conflicts.length) || a.reconciledTo;
+        if (!hasContent) { $("webpanel").innerHTML = ""; return; }   // nothing the open web could corroborate → just the OS card
+        const chip = (name, url) => url ? `<a class="chip" href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>` : `<span class="chip">${esc(name)}</span>`;
+        const head = a.reconciledTo
+          ? `<a href="https://www.wikidata.org/wiki/${esc(a.reconciledTo)}" target="_blank" rel="noopener">${esc(a.answer || a.entity || q)}</a>`
+          : esc(a.answer || a.entity || q);
+        const parts = [`<div class="panel webcard"><div class="kpt">Open web · <b>no AI</b></div><h2>${head}</h2>`];
+        for (const f of a.facts) parts.push(`<div class="fact"><span class="mark ok">✓</span><span class="k">${esc(f.label)}</span><span class="v">${esc(f.value)}</span>${f.corroboration > 1 ? `<span class="agree">×${f.corroboration}</span>` : ""}</div>`);
+        for (const c of a.conflicts) parts.push(`<div class="fact"><span class="mark warn">⚠</span><span class="k">${esc(c.label)}</span><span class="v">${c.variants.map((v) => `${esc(v.value)} ${chip(v.source)}`).join('<span class="vs">vs</span>')}</span></div>`);
+        if (res.results && res.results.length > 1) {
+          parts.push(`<div class="ksee"><h4>See also the open web</h4>`);
+          for (const x of res.results.slice(1, 6)) parts.push(`${x.url ? `<a class="s" href="${esc(x.url)}" target="_blank" rel="noopener">` : `<span class="s">`}${esc(x.name)}${x.foundBy > 1 ? ` <span class="agree">${x.foundBy} sources</span>` : ""}<span class="m">${esc((x.description || "").slice(0, 90))}</span>${x.url ? `</a>` : `</span>`}`);
+          parts.push(`</div>`);
+        }
+        parts.push(`<div class="kverify">${res.mode === "federate" && res.anchor && res.anchor.qid ? `Anchored on Wikipedia's primary topic (${esc(res.anchor.qid)})${res.anchor.agreed ? ", confirmed by federated search" : ""}. ` : ""}Disagreements are shown, not merged the answer asserts only what verifiable sources agree on.</div></div>`);
+        $("webpanel").innerHTML = parts.join("");
+      }
+      function renderStats(r) { $("stats").innerHTML = `About <b>${r.total}</b> result${r.total === 1 ? "" : "s"} for <b>${esc(lastQ)}</b> · <b>${r.took}</b> ms · ranked by HoloRank`; }
+      function renderFacets(r) {
+        const f = (title, key, buckets) => buckets.length ? `<h4>${title}</h4>` + buckets.map((b) =>
+          `<div class="f ${curFilters[key] === b.key ? "on" : ""}" data-key="${key}" data-val="${esc(b.key)}"><span>${esc(b.key)}</span><span class="n">${b.doc_count}</span></div>`).join("") : "";
+        $("facets").innerHTML = f("Type", "kind", r.facets.kind) + f("Category", "category", r.facets.categories);
+        $("facets").querySelectorAll(".f").forEach((el) => el.onclick = () => {
+          const k = el.dataset.key, v = el.dataset.val; curFilters[k] === v ? delete curFilters[k] : (curFilters[k] = v); doSearch(lastQ);
+        });
+      }
+      // kind glyph (inline, tinted) is the always-visible base; for holospaces overlay the
+      // app's own icon (inverted so the currentColor line-art is light on dark). onerror just
+      // removes the img → the glyph shows through. No embedded quotes → no HTML breakage.
+      function iconHtml(h) {
+        const glyph = `<span class="kg" style="color:var(--acc)">${KIND_GLYPH[h.kind] || KIND_GLYPH.doc}</span>`;
+        if (h.kind === "holospace" && h.icon) return glyph + `<img class="appico" src="${esc(h.icon)}" alt="" onerror="this.remove()">`;
+        return glyph;
+      }
+      const openHref = (h) => h.kind === "holospace" && h.loader ? h.loader : (h.url || "#");
+      function renderResults(r) {
+        if (!r.hits.length) { $("results").innerHTML = `<div class="empty">No results for <b>${esc(lastQ)}</b>. Try fewer or different words.</div>`; return; }
+        $("results").innerHTML = r.hits.map((h, i) => `<div class="hit" data-i="${i}">
+          <div class="ico">${iconHtml(h)}</div>
+          <div class="body">
+            <div class="kindline"><span class="badge">${esc(h.kind)}</span>${h.categories?.[0] ? "<span>" + esc(h.categories[0]) + "</span>" : ""}</div>
+            <a href="${esc(openHref(h))}" class="hlink" data-i="${i}"><h3>${esc(h.title)}</h3></a>
+            <div class="snip">${h.snippet || ""}</div>
+            <div class="meta">
+              <span class="k mono" data-i="${i}" title="click to re-derive (Law L5)">${esc((h.node || "").slice(0, 30))}…</span>
+              <span class="why"><span title="lexical BM25">BM25 ${h.bm25.toFixed(1)}</span><span title="HoloRank authority">HoloRank ${(h.holorank * 1000).toFixed(2)}‰</span><span title="semantic cosine">sem ${(h.semantic * 100).toFixed(0)}%</span></span>
+            </div>
+          </div></div>`).join("");
+        $("results").querySelectorAll(".hlink").forEach((a) => a.onclick = (e) => openHit(r.hits[+a.dataset.i], e));
+        $("results").querySelectorAll(".k").forEach((k) => k.onclick = () => verifyHit(r.hits[+k.dataset.i], k));
+      }
+      function renderPanel(r) {
+        const h = r.hits[0]; if (!h) { $("ospanel").innerHTML = ""; return; }
+        const conforms = (h.type || []).map((t) => `<span>${esc(t)}</span>`).join("");
+        $("ospanel").innerHTML = `<div class="panel">
+          <div class="ph"><div class="ico">${iconHtml(h)}</div><div><h2>${esc(h.title)}</h2><div class="pt">${esc(h.kind)}${h.categories?.[0] ? " · " + esc(h.categories[0]) : ""}</div></div></div>
+          <p>${esc(h.summary || h.snippet || "")}</p>
+          ${h.kind === "holospace" && h.loader ? `<a class="open" href="${esc(h.loader)}" id="panelopen">Open ${esc(h.title)} →</a>` : h.url ? `<a class="open" href="${esc(h.url)}" target="_blank" rel="noopener">Visit source →</a>` : ""}
+          <div class="row"><span>HoloRank</span><b>${(h.holorank * 1000).toFixed(3)} ‰</b></div>
+          <div class="row"><span>Relevance</span><b>${h.score.toFixed(2)}</b></div>
+          ${h.developer ? `<div class="row"><span>By</span><b>${esc(h.developer)}</b></div>` : ""}
+          <div class="row"><span>did:holo</span><b class="mono" style="font-size:.8em;word-break:break-all" id="panelk">${esc((h.node || "").slice(0, 22))}…</b></div>
+          <div class="tags">${conforms}</div>
+        </div>`;
+        const po = $("panelopen"); if (po) po.onclick = (e) => openHit(h, e);
+        const pk = $("panelk"); if (pk) pk.style.cursor = "pointer", pk.onclick = () => verifyHit(h, pk);
+      }
+      // open a holospace: navigate (standalone) AND tell a parent frame so it can mount nested.
+      function openHit(h, e) {
+        if (h.kind === "holospace" && h.loader) {
+          try { if (parent !== window) { e && e.preventDefault(); parent.postMessage({ type: "holo-launch", loader: h.loader, app: h.appId, title: h.title }, "*"); return; } } catch {}
+          // standalone → open the holospace inside the World shell (the one editable container), via the unified entry.
+          e && e.preventDefault(); location.href = h.appId ? "holospace.html?app=" + encodeURIComponent(h.appId) : h.loader;
+        } else if (h.url) { e && e.preventDefault(); window.open(h.url, "_blank", "noopener"); }
+      }
+      // Law L5 on demand: ask the worker to re-derive a holospace loader's κ and compare.
+      async function verifyHit(h, el) {
+        if (h.kind !== "holospace" || !h.loader) { el.classList.add("ok"); el.textContent = (h.node || "").slice(0, 30) + "… ✓ content id"; return; }
+        el.textContent = "re-deriving…";
+        const r = await ask("verify", { node: h.node, loaderUrl: new URL(h.loader, location.href).href });
+        if (r.ok) { el.classList.add("ok"); el.textContent = "✓ " + r.kappa.slice(0, 28) + "… (re-derived, Law L5)"; }
+        else if (r.ok === false) { el.classList.add("bad"); el.textContent = "✗ κ mismatch refused"; }
+        else { el.textContent = (h.node || "").slice(0, 30) + "… (offline)"; }
+      }
+
+      // ── nestability + OS-wide bar: a parent can hand us a query; we answer ready ──
+      addEventListener("message", (e) => { const m = e.data; if (m && m.type === "holo-search" && m.q) { setInput(m.q); doSearch(m.q); } });
+      window.holoSearch = { search: doSearch, suggest, get ready() { return ready; }, get corpusKappa() { return corpusKappa; }, get last() { return lastResults; } };
+      try { parent !== window && parent.postMessage({ type: "holo-search-ready" }, "*"); } catch {}
+    </script>
+    <script src="../../_shared/teleport.js" defer></script>
+    <script src="../../_shared/holo-theme.js"></script>
+    <script src="../../_shared/holo-manage.js" defer></script>
+  </body>
+</html>

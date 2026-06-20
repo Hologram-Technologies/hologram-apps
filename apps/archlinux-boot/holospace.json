@@ -1,0 +1,34 @@
+{
+  "id": "org.hologram.V86ArchLinux",
+  "name": "Arch Linux",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Arch Linux on v86 — a full root filesystem streamed as content-addressed κ-objects over 9p.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    {
+      "p": "Arch Linux boots root-on-9p: its entire filesystem is a content-addressed object set. Only the inode tree is sealed; every file streams on demand and self-verifies by its sha256 before the guest reads it (Law L5)."
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator"
+  ],
+  "keywords": [
+    "v86",
+    "linux",
+    "arch",
+    "9pfs",
+    "kappa"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0/MIT",
+  "homepage": "https://hologram.os/apps/archlinux-boot"
+}

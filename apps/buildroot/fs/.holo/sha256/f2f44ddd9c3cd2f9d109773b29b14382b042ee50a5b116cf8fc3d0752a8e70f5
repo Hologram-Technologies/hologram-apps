@@ -1,0 +1,2 @@
+Hologram — a content-addressed operating substrate.
+This OS, its disk, and these files are all κ-objects: identity is the bytes, not the path.

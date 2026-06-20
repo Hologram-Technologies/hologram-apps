@@ -1,0 +1,98 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloEtherscan",
+  "name": "Holo Scan",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "One universal block explorer for 27 networks verifiable, in the browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "CommunicationApplication",
+  "conforms": {
+    "specs": [
+      "etherscan"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloEtherscan"
+    ]
+  },
+  "shared": [
+    "holo-eth.js",
+    "holo-hypercore-stream.js",
+    "holo-hypercore.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-omni.js",
+    "holo-phi.css",
+    "holo-solana-stream.js",
+    "holo-solana.js",
+    "holo-theme.css",
+    "holo-theme.js",
+    "holo-ux.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "etherscan.html",
+  "description": [
+    {
+      "p": "Exploring a chain shouldn't mean trusting one explorer's servers."
+    },
+    {
+      "p": "It reads real on-chain data across 25 EVM chains plus Solana and Hyperliquid, verifying results by content in the browser."
+    },
+    {
+      "ul": [
+        "27 networks, each with native branding",
+        "Real on-chain data, no simulation",
+        "Address, transaction, block and token views",
+        "Results verified by content (Law L5)"
+      ]
+    }
+  ],
+  "categories": [
+    "Network",
+    "Finance",
+    "Development"
+  ],
+  "keywords": [
+    "ethereum",
+    "etherscan",
+    "blockscout",
+    "explorer",
+    "blockchain",
+    "evm",
+    "solana",
+    "hyperliquid",
+    "transactions",
+    "gas",
+    "erc20",
+    "nft",
+    "ens",
+    "web3",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://hologram.os/apps/etherscan",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "2.1",
+      "date": "2026-06-08",
+      "description": "Renamed Holo Scan. Universal multi-chain explorer (27 networks: EVM + Solana + Hyperliquid HyperCore) with a Blockscout-style branded hero per chain logo, accent, concise metadata and official/social links over real data, in-browser κ / ed25519 verification (Law L5)."
+    },
+    {
+      "version": "2.0",
+      "date": "2026-06-08",
+      "description": "Blockscout-grade, Etherscan-identical, multi-chain explorer over real data (Blockscout API v2) with in-browser keccak256/RLP κ-verification of every block & transaction (Law L5)."
+    }
+  ],
+  "accent": "#627eea"
+}

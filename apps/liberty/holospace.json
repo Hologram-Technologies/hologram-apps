@@ -1,0 +1,88 @@
+{
+  "$comment": "An easter egg, and a proof. John Stuart Mill's On Liberty (1859, Project Gutenberg #34901, public domain) published NATIVELY into the UOR content-addressable substrate a self-verifying linked-data Merkle-DAG whose root did:holo commits to every word. It demonstrates the repository's whole claim on one famous artifact: a content-addressable substrate that unlocks self-verifying, serverless applications. Not listed in the Hub catalog reachable only by its did:holo / over MCP. Built by build-liberty.mjs.",
+  "id": "did:holo:sha256:3dd559e0fd7c038589a1b3a650d6ad1ea46d03abfc224a1995bc6433e52af2f7",
+  "name": "On Liberty",
+  "type": [
+    "schema:Book",
+    "schema:WebApplication",
+    "schema:CreativeWork",
+    "prov:Entity"
+  ],
+  "summary": "On Liberty by John Stuart Mill, published as a verified object — the whole book proves itself genuine from its own content.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "ReferenceApplication",
+  "conforms": {
+    "specs": [
+      "liberty",
+      "content-addressing",
+      "did-core"
+    ]
+  },
+  "shared": [
+    "holo-mobile.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "resources": [
+    {
+      "uri": "apps/liberty/on-liberty.uor.json",
+      "name": "On Liberty (UOR Merkle-DAG)",
+      "type": "schema:Book",
+      "description": "The whole book as a self-verifying linked-data κ-DAG (Book → Chapters → text). Each node is schema.org JSON-LD with a did:holo; the root commits to every word. Fetch it and re-derive every hash provenance + integrity, no trusted server (Law L5). Provenance: dcterms:source pins the exact Project Gutenberg #34901 bytes by sha-256 κ.",
+      "mimeType": "application/ld+json"
+    }
+  ],
+  "tools": [
+    {
+      "name": "read_liberty",
+      "description": "Return a self-verifying chapter of On Liberty as a UOR object the agent can re-derive (Law L5). Args: chapter (0=Introduction, 1..5 = the chapters) or find (a phrase; returns the chapter containing it). With no args, returns the book root object.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "chapter": {
+            "type": "number"
+          },
+          "find": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "verify_object",
+      "description": "Re-derive a UOR object's did from its content and report whether it self-verifies (Law L5).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "object"
+        ]
+      }
+    }
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "description": [
+    {
+      "p": "A text you read should be one you can prove is unaltered, with no server to trust."
+    },
+    {
+      "p": "The complete book is published as a content-addressed object graph; every chapter re-derives from its own bytes in the browser (Law L5)."
+    },
+    {
+      "ul": [
+        "The full text of On Liberty",
+        "Self-verifying re-derives from its content",
+        "Reads offline and serverless",
+        "A reference holospace for published works"
+      ]
+    }
+  ]
+}

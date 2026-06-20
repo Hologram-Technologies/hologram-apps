@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Winamp Hologram OS</title>
+    <meta name="description" content="Holo Winamp the hologram-native Winamp: the original Winamp 2.9 player (classic .wsz skin spec, equalizer, playlist, spectrum-analyzer visualizers) running content-addressed and κ-verified in any browser. It really whips the κ's address." />
+    <!-- The native engine: Webamp 1.5.0 — a pixel-exact, open reimplementation of
+         Winamp 2.9 that consumes the UNMODIFIED original skin format (a .wsz is a ZIP
+         of the original sprite bitmaps: MAIN.BMP, CBUTTONS.BMP, EQMAIN.BMP, …). Pinned
+         + sha256-verified in webamp/ (PROVENANCE.txt, Law L5). One self-contained
+         bundle (React + the audio engine + the default classic skin) — no CDN — so the
+         whole player works offline. Milkdrop (butterchurn) is an optional lazy import we
+         deliberately don't vendor; the built-in spectrum analyzer + oscilloscope (Web
+         Audio AnalyserNode) are part of the bundle and always present. -->
+    <!-- The shared mobile conformance layer (WCAG 2.2 reflow / 48px targets / safe-area /
+         no iOS auto-zoom) every shipped holospace adopts (enforce-witnesses gate). -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: #000; --dim: #6a727c; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column;
+        font: var(--holo-text-sm, 1rem)/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* Thin holospace chrome — identity · κ-address · lifecycle. Same vocabulary as
+         os.html / video.html so a Winamp holospace reads like any other (ADR-026). */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem; position: relative; z-index: 2147483002;
+        padding: 0.3rem 0.8rem; background: #0d1117; border-bottom: 1px solid #1b2128;
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 600; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: #58a6ff; word-break: break-all; max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .sp { margin-left: auto; }
+      #bar .stat { color: var(--dim); font-variant-numeric: tabular-nums; max-width: 26vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: #3fb950; } #bar .ver.bad { color: #f85149; }
+      #bar .dot { color: #d29922; } #bar .dot.on { color: #3fb950; } #bar .dot.off { color: #f85149; }
+      #bar button { font: inherit; color: var(--dim); background: transparent;
+        border: 1px solid #1b2128; border-radius: 5px; padding: 0.15rem 0.5rem; cursor: pointer; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+      #bar select { font: inherit; color: var(--dim); background: #0d1117; border: 1px solid #1b2128;
+        border-radius: 5px; padding: 0.15rem 0.4rem; cursor: pointer; max-width: 11rem; }
+      #bar select:hover { color: #e6edf3; border-color: #30363d; }
+
+      /* Mobile: scale the fixed-275px Winamp UI up to thumb size, fill the width, and
+         let the stage scroll. Pinch-zoom stays enabled (no maximum-scale). Toggled by
+         body.mobile (JS sets --wa-scale from the live stage width). */
+      body.mobile #stage { overflow: auto; -webkit-overflow-scrolling: touch; }
+      body.mobile #app { transform: scale(var(--wa-scale, 1)); transform-origin: top center; }
+      @media (max-width: 640px) {
+        #bar { flex-wrap: wrap; gap: 0.4rem 0.55rem; }
+        #bar .k { max-width: 58vw; }
+        #bar .stat { order: 99; flex-basis: 100%; max-width: 96vw; }
+        #bar button, #bar select { min-height: 44px; padding: 0.3rem 0.7rem; }
+      }
+
+      /* The player fills the rest. Webamp draws its own (skinned) windows; we give it a
+         positioned stage so its absolutely-placed windows stay within the holospace and
+         a faint center hint shows before the skin paints. */
+      #stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
+        background: radial-gradient(120% 120% at 50% 18%, #11161d 0%, #05070a 70%, #000 100%); }
+      #app { position: absolute; inset: 0; }
+      #hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        color: #2b3640; font: 600 var(--holo-text-sm, 1rem) ui-monospace, monospace; pointer-events: none; transition: opacity .4s; }
+      #hint.gone { opacity: 0; }
+      /* Webamp sits below the bar; keep its focus z-index from escaping over the chrome. */
+      #webamp, #app .window { z-index: 5 !important; }
+      #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #161b22;
+        border: 1px solid #30363d; border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.8rem; font-size: var(--holo-text-sm, 1rem); opacity: 0;
+        transition: opacity 0.2s; z-index: 2147483003; pointer-events: none; }
+      #toast.show { opacity: 1; }
+    </style>
+  </head>
+  <body data-no-teleport>
+
+    <div id="bar">
+      <span class="name">Holo Winamp</span>
+      <span class="tag">· holospace</span>
+      <span class="k" id="kaddr" title="content address of the track now playing">holo://local</span>
+      <span class="ver" id="ver" title="Law L5: the engine, the classic skin, and the playing bytes re-derive to their κ"></span>
+      <span class="sp"></span>
+      <span class="stat" id="now" title="now playing"></span>
+      <span class="dot" id="dot">●</span>
+      <span class="tag" id="state">idle</span>
+      <select id="skinSel" title="skin the original Winamp .wsz format; pick any, κ-verified on load"></select>
+      <button id="fsBtn" title="fullscreen (f)">⛶ fullscreen</button>
+    </div>
+    <div id="stage">
+      <div id="app"></div>
+      <div id="hint">loading the original Winamp…</div>
+    </div>
+    <div id="toast"></div>
+
+    <!-- The pinned native engine (Webamp 1.5.0 UMD global `Webamp`), vendored into this app
+         (apps/amp/webamp/) and pinned by this app's holospace.lock.json (Law L5). -->
+    <script src="webamp/webamp.bundle.min.js"></script>
+    <!-- Share affordance + content-address provenance (#k=) + Law-L5 stamp. -->
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const bool = (v, d) => (v == null ? d : v !== "0" && v !== "false");
+
+      let toastT;
+      const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show");
+        clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); };
+      const setState = (t, cls) => { $("state").textContent = t; $("dot").className = "dot" + (cls ? " " + cls : ""); };
+      const showKaddr = (k) => { $("kaddr").textContent = k ? (k.startsWith("holo://") ? k : "holo://" + k) : "holo://local"; };
+
+      // ── Law L5: re-derive received bytes against their pinned κ ──────────────────
+      // Pins are sha256 (winamp-manifest.json for tracks, PROVENANCE.txt for the skin),
+      // so we re-derive sha256 DIRECTLY (the wasm kappaOf returns blake3 when present —
+      // a different axis — so comparing against a sha256 pin must use sha256). A forged
+      // byte fails the match and is refused, exactly like the video holospace.
+      async function sha256(u8) { const d = await crypto.subtle.digest("SHA-256", u8);
+        return "sha256:" + Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join(""); }
+      const ver = { skin: null, track: null };          // null = unknown, true/false = verdict
+      function renderVer() {
+        const vals = [ver.skin, ver.track].filter((v) => v !== null);
+        if (!vals.length) { $("ver").textContent = ""; $("ver").className = "ver"; return; }
+        const bad = vals.includes(false), ok = !bad;
+        $("ver").textContent = ok ? "✓ κ verified" : "✗ κ mismatch refused";
+        $("ver").className = "ver " + (ok ? "ok" : "bad");
+        $("ver").title = `Law L5 · skin ${ver.skin === null ? "…" : ver.skin ? "✓" : "✗"} · track ${ver.track === null ? "…" : ver.track ? "✓" : "✗"}`;
+        if (bad) { try { webamp && webamp.pause(); } catch {} setState("refused", "off"); }
+      }
+      async function rederive(url, want) {
+        if (!want) return null;
+        try {
+          const buf = new Uint8Array(await (await fetch(url, { cache: "no-store" })).arrayBuffer());
+          return (await sha256(buf)) === want;
+        } catch { return null; }
+      }
+
+      // ── what to play ─────────────────────────────────────────────────────────────
+      // Interop contract (so ANY holospace can hand this player audio):
+      //   ?src=<url|holo://κ/path>     a track to play
+      //   ?k=/?id=/?addr=<κ>           the content address to DISPLAY + VERIFY (Law L5)
+      //   ?title= ?artist= ?skin=<.wsz url> ?autoplay= ?volume=<0..100>
+      // No params → the bundled, content-addressed default playlist (κ-pinned WAVs).
+      const SKIN_URL = params.get("skin") || "webamp/base-2.91.wsz";
+      const kparam = params.get("k") || params.get("id") || params.get("addr") || "";
+      const DEFAULT_TRACKS = [
+        { url: "winamp/kappa-groove.wav", title: "Kappa Groove", artist: "Hologram OS" },
+        { url: "winamp/boot-chime.wav", title: "Boot Chime", artist: "Hologram OS" },
+      ];
+      let manifest = {};                                  // url(basename) → sha256 κ
+      const pinFor = (url) => manifest[url] || manifest[url.split("/").pop()] || "";
+
+      let tracks = params.get("src")
+        ? [{ url: params.get("src"), title: params.get("title") || params.get("src").split("/").pop(), artist: params.get("artist") || "" , kappa: kparam }]
+        : DEFAULT_TRACKS.slice();
+
+      // ── the engine ───────────────────────────────────────────────────────────────
+      let webamp = null;
+      function toWebampTracks(list) {
+        return list.map((t) => ({ metaData: { artist: t.artist || "", title: t.title || t.url.split("/").pop() }, url: t.url }));
+      }
+
+      // ── per-track provenance: show + verify the κ of the track now playing ─────────
+      async function onTrack(track) {
+        const url = track && track.url;
+        if (!url) return;
+        const def = tracks.find((t) => t.url === url || url.endsWith(t.url)) || {};
+        const md = (track.metaData) || {};
+        $("now").textContent = [md.title || def.title, md.artist || def.artist].filter(Boolean).join(" ") || (url.split("/").pop());
+        const want = def.kappa || pinFor(url);
+        ver.track = null; renderVer();
+        if (want) { showKaddr(want); if (window.HoloTeleport) HoloTeleport.stamp(want); ver.track = await rederive(url, want); }
+        else { showKaddr(""); $("kaddr").title = "external source no pinned κ to verify"; ver.track = null; }
+        renderVer();
+        postStatus();
+      }
+
+      // ── skins: the full κ-pinned gallery (the original .wsz spec) ──────────────────
+      // availableSkins also populates Webamp's native Options → Skins menu; the chrome
+      // <select> is the mobile-friendly picker. Every switch re-derives the skin bytes
+      // against their pin (skins.json / PROVENANCE) → ✓ in the chrome (Law L5).
+      let skinPins = {}, availableSkins = [];
+      function fillSkinSelect(sel) {
+        const el = $("skinSel"); el.innerHTML = "";
+        for (const s of availableSkins) { const o = document.createElement("option"); o.value = s.url; o.textContent = s.name; el.appendChild(o); }
+        if (sel && !availableSkins.some((s) => s.url === sel)) { const o = document.createElement("option"); o.value = sel; o.textContent = "(custom skin)"; el.appendChild(o); }
+        el.value = sel;
+      }
+      async function verifySkin(url) {
+        ver.skin = null; renderVer();
+        const want = skinPins[url];
+        ver.skin = want ? await rederive(url, want) : null;
+        renderVer();
+        return ver.skin;
+      }
+      async function applySkin(url, name) {
+        if (!webamp || !url) return;
+        try { webamp.setSkinFromUrl(url, name || ""); } catch {}
+        if ([...$("skinSel").options].some((o) => o.value === url)) $("skinSel").value = url;
+        await verifySkin(url);
+        toast("skin · " + (name || url.split("/").pop()) + (ver.skin === false ? " · κ MISMATCH" : ver.skin ? " · κ ✓" : ""));
+      }
+
+      // ── mobile: scale the 275px UI to fill the width; pinch-zoom stays on ───────────
+      function fitMobile() {
+        const coarse = matchMedia("(pointer: coarse)").matches || innerWidth <= 640;
+        document.body.classList.toggle("mobile", coarse);
+        if (!coarse) { document.body.style.removeProperty("--wa-scale"); return; }
+        const w = ($("stage").clientWidth || innerWidth) - 8;
+        document.body.style.setProperty("--wa-scale", Math.max(1, Math.min(2, w / 280)).toFixed(3));
+      }
+      addEventListener("resize", fitMobile); addEventListener("orientationchange", fitMobile);
+      fitMobile();
+
+      // ── status mirror (chrome dot + nestable postMessage) ──────────────────────────
+      const mediaState = () => { try { return (webamp.store.getState().media || {}); } catch { return {}; } };
+      function reflect() {
+        const m = mediaState(), s = (m.status || "STOPPED");
+        if (s === "PLAYING") setState("playing", "on");
+        else if (s === "PAUSED") setState("paused", "");
+        else setState("stopped", "");
+      }
+      function postStatus() {
+        const m = mediaState();
+        const msg = { type: "holo-winamp-status", state: (m.status || "STOPPED").toLowerCase(),
+          kappa: ($("kaddr").textContent || "").replace(/^holo:\/\//, ""), title: $("now").textContent,
+          currentTime: m.timeElapsed || 0, duration: m.length || 0, verified: ver.track === true };
+        try { parent !== window && parent.postMessage(msg, "*"); } catch {}
+        window.holoWinamp.last = msg;
+      }
+
+      // ── chrome wiring ──────────────────────────────────────────────────────────────
+      $("fsBtn").addEventListener("click", () => {
+        const el = $("stage");
+        document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen && el.requestFullscreen();
+      });
+      $("skinSel").addEventListener("change", (e) => { const url = e.target.value; applySkin(url, (availableSkins.find((s) => s.url === url) || {}).name); });
+      addEventListener("keydown", (e) => {
+        if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+        if (e.key === "f") $("fsBtn").click();
+        else if (e.key === " ") { e.preventDefault(); const m = mediaState(); m.status === "PLAYING" ? webamp.pause() : webamp.play(); }
+      });
+
+      // ── nestability: a parent holospace can hand us audio over postMessage ──────────
+      // { type:"holo-winamp", tracks:[{url,kappa?,title?,artist?}] | src, skin?, autoplay? }
+      // We answer with { type:"holo-winamp-status", … } on change and "holo-winamp-ready"
+      // once up — so the player composes into ANY holospace as a drop-in audio surface.
+      addEventListener("message", (e) => {
+        const m = e.data; if (!m || typeof m !== "object" || !webamp) return;
+        if (m.type === "holo-winamp" && (m.tracks || m.src)) {
+          const list = m.tracks || [{ url: m.src, kappa: m.kappa, title: m.title, artist: m.artist }];
+          tracks = list.map((t) => ({ url: t.url, kappa: t.kappa || "", title: t.title, artist: t.artist }));
+          webamp.setTracksToPlay(toWebampTracks(tracks));
+          if (m.skin) applySkin(m.skin, m.skinName);
+          if (m.autoplay !== false) webamp.play();
+          toast("playing handoff from parent holospace");
+        } else if (m.type === "holo-winamp-control" && m.action) {
+          ({ play: () => webamp.play(), pause: () => webamp.pause(), stop: () => webamp.stop(),
+             next: () => webamp.nextTrack(), prev: () => webamp.previousTrack(),
+             seek: () => webamp.seekToTime(m.time || 0), volume: () => webamp.setVolume(m.value ?? 50),
+             skin: () => applySkin(m.url || m.value, m.name) }[m.action] || (() => {}))();
+        }
+      });
+
+      // Public handle for witnesses / parents loaded in the same context.
+      window.holoWinamp = { get webamp() { return webamp; }, get tracks() { return tracks; },
+        get verified() { return ver; }, get media() { return mediaState(); },
+        get skins() { return availableSkins; }, get skin() { return $("skinSel").value; },
+        setSkin: applySkin, reflect, last: null };
+
+      // ── boot ────────────────────────────────────────────────────────────────────────
+      (async () => {
+        // Pins (Law L5): the default playlist, the whole skin gallery, and the base skin —
+        // fetched in parallel (same idiom as video/video-manifest.json).
+        const BASE = "webamp/base-2.91.wsz";
+        const [man, gal, prov] = await Promise.all([
+          fetch("winamp/winamp-manifest.json", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+          fetch("webamp/skins/skins.json", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ skins: [] })),
+          fetch("webamp/PROVENANCE.txt", { cache: "no-store" }).then((r) => r.text()).catch(() => ""),
+        ]);
+        manifest = man || {};
+        const bm = prov.match(/^\s*([0-9a-f]{64})\s+base-2\.91\.wsz\s*$/im);
+        if (bm) skinPins[BASE] = "sha256:" + bm[1];
+        availableSkins = [{ url: BASE, name: "Winamp 2.91 (classic base)" }];
+        for (const s of (gal.skins || [])) { const url = "webamp/skins/" + s.file; skinPins[url] = s.kappa; availableSkins.push({ url, name: s.name }); }
+        fillSkinSelect(SKIN_URL);
+
+        if (!window.Webamp || !Webamp.browserIsSupported || !Webamp.browserIsSupported()) {
+          $("hint").textContent = "this browser cannot run Winamp (no Web Audio / MediaSource)";
+          setState("unsupported", "off"); return;
+        }
+
+        webamp = new Webamp({
+          initialTracks: toWebampTracks(tracks),
+          initialSkin: { url: SKIN_URL },
+          availableSkins,                                 // also fills Webamp's Options → Skins menu
+          enableHotkeys: true,
+          zIndex: 5,
+        });
+        window.webamp = webamp;                          // witness / automation handle (repo idiom)
+
+        webamp.onTrackDidChange((track) => { onTrack(track); });
+        try { webamp.store.subscribe(() => { reflect(); }); } catch {}
+
+        await webamp.renderWhenReady($("app"));
+        $("hint").classList.add("gone");
+        fitMobile();                                      // size the UI now the skin painted
+
+        // Verify the booted skin's bytes against its pin (Law L5).
+        await verifySkin(SKIN_URL);
+
+        // Initial track provenance + optional autoplay (browsers gate audio on a gesture;
+        // we try and fall back to "press play").
+        await onTrack({ url: tracks[0].url, metaData: { title: tracks[0].title, artist: tracks[0].artist } });
+        if (params.get("volume")) webamp.setVolume(Math.max(0, Math.min(100, +params.get("volume"))));
+        if (bool(params.get("autoplay"), false)) { try { webamp.play(); } catch {} }
+        reflect();
+
+        try { parent !== window && parent.postMessage({ type: "holo-winamp-ready" }, "*"); } catch {}
+        toast("Holo Winamp · " + availableSkins.length + " skins · κ-verified");
+      })();
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

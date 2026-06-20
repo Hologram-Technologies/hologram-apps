@@ -1,0 +1,23 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "bleskos_2024u32.iso",
+    "bytes": 1835008,
+    "did": "did:holo:sha256:2f4c0990b01481795f785166bcd1e7daa2294522e41abc28c80881610b9a4074"
+  },
+  "blockSize": 262144,
+  "blockCount": 7,
+  "uniqueBlocks": 3,
+  "dedup": "57.1%",
+  "root": "did:holo:sha256:8eaf4df5aa41bd692a52c113850ebfd36fc9643bd94142448c7aa3229940ec1d",
+  "blocks": [
+    "did:holo:sha256:49fa9cb12cc352ad6ecbbe6198f02ad8db224fb3be915a9d0db4c06e474768ee",
+    "did:holo:sha256:a3bf616f4f3761baef5b555c2653b75c2b8914cd8fb77ebbe6c4520c047daa31",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+  ]
+}

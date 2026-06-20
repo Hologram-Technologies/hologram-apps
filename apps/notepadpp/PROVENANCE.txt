@@ -1,0 +1,49 @@
+Holo Notepad++ — provenance and third-party attribution
+=======================================================
+
+The editor engine is CodeMirror 6, vendored verbatim (no hand-written editor code).
+It is bundled offline from the upstream npm packages and served from the app itself
+(Law L4: no CDN, no network). The host shell (index.html, notepad.js) is integration
+glue: it composes CodeMirror's published extensions into a tabbed, Notepad++-style
+editor and binds the toolbar, tabs and file I/O.
+
+Vendored engine
+---------------
+  CodeMirror 6  — https://codemirror.net/  — MIT License
+  Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+
+Bundled packages (npm), bundled with esbuild into codemirror/codemirror.bundle.mjs:
+  @codemirror/state, @codemirror/view, @codemirror/commands,
+  @codemirror/language, @codemirror/search, @codemirror/autocomplete,
+  @codemirror/theme-one-dark, and language packs:
+  @codemirror/lang-javascript, -html, -css, -json, -python, -cpp, -java,
+  -markdown, -xml, -sql, -rust, -php, -go, -yaml.
+  CodeMirror view package version: 6.43.1.
+
+All of the above are distributed under the MIT License.
+
+MIT License
+-----------
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in the
+Software without restriction, including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so, subject to the
+following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Note on the name
+----------------
+"Notepad++" is the name of the native Windows editor by Don Ho. Holo Notepad++ is an
+independent, browser-native editor in the same spirit (fast, lightweight, tabbed,
+syntax-highlighted); it does not include or derive from the Notepad++ source code,
+which is a native Win32/Scintilla application and has no web build.

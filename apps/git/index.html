@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Holo Git is a pure static page (WebCrypto + OPFS + the κ pub/sub over a
+         WebSocket/MQTT relay). Like Docs/Cloud it needs no SharedArrayBuffer, so it
+         omits the COI service worker to stay lean. A git repository IS a κ-store, so
+         the whole forge — code + issues + pull requests — runs serverless in the tab. -->
+    <title>Holo Git</title>
+    <link rel="icon" href="/.holo/sha256/d6b1ebebae5132c2a1169af9c2094776a80d13e0169e2be8a0c1ad82e5acbd19.png" data-holo-shared="favicon.png" />
+    <meta name="description" content="Holo Git a completely serverless, end-to-end-encrypted, content-addressed git forge (Gitea, hologram-native). Code lives as git objects in a deduplicated κ-store; issues, pull requests, reviews and merges are a conflict-free CvRDT; clone/fetch/push are 'fetch the reachable oids I lack' over a content-blind relay. Runs entirely in the browser tab a shared repo IS its content address (holo://κ)." />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark;
+        --bg:var(--holo-bg); --panel:var(--holo-surface); --panel2:var(--holo-surface-2); --line:var(--holo-border); --line2:color-mix(in srgb, var(--holo-border) 55%, var(--holo-ink)); --dim:var(--holo-ink-dim); --ink:var(--holo-ink); --ink2:var(--holo-ink);
+        --accent:var(--holo-accent); --link:var(--holo-accent); --ok:var(--holo-ok); --open:#3fb950; --warn:var(--holo-warn); --bad:var(--holo-danger); --pr:#a371f7; --merged:#8957e5;
+        --add:#033a16; --addln:#2ea043; --del:#67060c; --delln:#f85149; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink2); display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      a { color: var(--link); text-decoration: none; cursor: pointer; } a:hover { text-decoration: underline; }
+      button { font: inherit; }
+      .mono { font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace; }
+
+      /* ── top chrome ─────────────────────────────────────────────────────────── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+        padding: .35rem .8rem; background: var(--panel); border-bottom: 1px solid var(--line); user-select: none; }
+      #bar .brand { color: var(--ink); font-weight: 700; letter-spacing: .01em; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: var(--holo-text-sm, 1rem); }
+      #bar .brand .logo { color: var(--accent); font-size: 18px; }
+      #bar .k { color: var(--link); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; max-width: 22vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; } #bar .ver.ok { color: var(--ok); }
+      #bar .sp { margin-left: auto; }
+      #bar .srch { flex: 0 1 280px; }
+      #bar input.search { width: 100%; background: var(--panel2); border: 1px solid var(--line2); color: var(--ink);
+        border-radius: 7px; padding: .3rem .6rem; font: var(--holo-text-sm, 1rem) ui-sans-serif; min-height: 30px; }
+      #bar .peers { display: inline-flex; gap: 3px; align-items: center; }
+      .av { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        font: 700 var(--holo-text-sm, 1rem) ui-sans-serif; color: #04130f; flex: 0 0 auto; }
+      .tbtn { color: var(--ink2); background: #21262d; border: 1px solid var(--line2); border-radius: 7px; padding: .3rem .65rem;
+        cursor: pointer; min-height: 30px; display: inline-flex; align-items: center; gap: 5px; font: var(--holo-text-sm, 1rem) ui-sans-serif; }
+      .tbtn:hover { border-color: #484f58; color: var(--ink); }
+      .tbtn.cta { color: #fff; background: #238636; border-color: #2ea043; } .tbtn.cta:hover { background: #2ea043; }
+      .tbtn.ghost { background: transparent; }
+      .tbtn.danger { color: var(--bad); border-color: #5d1a1a; } .tbtn.danger:hover { background: #5d1a1a; color: #fff; }
+
+      /* ── main scroll area ───────────────────────────────────────────────────── */
+      #main { flex: 1 1 auto; min-height: 0; overflow: auto; position: relative; }
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 1.1rem 1.2rem 3rem; }
+      .muted { color: var(--dim); } .small { font-size: var(--holo-text-sm, 1rem); }
+      h1,h2,h3 { color: var(--ink); }
+
+      /* dashboard */
+      .dash-head { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; flex-wrap: wrap; }
+      .repo-card { border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; margin-bottom: .7rem; background: var(--panel); }
+      .repo-card .title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+      .repo-card .desc { color: var(--dim); margin: .3rem 0 .5rem; }
+      .repo-card .meta { color: var(--dim); font-size: var(--holo-text-sm, 1rem); display: flex; gap: 14px; flex-wrap: wrap; }
+      .pill { font-size: var(--holo-text-sm, 1rem); border: 1px solid var(--line2); border-radius: 999px; padding: 1px 8px; color: var(--dim); }
+      .pill.priv { color: var(--warn); border-color: #5c4813; }
+
+      /* repo header + tabs */
+      .repohead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: .2rem; }
+      .repohead .path { font-size: 19px; } .repohead .path b { color: var(--ink); font-weight: 600; }
+      .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: .7rem 0 1rem; flex-wrap: wrap; }
+      .tab { padding: .5rem .8rem; color: var(--ink2); border-bottom: 2px solid transparent; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+      .tab:hover { color: var(--ink); } .tab.on { border-bottom-color: #f78166; color: var(--ink); font-weight: 600; }
+      .tab .count { background: #30363d; color: var(--ink2); border-radius: 999px; font-size: var(--holo-text-sm, 1rem); padding: 0 7px; }
+
+      /* code browser */
+      .codebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: .6rem; }
+      select.branch { background: #21262d; border: 1px solid var(--line2); color: var(--ink); border-radius: 7px; padding: .3rem .5rem; min-height: 30px; }
+      .crumb { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; } .crumb a { color: var(--link); } .crumb b { color: var(--ink); }
+      .clonebox { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+      .clonebox input { background: var(--panel2); border: 1px solid var(--line2); color: var(--ink2); border-radius: 7px; padding: .25rem .5rem; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; width: 260px; max-width: 40vw; }
+      .filetable { width: 100%; border: 1px solid var(--line); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; background: var(--panel); }
+      .filetable .lastcommit { background: var(--panel2); color: var(--dim); font-size: var(--holo-text-sm, 1rem); padding: .55rem .8rem; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+      .filetable tr td { padding: .45rem .8rem; border-top: 1px solid var(--line); }
+      .filetable tr:first-child td { border-top: none; }
+      .filetable .nm { display: inline-flex; align-items: center; gap: 8px; }
+      .filetable .ic { width: 16px; text-align: center; opacity: .9; }
+      .filetable td.cm { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      .filetable td.tm { color: var(--dim); font-size: var(--holo-text-sm, 1rem); text-align: right; white-space: nowrap; }
+      tr.frow:hover td { background: #1b212a; }
+
+      /* file view + code */
+      .fileview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+      .fileview .fhead { display: flex; align-items: center; gap: 10px; padding: .5rem .8rem; background: var(--panel2); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      .fileview .fhead .sp { margin-left: auto; }
+      .code { font: var(--holo-text-sm, 1rem)/1.55 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; overflow-x: auto; }
+      .code .row { display: flex; }
+      .code .ln { flex: 0 0 auto; width: 48px; text-align: right; padding: 0 12px 0 0; color: #6e7681; user-select: none; }
+      .code .lc { flex: 1 1 auto; white-space: pre; padding-right: 16px; }
+      .tk-c { color: #8b949e; font-style: italic; } .tk-s { color: #a5d6ff; } .tk-n { color: #79c0ff; } .tk-k { color: #ff7b72; }
+      .md { padding: 1rem 1.2rem; } .md h1,.md h2 { border-bottom: 1px solid var(--line); padding-bottom: .3em; }
+      .md pre { background: var(--panel2); padding: .8rem; border-radius: var(--holo-radius-sm, 8px); overflow-x: auto; }
+      .md code { background: #6e768166; padding: .1em .35em; border-radius: 5px; font-family: ui-monospace, monospace; font-size: .9em; }
+      .md pre code { background: none; padding: 0; }
+      .md blockquote { border-left: 3px solid var(--line2); margin: 0; padding: .2em 1em; color: var(--dim); }
+      .md table { border-collapse: collapse; } .md td,.md th { border: 1px solid var(--line2); padding: .3em .6em; }
+      .md img { max-width: 100%; }
+
+      /* commits / diffs */
+      .commitrow { display: flex; gap: 10px; padding: .6rem .2rem; border-bottom: 1px solid var(--line); align-items: flex-start; }
+      .commitrow .body { flex: 1 1 auto; min-width: 0; } .commitrow .msg { color: var(--ink); }
+      .commitrow .sha { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); }
+      .diff { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: var(--panel); }
+      .diff .dhead { background: var(--panel2); padding: .5rem .8rem; border-bottom: 1px solid var(--line); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; display: flex; gap: 10px; align-items: center; }
+      .diff .badd { color: var(--addln); } .diff .bdel { color: var(--delln); }
+      .diff .dl { display: flex; font: var(--holo-text-sm, 1rem)/1.5 ui-monospace, monospace; white-space: pre; }
+      .diff .dl .g { width: 86px; flex: 0 0 auto; color: #6e7681; text-align: right; padding: 0 10px; user-select: none; }
+      .diff .dl .t { flex: 1 1 auto; padding-right: 12px; }
+      .diff .dl.add { background: #0f2417; } .diff .dl.add .t { color: #aff5b4; }
+      .diff .dl.del { background: #2d0f12; } .diff .dl.del .t { color: #ffdcd7; }
+      .diff .dl.hunk { background: #131c2e; } .diff .dl.hunk .t { color: #6cb6ff; }
+
+      /* issues / PRs */
+      .listrow { display: flex; gap: 10px; padding: .7rem .4rem; border-top: 1px solid var(--line); align-items: flex-start; }
+      .listrow:hover { background: #11161d; } .listrow .st { margin-top: 2px; }
+      .state-ic { font-size: var(--holo-text-sm, 1rem); } .s-open { color: var(--open); } .s-closed { color: var(--bad); } .s-merged { color: var(--merged); }
+      .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 10px; font-size: var(--holo-text-sm, 1rem); font-weight: 600; color: #fff; }
+      .badge.open { background: #238636; } .badge.closed { background: #da3633; } .badge.merged { background: #8957e5; }
+      .lbl { font-size: var(--holo-text-sm, 1rem); border-radius: 999px; padding: 1px 9px; border: 1px solid #0003; }
+      .comment { border: 1px solid var(--line); border-radius: 10px; margin: .8rem 0; background: var(--panel); }
+      .comment .chead { background: var(--panel2); padding: .45rem .8rem; border-bottom: 1px solid var(--line); border-radius: 10px 10px 0 0; color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      .comment .cbody { padding: .2rem 1rem; }
+      textarea.ta { width: 100%; background: var(--panel2); border: 1px solid var(--line2); color: var(--ink); border-radius: var(--holo-radius-sm, 8px); padding: .6rem .7rem; min-height: 92px; font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif; resize: vertical; }
+      input.tin { width: 100%; background: var(--panel2); border: 1px solid var(--line2); color: var(--ink); border-radius: var(--holo-radius-sm, 8px); padding: .5rem .7rem; font: var(--holo-text-sm, 1rem) ui-sans-serif; min-height: 36px; }
+      .field { margin: .7rem 0; } .field label { display: block; color: var(--dim); font-size: var(--holo-text-sm, 1rem); margin-bottom: .25rem; }
+      .row2 { display: flex; gap: 10px; flex-wrap: wrap; } .row2 > * { flex: 1 1 200px; }
+      .chk { display: inline-flex; gap: 7px; align-items: center; color: var(--ink2); }
+
+      /* dialogs */
+      .overlay { position: fixed; inset: 0; background: #010409cc; display: flex; align-items: center; justify-content: center; z-index: 200; padding: 1rem; }
+      .overlay.hidden { display: none; }
+      .dlg { background: var(--panel); border: 1px solid var(--line2); border-radius: var(--holo-radius, 12px); width: min(560px, 96vw); max-height: 90vh; overflow: auto; box-shadow: 0 24px 60px #000a; }
+      .dlg h2 { margin: 0; padding: .9rem 1.1rem; border-bottom: 1px solid var(--line); font-size: 16px; }
+      .dlg .body { padding: 1rem 1.1rem; } .dlg .foot { padding: .8rem 1.1rem; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; }
+
+      #toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: #1b212a; color: var(--ink);
+        border: 1px solid var(--line2); border-radius: 9px; padding: .6rem 1rem; opacity: 0; transition: opacity .18s; pointer-events: none; z-index: 300; max-width: 90vw; }
+      #toast.show { opacity: 1; }
+      .empty { text-align: center; color: var(--dim); padding: 3rem 1rem; }
+
+      /* ── GFM markdown extras ─────────────────────────────────────────────────── */
+      .md ul li.task { list-style: none; margin-left: -1.2em; } .md li.task input { margin-right: 6px; }
+      .md del { color: var(--dim); } .md a.ref { color: var(--link); font-weight: 600; } .md a.mention { color: var(--pr); font-weight: 600; cursor: default; }
+      .md table { margin: .6em 0; } .md th { background: var(--panel2); }
+
+      /* ── code line anchors + highlight ───────────────────────────────────────── */
+      .code .ln { cursor: pointer; text-decoration: none; } .code .ln:hover { color: var(--link); }
+      .code .row.hl { background: #2b2a14; } .code .row.hl .ln { color: #e3b341; }
+      .code .row:target { background: #2b2a14; }
+
+      /* ── language bar (Gitea linguist) ───────────────────────────────────────── */
+      .langbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: .5rem 0; }
+      .langbar i { display: block; height: 100%; }
+      .langlegend { display: flex; gap: 12px; flex-wrap: wrap; font-size: var(--holo-text-sm, 1rem); color: var(--dim); margin-bottom: .5rem; }
+      .langlegend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+      /* ── clone dropdown + add-file menu ──────────────────────────────────────── */
+      .menu { position: relative; } .menu .pop { position: absolute; right: 0; top: calc(100% + 6px); background: var(--panel); border: 1px solid var(--line2);
+        border-radius: 10px; padding: .6rem; min-width: 280px; z-index: 50; box-shadow: 0 16px 40px #000a; }
+      .menu .pop.hidden { display: none; } .menu .pop .seg { display: flex; gap: 6px; margin-bottom: .4rem; }
+      .menu .pop .seg button { flex: 1; } .menu .pop input { width: 100%; }
+      .menu .pop a.item { display: block; padding: .4rem .5rem; border-radius: 6px; color: var(--ink2); } .menu .pop a.item:hover { background: #1b212a; text-decoration: none; }
+
+      /* ── reactions / labels / reviews ────────────────────────────────────────── */
+      .reactions { display: flex; gap: 6px; flex-wrap: wrap; padding: .4rem .8rem; }
+      .reaction { border: 1px solid var(--line2); border-radius: 999px; background: #1b212a; color: var(--ink2); padding: 1px 9px; font-size: var(--holo-text-sm, 1rem); cursor: pointer; }
+      .reaction.on { border-color: #1f6feb; background: #121d2f; color: #6cb6ff; } .reaction.add { color: var(--dim); }
+      .sidebar { width: 220px; flex: 0 0 auto; } .sidebar h4 { color: var(--dim); font-size: var(--holo-text-sm, 1rem); text-transform: uppercase; letter-spacing: .04em; margin: .2rem 0 .4rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+      .lblchip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--holo-text-sm, 1rem); border-radius: 999px; padding: 1px 9px; margin: 2px 2px 2px 0; }
+      .issue-layout { display: flex; gap: 20px; align-items: flex-start; } .issue-main { flex: 1 1 auto; min-width: 0; }
+      .review-badge { display: inline-flex; align-items: center; gap: 5px; font-size: var(--holo-text-sm, 1rem); padding: 2px 8px; border-radius: 6px; }
+      .review-badge.APPROVE, .review-badge.APPROVED { color: #3fb950; background: #0f2417; } .review-badge.REQUEST_CHANGES, .review-badge.REQUEST_CHANGES { color: #f85149; background: #2d0f12; } .review-badge.COMMENT { color: var(--dim); background: #1b212a; }
+      .mergebox { border: 1px solid var(--line); border-radius: 10px; padding: 1rem; margin: 1rem 0; background: var(--panel); }
+      .mergebox.ok { border-color: #2ea04366; } .mergebox.bad { border-color: #f8514966; }
+      .seg-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+      .seg-tabs .st { padding: .4rem .8rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--ink2); }
+      .seg-tabs .st.on { border-bottom-color: #f78166; color: var(--ink); font-weight: 600; }
+      .finder-list .fr { padding: .4rem .6rem; border-radius: 6px; cursor: pointer; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; } .finder-list .fr:hover, .finder-list .fr.sel { background: #1b212a; }
+
+      .empty .small { display: block; margin-top: .4rem; }
+      @media (max-width: 640px) { #bar .srch { order: 9; flex-basis: 100%; } .clonebox { display: none; } .wrap { padding: .8rem; } .issue-layout { flex-direction: column; } .sidebar { width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Git"></holo-splash>
+
+    <div id="bar">
+      <span class="brand" id="home"><span class="logo">⎇</span> Holo Git</span>
+      <span class="k" id="kaddr" title="this page re-derives to its content hash (Law L5)">holo://…</span>
+      <span class="ver" id="ver">· κ</span>
+      <span class="sp"></span>
+      <span class="srch"><input class="search" id="search" placeholder="Search repositories…" /></span>
+      <span class="peers" id="peers" title="people in this workspace (live)"></span>
+      <button class="tbtn ghost" id="identityBtn" title="your identity">👤</button>
+      <button class="tbtn ghost" id="shareBtn" title="share mints a workspace link (room secret in the URL fragment, never sent to a server)">⤴ Share</button>
+      <button class="tbtn cta" id="newBtn">＋ New</button>
+    </div>
+
+    <div id="main"><div class="wrap" id="view"></div></div>
+    <div id="toast"></div>
+
+    <!-- ── dialogs ───────────────────────────────────────────────────────────── -->
+    <div class="overlay hidden" id="newDlg"><div class="dlg">
+      <h2>Create / import a repository</h2>
+      <div class="body">
+        <div class="field"><label>Repository name</label><input class="tin" id="nrName" placeholder="my-project" /></div>
+        <div class="field"><label>Description</label><input class="tin" id="nrDesc" placeholder="(optional)" /></div>
+        <div class="row2">
+          <div class="field"><label>Object format</label>
+            <select class="branch" id="nrAlgo" style="width:100%"><option value="sha256">sha256 (substrate σ-axis · git modern)</option><option value="sha1">sha1 (git default · max interop)</option></select></div>
+          <div class="field"><label>Default branch</label><input class="tin" id="nrBranch" value="main" /></div>
+        </div>
+        <div class="field"><label class="chk"><input type="checkbox" id="nrPriv" /> Private</label></div>
+        <div class="field"><label class="chk"><input type="checkbox" id="nrInit" checked /> Initialize with a README</label></div>
+        <hr style="border-color:var(--line)" />
+        <div class="field"><label>…or import from a live Gitea server (this UI becomes a true client of its REST API v1)</label>
+          <div class="row2"><input class="tin" id="nrSrvUrl" placeholder="https://gitea.example.com" /><input class="tin" id="nrSrvTok" placeholder="access token (optional)" /></div>
+        </div>
+      </div>
+      <div class="foot"><button class="tbtn ghost" data-close>Cancel</button><button class="tbtn ghost" id="nrConnect">Connect server</button><button class="tbtn cta" id="nrCreate">Create repository</button></div>
+    </div></div>
+
+    <div class="overlay hidden" id="identityDlg"><div class="dlg">
+      <h2>Your identity</h2>
+      <div class="body">
+        <p class="muted small">Stored only in this browser and stamped on your commits and forge activity. No account, no server.</p>
+        <div class="row2"><div class="field"><label>Name</label><input class="tin" id="idName" /></div>
+          <div class="field"><label>Email</label><input class="tin" id="idEmail" /></div></div>
+        <div class="field"><label>Color</label><input type="color" id="idColor" value="#2dd4bf" /></div>
+      </div>
+      <div class="foot"><button class="tbtn ghost" data-close>Cancel</button><button class="tbtn cta" id="idSave">Save</button></div>
+    </div></div>
+
+    <div class="overlay hidden" id="shareDlg"><div class="dlg">
+      <h2>Share this workspace</h2>
+      <div class="body">
+        <p class="muted small">Anyone with this link joins the SAME live forge code, issues and pull requests sync peer-to-peer, end-to-end-encrypted. The room secret rides the URL <b>#fragment</b>, so it is never sent to any server.</p>
+        <div class="field"><label>Workspace link</label><input class="tin mono" id="shareUrl" readonly /></div>
+      </div>
+      <div class="foot"><button class="tbtn ghost" data-close>Close</button><button class="tbtn cta" id="shareCopy">Copy link</button></div>
+    </div></div>
+
+    <div class="overlay hidden" id="genericDlg"><div class="dlg">
+      <h2 id="gTitle"></h2><div class="body" id="gBody"></div>
+      <div class="foot"><button class="tbtn ghost" data-close>Cancel</button><button class="tbtn cta" id="gOk">OK</button></div>
+    </div></div>
+
+    <script src="/.holo/sha256/72c6dbf1fc99475a5f6a03487ea7e0af32bb1b149436d7da9a4f7bf75f571ed1.js" data-holo-shared="holo-git.js"></script>
+    <script src="/.holo/sha256/590b49997966061b0382c89e3d092bccb09e9a8441a4c01edf9ff02dfbd792be.js" data-holo-shared="holo-gitea.js"></script>
+    <script src="/.holo/sha256/95525119b3406504eb9fde1503174f73519977810b9f1c523794b35c96ea0bef.js" data-holo-shared="holo-collab.js"></script>
+    <script type="module">
+      import { WsKappaSync } from "./holo-kappa-sync.mjs";
+      import { BrokerKappaSync } from "./holo-broker-sync.mjs";
+
+      const $ = (id) => document.getElementById(id);
+      const te = new TextEncoder(), td = new TextDecoder();
+      const esc = (s) => String(s == null ? "" : s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+      const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
+      const PALETTE = ["#2dd4bf", "#d2a8ff", "#58a6ff", "#f2cc60", "#7ee787", "#ff7b72", "#ffa657", "#a5d6ff"];
+      let toastT; const toast = (m) => { const e = $("toast"); e.textContent = m; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2600); };
+
+      // ── room secret + relay in the URL fragment (never sent to a server) ─────────
+      const readHash = () => new URLSearchParams((location.hash || "").replace(/^#/, ""));
+      let h = readHash();
+      let secret = h.get("k") || "";
+      if (!secret) {
+        secret = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const keep = h.get("r"); const v = h.get("v");
+        location.hash = "k=" + secret + (keep ? "&r=" + encodeURIComponent(keep) : "") + (v ? "&v=" + encodeURIComponent(v) : ""); h = readHash();
+      }
+      const relayUrl = h.get("r") || "";
+
+      // ── this page's own κ (Law L5 self-verification) ────────────────────────────
+      let selfKappa = "";
+      (async () => { try {
+        const buf = new Uint8Array(await (await fetch(location.pathname, { cache: "no-store" })).arrayBuffer());
+        selfKappa = "sha256:" + Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)), (b) => b.toString(16).padStart(2, "0")).join("");
+        $("kaddr").textContent = "holo://" + selfKappa.slice(0, 18) + "…"; $("kaddr").title = "holo://" + selfKappa + " this page re-derives to its content hash (Law L5)";
+        $("ver").textContent = "✓ κ"; $("ver").classList.add("ok");
+      } catch {} })();
+
+      // ── identity (persisted locally) ────────────────────────────────────────────
+      const USER_KEY = "holo-git-user";
+      const loadUser = () => { try { return JSON.parse(localStorage.getItem(USER_KEY)) || {}; } catch { return {}; } };
+      const saveUser = (u) => { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} };
+      let user = loadUser();
+      if (!user.login) user.login = "user-" + Math.random().toString(16).slice(2, 6);
+      if (!user.full_name) user.full_name = "";
+      if (!user.color) user.color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+      if (!user.email) user.email = user.login + "@holo";
+
+      // ── backend (native serverless by default; switchable to a live Gitea) ──────
+      let gt = null, session = null, store = null, algo = "sha256";
+      const SRV_KEY = "holo-git-server";
+
+      class OfflineSync { constructor() { this.ready = Promise.resolve(this); this.cache = new Map(); } async subscribe() {} onAnnounce() { return () => {}; }
+        async announce(t, k, b) { this.cache.set(k, b); } async fetch(k, { verify } = {}) { const b = this.cache.get(k); if (b && verify && !(await verify(k, b))) return null; return b || null; } close() {} }
+
+      async function makeSync() {
+        const s = relayUrl.startsWith("ws") ? new WsKappaSync(relayUrl) : new BrokerKappaSync(DEFAULT_BROKER);
+        const ok = await Promise.race([s.ready.then(() => true).catch(() => false), new Promise((r) => setTimeout(() => r(false), 3500))]);
+        if (!ok) { try { s.close && s.close(); } catch {} toast("offline working locally; everything is content-addressed (holo://κ)"); return new OfflineSync(); }
+        return s;
+      }
+
+      async function gitTopicFor(sec) {
+        const d = await crypto.subtle.digest("SHA-256", te.encode("holo-git/obj/" + sec));
+        return "gitobj:" + Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+      }
+
+      let renderScheduled = false;
+      const scheduleRender = () => { if (renderScheduled) return; renderScheduled = true; requestAnimationFrame(() => { renderScheduled = false; render(); }); };
+
+      async function startNative() {
+        const sync = await makeSync();
+        const { key } = await HoloCollab.deriveRoom(secret);
+        const seal = async (u8) => (await HoloCollab.sealBytes(key, u8)).bytes;
+        const unseal = async (b) => { try { return await HoloCollab.openBytes(key, b); } catch { return null; } };
+        const topic = await gitTopicFor(secret);
+        store = new HoloGit.KStore({ algo, sync, topic, dir: "holo-git", seal, unseal });
+        await sync.subscribe(topic, () => {});            // hear peers' object announces (cached for fetch)
+        session = await HoloCollab.open({
+          secret, sync, kind: "git", name: user.full_name || user.login, color: user.color,
+          onchange: () => scheduleRender(),
+          onpresence: (r) => { renderPeers(r); },
+          onpeer: (id, p) => toast((p.name || "Someone") + " joined the workspace"),
+        });
+        const db = HoloGitea.collabDb(session, () => scheduleRender());
+        gt = HoloGitea.native({ db, store, user, algo, sync, topic });
+        renderPeers(session.roster());
+      }
+      function startServer(url, token) {
+        gt = HoloGitea.server(url, token); session = null;
+        $("peers").innerHTML = `<span class="pill" title="connected to a live Gitea server">🛰 ${esc(new URL(url).host)}</span>`;
+      }
+
+      function renderPeers(roster) {
+        if (!roster) return;
+        $("peers").innerHTML = roster.slice(0, 6).map((r) => `<span class="av" title="${esc(r.name)}${r.you ? " (you)" : ""}" style="background:${esc(r.color || "#888")}">${esc((r.name || "?").slice(0, 1).toUpperCase())}</span>`).join("")
+          + (roster.length > 6 ? `<span class="pill">+${roster.length - 6}</span>` : "");
+      }
+
+      // ── tiny markdown renderer ──────────────────────────────────────────────────
+      const EMOJI = { smile: "😄", heart: "❤️", "+1": "👍", "-1": "👎", tada: "🎉", rocket: "🚀", eyes: "👀", fire: "🔥", bug: "🐛", warning: "⚠️", white_check_mark: "✅", x: "❌", sparkles: "✨", wave: "👋", bulb: "💡", lock: "🔒", zap: "⚡", thumbsup: "👍", thumbsdown: "👎" };
+      // GitHub-Flavored Markdown: task lists, tables, #refs, @mentions, autolinks, emoji, strikethrough.
+      function md(src, ctx) {
+        if (!src) return "";
+        const refLink = (n) => (ctx && ctx.owner ? hashFor(`/${ctx.owner}/${ctx.repo}/issues/${n}`) : "#");
+        const blocks = [];
+        src = String(src).replace(/\`\`\`[^\n]*\n([\s\S]*?)\`\`\`/g, (m, c) => { blocks.push(c.replace(/\n$/, "")); return "\n@@HOLOBLK" + (blocks.length - 1) + "@@\n"; });
+        const inline = (t) => esc(t)
+          .replace(/\`([^\`]+)\`/g, (m, c) => `<code>${c}</code>`)
+          .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>")
+          .replace(/~~([^~]+)~~/g, "<del>$1</del>")
+          .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${t}</a>`)
+          .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (m, p, u) => `${p}<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`)
+          .replace(/(^|\s)#(\d+)\b/g, (m, p, n) => `${p}<a class="ref" href="${refLink(n)}">#${n}</a>`)
+          .replace(/(^|\s)@([A-Za-z0-9_-]+)/g, (m, p, u) => `${p}<a class="mention">@${u}</a>`)
+          .replace(/:([a-z0-9_+-]+):/g, (m, n) => EMOJI[n] || m);
+        let out = ""; const lines = src.replace(/\r/g, "").split("\n"); let i = 0;
+        const blk = (l) => { const bm = l.match(/^@@HOLOBLK(\d+)@@$/); return bm ? `<pre><code>${esc(blocks[+bm[1]])}</code></pre>` : null; };
+        while (i < lines.length) {
+          let l = lines[i]; const b = blk(l.trim());
+          if (b) { out += b; i++; continue; }
+          if (/^\s*$/.test(l)) { i++; continue; }
+          let m;
+          if ((m = l.match(/^(#{1,6})\s+(.*)$/))) { out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; i++; continue; }
+          if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1]) && lines[i + 1].includes("-")) {
+            const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+            const head = cells(l); i += 2; let body = "";
+            while (i < lines.length && /\|/.test(lines[i]) && lines[i].trim()) { body += `<tr>${cells(lines[i]).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`; i++; }
+            out += `<table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`; continue;
+          }
+          if (/^\s*[-*]\s+/.test(l)) {
+            out += "<ul>";
+            while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+              const item = lines[i].replace(/^\s*[-*]\s+/, ""); const tm = item.match(/^\[([ xX])\]\s+(.*)$/);
+              if (tm) out += `<li class="task"><input type="checkbox" disabled ${/[xX]/.test(tm[1]) ? "checked" : ""}> ${inline(tm[2])}</li>`;
+              else out += `<li>${inline(item)}</li>`;
+              i++;
+            }
+            out += "</ul>"; continue;
+          }
+          if (/^\s*\d+\.\s+/.test(l)) { out += "<ol>"; while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { out += `<li>${inline(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`; i++; } out += "</ol>"; continue; }
+          if (/^\s*>/.test(l)) { out += "<blockquote>"; while (i < lines.length && /^\s*>/.test(lines[i])) { out += inline(lines[i].replace(/^\s*>\s?/, "")) + "<br>"; i++; } out += "</blockquote>"; continue; }
+          if (/^\s*(---|\*\*\*|___)\s*$/.test(l)) { out += "<hr>"; i++; continue; }
+          let para = ""; while (i < lines.length && !/^\s*$/.test(lines[i]) && !blk(lines[i].trim()) && !/^(#{1,6}\s|\s*[-*]\s|\s*\d+\.\s|\s*>|\s*\|)/.test(lines[i])) { para += (para ? "\n" : "") + lines[i]; i++; }
+          out += `<p>${inline(para).replace(/\n/g, "<br>")}</p>`;
+        }
+        return out;
+      }
+
+      // ── generic syntax highlighter (lean; per-line) ─────────────────────────────
+      const KW = new Set("function return if else for while do switch case break continue var let const new class extends import export from default async await yield try catch finally throw typeof instanceof in of this super null true false void delete package public private protected static final void int long float double bool boolean string char struct enum interface type fn impl pub use mod match move ref where def elif lambda pass raise with as global nonlocal print echo func go defer chan select map range".split(/\s+/));
+      function hl(code) {
+        const re = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|#[^\n]*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(\b\d[\d_.eExXa-fA-F]*\b)|([A-Za-z_$][A-Za-z0-9_$]*)/g;
+        let out = "", last = 0, m;
+        while ((m = re.exec(code))) {
+          out += esc(code.slice(last, m.index));
+          if (m[1]) out += `<span class="tk-c">${esc(m[1])}</span>`;
+          else if (m[2]) out += `<span class="tk-s">${esc(m[2])}</span>`;
+          else if (m[3]) out += `<span class="tk-n">${esc(m[3])}</span>`;
+          else if (m[4]) out += KW.has(m[4]) ? `<span class="tk-k">${esc(m[4])}</span>` : esc(m[4]);
+          last = re.lastIndex;
+        }
+        out += esc(code.slice(last)); return out;
+      }
+      function codeHtml(text) {
+        const lines = text.split("\n"); if (lines[lines.length - 1] === "") lines.pop();
+        return `<div class="code">${lines.map((l, i) => `<div class="row" id="Lrow${i + 1}"><a class="ln" id="L${i + 1}" data-l="${i + 1}">${i + 1}</a><span class="lc">${hl(l) || "&nbsp;"}</span></div>`).join("")}</div>`;
+      }
+      function diffHtml(patch) {
+        if (!patch || !patch.hunks || !patch.hunks.length) return `<div class="dl"><span class="g"></span><span class="t muted">  (no textual changes)</span></div>`;
+        let out = "";
+        for (const hk of patch.hunks) {
+          out += `<div class="dl hunk"><span class="g"></span><span class="t">@@ -${hk.aStart},${hk.aCount} +${hk.bStart},${hk.bCount} @@</span></div>`;
+          let a = hk.aStart, b = hk.bStart;
+          for (const ln of hk.lines) {
+            if (ln.t === " ") { out += `<div class="dl"><span class="g">${a} ${b}</span><span class="t"> ${esc(ln.line)}</span></div>`; a++; b++; }
+            else if (ln.t === "-") { out += `<div class="dl del"><span class="g">${a} </span><span class="t">-${esc(ln.line)}</span></div>`; a++; }
+            else { out += `<div class="dl add"><span class="g"> ${b}</span><span class="t">+${esc(ln.line)}</span></div>`; b++; }
+          }
+        }
+        return out;
+      }
+
+      // ── helpers ─────────────────────────────────────────────────────────────────
+      const fmtWhen = (iso) => { const d = new Date(iso); const s = (Date.now() - d) / 1000; if (s < 60) return "just now"; if (s < 3600) return ((s / 60) | 0) + "m ago"; if (s < 86400) return ((s / 3600) | 0) + "h ago"; if (s < 2592000) return ((s / 86400) | 0) + "d ago"; return d.toLocaleDateString(); };
+      const short = (sha) => (sha || "").slice(0, 7);
+      const avatar = (u) => `<span class="av" style="background:${esc((u && u.color) || PALETTE[(((u && u.login) || "x").charCodeAt(0)) % PALETTE.length])}" title="${esc((u && (u.full_name || u.login)) || "")}">${esc(((u && (u.full_name || u.login)) || "?").slice(0, 1).toUpperCase())}</span>`;
+      const iconFor = (e) => e.type === "dir" || e.type === "tree" ? "📁" : "📄";
+      const fileLang = (p) => (p.split(".").pop() || "").toLowerCase();
+      const isImg = (p) => /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(p);
+      const isMd = (p) => /\.(md|markdown)$/i.test(p);
+
+      // ── routing (fragment param v=/owner/repo/section/...) ──────────────────────
+      const nav = (path) => { const hh = readHash(); hh.set("v", path); hh.delete("L"); location.hash = hh.toString(); };
+      const hashFor = (path) => { const hh = readHash(); hh.set("v", path); hh.delete("L"); return "#" + hh.toString(); };
+      function curRoute() { const v = readHash().get("v") || "/"; const segs = v.split("/").filter(Boolean).map(decodeURIComponent); return { v, segs }; }
+      window.addEventListener("hashchange", () => render());
+
+      // ── render router ─────────────────────────────────────────────────────────
+      async function render() {
+        if (!gt) return;
+        try {
+          const { segs } = curRoute();
+          if (segs.length === 0) return renderDashboard();
+          const [owner, repo, section, ...rest] = segs;
+          if (!repo) return renderDashboard();
+          if (!section || section === "code") return renderCode(owner, repo, rest);
+          if (section === "commits") return renderCommits(owner, repo, rest);
+          if (section === "commit") return renderCommit(owner, repo, rest[0]);
+          if (section === "history") return renderFileHistory(owner, repo, rest);
+          if (section === "branches") return renderBranches(owner, repo);
+          if (section === "tags") return renderTags(owner, repo);
+          if (section === "issues") return rest.length ? renderIssue(owner, repo, rest[0]) : renderIssues(owner, repo);
+          if (section === "pulls") return rest.length ? renderPull(owner, repo, rest[0]) : renderPulls(owner, repo);
+          if (section === "releases") return renderReleases(owner, repo);
+          if (section === "settings") return renderSettings(owner, repo);
+          return renderCode(owner, repo, rest);
+        } catch (e) { $("view").innerHTML = `<div class="empty">⚠ ${esc(e.message || e)}</div>`; console.warn(e); }
+      }
+
+      // ── dashboard ───────────────────────────────────────────────────────────────
+      async function renderDashboard() {
+        const q = $("search").value.trim();
+        const repos = q ? await gt.searchRepos(q) : await gt.listRepos();
+        $("view").innerHTML = `
+          <div class="dash-head"><h1 style="margin:0;flex:1 1 auto">Repositories</h1>
+            <button class="tbtn cta" id="dNew">＋ New repository</button></div>
+          ${repos.length ? repos.map((r) => `
+            <div class="repo-card">
+              <div class="title"><span class="logo" style="color:var(--accent)">⎇</span>
+                <a data-open="${esc(r.full_name)}">${esc(r.full_name)}</a>
+                <span class="pill ${r.private ? "priv" : ""}">${r.private ? "Private" : "Public"}</span>
+                <span class="pill">${esc(r.object_format_name)}</span></div>
+              <div class="desc">${esc(r.description) || '<span class="muted">No description</span>'}</div>
+              <div class="meta"><span>⭐ ${r.stars_count}</span><span>⎇ ${r.default_branch}</span>
+                <span>● ${r.open_issues_count} issues</span><span>⇄ ${r.open_pr_counter} PRs</span>
+                <span>updated ${fmtWhen(r.updated_at)}</span></div>
+            </div>`).join("") : `<div class="empty">No repositories yet.<br><br><button class="tbtn cta" id="dNew2">Create your first repository</button></div>`}`;
+        if (!q && repos.length) {
+          const acts = [];
+          for (const r of repos) {
+            const [o, n] = r.full_name.split("/");
+            for (const i of await gt.listIssues(o, n, { state: "all", sort: "recentupdate" })) acts.push({ t: i.state === "closed" ? "closed issue" : "opened issue", ts: i.updated_at, who: i.user, title: i.title, link: `/${o}/${n}/issues/${i.number}`, repo: r.full_name, num: i.number });
+            for (const p of await gt.listPulls(o, n, { state: "all" })) acts.push({ t: p.merged ? "merged PR" : p.state === "closed" ? "closed PR" : "opened PR", ts: p.updated_at, who: p.user, title: p.title, link: `/${o}/${n}/pulls/${p.number}`, repo: r.full_name, num: p.number });
+          }
+          acts.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+          if (acts.length) $("view").insertAdjacentHTML("beforeend", `<h3 style="margin:1.4rem 0 .4rem">Recent activity</h3>` + acts.slice(0, 10).map((a) => `<div class="listrow"><div class="body" style="flex:1 1 auto"><div class="small"><b>${esc((a.who && a.who.login) || "")}</b> ${esc(a.t)} <a data-act="${esc(a.link)}">${esc(a.repo)}#${a.num}</a></div><div class="small muted">${esc(a.title)} · ${fmtWhen(a.ts)}</div></div></div>`).join(""));
+          $("view").querySelectorAll("[data-act]").forEach((a) => a.onclick = () => nav(a.dataset.act));
+        }
+        $("view").querySelectorAll("[data-open]").forEach((a) => a.onclick = () => nav("/" + a.dataset.open));
+        ["dNew", "dNew2"].forEach((id) => { const b = $(id); if (b) b.onclick = openNew; });
+      }
+
+      // ── repo shell (header + tabs) ───────────────────────────────────────────────
+      async function repoShell(owner, repo, active) {
+        const r = await gt.getRepo(owner, repo);
+        if (!r) { $("view").innerHTML = `<div class="empty">Repository not found.</div>`; return null; }
+        const cloneUrl = `holo://${r.full_name}`;
+        const head = `
+          <div class="repohead">
+            <span class="path"><a data-home>${esc(owner)}</a> / <b><a data-tab="code">${esc(repo)}</a></b></span>
+            <span class="pill ${r.private ? "priv" : ""}">${r.private ? "Private" : "Public"}</span>
+            ${r.fork ? `<span class="pill">fork</span>` : ""}<span class="pill">${esc(r.object_format_name)}</span>
+            <span class="sp" style="margin-left:auto"></span>
+            <button class="tbtn ghost" id="watchBtn" title="watch">👁 ${r.watching ? "Unwatch" : "Watch"} <span class="count">${r.watchers_count || 0}</span></button>
+            <button class="tbtn ghost" id="starBtn">${r.starred ? "★" : "☆"} ${r.starred ? "Starred" : "Star"} <span class="count">${r.stars_count}</span></button>
+            <button class="tbtn ghost" id="forkBtn" title="fork">⑂ Fork <span class="count">${r.forks_count || 0}</span></button>
+          </div>
+          <div class="tabs">
+            ${tab("code", "‹›", "Code", active)}
+            ${tab("commits", "◷", "Commits", active)}
+            ${tab("branches", "⎇", "Branches", active)}
+            ${tab("issues", "◉", "Issues", active, r.open_issues_count)}
+            ${tab("pulls", "⇄", "Pull requests", active, r.open_pr_counter)}
+            ${tab("releases", "🏷", "Releases", active)}
+            ${tab("settings", "⚙", "Settings", active)}
+          </div>`;
+        return { r, head, cloneUrl };
+      }
+      const tab = (id, ic, label, active, count) => `<span class="tab ${active === id ? "on" : ""}" data-tab="${id}"><span>${ic}</span> ${label}${count ? `<span class="count">${count}</span>` : ""}</span>`;
+      function wireShell(owner, repo) {
+        $("view").querySelectorAll("[data-tab]").forEach((t) => t.onclick = () => nav(`/${owner}/${repo}/${t.dataset.tab}`));
+        $("view").querySelectorAll("[data-home]").forEach((a) => a.onclick = () => nav("/"));
+        const sb = $("starBtn"); if (sb) sb.onclick = async () => { const r = await gt.getRepo(owner, repo); await gt.setStar(owner, repo, !r.starred); render(); };
+        const wb = $("watchBtn"); if (wb) wb.onclick = async () => { const r = await gt.getRepo(owner, repo); await gt.setWatch(owner, repo, !r.watching); render(); };
+        const fb = $("forkBtn"); if (fb) fb.onclick = async () => { try { const f = await gt.fork(owner, repo); toast("forked → " + f.full_name); nav("/" + f.full_name); } catch (e) { toast("fork failed: " + (e.message || e)); } };
+      }
+      // language breakdown (Gitea linguist-style) from a recursive tree
+      const LANG_COLORS = { js: "#f1e05a", mjs: "#f1e05a", ts: "#3178c6", tsx: "#3178c6", jsx: "#f1e05a", py: "#3572A5", rs: "#dea584", go: "#00ADD8", c: "#555555", h: "#555555", cpp: "#f34b7d", cc: "#f34b7d", java: "#b07219", rb: "#701516", php: "#4F5D95", html: "#e34c26", css: "#563d7c", scss: "#c6538c", json: "#292929", md: "#083fa1", sh: "#89e051", yml: "#cb171e", yaml: "#cb171e", toml: "#9c4221", sql: "#e38c00", swift: "#F05138", kt: "#A97BFF", vue: "#41b883", lua: "#000080", dockerfile: "#384d54" };
+      const langColor = (ext) => LANG_COLORS[ext] || "#8b949e";
+      async function langBar(owner, repo, branch) {
+        try {
+          const tip = await gt.resolveRef(owner, repo, branch); if (!tip) return "";
+          const tree = await gt.getTree(owner, repo, tip, { recursive: true });
+          const counts = {}; let total = 0;
+          for (const e of tree.tree) { if (e.type !== "blob") continue; const ext = (e.path.split(".").pop() || "other").toLowerCase(); const lang = ext.length <= 5 ? ext : "other"; counts[lang] = (counts[lang] || 0) + 1; total++; }
+          if (!total) return "";
+          const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+          const bar = top.map(([l, n]) => `<i style="width:${(100 * n / total).toFixed(1)}%;background:${langColor(l)}"></i>`).join("");
+          const legend = top.map(([l, n]) => `<span><span class="dot" style="background:${langColor(l)}"></span>${esc(l)} ${(100 * n / total).toFixed(0)}%</span>`).join("");
+          return `<div class="langbar">${bar}</div><div class="langlegend">${legend}</div>`;
+        } catch { return ""; }
+      }
+
+      // ── code browser ─────────────────────────────────────────────────────────────
+      async function renderCode(owner, repo, rest) {
+        const sh = await repoShell(owner, repo, "code"); if (!sh) return;
+        const { r, cloneUrl } = sh;
+        let branch = r.default_branch, path = "";
+        if (rest.length) { branch = rest[0]; path = rest.slice(1).join("/"); }
+        const branches = await gt.listBranches(owner, repo);
+        if (!branches.length) {
+          $("view").innerHTML = sh.head + emptyRepo(owner, repo, cloneUrl);
+          wireShell(owner, repo); wireEmptyRepo(owner, repo, branch); return;
+        }
+        const tags = await gt.listTags(owner, repo);
+        const node = await gt.getContents(owner, repo, path, { ref: branch });
+        const isDir = Array.isArray(node);
+        const branchSel = `<select class="branch" id="branchSel">${branches.map((b) => `<option ${b.name === branch ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>`;
+        const crumb = crumbHtml(owner, repo, branch, path);
+        let bodyHtml;
+        if (isDir) {
+          const commits = await gt.listCommits(owner, repo, { sha: branch, limit: 1 });
+          const last = commits[0];
+          const total = (await gt.listCommits(owner, repo, { sha: branch, limit: 1000 })).length;
+          const dirs = node.filter((e) => e.type === "dir").sort((a, b) => a.name < b.name ? -1 : 1);
+          const files = node.filter((e) => e.type !== "dir").sort((a, b) => a.name < b.name ? -1 : 1);
+          const rows = [...dirs, ...files];
+          bodyHtml = (path ? "" : await langBar(owner, repo, branch)) + `
+            <table class="filetable">
+              ${last ? `<tr><td colspan="3"><div class="lastcommit">${avatar(last.author)} <a class="mono" data-commit="${esc(last.sha)}">${short(last.sha)}</a> <span style="color:var(--ink2)">${esc((last.commit.message || "").split("\n")[0])}</span> <span class="sp" style="margin-left:auto"></span><a data-tab="commits">${total} commit${total !== 1 ? "s" : ""}</a> · ${fmtWhen(last.commit.committer ? last.commit.committer.date : last.commit.author && last.commit.author.date)}</div></td></tr>` : ""}
+              ${path ? `<tr class="frow"><td colspan="3"><span class="nm"><span class="ic">📁</span><a data-go="${esc(parentPath(path))}">..</a></span></td></tr>` : ""}
+              ${rows.map((e) => `<tr class="frow"><td><span class="nm"><span class="ic">${iconFor(e)}</span><a data-${e.type === "dir" ? "go" : "file"}="${esc(e.path)}">${esc(e.name)}</a></span></td><td class="cm"></td><td class="tm"></td></tr>`).join("")}
+            </table>`;
+          const readme = node.find((e) => /^readme(\.md|\.markdown|\.txt)?$/i.test(e.name) && e.type !== "dir");
+          if (readme) { const rc = await gt.getContents(owner, repo, readme.path, { ref: branch }); if (rc && rc.content) bodyHtml += `<div class="fileview" style="margin-top:1rem"><div class="fhead">📖 <b>${esc(readme.name)}</b></div><div class="md">${md(td.decode(HoloGitea.b64decode(rc.content)), { owner, repo })}</div></div>`; }
+        } else if (node && node.type === "file") {
+          const bytes = HoloGitea.b64decode(node.content); const text = td.decode(bytes);
+          let inner;
+          if (isImg(path)) inner = `<div style="padding:1rem;text-align:center"><img style="max-width:100%" src="data:image/${fileLang(path)};base64,${node.content}"></div>`;
+          else if (isMd(path)) inner = `<div class="md">${md(text, { owner, repo })}</div>`;
+          else inner = codeHtml(text);
+          const lc = text.split("\n").length;
+          bodyHtml = `<div class="fileview"><div class="fhead"><b>${esc(path.split("/").pop())}</b> <span class="muted small">${lc} lines · ${node.size} bytes · ${short(node.sha)}</span><span class="sp"></span>
+            <button class="tbtn ghost" id="histFile">◷ History</button><button class="tbtn ghost" id="rawFile">Raw</button><button class="tbtn ghost" id="permaFile" title="copy permalink">🔗</button><button class="tbtn ghost" id="editFile">✎ Edit</button></div>${inner}</div>`;
+        } else { bodyHtml = `<div class="empty">Not found on <b>${esc(branch)}</b>.</div>`; }
+
+        $("view").innerHTML = sh.head + `
+          <div class="codebar">${branchSel}<span class="crumb">${crumb}</span>
+            <span class="muted small" style="margin-left:8px"><a data-tab="branches">${branches.length} branch${branches.length !== 1 ? "es" : ""}</a> · <a data-tab="tags">${tags.length} tag${tags.length !== 1 ? "s" : ""}</a></span>
+            <span class="clonebox" style="margin-left:auto">
+              <button class="tbtn ghost" id="gotoFile">Go to file</button>
+              <span class="menu"><button class="tbtn ghost" id="addBtn">＋ ▾</button><div class="pop hidden" id="addPop"><a class="item" id="popNewFile">New file</a><a class="item" id="popGoto">Go to file</a></div></span>
+              <span class="menu"><button class="tbtn cta" id="cloneBtn">Code ▾</button><div class="pop hidden" id="clonePop">
+                <div class="muted small" style="margin-bottom:4px">Content address (clone by κ over the workspace relay)</div>
+                <input class="mono" id="cloneHolo" readonly value="holo://${esc(r.full_name)}" />
+                <div style="height:6px"></div><input class="mono" id="cloneGit" readonly value="holo://${esc(r.full_name)}.git" />
+                <div class="muted small" style="margin-top:6px">Peers fetch the reachable objects by κ and re-derive them (Law L5).</div>
+              </div></span>
+            </span>
+          </div>${bodyHtml}`;
+        wireShell(owner, repo);
+        $("branchSel").onchange = (e) => nav(`/${owner}/${repo}/code/${encodeURIComponent(e.target.value)}`);
+        $("view").querySelectorAll("[data-go]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/code/${encodeURIComponent(branch)}/${a.dataset.go.split("/").map(encodeURIComponent).join("/")}`));
+        $("view").querySelectorAll("[data-file]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/code/${encodeURIComponent(branch)}/${a.dataset.file.split("/").map(encodeURIComponent).join("/")}`));
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+        const dropdown = (btn, pop) => { const b = $(btn), p = $(pop); if (!b) return; b.onclick = (e) => { e.stopPropagation(); p.classList.toggle("hidden"); }; };
+        dropdown("cloneBtn", "clonePop"); dropdown("addBtn", "addPop");
+        document.addEventListener("click", () => { document.querySelectorAll(".pop").forEach((p) => p.classList.add("hidden")); }, { once: true });
+        const ch = $("cloneHolo"); if (ch) ch.onclick = () => { ch.select(); navigator.clipboard.writeText(ch.value); toast("content address copied"); };
+        const cg = $("cloneGit"); if (cg) cg.onclick = () => { cg.select(); navigator.clipboard.writeText(cg.value); toast("clone URL copied"); };
+        const gf = $("gotoFile"); if (gf) gf.onclick = () => openFinder(owner, repo, branch);
+        const pgf = $("popGoto"); if (pgf) pgf.onclick = () => openFinder(owner, repo, branch);
+        const pnf = $("popNewFile"); if (pnf) pnf.onclick = () => openEditor(owner, repo, branch, "", "");
+        const ef = $("editFile"); if (ef) ef.onclick = async () => { const c = await gt.getContents(owner, repo, path, { ref: branch }); openEditor(owner, repo, branch, path, td.decode(HoloGitea.b64decode(c.content))); };
+        const hf = $("histFile"); if (hf) hf.onclick = () => nav(`/${owner}/${repo}/history/${encodeURIComponent(branch)}/${path.split("/").map(encodeURIComponent).join("/")}`);
+        const rf = $("rawFile"); if (rf) rf.onclick = async () => { const raw = await gt.getRaw(owner, repo, path, { ref: branch }); const blob = new Blob([raw]); const u = URL.createObjectURL(blob); window.open(u, "_blank"); setTimeout(() => URL.revokeObjectURL(u), 10000); };
+        const pf = $("permaFile"); if (pf) pf.onclick = async () => { const tip = await gt.resolveRef(owner, repo, branch); navigator.clipboard.writeText(location.origin + location.pathname + hashFor(`/${owner}/${repo}/code/${tip}/${path}`)); toast("permalink copied (pinned to commit " + short(tip) + ")"); };
+        applyLineHighlight();
+        $("view").querySelectorAll(".code .ln").forEach((ln) => ln.onclick = (e) => toggleLine(+ln.dataset.l, e.shiftKey));
+      }
+      // ── code line anchors + highlight (#L param: "5" or "5-10") ──────────────────
+      function parseL() { const v = readHash().get("L") || ""; const m = v.match(/^(\d+)(?:-(\d+))?$/); if (!m) return null; const a = +m[1], b = m[2] ? +m[2] : a; return [Math.min(a, b), Math.max(a, b)]; }
+      function applyLineHighlight() { const r = parseL(); if (!r) return; for (let n = r[0]; n <= r[1]; n++) { const row = document.getElementById("Lrow" + n); if (row) row.classList.add("hl"); } const first = document.getElementById("L" + r[0]); if (first) first.scrollIntoView({ block: "center" }); }
+      let _lAnchor = null;
+      function toggleLine(n, shift) {
+        const hh = readHash(); let range;
+        if (shift && _lAnchor) range = [Math.min(_lAnchor, n), Math.max(_lAnchor, n)]; else { _lAnchor = n; range = [n, n]; }
+        hh.set("L", range[0] === range[1] ? "" + range[0] : range[0] + "-" + range[1]); location.hash = hh.toString();
+        document.querySelectorAll(".code .row.hl").forEach((r) => r.classList.remove("hl"));
+        for (let i = range[0]; i <= range[1]; i++) { const row = document.getElementById("Lrow" + i); if (row) row.classList.add("hl"); }
+      }
+      // ── Go-to-file finder (fuzzy) ────────────────────────────────────────────────
+      async function openFinder(owner, repo, branch) {
+        const tip = await gt.resolveRef(owner, repo, branch); const tree = await gt.getTree(owner, repo, tip, { recursive: true });
+        const paths = tree.tree.filter((e) => e.type === "blob").map((e) => e.path);
+        $("gTitle").textContent = "Go to file";
+        $("gBody").innerHTML = `<input class="tin mono" id="finderInput" placeholder="Filter files…" autocomplete="off" /><div class="finder-list" id="finderList" style="max-height:50vh;overflow:auto;margin-top:.6rem"></div>`;
+        $("gOk").style.display = "none";
+        const render = () => {
+          const q = $("finderInput").value.toLowerCase(); const fz = (p) => { let i = 0; for (const ch of q) { i = p.toLowerCase().indexOf(ch, i); if (i < 0) return false; i++; } return true; };
+          const hits = (q ? paths.filter(fz) : paths).slice(0, 60);
+          $("finderList").innerHTML = hits.map((p, i) => `<div class="fr ${i === 0 ? "sel" : ""}" data-p="${esc(p)}">${esc(p)}</div>`).join("") || `<div class="muted small">no match</div>`;
+          $("finderList").querySelectorAll(".fr").forEach((r) => r.onclick = () => { $("genericDlg").classList.add("hidden"); $("gOk").style.display = ""; nav(`/${owner}/${repo}/code/${encodeURIComponent(branch)}/${r.dataset.p.split("/").map(encodeURIComponent).join("/")}`); });
+        };
+        showGeneric(() => { $("gOk").style.display = ""; return true; });
+        $("finderInput").oninput = render; render(); setTimeout(() => $("finderInput").focus(), 50);
+        $("finderInput").onkeydown = (e) => { if (e.key === "Enter") { const first = $("finderList").querySelector(".fr"); if (first) first.click(); } };
+      }
+      const parentPath = (p) => p.split("/").slice(0, -1).join("/");
+      function crumbHtml(owner, repo, branch, path) {
+        const segs = path ? path.split("/") : []; let acc = "";
+        let out = `<a data-go="">${esc(repo)}</a>`;
+        segs.forEach((s, i) => { acc += (acc ? "/" : "") + s; out += ` / ${i === segs.length - 1 ? `<b>${esc(s)}</b>` : `<a data-go="${esc(acc)}">${esc(s)}</a>`}`; });
+        return out;
+      }
+      function emptyRepo(owner, repo, cloneUrl) {
+        return `<div class="fileview"><div class="fhead">Quick setup this repository is empty</div><div style="padding:1rem">
+          <p class="muted">Content address: <span class="mono">${esc(cloneUrl)}</span></p>
+          <button class="tbtn cta" id="erAdd">＋ Create a file</button></div></div>`;
+      }
+      function wireEmptyRepo(owner, repo, branch) { const b = $("erAdd"); if (b) b.onclick = () => openEditor(owner, repo, branch || "main", "README.md", `# ${repo}\n`); }
+
+      // ── branches view ─────────────────────────────────────────────────────────────
+      async function renderBranches(owner, repo) {
+        const sh = await repoShell(owner, repo, "branches"); if (!sh) return; const def = sh.r.default_branch;
+        const branches = await gt.listBranches(owner, repo);
+        const rows = branches.map((b) => {
+          return `<div class="listrow"><span class="st">⎇</span><div class="body" style="flex:1 1 auto">
+            <a class="mono" data-go="${esc(b.name)}" style="color:var(--ink);font-weight:600">${esc(b.name)}</a> ${b.name === def ? '<span class="pill">default</span>' : ""}
+            <div class="small muted">${esc((b.commit.message || "").split("\n")[0])} · <a class="mono" data-commit="${esc(b.commit.id)}">${short(b.commit.id)}</a></div></div>
+            ${b.name !== def ? `<button class="tbtn ghost" data-newpr="${esc(b.name)}">New PR</button><button class="tbtn danger" data-delbranch="${esc(b.name)}">🗑</button>` : ""}</div>`;
+        });
+        $("view").innerHTML = sh.head + `<div class="codebar"><h3 style="margin:0;flex:1 1 auto">Branches</h3><button class="tbtn cta" id="newBranch">＋ New branch</button></div>${rows.join("")}`;
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-go]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/code/${encodeURIComponent(a.dataset.go)}`));
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+        $("view").querySelectorAll("[data-newpr]").forEach((b) => b.onclick = () => openNewPull(owner, repo, b.dataset.newpr));
+        $("view").querySelectorAll("[data-delbranch]").forEach((b) => b.onclick = async () => { if (!confirm("Delete branch " + b.dataset.delbranch + "?")) return; await gt.deleteBranch(owner, repo, b.dataset.delbranch); toast("deleted " + b.dataset.delbranch); render(); });
+        $("newBranch").onclick = () => {
+          $("gTitle").textContent = "New branch"; $("gBody").innerHTML = `<div class="field"><label>Branch name</label><input class="tin mono" id="bName" /></div><div class="field"><label>From</label><select class="branch" id="bFrom" style="width:100%">${branches.map((b) => `<option ${b.name === def ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></div>`;
+          $("gOk").textContent = "Create branch"; showGeneric(async () => { const n = $("bName").value.trim(); if (!n) { toast("name required"); return false; } await gt.createBranch(owner, repo, n, $("bFrom").value); toast("created " + n); render(); return true; });
+        };
+      }
+      // ── tags view ─────────────────────────────────────────────────────────────────
+      async function renderTags(owner, repo) {
+        const sh = await repoShell(owner, repo, "code"); if (!sh) return;
+        const tags = await gt.listTags(owner, repo);
+        $("view").innerHTML = sh.head + `<div class="codebar"><h3 style="margin:0;flex:1 1 auto">Tags</h3><button class="tbtn cta" id="newTag">＋ New tag</button></div>` +
+          (tags.length ? tags.map((t) => `<div class="listrow"><span class="st">🏷</span><div class="body" style="flex:1 1 auto"><b class="mono">${esc(t.name)}</b> <div class="small muted"><a class="mono" data-commit="${esc(t.commit.sha)}">${short(t.commit.sha)}</a></div></div><a class="tbtn ghost" data-zip="${esc(t.name)}">Download (κ)</a></div>`).join("") : `<div class="empty">No tags yet.</div>`);
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+        $("view").querySelectorAll("[data-zip]").forEach((a) => a.onclick = () => toast("content address: holo://" + owner + "/" + repo + "@" + a.dataset.zip));
+        $("newTag").onclick = async () => {
+          const branches = await gt.listBranches(owner, repo);
+          $("gTitle").textContent = "New tag"; $("gBody").innerHTML = `<div class="field"><label>Tag</label><input class="tin mono" id="tName" placeholder="v1.0.0" /></div><div class="field"><label>Target</label><select class="branch" id="tTarget" style="width:100%">${branches.map((b) => `<option>${esc(b.name)}</option>`).join("")}</select></div><div class="field"><label>Message (annotated tag, optional)</label><input class="tin" id="tMsg" /></div>`;
+          $("gOk").textContent = "Create tag"; showGeneric(async () => { const n = $("tName").value.trim(); if (!n) { toast("tag required"); return false; } await gt.createTag(owner, repo, n, $("tTarget").value, $("tMsg").value || null); toast("tagged " + n); render(); return true; });
+        };
+      }
+      // ── file history ────────────────────────────────────────────────────────────────
+      async function renderFileHistory(owner, repo, rest) {
+        const sh = await repoShell(owner, repo, "commits"); if (!sh) return;
+        const branch = rest[0] || sh.r.default_branch; const path = rest.slice(1).join("/");
+        const commits = await gt.fileHistory(owner, repo, path, { ref: branch });
+        $("view").innerHTML = sh.head + `<h3 style="margin:.2rem 0 .6rem">History of <a class="mono" data-file>${esc(path)}</a> <span class="muted">on ${esc(branch)}</span></h3>` +
+          (commits.length ? commits.map((c) => `<div class="commitrow">${avatar(c.author)}<div class="body"><div class="msg"><a data-commit="${esc(c.sha)}">${esc((c.commit.message || "").split("\n")[0])}</a></div><div class="small muted">${esc((c.commit.author && c.commit.author.name) || "")} · ${fmtWhen(c.commit.committer ? c.commit.committer.date : c.commit.author && c.commit.author.date)}</div></div><a class="sha mono tbtn ghost" data-commit="${esc(c.sha)}">${short(c.sha)}</a></div>`).join("") : `<div class="empty">No history.</div>`);
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-file]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/code/${encodeURIComponent(branch)}/${path.split("/").map(encodeURIComponent).join("/")}`));
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+      }
+
+      // ── inline file editor → a real commit ──────────────────────────────────────
+      function openEditor(owner, repo, branch, path, content) {
+        $("gTitle").textContent = path ? "Edit " + path : "New file";
+        $("gBody").innerHTML = `
+          <div class="field"><label>Path</label><input class="tin mono" id="edPath" value="${esc(path)}" ${path ? "readonly" : ""} placeholder="path/to/file.ext" /></div>
+          <div class="field"><label>Content</label><textarea class="ta mono" id="edBody" style="min-height:220px">${esc(content)}</textarea></div>
+          <div class="field"><label>Commit message</label><input class="tin" id="edMsg" value="${esc(path ? "Update " + path : "Create file")}" /></div>
+          <div class="field"><label>Branch</label><input class="tin mono" id="edBranch" value="${esc(branch)}" /></div>`;
+        $("gOk").textContent = "Commit changes";
+        showGeneric(async () => {
+          const p = $("edPath").value.trim(); if (!p) { toast("path required"); return false; }
+          await gt.putContents(owner, repo, p, { text: $("edBody").value, message: $("edMsg").value || "Update " + p, branch: $("edBranch").value || branch });
+          toast("committed " + p); nav(`/${owner}/${repo}/code/${encodeURIComponent($("edBranch").value || branch)}/${p.split("/").map(encodeURIComponent).join("/")}`); return true;
+        });
+      }
+
+      // ── commits ──────────────────────────────────────────────────────────────────
+      async function renderCommits(owner, repo, rest) {
+        const sh = await repoShell(owner, repo, "commits"); if (!sh) return;
+        const branch = rest[0] || sh.r.default_branch;
+        const commits = await gt.listCommits(owner, repo, { sha: branch, limit: 100 });
+        $("view").innerHTML = sh.head + `<h3 style="margin:.2rem 0 .6rem">Commits on ${esc(branch)}</h3>` +
+          (commits.length ? commits.map((c) => `
+            <div class="commitrow">${avatar(c.author)}<div class="body">
+              <div class="msg"><a data-commit="${esc(c.sha)}">${esc((c.commit.message || "").split("\n")[0])}</a></div>
+              <div class="small muted">${esc((c.author && c.author.login) || (c.commit.author && c.commit.author.name) || "")} committed ${fmtWhen(c.commit.committer ? c.commit.committer.date : (c.commit.author && c.commit.author.date))}</div>
+            </div><a class="sha mono tbtn ghost" data-commit="${esc(c.sha)}">${short(c.sha)}</a></div>`).join("") : `<div class="empty">No commits.</div>`);
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+      }
+      async function renderCommit(owner, repo, sha) {
+        const sh = await repoShell(owner, repo, "commits"); if (!sh) return;
+        const c = await gt.getCommit(owner, repo, sha); if (!c) { $("view").innerHTML = sh.head + `<div class="empty">Commit not found.</div>`; wireShell(owner, repo); return; }
+        const parent = c.parents && c.parents[0] ? c.parents[0].sha : null;
+        const files = await gt.commitDiff(owner, repo, sha);
+        $("view").innerHTML = sh.head + `
+          <div class="fileview" style="margin-bottom:1rem"><div class="fhead"><b>${esc((c.commit.message || "").split("\n")[0])}</b></div>
+            <div style="padding:.6rem .9rem" class="small muted">${avatar(c.author)} ${esc((c.commit.author && c.commit.author.name) || "")} · <span class="mono">${esc(sha)}</span>${parent ? ` · parent <a class="mono" data-commit="${esc(parent)}">${short(parent)}</a>` : ""}</div>
+            ${c.commit.message.includes("\n") ? `<div class="md" style="padding-top:0">${md(c.commit.message.split("\n").slice(1).join("\n"))}</div>` : ""}</div>
+          ${files.map((f) => fileDiffHtml(f)).join("") || '<div class="muted">No file changes.</div>'}`;
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+      }
+      const fileDiffHtml = (f) => `<div class="diff"><div class="dhead"><b class="mono">${esc(f.filename || f.path)}</b><span class="badd">+${f.additions || (f.patch && f.patch.additions) || 0}</span><span class="bdel">−${f.deletions || (f.patch && f.patch.deletions) || 0}</span><span class="muted">${f.status || ""}</span></div>${diffHtml(f.patch)}</div>`;
+
+      // ── reactions (shared by issues, PRs, comments) ───────────────────────────────
+      const RX = { "+1": "👍", "-1": "👎", laugh: "😄", hooray: "🎉", confused: "😕", heart: "❤️", rocket: "🚀", eyes: "👀" };
+      function reactionsBar(owner, repo, type, id) {
+        const map = gt.reactions ? gt.reactions(owner, repo, type, id) : {}; const me = user.login;
+        const chips = Object.entries(RX).map(([c, e]) => { const arr = map[c] || []; const on = arr.includes(me); return `<span class="reaction ${on ? "on" : arr.length ? "" : "add"}" data-react="${c}" data-rtype="${type}" data-rid="${esc(id)}">${e}${arr.length ? " " + arr.length : ""}</span>`; }).join("");
+        return `<div class="reactions">${chips}</div>`;
+      }
+      function wireReactions(owner, repo) {
+        $("view").querySelectorAll("[data-react]").forEach((el) => el.onclick = async () => { await gt.react(owner, repo, el.dataset.rtype, el.dataset.rid, el.dataset.react); render(); });
+      }
+      const commentCard = (owner, repo, c, kind) => `<div class="comment"><div class="chead">${avatar(c.user)} <b>${esc((c.user && (c.user.full_name || c.user.login)) || "anon")}</b> commented ${fmtWhen(c.created_at)}</div><div class="cbody md">${md(c.body || "_No description_", { owner, repo })}</div>${c.id ? reactionsBar(owner, repo, kind || "comment", c.id) : ""}</div>`;
+      const labelChip = (l) => `<span class="lblchip" style="background:${esc(l.color)}33;color:${esc(l.color)};border:1px solid ${esc(l.color)}77">${esc(l.name)}</span>`;
+
+      // ── issues ───────────────────────────────────────────────────────────────────
+      async function renderIssues(owner, repo) {
+        const sh = await repoShell(owner, repo, "issues"); if (!sh) return;
+        const hh = readHash(); const state = hh.get("st") || "open"; const sort = hh.get("sort") || "newest"; const lbl = hh.get("lbl") || "";
+        const labels = await gt.listLabels(owner, repo);
+        const issues = await gt.listIssues(owner, repo, { state, sort, labels: lbl ? [lbl] : null });
+        $("view").innerHTML = sh.head + `
+          <div class="codebar">
+            <button class="tbtn ${state === "open" ? "cta" : "ghost"}" data-st="open">◉ Open</button><button class="tbtn ${state === "closed" ? "cta" : "ghost"}" data-st="closed">✓ Closed</button>
+            <select class="branch" id="lblFilter" title="filter by label"><option value="">All labels</option>${labels.map((l) => `<option value="${esc(l.name)}" ${lbl === l.name ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select>
+            <select class="branch" id="sortSel" title="sort"><option value="newest" ${sort === "newest" ? "selected" : ""}>Newest</option><option value="oldest" ${sort === "oldest" ? "selected" : ""}>Oldest</option><option value="mostcomment" ${sort === "mostcomment" ? "selected" : ""}>Most commented</option><option value="recentupdate" ${sort === "recentupdate" ? "selected" : ""}>Recently updated</option></select>
+            <span class="sp" style="margin-left:auto"></span><button class="tbtn ghost" id="mgLabels">🏷 Labels</button><button class="tbtn cta" id="newIssue">＋ New issue</button></div>
+          ${issues.length ? issues.map((i) => issueRow(owner, repo, i, "issues")).join("") : `<div class="empty">No ${esc(state)} issues.</div>`}`;
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-st]").forEach((b) => b.onclick = () => { const h = readHash(); h.set("st", b.dataset.st); location.hash = h.toString(); });
+        $("lblFilter").onchange = (e) => { const h = readHash(); e.target.value ? h.set("lbl", e.target.value) : h.delete("lbl"); location.hash = h.toString(); };
+        $("sortSel").onchange = (e) => { const h = readHash(); h.set("sort", e.target.value); location.hash = h.toString(); };
+        $("view").querySelectorAll("[data-issue]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/issues/${a.dataset.issue}`));
+        $("newIssue").onclick = () => openNewIssue(owner, repo);
+        $("mgLabels").onclick = () => openLabelManager(owner, repo);
+      }
+      const stateIcon = (i) => i.merged ? '<span class="state-ic s-merged">⇄</span>' : i.state === "closed" ? '<span class="state-ic s-closed">✓</span>' : (i.pull_request ? '<span class="state-ic s-open">⇄</span>' : '<span class="state-ic s-open">◉</span>');
+      const issueRow = (owner, repo, i, kind) => `
+        <div class="listrow"><span class="st">${stateIcon(i)}</span><div class="body" style="flex:1 1 auto;min-width:0">
+          <div><a data-${kind === "pulls" ? "pull" : "issue"}="${i.number}" style="color:var(--ink);font-weight:600">${esc(i.title)}</a>
+            ${i.draft ? '<span class="pill">draft</span>' : ""}
+            ${(i.labels || []).map(labelChip).join(" ")}</div>
+          <div class="small muted">#${i.number} ${i.state === "closed" ? (i.merged ? "merged" : "closed") : "opened"} ${fmtWhen(i.created_at)} by ${esc((i.user && (i.user.full_name || i.user.login)) || "")}${i.comments ? ` · 💬 ${i.comments}` : ""}</div>
+        </div>${(i.assignees || []).map((a) => avatar(a)).join("")}</div>`;
+      function openNewIssue(owner, repo) {
+        $("gTitle").textContent = "New issue";
+        $("gBody").innerHTML = `<div class="field"><label>Title</label><input class="tin" id="niTitle" placeholder="Title" /></div><div class="field"><label>Description (markdown supports #refs, @mentions, task lists, tables)</label><textarea class="ta" id="niBody" placeholder="Leave a description…"></textarea></div>`;
+        $("gOk").textContent = "Create issue";
+        showGeneric(async () => { const t = $("niTitle").value.trim(); if (!t) { toast("title required"); return false; } const i = await gt.createIssue(owner, repo, { title: t, body: $("niBody").value }); toast("opened #" + i.number); nav(`/${owner}/${repo}/issues/${i.number}`); return true; });
+      }
+      async function openLabelManager(owner, repo) {
+        const labels = await gt.listLabels(owner, repo);
+        $("gTitle").textContent = "Labels";
+        $("gBody").innerHTML = `<div id="lblList">${labels.map((l) => `<div style="display:flex;gap:8px;align-items:center;margin:.3rem 0">${labelChip(l)}<span class="muted small" style="flex:1">${esc(l.description || "")}</span><button class="tbtn danger" data-dellbl="${esc(l.id)}">Delete</button></div>`).join("") || '<p class="muted small">No labels yet.</p>'}<hr style="border-color:var(--line)"><div class="row2"><input class="tin" id="newLblName" placeholder="label name"/><input type="color" id="newLblColor" value="#3fb950"/></div><button class="tbtn cta" id="addLbl" style="margin-top:.5rem">＋ Add label</button>`;
+        $("gOk").style.display = "none";
+        showGeneric(() => { $("gOk").style.display = ""; return true; });
+        $("addLbl").onclick = async () => { const n = $("newLblName").value.trim(); if (!n) return; await gt.createLabel(owner, repo, { name: n, color: $("newLblColor").value }); $("genericDlg").classList.add("hidden"); $("gOk").style.display = ""; openLabelManager(owner, repo); };
+        $("gBody").querySelectorAll("[data-dellbl]").forEach((b) => b.onclick = async () => { await gt.deleteLabel(owner, repo, b.dataset.dellbl); $("genericDlg").classList.add("hidden"); $("gOk").style.display = ""; openLabelManager(owner, repo); });
+      }
+      async function renderIssue(owner, repo, number) {
+        const sh = await repoShell(owner, repo, "issues"); if (!sh) return;
+        const i = await gt.getIssue(owner, repo, number); if (!i) { $("view").innerHTML = sh.head + `<div class="empty">Issue not found.</div>`; wireShell(owner, repo); return; }
+        if (i.pull_request) return nav(`/${owner}/${repo}/pulls/${number}`);   // #N to a PR routes correctly
+        const comments = await gt.listComments(owner, repo, number);
+        const me = user.login; const assigned = (i.assignees || []).some((a) => a.login === me);
+        $("view").innerHTML = sh.head + `
+          <h2 style="margin:.2rem 0" id="issTitle">${esc(i.title)} <span class="muted">#${i.number}</span></h2>
+          <div style="margin-bottom:1rem"><span class="badge ${i.state === "closed" ? "closed" : "open"}">${i.state === "closed" ? "✓ Closed" : "◉ Open"}</span>
+            <span class="muted small"> ${esc((i.user && (i.user.full_name || i.user.login)))} opened this ${fmtWhen(i.created_at)} · ${comments.length} comments</span>
+            <button class="tbtn ghost" id="editIssue" style="float:right">✎ Edit</button></div>
+          <div class="issue-layout"><div class="issue-main">
+            ${commentCard(owner, repo, i, "issue")}
+            ${comments.map((c) => commentCard(owner, repo, c, "comment")).join("")}
+            <div class="comment"><div class="chead">Add a comment</div><div class="cbody">
+              <textarea class="ta" id="cmtBody" placeholder="Leave a comment (markdown)…"></textarea>
+              <div style="display:flex;gap:8px;margin:.6rem 0"><button class="tbtn" id="closeReopen">${i.state === "closed" ? "↻ Reopen" : "✓ Close"} issue</button><span class="sp" style="margin-left:auto"></span><button class="tbtn cta" id="cmtSend">Comment</button></div>
+            </div></div>
+          </div><div class="sidebar">
+            <h4>Labels</h4><div style="margin-bottom:.4rem">${(i.labels || []).map(labelChip).join(" ") || '<span class="muted small">None yet</span>'}</div><button class="tbtn ghost" id="editLabels" style="width:100%">Edit labels</button>
+            <h4 style="margin-top:1rem">Assignees</h4><div style="margin-bottom:.4rem">${(i.assignees || []).map((a) => `${avatar(a)} <span class="small">${esc(a.login)}</span>`).join("<br>") || '<span class="muted small">No one</span>'}</div><button class="tbtn ghost" id="assignSelf" style="width:100%">${assigned ? "Unassign me" : "Assign yourself"}</button>
+          </div></div>`;
+        wireShell(owner, repo); wireReactions(owner, repo);
+        $("cmtSend").onclick = async () => { const b = $("cmtBody").value.trim(); if (!b) return; await gt.createComment(owner, repo, number, b); render(); };
+        $("closeReopen").onclick = async () => { await gt.editIssue(owner, repo, number, { state: i.state === "closed" ? "open" : "closed" }); render(); };
+        $("editIssue").onclick = () => { $("gTitle").textContent = "Edit issue"; $("gBody").innerHTML = `<div class="field"><label>Title</label><input class="tin" id="eiTitle" value="${esc(i.title)}"/></div><div class="field"><label>Description</label><textarea class="ta" id="eiBody">${esc(i.body || "")}</textarea></div>`; $("gOk").textContent = "Save"; showGeneric(async () => { await gt.editIssue(owner, repo, number, { title: $("eiTitle").value.trim() || i.title, body: $("eiBody").value }); render(); return true; }); };
+        $("assignSelf").onclick = async () => { const cur = (i.assignees || []).map((a) => a.login); const next = assigned ? cur.filter((l) => l !== me) : [...cur, me]; await gt.setAssignees(owner, repo, number, next); render(); };
+        $("editLabels").onclick = () => openIssueLabelPicker(owner, repo, number, i.labels || []);
+      }
+      async function openIssueLabelPicker(owner, repo, number, current) {
+        const labels = await gt.listLabels(owner, repo); const cur = new Set(current.map((l) => l.id));
+        $("gTitle").textContent = "Apply labels";
+        $("gBody").innerHTML = labels.length ? labels.map((l) => `<label class="chk" style="display:flex;margin:.35rem 0"><input type="checkbox" data-lbl="${esc(l.id)}" ${cur.has(l.id) ? "checked" : ""}> ${labelChip(l)} <span class="muted small">${esc(l.description || "")}</span></label>`).join("") : '<p class="muted small">No labels create some from the Labels manager first.</p>';
+        $("gOk").textContent = "Apply";
+        showGeneric(async () => { const ids = [...$("gBody").querySelectorAll("[data-lbl]:checked")].map((c) => c.dataset.lbl); await gt.setIssueLabels(owner, repo, number, ids); render(); return true; });
+      }
+
+      // ── pull requests ─────────────────────────────────────────────────────────────
+      async function renderPulls(owner, repo) {
+        const sh = await repoShell(owner, repo, "pulls"); if (!sh) return;
+        const state = (readHash().get("st")) || "open";
+        const pulls = await gt.listPulls(owner, repo, { state });
+        $("view").innerHTML = sh.head + `
+          <div class="codebar"><button class="tbtn ${state === "open" ? "cta" : "ghost"}" data-st="open">⇄ Open</button><button class="tbtn ${state === "closed" ? "cta" : "ghost"}" data-st="closed">✓ Closed</button>
+            <span class="sp" style="margin-left:auto"></span><button class="tbtn cta" id="newPull">＋ New pull request</button></div>
+          ${pulls.length ? pulls.map((p) => issueRow(owner, repo, p, "pulls")).join("") : `<div class="empty">No ${esc(state)} pull requests.</div>`}`;
+        wireShell(owner, repo);
+        $("view").querySelectorAll("[data-st]").forEach((b) => b.onclick = () => { const hh = readHash(); hh.set("st", b.dataset.st); location.hash = hh.toString(); });
+        $("view").querySelectorAll("[data-pull]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/pulls/${a.dataset.pull}`));
+        $("newPull").onclick = () => openNewPull(owner, repo);
+      }
+      async function openNewPull(owner, repo, preHead) {
+        const branches = await gt.listBranches(owner, repo); const def = (await gt.getRepo(owner, repo)).default_branch;
+        $("gTitle").textContent = "New pull request";
+        $("gBody").innerHTML = `
+          <div class="row2"><div class="field"><label>base (merge into)</label><select class="branch" id="pBase" style="width:100%">${branches.map((b) => `<option ${b.name === def ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></div>
+            <div class="field"><label>compare (from)</label><select class="branch" id="pHead" style="width:100%">${branches.map((b) => `<option ${(preHead ? b.name === preHead : b.name !== def) ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></div></div>
+          <div class="field"><label>Title</label><input class="tin" id="pTitle" placeholder="Prefix with WIP: for a draft" /></div>
+          <div class="field"><label>Description</label><textarea class="ta" id="pBody"></textarea></div>`;
+        $("gOk").textContent = "Create pull request";
+        showGeneric(async () => {
+          const base = $("pBase").value, head = $("pHead").value; if (base === head) { toast("base and compare must differ"); return false; }
+          const t = $("pTitle").value.trim() || `Merge ${head} into ${base}`;
+          const p = await gt.createPull(owner, repo, { title: t, body: $("pBody").value, head, base }); toast("opened PR #" + p.number); nav(`/${owner}/${repo}/pulls/${p.number}`); return true;
+        });
+      }
+      const REVIEW_LABEL = { APPROVE: "✓ Approved", APPROVED: "✓ Approved", REQUEST_CHANGES: "✗ Changes requested", COMMENT: "💬 Commented" };
+      async function renderPull(owner, repo, number) {
+        const sh = await repoShell(owner, repo, "pulls"); if (!sh) return;
+        const p = await gt.getPull(owner, repo, number); if (!p) { $("view").innerHTML = sh.head + `<div class="empty">PR not found.</div>`; wireShell(owner, repo); return; }
+        const ptab = readHash().get("pt") || "conversation";
+        const files = await gt.getPullFiles(owner, repo, number);
+        const comments = await gt.listComments(owner, repo, number);
+        const reviews = (await gt.listReviews(owner, repo, number)) || [];
+        const prCommits = ptab === "commits" ? await gt.listPullCommits(owner, repo, number) : [];
+        const badge = p.merged ? `<span class="badge merged">⇄ Merged</span>` : p.state === "closed" ? `<span class="badge closed">Closed</span>` : (p.draft ? `<span class="badge" style="background:#6e7681">Draft</span>` : `<span class="badge open">⇄ Open</span>`);
+        const approvals = reviews.filter((r) => /APPROVE/.test(r.state)).length, changes = reviews.filter((r) => /REQUEST/.test(r.state)).length;
+        const head = `
+          <h2 style="margin:.2rem 0">${esc(p.title)} <span class="muted">#${p.number}</span></h2>
+          <div style="margin-bottom:.6rem">${badge} <span class="muted small">${esc(p.user && (p.user.full_name || p.user.login))} wants to merge <b class="mono">${esc(p.head && p.head.ref)}</b> → <b class="mono">${esc(p.base && p.base.ref)}</b> · ${p.changed_files || files.length} files ${p.additions ? `<span class="badd">+${p.additions}</span>` : ""} ${p.deletions ? `<span class="bdel">−${p.deletions}</span>` : ""}</span></div>
+          <div class="seg-tabs"><span class="st ${ptab === "conversation" ? "on" : ""}" data-pt="conversation">Conversation ${comments.length ? `<span class="count">${comments.length}</span>` : ""}</span><span class="st ${ptab === "commits" ? "on" : ""}" data-pt="commits">Commits</span><span class="st ${ptab === "files" ? "on" : ""}" data-pt="files">Files changed <span class="count">${files.length}</span></span></div>`;
+        let body = "";
+        if (ptab === "files") body = files.map((f) => fileDiffHtml(f)).join("") || '<div class="muted">No changes.</div>';
+        else if (ptab === "commits") body = prCommits.length ? prCommits.map((c) => `<div class="commitrow">${avatar(c.author)}<div class="body"><div class="msg"><a data-commit="${esc(c.sha)}">${esc((c.commit.message || "").split("\n")[0])}</a></div><div class="small muted">${esc((c.commit.author && c.commit.author.name) || "")} · ${fmtWhen(c.commit.committer ? c.commit.committer.date : c.commit.author && c.commit.author.date)}</div></div><a class="sha mono tbtn ghost" data-commit="${esc(c.sha)}">${short(c.sha)}</a></div>`).join("") : '<div class="muted">No commits.</div>';
+        else {
+          const mergeBox = p.merged
+            ? `<div class="mergebox ok"><b class="s-merged">⇄ Merged</b> <span class="muted small">${esc((p.merged_by && p.merged_by.login) || "")} merged ${p.merge_method ? "(" + p.merge_method + ")" : ""} ${fmtWhen(p.merged_at)} · <a class="mono" data-commit="${esc(p.merge_commit_sha)}">${short(p.merge_commit_sha)}</a></span></div>`
+            : p.state === "closed" ? `<div class="mergebox">This pull request is closed.</div>`
+            : p.draft ? `<div class="mergebox bad">🚧 This pull request is a <b>work in progress</b>. Remove <b>WIP:</b> from the title (Edit) to mark it ready.</div>`
+            : `<div class="mergebox ${p.mergeable ? "ok" : "bad"}">
+                <div style="margin-bottom:.5rem">${p.mergeable ? "✓ This branch has no conflicts with the base branch." : "⚠ This branch has conflicts that will be marked with conflict markers."} ${changes ? "· <b class='s-closed'>changes requested</b>" : approvals ? "· <b class='s-merged'>" + approvals + " approval(s)</b>" : ""}</div>
+                <div style="display:flex;gap:8px;align-items:center"><select class="branch" id="mergeMethod"><option value="merge">Create a merge commit</option><option value="squash">Squash and merge</option><option value="rebase">Rebase and merge</option></select>
+                <button class="tbtn cta" id="mergeBtn">⇄ Merge pull request</button>
+                <label class="chk small"><input type="checkbox" id="delHead"> delete branch</label></div></div>`;
+          const reviewBox = `<div class="comment"><div class="chead">Reviews</div><div class="cbody">
+            ${reviews.length ? reviews.map((r) => `<div style="margin:.3rem 0">${avatar(r.user)} <b>${esc(r.user.login)}</b> <span class="review-badge ${esc(r.state)}">${REVIEW_LABEL[r.state] || r.state}</span> ${r.body ? `<span class="muted small"> ${esc(r.body)}</span>` : ""}</div>`).join("") : '<span class="muted small">No reviews yet.</span>'}
+            ${!p.merged && p.state !== "closed" ? `<hr style="border-color:var(--line)"><div class="field"><label>Submit a review</label><textarea class="ta" id="revBody" placeholder="Optional review comment…"></textarea></div>
+              <div style="display:flex;gap:8px"><select class="branch" id="revState"><option value="COMMENT">Comment</option><option value="APPROVE">Approve</option><option value="REQUEST_CHANGES">Request changes</option></select><button class="tbtn cta" id="revSubmit">Submit review</button></div>` : ""}
+          </div></div>`;
+          body = commentCard(owner, repo, p, "issue") + comments.map((c) => commentCard(owner, repo, c, "comment")).join("") + reviewBox + mergeBox
+            + `<div class="comment"><div class="chead">Add a comment</div><div class="cbody"><textarea class="ta" id="prCmt"></textarea><div style="display:flex;margin-top:.5rem"><button class="tbtn" id="prClose">${p.state === "closed" ? "↻ Reopen" : "Close"}</button><span class="sp" style="margin-left:auto"></span><button class="tbtn cta" id="prCmtSend">Comment</button></div></div></div>`;
+        }
+        $("view").innerHTML = sh.head + head + body;
+        wireShell(owner, repo); wireReactions(owner, repo);
+        $("view").querySelectorAll("[data-pt]").forEach((t) => t.onclick = () => { const hh = readHash(); hh.set("pt", t.dataset.pt); location.hash = hh.toString(); });
+        $("view").querySelectorAll("[data-commit]").forEach((a) => a.onclick = () => nav(`/${owner}/${repo}/commit/${a.dataset.commit}`));
+        const mb = $("mergeBtn"); if (mb) mb.onclick = async () => { try { const res = await gt.mergePull(owner, repo, number, { Do: $("mergeMethod").value, delete_branch: $("delHead").checked }); toast(res.conflicts && res.conflicts.length ? `merged (${res.method}) with ${res.conflicts.length} conflict marker(s)` : `merged ✓ (${res.method}) ` + short(res.sha)); render(); } catch (e) { toast("merge failed: " + (e.message || e)); } };
+        const rs = $("revSubmit"); if (rs) rs.onclick = async () => { await gt.createReview(owner, repo, number, { event: $("revState").value, body: $("revBody").value }); toast("review submitted"); render(); };
+        const ps = $("prCmtSend"); if (ps) ps.onclick = async () => { const b = $("prCmt").value.trim(); if (!b) return; await gt.createComment(owner, repo, number, b); render(); };
+        const pc = $("prClose"); if (pc) pc.onclick = async () => { await gt.editIssue(owner, repo, number, { state: p.state === "closed" ? "open" : "closed" }); render(); };
+      }
+
+      // ── releases ──────────────────────────────────────────────────────────────────
+      async function renderReleases(owner, repo) {
+        const sh = await repoShell(owner, repo, "releases"); if (!sh) return;
+        const rels = await gt.listReleases(owner, repo);
+        $("view").innerHTML = sh.head + `<div class="codebar"><h3 style="margin:0;flex:1 1 auto">Releases</h3><button class="tbtn cta" id="newRel">＋ New release</button></div>
+          ${rels.length ? rels.map((r) => `<div class="repo-card"><div class="title">🏷 ${esc(r.name)} <span class="pill mono">${esc(r.tag_name)}</span>${r.prerelease ? '<span class="pill">pre-release</span>' : ""}</div><div class="md">${md(r.body)}</div><div class="meta">${fmtWhen(r.created_at)}</div></div>`).join("") : `<div class="empty">No releases yet.</div>`}`;
+        wireShell(owner, repo);
+        $("newRel").onclick = async () => {
+          const branches = await gt.listBranches(owner, repo);
+          $("gTitle").textContent = "New release";
+          $("gBody").innerHTML = `<div class="row2"><div class="field"><label>Tag</label><input class="tin mono" id="rTag" placeholder="v1.0.0" /></div><div class="field"><label>Target</label><select class="branch" id="rTarget" style="width:100%">${branches.map((b) => `<option>${esc(b.name)}</option>`).join("")}</select></div></div><div class="field"><label>Title</label><input class="tin" id="rName" /></div><div class="field"><label>Notes</label><textarea class="ta" id="rBody"></textarea></div><div class="field"><label class="chk"><input type="checkbox" id="rPre" /> Pre-release</label></div>`;
+          $("gOk").textContent = "Publish release";
+          showGeneric(async () => { const tag = $("rTag").value.trim(); if (!tag) { toast("tag required"); return false; } await gt.createRelease(owner, repo, { tag_name: tag, name: $("rName").value || tag, body: $("rBody").value, target: $("rTarget").value, prerelease: $("rPre").checked }); toast("published " + tag); render(); return true; });
+        };
+      }
+
+      // ── settings ──────────────────────────────────────────────────────────────────
+      async function renderSettings(owner, repo) {
+        const sh = await repoShell(owner, repo, "settings"); if (!sh) return;
+        const r = sh.r;
+        $("view").innerHTML = sh.head + `
+          <div class="fileview"><div class="fhead"><b>Repository</b></div><div style="padding:1rem">
+            <div class="field"><label>Description</label><input class="tin" id="setDesc" value="${esc(r.description)}" /></div>
+            <div class="field"><label>Default branch</label><input class="tin mono" id="setBranch" value="${esc(r.default_branch)}" /></div>
+            <div class="field"><label class="chk"><input type="checkbox" id="setPriv" ${r.private ? "checked" : ""}/> Private</label></div>
+            <button class="tbtn cta" id="setSave">Save</button></div></div>
+          <div class="fileview" style="margin-top:1rem;border-color:#5d1a1a"><div class="fhead" style="color:var(--bad)"><b>Danger zone</b></div><div style="padding:1rem">
+            <p class="muted small">Deleting removes the forge metadata locally; content-addressed objects already shared remain re-derivable by κ.</p>
+            <button class="tbtn danger" id="setDelete">Delete this repository</button></div></div>`;
+        wireShell(owner, repo);
+        $("setSave").onclick = async () => { if (gt.backend !== "native") { toast("read-only for live servers in this view"); return; } const rec = gt.db.get("repos", owner + "/" + repo); rec.description = $("setDesc").value; rec.default_branch = $("setBranch").value; rec.private = $("setPriv").checked; gt.db.put("repos", rec.id, rec); toast("saved"); render(); };
+        $("setDelete").onclick = async () => { if (!confirm("Delete " + owner + "/" + repo + "?")) return; await gt.deleteRepo(owner, repo); toast("deleted"); nav("/"); };
+      }
+
+      // ── dialogs plumbing ─────────────────────────────────────────────────────────
+      let genericOk = null;
+      function showGeneric(onOk) { genericOk = onOk; $("genericDlg").classList.remove("hidden"); }
+      $("gOk").onclick = async () => { if (genericOk) { const r = await genericOk(); if (r === false) return; } $("genericDlg").classList.add("hidden"); genericOk = null; };
+      document.querySelectorAll("[data-close]").forEach((b) => b.onclick = () => b.closest(".overlay").classList.add("hidden"));
+      document.querySelectorAll(".overlay").forEach((o) => o.onclick = (e) => { if (e.target === o) o.classList.add("hidden"); });
+
+      function openNew() { $("newDlg").classList.remove("hidden"); $("nrName").focus(); }
+      $("newBtn").onclick = openNew; $("home").onclick = () => nav("/");
+      $("nrCreate").onclick = async () => {
+        const name = $("nrName").value.trim(); if (!name) { toast("name required"); return; }
+        if (gt.backend !== "native") { try { await gt.createRepo({ name, description: $("nrDesc").value, private: $("nrPriv").checked, auto_init: $("nrInit").checked, default_branch: $("nrBranch").value }); } catch (e) { toast(e.message); return; } }
+        else { algo = $("nrAlgo").value; await gt.createRepo({ name, description: $("nrDesc").value, private: $("nrPriv").checked, auto_init: $("nrInit").checked, default_branch: $("nrBranch").value, algo: $("nrAlgo").value }); }
+        $("newDlg").classList.add("hidden"); toast("created " + name); nav(`/${user.login}/${name}`);
+      };
+      $("nrConnect").onclick = async () => {
+        const url = $("nrSrvUrl").value.trim(); if (!url) { toast("server URL required"); return; }
+        try { startServer(url, $("nrSrvTok").value.trim()); const me = await gt.me(); user = HoloGitea.shapes.userShape(me); localStorage.setItem(SRV_KEY, JSON.stringify({ url, token: $("nrSrvTok").value.trim() })); $("newDlg").classList.add("hidden"); toast("connected to " + url + " as " + user.login); nav("/"); }
+        catch (e) { toast("connect failed: " + (e.message || e)); }
+      };
+
+      // identity
+      $("identityBtn").onclick = () => { $("idName").value = user.full_name; $("idEmail").value = user.email; $("idColor").value = user.color; $("identityDlg").classList.remove("hidden"); };
+      $("idSave").onclick = () => { user.full_name = $("idName").value.trim() || user.login; user.email = $("idEmail").value.trim() || user.email; user.color = $("idColor").value; saveUser(user); if (session) { session.setName(user.full_name); session.setColor(user.color); } $("identityDlg").classList.add("hidden"); toast("identity saved"); render(); };
+
+      // share
+      $("shareBtn").onclick = () => { $("shareUrl").value = location.href; $("shareDlg").classList.remove("hidden"); $("shareUrl").select(); };
+      $("shareCopy").onclick = () => { navigator.clipboard.writeText(location.href); toast("workspace link copied"); };
+
+      // search
+      let searchT; $("search").oninput = () => { clearTimeout(searchT); searchT = setTimeout(() => { const { segs } = curRoute(); if (segs.length === 0) renderDashboard(); }, 150); };
+
+      // ── nestability: a parent holospace can hand us a workspace over postMessage ──
+      window.addEventListener("message", (e) => { const m = e.data; if (!m || m.type !== "holo-git") return; if (m.room && m.room !== secret) { const hh = readHash(); hh.set("k", m.room); location.hash = hh.toString(); location.reload(); } });
+
+      // ── boot ─────────────────────────────────────────────────────────────────────
+      (async () => {
+        const saved = (() => { try { return JSON.parse(localStorage.getItem(SRV_KEY)); } catch { return null; } })();
+        if (saved && saved.url && new URLSearchParams(location.search).get("server") !== "0") {
+          try { startServer(saved.url, saved.token); const me = await gt.me(); user = HoloGitea.shapes.userShape(me); } catch { localStorage.removeItem(SRV_KEY); await startNative(); }
+        } else { await startNative(); }
+        render();
+        try { parent !== window && parent.postMessage({ type: "holo-git-ready", room: secret }, "*"); } catch {}
+        // expose for the witness (mirrors docs' __holoDocs)
+        window.__holoGit = {
+          get gt() { return gt; }, get session() { return session; }, get store() { return store; }, HoloGit, HoloGitea,
+          selftest: () => HoloGit.selftest(),
+          ready: () => !!gt, peerCount: () => (session ? session.peerCount() : 1), myId: () => (session ? session.myId : null),
+          user: () => user, nav,
+        };
+      })();
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,159 @@
+{
+  "id": "org.hologram.HoloJupyter",
+  "name": "Holo Jupyter",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "JupyterLite with a bundled Python (Pyodide) kernel — scientific notebooks, fully in your browser, verified.",
+  "entry": "lab/index.html",
+  "icon": "icon-512x512.png",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "jupyter",
+      "jupyterlite",
+      "pyodide"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloJupyter"
+    ]
+  },
+  "shared": [],
+  "engines": [],
+  "description": [
+    {
+      "p": "Computational notebooks shouldn't need a server, an install, or an account \u2014 just a link."
+    },
+    {
+      "p": "The full JupyterLite distribution runs entirely on your hardware: CPython compiled to WebAssembly (Pyodide) with the scientific stack \u2014 NumPy, SciPy, SymPy, pandas, Matplotlib, scikit-learn \u2014 bundled locally and content-addressed. Ternary, quantum, and geometric experiments are all expressible here."
+    },
+    {
+      "ul": [
+        "Full JupyterLab, Notebook 7, and REPL interfaces",
+        "Python kernel in the browser via Pyodide (WASM)",
+        "NumPy / SciPy / SymPy / pandas / Matplotlib bundled offline",
+        "No server, no install \u2014 100% your hardware",
+        "Notebooks persist in your own browser storage",
+        "Content-addressed and reproducible (Law L5)"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "Education",
+    "Science"
+  ],
+  "keywords": [
+    "jupyter",
+    "jupyterlite",
+    "notebook",
+    "python",
+    "pyodide",
+    "numpy",
+    "scipy",
+    "sympy",
+    "pandas",
+    "matplotlib",
+    "data science",
+    "wasm",
+    "repl",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "BSD-3-Clause",
+  "homepage": "https://hologram.os/apps/jupyter",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "0.7.6",
+      "date": "2026-06-13",
+      "description": "JupyterLite 0.7.6 with the Pyodide 0.29.3 kernel and the scientific stack bundled locally \u2014 Lab, Notebook 7, and REPL, all content-addressed and offline."
+    }
+  ],
+  "accent": "#F37726",
+  "tools": [
+    {
+      "name": "holo_jupyter_run",
+      "description": "Execute Python in the sealed Holo Jupyter environment (Pyodide/WASM: numpy, scipy, pandas, sympy, statsmodels, cvxpy+clarabel, scikit-learn, cirq, backtrader, mplfinance, kingdon, ...). Returns stdout, result, and a kappa-addressed PROV-O receipt (code kappa -> output kappa); deterministic & reproducible (Law L5). For agent copilot and autonomous research.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Python source to execute"
+          },
+          "installs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional bundled packages to make importable (e.g. cirq-core, backtrader, kingdon)"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "handler": {
+        "node": "tools/holo-jupyter-kernel.mjs"
+      }
+    },
+    {
+      "name": "holo_research_run",
+      "description": "Run an AUTONOMOUS research study in the warm Holo Jupyter kernel: a Python `step` is executed repeatedly (state persists across steps) and the loop adaptively continues until a chosen metric crosses a threshold, then SEALS a citable kappa-addressed report linking the whole ordered step chain + conclusion (a reproducible kappa-DAG). The `step` code must set result = json.dumps({...metrics...}); accumulate across steps using persistent variables (set up in `init`). For agent-driven autonomous research.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "goal": {
+            "type": "string",
+            "description": "Plain-language research goal (recorded in the sealed report)"
+          },
+          "init": {
+            "type": "string",
+            "description": "Optional Python run once to set up persistent state (imports, accumulators)"
+          },
+          "step": {
+            "type": "string",
+            "description": "Python for one experiment iteration; must set result = json.dumps({...metrics...}); accumulate via persistent variables"
+          },
+          "metric": {
+            "type": "string",
+            "description": "Key in the step's metrics JSON to watch for the stopping criterion (e.g. stderr)"
+          },
+          "threshold": {
+            "type": "number",
+            "description": "Stop when the metric crosses this value"
+          },
+          "comparator": {
+            "type": "string",
+            "enum": ["<", ">", "<=", ">=", "abs<"],
+            "description": "How to compare metric to threshold (default <)"
+          },
+          "maxSteps": {
+            "type": "number",
+            "description": "Hard cap on iterations (default 25)"
+          },
+          "installs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional bundled packages to make importable (e.g. cirq-core, kingdon)"
+          }
+        },
+        "required": [
+          "step"
+        ]
+      },
+      "handler": {
+        "node": "tools/holo-research-loop.mjs"
+      }
+    }
+  ]
+}

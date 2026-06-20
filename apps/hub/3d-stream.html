@@ -1,0 +1,111 @@
+<!doctype html>
+<!-- 3d-stream.html — Holo Hub Phase 2b (render path): a streamed κ-object MATERIALIZING in 3D. The 4K
+     Big Buck Bunny frame, re-expressed as a κ-addressed point cloud (dev-bbb-cloud), streams chunk by
+     chunk — each chunk re-derives to its DECLARED κ (Law L5) BEFORE its points render, and persists in
+     the OpfsKappaStore. The cloud assembles in WebGL2 as chunks verify ("the render loop is the verify
+     loop"); drag to orbit; cut the origin and it re-materializes from the κ-store. WebGPU was probed
+     and is absent in headless test browsers, so this uses WebGL2 (the Tier-B render path) — it runs
+     everywhere and is witnessable; the WebGPU compute-verify upgrade slots behind the same pipeline. -->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holo Hub — κ-object → 3D</title>
+<style>
+  :root { --bg:#06070a; --panel:#0f131c; --line:#222a39; --ink:#eaeefb; --dim:#8a93a6; --acc:#5b8cff; --ok:#3fb950; --warn:#e3b341; --mono:ui-monospace,Menlo,monospace; }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{background:radial-gradient(1100px 600px at 70% -15%,#11182b,var(--bg) 60%);color:var(--ink);font:15px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px}
+  h1{font-size:1.05rem;font-weight:600;margin:0} h1 small{color:var(--dim);font-weight:400}
+  .stage{position:relative;width:min(960px,96vw);aspect-ratio:16/9;max-height:64vh;background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px -30px #000}
+  canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab} canvas:active{cursor:grabbing}
+  .pill{position:absolute;top:11px;z-index:2;background:#000b;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font:600 .72rem/1 var(--mono);display:flex;align-items:center;gap:7px}
+  .badge{left:11px} .src{right:11px;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)} .badge.ok .dot{background:var(--ok)} .badge.dedup .dot{background:var(--acc)}
+  .hud{position:absolute;left:11px;bottom:11px;right:11px;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
+  .m{background:#0009;border:1px solid var(--line);border-radius:9px;padding:6px 10px;min-width:96px}
+  .m .k{color:var(--dim);font:600 .58rem/1.4 var(--mono);text-transform:uppercase;letter-spacing:.05em}
+  .m .v{font:650 .95rem/1.2 var(--mono);margin-top:2px} .v.ok{color:var(--ok)} .v.acc{color:var(--acc)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  button{font:600 .88rem/1 inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 16px;cursor:pointer}
+  button:hover{border-color:var(--acc)} button.kill{border-color:#46232a;color:#ff9b9b} button.kill.armed{background:#ff5a5a;color:#1a0606}
+</style>
+
+<h1>Holo Hub <small>— a κ-object materializing in 3D · every chunk verified before it renders</small></h1>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="pill badge" id="badge"><span class="dot"></span><span id="bt">verifying…</span></div>
+  <div class="pill src" id="src">source: —</div>
+  <div class="hud">
+    <div class="m"><div class="k">κ-chunks verified</div><div class="v ok" id="mv">0 / 0</div></div>
+    <div class="m"><div class="k">points rendered</div><div class="v acc" id="mp">0</div></div>
+    <div class="m"><div class="k">rendered-before-verify</div><div class="v ok" id="mu">0</div></div>
+    <div class="m"><div class="k">source</div><div class="v" id="ms">origin</div></div>
+  </div>
+</div>
+<div class="row">
+  <button id="btnReplay">↻ Re-stream</button>
+  <button id="btnCut" class="kill">⏻ Cut the origin</button>
+  <span style="color:var(--dim);font:.78rem/2.4 var(--mono)">drag to orbit</span>
+</div>
+
+<script type="module">
+  import { OpfsKappaStore } from "./holo-opfs-kappastore.mjs";
+  const $=(id)=>document.getElementById(id);
+  const ASSET=new URL("./cloud/",location.href).href;
+  const sha256hex=async(u8)=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",u8)),b=>b.toString(16).padStart(2,"0")).join("");
+  const st={store:null,verified:0,total:0,points:0,unverified:0,originBytes:0,originCut:false,source:"origin",frames:0,litPixels:0,started:false};
+  window.__holo={state:()=>({...st})};
+
+  // ── WebGL2 point-cloud renderer ──
+  const cv=$("cv"), gl=cv.getContext("webgl2",{antialias:true,preserveDrawingBuffer:true});
+  function resize(){ const d=Math.min(devicePixelRatio||1,2); cv.width=cv.clientWidth*d; cv.height=cv.clientHeight*d; gl.viewport(0,0,cv.width,cv.height); }
+  const vs=`#version 300 es
+    layout(location=0) in vec3 aPos; layout(location=1) in vec3 aCol; uniform float uA; uniform float uAsp;
+    out vec3 vC; void main(){ float c=cos(uA),s=sin(uA); vec3 p=vec3(aPos.x*c-aPos.z*s,aPos.y,aPos.x*s+aPos.z*c);
+      float z=p.z+2.6; gl_Position=vec4(p.x*1.7/uAsp,p.y*1.7,z*0.12,z); gl_PointSize=max(1.5,260.0/z); vC=aCol; }`;
+  const fs=`#version 300 es
+    precision mediump float; in vec3 vC; out vec4 o; void main(){ vec2 d=gl_PointCoord-0.5; if(dot(d,d)>0.25) discard; o=vec4(vC,1.0); }`;
+  const sh=(t,src)=>{const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);return s;};
+  const prog=gl.createProgram(); gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(prog); gl.useProgram(prog);
+  const uA=gl.getUniformLocation(prog,"uA"), uAsp=gl.getUniformLocation(prog,"uAsp");
+  let COUNT=0, vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+  gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0); gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12); gl.enableVertexAttribArray(1);
+  gl.clearColor(0.02,0.03,0.05,1); gl.enable(gl.DEPTH_TEST);
+  let angle=0, drag=false, lx=0, vel=0.004;
+  cv.addEventListener("pointerdown",e=>{drag=true;lx=e.clientX;cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener("pointermove",e=>{ if(drag){ vel=0; angle+=(e.clientX-lx)*0.01; lx=e.clientX; } });
+  cv.addEventListener("pointerup",()=>{drag=false;vel=0.004;});
+  function frame(){ resize(); angle+=vel; gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    gl.uniform1f(uA,angle); gl.uniform1f(uAsp,cv.width/cv.height); if(st.points>0) gl.drawArrays(gl.POINTS,0,st.points);
+    st.frames++; if(st.frames%20===0 && st.points>0){ const w=Math.min(140,cv.width),h=Math.min(140,cv.height),px=new Uint8Array(w*h*4); gl.readPixels((cv.width-w)>>1,(cv.height-h)>>1,w,h,gl.RGBA,gl.UNSIGNED_BYTE,px); let lit=0; for(let i=0;i<px.length;i+=4) if(px[i]+px[i+1]+px[i+2]>40) lit++; st.litPixels=lit; }
+    requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+
+  // ── stream the κ-chunks: verify → store → upload → it materializes ──
+  async function getChunk(file,hex){
+    if(await st.store.hasKey("sha256",hex)){ st.source="κ-store"; return await st.store.getByKey("sha256",hex); }
+    if(st.originCut) throw new Error("origin cut · not resident");
+    const u8=new Uint8Array(await (await fetch(ASSET+file,{cache:"no-store"})).arrayBuffer()); st.originBytes+=u8.length; st.source="origin"; return u8;
+  }
+  async function run(){
+    if(st.started) return; st.started=true;
+    st.store=await OpfsKappaStore.open("hub-3d");
+    const man=await (await fetch(ASSET+"manifest.json",{cache:"no-store"})).json();
+    st.total=man.chunks.length; $("mv").textContent=`0 / ${st.total}`;
+    gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,man.count*man.stride,gl.DYNAMIC_DRAW);  // preallocate
+    let off=0;
+    for(const ch of man.chunks){
+      const hex=String(ch.kappa).split(":").pop();
+      const u8=await getChunk(ch.file,hex);
+      if(st.source==="origin" && await sha256hex(u8)!==hex){ $("bt").textContent="κ mismatch — refused"; return; }   // verify BEFORE upload
+      await st.store.putVerified("sha256",hex,u8);
+      gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferSubData(gl.ARRAY_BUFFER,off,u8); off+=u8.length;
+      st.points+=ch.points; st.verified++;
+      $("mv").textContent=`${st.verified} / ${st.total}`; $("mp").textContent=st.points.toLocaleString(); $("ms").textContent=st.source; $("src").textContent="source: "+st.source;
+      await new Promise(r=>setTimeout(r,90));   // let each chunk visibly materialize
+    }
+    const dedup=st.originBytes===0;
+    $("badge").className="pill badge "+(dedup?"dedup":"ok"); $("bt").textContent=dedup?"κ-store · dedup":"verified · L5";
+  }
+  $("btnReplay").onclick=()=>location.reload();
+  $("btnCut").onclick=()=>{ st.originCut=!st.originCut; $("btnCut").classList.toggle("armed",st.originCut); $("btnCut").textContent=st.originCut?"⏻ Origin CUT":"⏻ Cut the origin"; };
+  run();
+</script>

@@ -1,0 +1,88 @@
+{
+  "id": "org.hologram.HoloForge",
+  "name": "Holo Forge",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Compile in your browser. Verify every byte. Trust no server.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "holo-forge",
+      "verifiable-compilation",
+      "wasm-core-2.0",
+      "prov-build-receipt",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloForge"
+    ]
+  },
+  "shared": [
+    "holo-theme.js",
+    "holo-mobile.css",
+    "holo-forge/holo-forge.mjs",
+    "holo-forge/holo-forge-resolve.mjs",
+    "holo-forge/holo-kstore.mjs",
+    "holo-forge/registry.uor.json"
+  ],
+  "engines": [],
+  "loader": "forge.html",
+  "description": [
+    {
+      "p": "A build is normally something you're told to trust; it should be something anyone can reproduce and verify."
+    },
+    {
+      "p": "Holo Forge makes the compiler itself a content-addressed object and every build a re-derivable proof Holo-C compiles to spec-valid WebAssembly that re-derives byte-for-byte (Law L5)."
+    },
+    {
+      "ul": [
+        "Real Holo-C → spec-valid WebAssembly",
+        "Deterministic: identical source ⇒ identical bytes",
+        "The compiler is a content-addressed object",
+        "Every build is a re-derivable receipt"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "Utility"
+  ],
+  "keywords": [
+    "compiler",
+    "webassembly",
+    "wasm",
+    "c",
+    "verifiable build",
+    "reproducible build",
+    "content-addressing",
+    "uor",
+    "did:holo",
+    "prov-o",
+    "law-l5",
+    "serverless",
+    "trustless",
+    "supply chain",
+    "provenance"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/forge",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-10",
+      "description": "Verifiable content-addressed compilation (ADR-0051): a real Holo-C → WebAssembly compiler running serverless in the browser, the compiler itself a content-addressed UOR object, and every build a re-derivable κ-transform with a PROV-O receipt sealed to a did:holo. Reproduce any build byte-for-byte with no server; tamper is refused (Law L5). Witnessed (node 18/18)."
+    }
+  ],
+  "accent": "#ff6b3d"
+}

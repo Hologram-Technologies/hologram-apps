@@ -1,0 +1,90 @@
+{
+  "name": "@jupyterlite/p5-kernel-extension",
+  "version": "0.3.0",
+  "description": "JupyterLite - p5.js Kernel Extension",
+  "homepage": "https://github.com/jupyterlite/p5-kernel",
+  "bugs": {
+    "url": "https://github.com/jupyterlite/p5-kernel/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jupyterlite/p5-kernel.git"
+  },
+  "license": "BSD-3-Clause",
+  "author": {
+    "name": "JupyterLite Contributors",
+    "email": ""
+  },
+  "sideEffects": [
+    "style/*.css",
+    "style/index.js"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "style": "style/index.css",
+  "styleModule": "style/index.js",
+  "directories": {
+    "lib": "lib/"
+  },
+  "files": [
+    "lib/*.d.ts",
+    "lib/*.js.map",
+    "lib/*.js",
+    "style/*.css",
+    "style/index.js"
+  ],
+  "scripts": {
+    "build": "jlpm run build:lib && jlpm run build:labextension:dev",
+    "build:labextension": "jupyter labextension build .",
+    "build:labextension:dev": "jupyter labextension build --development True .",
+    "build:lib": "tsc",
+    "build:prod": "jlpm run build:lib && jlpm run build:labextension",
+    "clean": "jlpm run clean:lib && jlpm run clean:labextension",
+    "clean:labextension": "rimraf ../../jupyterlite_p5_kernel/labextension",
+    "clean:lib": "rimraf lib tsconfig.tsbuildinfo",
+    "eslint": "eslint . --ext .ts,.tsx --fix",
+    "eslint:check": "eslint . --ext .ts,.tsx",
+    "watch": "run-p watch:src watch:labextension",
+    "watch:labextension": "jupyter labextension watch .",
+    "watch:src": "tsc -w"
+  },
+  "dependencies": {
+    "@jupyterlab/application": "^4.5.0",
+    "@jupyterlite/p5-kernel": "^0.3.0",
+    "@jupyterlite/services": "^0.7.0"
+  },
+  "devDependencies": {
+    "@jupyterlab/builder": "^4.5.0",
+    "@types/json-schema": "^7.0.11",
+    "@types/react": "^18.0.26",
+    "@types/react-addons-linked-state-mixin": "^0.14.22",
+    "css-loader": "^6.7.1",
+    "npm-run-all2": "^7.0.1",
+    "rimraf": "~5.0.1",
+    "source-map-loader": "^1.0.2",
+    "style-loader": "^3.3.1",
+    "typescript": "~5.0.2",
+    "yjs": "^13.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "jupyterlab": {
+    "extension": true,
+    "outputDir": "../../jupyterlite_p5_kernel/labextension",
+    "sharedPackages": {
+      "@jupyterlite/services": {
+        "bundled": false,
+        "singleton": true
+      }
+    },
+    "_build": {
+      "load": "static/remoteEntry.3a06d88f7a28e87079e7.js",
+      "extension": "./extension",
+      "style": "./style"
+    }
+  },
+  "jupyterlite": {
+    "liteExtension": true
+  }
+}

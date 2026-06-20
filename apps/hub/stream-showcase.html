@@ -1,0 +1,129 @@
+<!doctype html>
+<!-- stream-showcase.html — Holo Hub streaming showcase, PHASE 1 (clean). Streams the real 4K Big Buck
+     Bunny κ-object (CMAF fMP4, avc1/AAC) as content-addressed chunks: each chunk re-derives to its
+     DECLARED κ (manifest pins · Law L5) before it decodes; verified bytes persist in the OpfsKappaStore;
+     MSE feeds a real <video>. Auto-plays (muted, per autoplay policy) — click for sound. Cut the origin
+     and it keeps playing from the local κ-store. Additive to Hub (does not touch the sealed index.html). -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holo Hub — streaming showcase</title>
+<style>
+  :root { --bg:#06070a; --panel:#0f131c; --line:#222a39; --ink:#eaeefb; --dim:#8a93a6; --acc:#5b8cff; --ok:#3fb950; --warn:#e3b341; --mono:ui-monospace,"SF Mono",Menlo,monospace; }
+  * { box-sizing:border-box; } html,body { margin:0; height:100%; }
+  body { background:radial-gradient(1100px 600px at 70% -15%, #11182b 0%, var(--bg) 60%); color:var(--ink);
+    font:15px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:28px; }
+  h1 { font-size:1.05rem; font-weight:600; margin:0; letter-spacing:-.01em; }
+  h1 small { color:var(--dim); font-weight:400; }
+  .stage { position:relative; width:min(1320px,96vw); aspect-ratio:16/9; max-height:80vh; background:#000;
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 30px 80px -30px #000; }
+  .stage:fullscreen { width:100vw; height:100vh; max-height:none; border:0; border-radius:0; }
+  video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:auto;
+    opacity:0; transition:opacity .5s; background:#000; cursor:pointer; }
+  video.live { opacity:1; }
+  .soundhint { position:absolute; inset:0; z-index:3; display:grid; place-items:center; cursor:pointer; background:#0007; }
+  .soundhint span { background:#000c; border:1px solid var(--line); border-radius:999px; padding:11px 20px; font:600 .9rem/1 var(--mono); }
+  .soundhint.hide { display:none; }
+  .pill { position:absolute; top:11px; z-index:2; background:#000b; border:1px solid var(--line); border-radius:999px;
+    padding:5px 11px; font:600 .72rem/1 var(--mono); display:flex; align-items:center; gap:7px; }
+  .pill.badge { left:11px; } .pill.src { right:11px; color:var(--dim); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--warn); } .badge.ok .dot { background:var(--ok); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  button { font:600 .92rem/1 inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line);
+    border-radius:11px; padding:13px 20px; cursor:pointer; transition:.14s; }
+  button:hover:not(:disabled) { border-color:var(--acc); transform:translateY(-1px); }
+  button:disabled { opacity:.4; cursor:default; }
+  button.on { background:var(--ok); color:#052; border-color:var(--ok); }
+  button.kill { border-color:#46232a; color:#ff9b9b; } button.kill.armed { background:#ff5a5a; color:#1a0606; border-color:#ff5a5a; }
+</style>
+
+<h1>Holo Hub · streaming showcase <small>— real 4K, verified, from the κ-store</small></h1>
+
+<div class="stage" id="stage">
+  <video id="vid" muted playsinline></video>
+  <div class="pill badge" id="badge"><span class="dot"></span><span id="badgeText">verifying…</span></div>
+  <div class="pill src" id="srcPill">source: origin</div>
+  <div class="soundhint hide" id="soundHint"><span>🔊 click for sound</span></div>
+</div>
+
+<div class="row">
+  <button id="btnSound" class="on">🔊 Enable sound</button>
+  <button id="btnFull">⛶ Fullscreen</button>
+  <button id="btnReplay">↻ Replay</button>
+  <button id="btnOwn" disabled>◇ Pin-to-own</button>
+  <button id="btnKill" class="kill" disabled>⏻ Cut the origin</button>
+</div>
+
+<script type="module">
+  import { OpfsKappaStore } from "./holo-opfs-kappastore.mjs";
+  const $ = (id) => document.getElementById(id);
+  const ASSET = new URL("./asset/", location.href).href;
+  const CODEC = 'video/mp4; codecs="avc1.640033, mp4a.40.2"';
+  const FILES = ["init.mp4", "seg_000.m4s"];
+  const sha256hex = async (u8) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", u8)), (b) => b.toString(16).padStart(2, "0")).join("");
+
+  const state = { store: null, pins: null, verified: 0, total: 0, unverified: 0, bytes: 0, owned: false, originCut: false, source: "origin", playedFromStore: false, started: false, canDecode: false };
+  window.__holo = { metrics: () => ({ ...state }) };
+  const setSrc = (s) => { state.source = s; $("srcPill").textContent = "source: " + s; };
+
+  async function getBytes(file, hex) {
+    if (state.originCut) {
+      const u8 = await state.store.getByKey("sha256", hex);
+      if (!u8) throw new Error("origin cut and κ not resident");
+      setSrc("κ-store"); state.playedFromStore = true; return u8;
+    }
+    const u8 = new Uint8Array(await (await fetch(ASSET + file, { cache: "no-store" })).arrayBuffer());
+    state.bytes += u8.length; setSrc("origin"); return u8;
+  }
+
+  async function run() {
+    if (state.started) return; state.started = true;
+    state.store = await OpfsKappaStore.open("hub-stream-showcase");
+    state.pins = await (await fetch(ASSET + "manifest.json", { cache: "no-store" })).json();
+    state.total = FILES.length;
+    state.canDecode = ("MediaSource" in window) && MediaSource.isTypeSupported(CODEC);
+    let ms = null, sb = null, append = async () => {};
+    if (state.canDecode) {
+      ms = new MediaSource(); $("vid").src = URL.createObjectURL(ms);
+      await new Promise((r) => ms.addEventListener("sourceopen", r, { once: true }));
+      sb = ms.addSourceBuffer(CODEC);
+      append = (u8) => new Promise((res, rej) => { sb.addEventListener("updateend", res, { once: true }); sb.addEventListener("error", rej, { once: true }); sb.appendBuffer(u8); });
+    } else { $("badgeText").textContent = "verified (no codec)"; }
+
+    for (const file of FILES) {
+      const declared = String(state.pins[file]).split(":").pop();
+      const u8 = await getBytes(file, declared);
+      if (await sha256hex(u8) !== declared) { state.unverified++; $("badgeText").textContent = "κ mismatch — refused"; return; }
+      await state.store.putVerified("sha256", declared, u8);
+      await append(u8);
+      state.verified++;
+    }
+    $("badge").classList.add("ok"); $("badgeText").textContent = "verified · L5";
+    const v = $("vid");
+    if (state.canDecode) { ms.endOfStream(); v.classList.add("live"); try { await v.play(); } catch {} if (v.muted) $("soundHint").classList.remove("hide"); }
+    $("btnOwn").disabled = false; $("btnKill").disabled = false;
+  }
+
+  function enableSound() { const v = $("vid"); v.muted = false; v.volume = 1; v.play().catch(() => {}); $("btnSound").textContent = "🔊 Sound on"; $("soundHint").classList.add("hide"); }
+  $("btnSound").onclick = enableSound;
+  $("soundHint").onclick = enableSound;
+  $("btnReplay").onclick = () => location.reload();
+  const toggleFull = () => { if (document.fullscreenElement) document.exitFullscreen(); else $("stage").requestFullscreen?.(); };
+  $("btnFull").onclick = toggleFull;
+  $("vid").ondblclick = toggleFull;
+  $("btnOwn").onclick = () => { for (const f of FILES) state.store.pin("sha256:" + String(state.pins[f]).split(":").pop()); state.owned = true; $("btnOwn").classList.add("on"); $("btnOwn").textContent = "✓ Owned (κ pinned)"; };
+  $("btnKill").onclick = async () => {
+    state.originCut = true; state.playedFromStore = false; $("btnKill").classList.add("armed"); $("btnKill").textContent = "⏻ Origin CUT";
+    const v = $("vid"); let ms = null, sb = null, append = async () => {};
+    if (state.canDecode) {
+      v.pause(); v.removeAttribute("src"); v.load(); ms = new MediaSource(); v.src = URL.createObjectURL(ms);
+      await new Promise((r) => ms.addEventListener("sourceopen", r, { once: true })); sb = ms.addSourceBuffer(CODEC);
+      append = (u8) => new Promise((res) => { sb.addEventListener("updateend", res, { once: true }); sb.appendBuffer(u8); });
+    }
+    for (const f of FILES) { const k = String(state.pins[f]).split(":").pop(); const u8 = await getBytes(f, k); if (await sha256hex(u8) !== k) return; await append(u8); }
+    if (state.canDecode) { ms.endOfStream(); await v.play().catch(() => {}); }
+    setSrc("κ-store");
+  };
+
+  run();   // auto-start: video materializes immediately (muted) — click for sound
+</script>

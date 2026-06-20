@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Terms Hologram OS</title>
+    <meta name="description" content="Holo Terms your machine-readable personal terms (MyTerms / IEEE 7012). You set the terms; each app must agree; the OS enforces it. Choose your standing term, see what every app may touch, revoke anytime." />
+    <meta name="holo-app" content="Holo Terms" />
+    <meta name="holo-app-id" content="org.hologram.HoloTerms" />
+    <script>window.__holoTermsBadge = false;</script>
+    <!-- Shared mobile-conformance layer every shipped holospace adopts (enforce-witnesses gate). -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/af0f2b5ff47f414281246d8e8e786edc6302bed6731174897f74f105dd2f93f3.css" data-holo-shared="holo-phi.css" />
+    <style>
+      /* Golden ratio (φ = 1.618) + Fibonacci spacing — full-bleed, calm, human. */
+      :root {
+        color-scheme: dark;
+        --s8: 8px; --s13: 13px; --s21: 21px; --s34: 34px; --s55: 55px; --s89: 89px;
+        --bg: var(--holo-bg, #0b0712);
+        --ink: var(--holo-ink, #ece9f5);
+        --muted: #8b88a3;
+        --line: #221b34;
+        --surface: #130d22;
+        --surface2: #190f2b;
+        --accent: #c08ad8;     /* the Holo Terms shield */
+        --good: #79e0a6;       /* granted · verified */
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: radial-gradient(125% 80% at 88% -12%, #1c1234 0%, transparent 56%), var(--bg);
+        color: var(--ink); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+        font: var(--holo-text-sm, 1rem)/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; overflow-x: hidden;
+      }
+      .app { height: 100vh; display: grid; grid-template-rows: var(--s55) 1fr var(--s34); }
+
+      /* top bar — brand + identity (transparent, quiet) */
+      .bar { display: flex; align-items: center; gap: var(--s13); padding: 0 var(--s21); border-bottom: 1px solid var(--line); }
+      .brand { display: flex; align-items: center; gap: var(--s8); font-weight: 650; letter-spacing: 0.01em; min-width: 0; white-space: nowrap; }
+      .brand svg { width: 22px; height: 22px; color: var(--accent); flex: none; }
+      .spacer { flex: 1; }
+      .you { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: 1px solid var(--line);
+        color: var(--muted); border-radius: 999px; padding: 7px 13px; font: var(--holo-text-sm, 1rem)/1 ui-monospace, monospace; cursor: pointer;
+        max-width: 46vw; min-width: 0; overflow: hidden; white-space: nowrap; flex: none; }
+      .you:hover { color: var(--ink); border-color: #3a3350; }
+      .you .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); flex: none; }
+
+      /* stage — golden two-pane: your terms (φ) · your apps (1) */
+      .stage { min-height: 0; display: grid; grid-template-columns: var(--holo-phi-fr) 1fr; }
+
+      .terms { min-height: 0; min-width: 0; overflow: auto; border-right: 1px solid var(--line);
+        padding: clamp(var(--s21), 4vw, var(--s55)); display: flex; flex-direction: column; gap: var(--s34); }
+      .eyebrow { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.16em; }
+      .lede { max-width: 40rem; }
+      .lede .row { display: flex; align-items: baseline; gap: var(--s13); flex-wrap: wrap; }
+      .lede h1 { margin: 0.45rem 0 0.7rem; font-size: clamp(1.5rem, 1.1rem + 1.5vw, 2.3rem); font-weight: 600; letter-spacing: -0.015em; }
+      .lede .code { font: 700 var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--accent); border: 1px solid #3a2a4a; border-radius: 999px; padding: 3px 10px; }
+      .lede .statement { font-size: clamp(1.08rem, 1rem + 0.55vw, 1.4rem); line-height: 1.55; color: #d4cfe4; }
+
+      .choose .chips { display: flex; gap: var(--s13); flex-wrap: wrap; }
+      .chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 14px;
+        padding: 12px 16px; cursor: pointer; text-align: left; min-width: 9.5rem; transition: border-color 0.12s, background 0.12s; }
+      .chip:hover { border-color: #3a3350; }
+      .chip .c { display: block; font: 700 var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--muted); letter-spacing: 0.05em; }
+      .chip .n { display: block; font-size: 0.88rem; margin-top: 3px; }
+      .chip.on { border-color: var(--accent); background: #1c1232; box-shadow: inset 0 0 0 1px #c08ad855; }
+      .chip.on .c { color: var(--accent); }
+
+      .contrib .cgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s13); }
+      .con { border: 1px dashed var(--line); border-radius: 14px; padding: var(--s13) var(--s13) var(--s21); background: #0e091a; }
+      .con .c { font: 700 var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--muted); letter-spacing: 0.04em; }
+      .con .n { font-weight: 600; font-size: 0.86rem; margin: 0.2rem 0 0.25rem; }
+      .con .d { color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+
+      .discipline { margin-top: auto; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); padding-top: var(--s21); }
+      .discipline b { color: var(--ink); font-weight: 600; }
+
+      /* apps rail */
+      .apps { min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--s21);
+        padding: clamp(var(--s21), 3vw, var(--s55)) clamp(var(--s21), 2.4vw, var(--s34));
+        background: linear-gradient(180deg, #0d0817, transparent 24%); }
+      .apps-h { display: flex; align-items: baseline; justify-content: space-between; }
+      .apps-h .count { color: var(--muted); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      .apps-list { display: flex; flex-direction: column; gap: var(--s13); }
+      .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: var(--holo-radius-lg, 16px); padding: var(--s34) var(--s21); text-align: center; line-height: 1.6; }
+      .appcard { border: 1px solid var(--line); background: var(--surface); border-radius: var(--holo-radius-lg, 16px); padding: var(--s13) var(--s21) var(--s21); }
+      .appcard .top { display: flex; align-items: center; gap: var(--s8); }
+      .appcard .nm { font-size: 1.02rem; font-weight: 650; letter-spacing: -0.01em; color: var(--ink); flex: 1; }
+      .appcard .pill { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--accent); border: 1px solid #3a2a4a; border-radius: 999px; padding: 2px 8px; }
+      .appcard .ver { color: var(--good); font-size: var(--holo-text-sm, 1rem); display: inline-flex; align-items: center; gap: 3px; }
+      .appcard .grants { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 7px; }
+      .appcard .g { font-size: 0.77rem; color: #d4cfe4; background: var(--surface2); border: 1px solid var(--line); border-radius: 9px; padding: 4px 9px; }
+      .appcard .g.own { color: var(--muted); }
+      .appcard .row2 { display: flex; align-items: center; gap: var(--s13); margin-top: 13px; }
+      .appcard .k { flex: 1; min-width: 0; color: #5d5673; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .appcard .revoke { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 9px; padding: 7px 14px; cursor: pointer; font: var(--holo-text-sm, 1rem) ui-sans-serif; flex: none; }
+      .appcard .revoke:hover { border-color: #7a3b4a; color: #ffb4b4; }
+
+      .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s13); padding: 0 var(--s21);
+        border-top: 1px solid var(--line); color: var(--muted); font-size: 0.72rem; }
+      .foot a { color: var(--muted); text-decoration: none; } .foot a:hover { color: var(--ink); }
+
+      @media (max-width: 1180px) { .contrib .cgrid { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 640px) { .contrib .cgrid { grid-template-columns: 1fr; } }
+      /* Phones/tablets: the whole page scrolls as one document — no internal panes, no overflow. */
+      @media (max-width: 900px) {
+        .app { height: auto; min-height: 100vh; grid-template-rows: auto auto auto; }
+        /* the OS docks manage/capture/stream icons into the bar — let it wrap so it never
+           forces the page wider than the viewport (no horizontal scroll). */
+        .bar { position: sticky; top: 0; z-index: 5; background: var(--bg); height: auto; min-height: var(--s55);
+          flex-wrap: wrap; row-gap: 6px; padding: 8px var(--s21); overflow: hidden; }
+        .stage { grid-template-columns: 1fr; }
+        .terms { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+        .apps { overflow: visible; }
+        .discipline { margin-top: var(--s13); }
+        .foot { flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--s13) var(--s21); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Terms"></holo-splash>
+
+    <div class="app">
+      <header class="bar">
+        <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4" stroke="#79e0a6"/></svg> Holo&nbsp;Terms</div>
+        <div class="spacer"></div>
+        <button class="you" id="you" title="your identity click to copy"><span class="dot"></span> you · <span id="meShort">…</span></button>
+      </header>
+
+      <main class="stage">
+        <section class="terms">
+          <div class="lede">
+            <div class="eyebrow">your terms proposed to every app</div>
+            <div class="row"><h1 id="termName"></h1><span class="code" id="termCode"></span></div>
+            <p class="statement" id="termStatement">…</p>
+          </div>
+
+          <div class="choose">
+            <div class="eyebrow" style="margin-bottom:var(--s13)">Choose your standing term</div>
+            <div class="chips" id="relChips"></div>
+          </div>
+
+          <div class="contrib">
+            <div class="eyebrow" style="margin-bottom:var(--s13)">Data you can contribute only when an app asks</div>
+            <div class="cgrid" id="conCards"></div>
+          </div>
+
+          <div class="discipline">Apps begin with <b>nothing</b>. They get only what you grant and you can take it back.</div>
+        </section>
+
+        <aside class="apps">
+          <div class="apps-h"><span class="eyebrow">Your apps</span><span class="count" id="appCount"></span></div>
+          <div class="apps-list" id="apps"></div>
+        </aside>
+      </main>
+
+      <footer class="foot">
+        <span>You set the terms. Each app agrees. The OS enforces it.</span>
+        <span><a href="https://myterms.info/" target="_blank" rel="noopener">MyTerms · IEEE 7012 · Customer Commons</a> signed &amp; re-derived (Law L5)</span>
+      </footer>
+    </div>
+
+    <script src="/.holo/sha256/d728d595df51ad755d4806381dd8b3779fc461521c0bafcffe15e38f0c94ea94.js" data-holo-shared="holo-terms.js"></script>
+    <script>
+      (async () => {
+        const HT = window.HoloTerms;
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        const PERM = { "display-capture": "see your screen", camera: "use your camera", microphone: "use your microphone", geolocation: "know your location", "clipboard-read": "read your clipboard", "clipboard-write": "copy to your clipboard", fullscreen: "go fullscreen", autoplay: "autoplay media", midi: "use MIDI", usb: "use USB", serial: "use serial", bluetooth: "use Bluetooth", "xr-spatial-tracking": "track you in XR" };
+        const grantLabel = (g) => g.type === "permission" ? (PERM[g.value] || g.value) : g.type === "channel" ? ("share over " + g.value) : g.type === "storage" ? "its own storage" : g.type === "purpose" ? ("contribute data for " + g.value.replace(/-/g, " ")) : g.value;
+        const niceName = (id) => { const m = String(id).match(/Holo([A-Z][A-Za-z0-9]+)$/); if (m) return m[1].replace(/([a-z])([A-Z])/g, "$1 $2"); return String(id).split(/[.\/]/).pop() || id; };
+
+        // identity — quiet, transparent, copyable
+        const did = await HT.firstParty();
+        $("meShort").textContent = did.replace("did:key:", "").slice(0, 10) + "…";
+        $("you").title = did + "  (click to copy)";
+        $("you").onclick = async () => { try { await navigator.clipboard.writeText(did); const s = $("meShort"); const t = s.textContent; s.textContent = "copied ✓"; setTimeout(() => (s.textContent = t), 1100); } catch {} };
+
+        const r = await HT.roster();
+        const rel = r.agreements.filter((a) => a.category === "relationship");
+        const con = r.agreements.filter((a) => a.category === "data-contribution");
+        const byCode = (c) => r.agreements.find((a) => a.code === c);
+
+        function renderLede() {
+          const a = byCode(HT.standingTerm() || r.default) || rel[0];
+          $("termName").textContent = a["schema:name"];
+          $("termCode").textContent = a.code;
+          $("termStatement").textContent = a["schema:description"];
+        }
+        function renderChips() {
+          const active = HT.standingTerm() || r.default;
+          $("relChips").innerHTML = "";
+          for (const a of rel) {
+            const b = document.createElement("button");
+            b.className = "chip" + (a.code === active ? " on" : "");
+            b.innerHTML = `<span class="c">${esc(a.code)}</span><span class="n">${esc(a["schema:name"])}</span>`;
+            b.onclick = () => { HT.setStandingTerm(a.code); renderLede(); renderChips(); };
+            $("relChips").appendChild(b);
+          }
+        }
+        function renderContrib() {
+          $("conCards").innerHTML = con.map((a) => `<div class="con"><span class="c">${esc(a.code)}</span><div class="n">${esc(a["schema:name"].replace(/^Personal Data Contribution /, ""))}</div><div class="d">${esc(a["schema:description"])}</div></div>`).join("");
+        }
+
+        async function renderApps() {
+          const recs = HT.records(); const ids = Object.keys(recs);
+          $("appCount").textContent = ids.length ? ids.length + (ids.length === 1 ? " app" : " apps") : "";
+          const box = $("apps");
+          if (!ids.length) { box.innerHTML = '<div class="empty">No app has asked yet.<br>When one does, it appears here with exactly what it may touch.</div>'; return; }
+          const rows = [];
+          for (const id of ids) {
+            const rec = recs[id]; const cs = rec.credentialSubject || {};
+            const term = (r.agreements.find((a) => a.id === cs.term) || {}).code || "";
+            const ok = await HT.verifyRecord(rec).catch(() => false);
+            const grants = cs.grants || [];
+            const gx = grants.length
+              ? grants.map((g) => `<span class="g${g.type === "storage" ? " own" : ""}">${esc(grantLabel(g))}</span>`).join("")
+              : '<span class="g own">its own storage only</span>';
+            rows.push(`<div class="appcard"><div class="top"><span class="nm">${esc(niceName(id))}</span>${ok ? '<span class="ver">✓ verified</span>' : ""}<span class="pill">${esc(term)}</span></div><div class="grants">${gx}</div><div class="row2"><span class="k" title="${esc(rec.id || "")}">${esc(rec.id || "")}</span><button class="revoke" data-id="${esc(id)}">Revoke</button></div></div>`);
+          }
+          box.innerHTML = rows.join("");
+          box.querySelectorAll(".revoke").forEach((b) => b.onclick = async () => { await HT.revoke(b.dataset.id); renderApps(); });
+        }
+
+        function render() { renderLede(); renderChips(); renderContrib(); renderApps(); }
+        render();
+        window.holoTermsUI = { render, ready: true };
+      })().catch((e) => { const s = document.getElementById("meShort"); if (s) s.textContent = "error"; console.error("Holo Terms UI", e); });
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

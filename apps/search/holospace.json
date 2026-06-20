@@ -1,0 +1,87 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloSearch",
+  "name": "Holo Search",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "One search bar over the whole OS and the open web every result verifiable.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "conforms": {
+    "specs": [
+      "holo-search",
+      "opensearch-rest",
+      "opensearch-query-dsl",
+      "opensearch-description",
+      "lucene-bm25",
+      "knn-vector"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloSearch"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "search.html",
+  "description": [
+    {
+      "p": "Search should rank by verifiable relevance, not by who pays, and answer without AI guesswork."
+    },
+    {
+      "p": "A full analysis chain and BM25 index search every holospace, spec and object, blended with a personal content-graph rank; every hit re-derives to its content address (Law L5)."
+    },
+    {
+      "ul": [
+        "Full-text search across the whole OS",
+        "Conforms to the OpenSearch query DSL",
+        "Ranked by HoloRank a verifiable content-graph rank",
+        "Every result re-derivable; the open web, with no AI"
+      ]
+    }
+  ],
+  "categories": [
+    "Utility",
+    "System"
+  ],
+  "keywords": [
+    "search",
+    "opensearch",
+    "bm25",
+    "query dsl",
+    "knn",
+    "vector",
+    "semantic",
+    "pagerank",
+    "holorank",
+    "index",
+    "content-addressing",
+    "uor",
+    "law-l5",
+    "lucene"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://hologram.os/apps/search",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-09",
+      "description": "Hologram-native, OpenSearch-faithful search over the whole OS: analyzers + Porter stemmer, inverted index + Lucene BM25, the full Query DSL + function_score, aggregations, highlighting, fuzzy/completion suggesters, cosine k-NN and a percolator blended with HoloRank (a verifiable PageRank) and a deterministic semantic embedding. Every result re-derives to its did:holo (Law L5); an A9 OpenSearch description makes it a universal provider. Witnessed (node 44/44 + live browser 10/10)."
+    }
+  ],
+  "accent": "#4f9cff"
+}

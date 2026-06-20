@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "bootchess.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:04cd453801433b51e8684814977b30dfc0367315706ce792438601eaf1da88a1"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 3,
+  "dedup": "50.0%",
+  "root": "did:holo:sha256:470a180d97dbd6f970182521d3618254e1e00b440332e5de673aae4277ca59f4",
+  "blocks": [
+    "did:holo:sha256:1a5bb85d0066db5319215398b050d888d8b83421ff0f941b45bda6aa0a3a70a7",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da"
+  ]
+}

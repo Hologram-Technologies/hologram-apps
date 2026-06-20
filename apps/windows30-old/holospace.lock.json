@@ -1,0 +1,445 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:c90d2bbb5636455d3747f903b156ad7abb81a39ed8c37d4413508e273283ca54",
+  "identifier": "org.hologram.V86Windows30",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 2644,
+    "page": 10,
+    "byte": 84,
+    "r96": 84,
+    "phi": 2644
+  },
+  "files": 47,
+  "closure": {
+    "apps/windows30-old/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/windows30-old/holospace.json": {
+      "kappa": "did:holo:sha256:365feeafef301e4ce32edc375d642262ab1dee72567de9323cc0b6fcb7f610cb",
+      "sri": "sha256-Nl/ur+8wHkzjLtw3XWQiYqsd7nJWfekyPMC2/Lf2EMs=",
+      "multibase": "uEiA2X-6v7zAeTOMu3DddZCJiqx3uclZ96TI8wLb8t_YQyw",
+      "bytes": 889,
+      "alsoKnownAs": [
+        "did:holo:blake3:3020d28e2dad2db290b01367b509ebabaf6d063fef91e7c767a3289486cda100"
+      ]
+    },
+    "apps/windows30-old/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso": {
+      "kappa": "did:holo:sha256:82d26f9ba08a7b26cc0e55ca2f1b4bc561c19cd3436e5e45cb3673d50e203b86",
+      "sri": "sha256-gtJvm6CKeybMDlXKLxtLxWHBnNNDbl5FyzZz1Q4gO4Y=",
+      "multibase": "uEiCC0m-boIp7JswOVcovG0vFYcGc00NuXkXLNnPVDiA7hg",
+      "bytes": 7774208,
+      "alsoKnownAs": [
+        "did:holo:blake3:e0c91c48918a328537e4e61e51c46f61c5ddbf0fc7350e9b10e9dc78a84ce0f0"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/04fcafc4233f54ba39b4101daf7b8306d7071a6092356d41453d443a1073ad34": {
+      "kappa": "did:holo:sha256:04fcafc4233f54ba39b4101daf7b8306d7071a6092356d41453d443a1073ad34",
+      "sri": "sha256-BPyvxCM/VLo5tBAdr3uDBtcHGmCSNW1BRT1EOhBzrTQ=",
+      "multibase": "uEiAE_K_EIz9Uujm0EB2ve4MG1wcaYJI1bUFFPUQ6EHOtNA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:64fa05db07aacf8417557aaa50f45ac2d6afb7d766d3dc304a3ef58216db60b7"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/14560b95099576d3d7a28aa64108d5ad10a7e5b2e490434c572405aba403a6c8": {
+      "kappa": "did:holo:sha256:14560b95099576d3d7a28aa64108d5ad10a7e5b2e490434c572405aba403a6c8",
+      "sri": "sha256-FFYLlQmVdtPXooqmQQjVrRCn5bLkkENMVyQFq6QDpsg=",
+      "multibase": "uEiAUVguVCZV209eiiqZBCNWtEKflsuSQQ0xXJAWrpAOmyA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:78b5160cb44d54c87e19dc369eb5874035011c753e38e9a6eb64d248d8736e51"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/175963bba65cf6d0a533b2d2b07e4c5b89e0a294f854df32417acd8195124558": {
+      "kappa": "did:holo:sha256:175963bba65cf6d0a533b2d2b07e4c5b89e0a294f854df32417acd8195124558",
+      "sri": "sha256-F1lju6Zc9tClM7LSsH5MW4ngopT4VN8yQXrNgZUSRVg=",
+      "multibase": "uEiAXWWO7plz20KUzstKwfkxbieCilPhU3zJBes2BlRJFWA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:56c82a17d8c830da7a348ece615c305bf5de51470fb15c232006b891c8384966"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/19fed04a33522d67be9ef3ee72d83ff1b8d7daaabd7ee280c8afaf77ee122a89": {
+      "kappa": "did:holo:sha256:19fed04a33522d67be9ef3ee72d83ff1b8d7daaabd7ee280c8afaf77ee122a89",
+      "sri": "sha256-Gf7QSjNSLWe+nvPuctg/8bjX2qq9fuKAyK+vd+4SKok=",
+      "multibase": "uEiAZ_tBKM1ItZ76e8-5y2D_xuNfaqr1-4oDIr6937hIqiQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:8e46be21063232a337b39f77339c189abf679dcd2667ccf0e495145ea88451c3"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/210e38927223cda81c6b60d6856866615db45946b0ad135af08a5f29eb1c433a": {
+      "kappa": "did:holo:sha256:210e38927223cda81c6b60d6856866615db45946b0ad135af08a5f29eb1c433a",
+      "sri": "sha256-IQ44knIjzagca2DWhWhmYV20WUawrRNa8IpfKescQzo=",
+      "multibase": "uEiAhDjiSciPNqBxrYNaFaGZhXbRZRrCtE1rwil8p6xxDOg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:8bf585fea64880819a3e7a2c99a17d8f759bd9dd1ea0351961b621339dd8ab07"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/28f926eda903200aa2e0d7b7cd41f4b67a4eb538dd23c6e9b5ca621a30d48931": {
+      "kappa": "did:holo:sha256:28f926eda903200aa2e0d7b7cd41f4b67a4eb538dd23c6e9b5ca621a30d48931",
+      "sri": "sha256-KPkm7akDIAqi4Ne3zUH0tnpOtTjdI8bptcpiGjDUiTE=",
+      "multibase": "uEiAo-SbtqQMgCqLg17fNQfS2ek61ON0jxum1ymIaMNSJMQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:4177a04b3bc1cb501fee36b98db1625d1e3ba4967de0951a0f8ce057cd2a9ce2"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/2cbbeef1249170a43854962fa5b19fba628470c70beb9ce23e15a0f05cb891f2": {
+      "kappa": "did:holo:sha256:2cbbeef1249170a43854962fa5b19fba628470c70beb9ce23e15a0f05cb891f2",
+      "sri": "sha256-LLvu8SSRcKQ4VJYvpbGfumKEcMcL65ziPhWg8Fy4kfI=",
+      "multibase": "uEiAsu-7xJJFwpDhUli-lsZ-6YoRwxwvrnOI-FaDwXLiR8g",
+      "bytes": 172032,
+      "alsoKnownAs": [
+        "did:holo:blake3:1fd9650f5dc285cbe47a65b786e2617b6c6b3c6aabd7d13b0c904664b97ab4a7"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/368118e4124395df82fa0bf6bc3682ea86fd561dd2e55666514d82e1db92ca4d": {
+      "kappa": "did:holo:sha256:368118e4124395df82fa0bf6bc3682ea86fd561dd2e55666514d82e1db92ca4d",
+      "sri": "sha256-NoEY5BJDld+C+gv2vDaC6ob9Vh3S5VZmUU2C4duSyk0=",
+      "multibase": "uEiA2gRjkEkOV34L6C_a8NoLqhv1WHdLlVmZRTYLh25LKTQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:8c3d6244541594fa8c2888f2c8658f9c9581ea8098a94b0b9784dc55154ab1c6"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/43ebc0cc3180c602aae07f42d8041ecdb7d8554dcf543f1db6a54c11fefab859": {
+      "kappa": "did:holo:sha256:43ebc0cc3180c602aae07f42d8041ecdb7d8554dcf543f1db6a54c11fefab859",
+      "sri": "sha256-Q+vAzDGAxgKq4H9C2AQezbfYVU3PVD8dtqVMEf76uFk=",
+      "multibase": "uEiBD68DMMYDGAqrgf0LYBB7Nt9hVTc9UPx22pUwR_vq4WQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:0269557b1d7afab01ab97b56b5d9c5600955bc6b4696f61549d79032a9993e7a"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/475d110e984d574b5dcf6f32d0c18cd919b4a82b6d058a0b3dc7323daf19ae6d": {
+      "kappa": "did:holo:sha256:475d110e984d574b5dcf6f32d0c18cd919b4a82b6d058a0b3dc7323daf19ae6d",
+      "sri": "sha256-R10RDphNV0tdz28y0MGM2Rm0qCttBYoLPccyPa8Zrm0=",
+      "multibase": "uEiBHXREOmE1XS13PbzLQwYzZGbSoK20Figs9xzI9rxmubQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:79ca1ef5056b6c40461dad9ed104efb5ee4f4ba0b0624ba7b1560a5f238e11de"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/51b5c5ebd952ad2c2d2ef111e79d5dfd12494784a2af0d0fc3223044f1110759": {
+      "kappa": "did:holo:sha256:51b5c5ebd952ad2c2d2ef111e79d5dfd12494784a2af0d0fc3223044f1110759",
+      "sri": "sha256-UbXF69lSrSwtLvER551d/RJJR4Sirw0PwyIwRPERB1k=",
+      "multibase": "uEiBRtcXr2VKtLC0u8RHnnV39EklHhKKvDQ_DIjBE8REHWQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:513dc17504303cbf33d622e74822de5ec9a61a8a57a0a1af4c01003842400b7b"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/5c497bbf64d71a70068913ec62ab7d9c9f0668dc8c6abd1678c20fc8c9d00fd3": {
+      "kappa": "did:holo:sha256:5c497bbf64d71a70068913ec62ab7d9c9f0668dc8c6abd1678c20fc8c9d00fd3",
+      "sri": "sha256-XEl7v2TXGnAGiRPsYqt9nJ8GaNyMar0WeMIPyMnQD9M=",
+      "multibase": "uEiBcSXu_ZNcacAaJE-xiq32cnwZo3IxqvRZ4wg_IydAP0w",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:934b06a665a01745786d2be0bd560f3b2f5f8fe157856d25d6c240dc87120153"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/5c4b02e939ad1ad4ed957d1bac8fbb3e083ea6e9256aa1fb860df720d31c5db3": {
+      "kappa": "did:holo:sha256:5c4b02e939ad1ad4ed957d1bac8fbb3e083ea6e9256aa1fb860df720d31c5db3",
+      "sri": "sha256-XEsC6TmtGtTtlX0brI+7Pgg+puklaqH7hg33INMcXbM=",
+      "multibase": "uEiBcSwLpOa0a1O2VfRusj7s-CD6m6SVqofuGDfcg0xxdsw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:dbff0ce4b773a54384dbc73e3c8e3c2a7b02e7fc32f475f5df20194972420276"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/6ec840542a1d86ba6c751ad478acc54f124d6add77f3172a3403fff658676fdd": {
+      "kappa": "did:holo:sha256:6ec840542a1d86ba6c751ad478acc54f124d6add77f3172a3403fff658676fdd",
+      "sri": "sha256-bshAVCodhrpsdRrUeKzFTxJNat138xcqNAP/9lhnb90=",
+      "multibase": "uEiBuyEBUKh2Gumx1GtR4rMVPEk1q3XfzFyo0A__2WGdv3Q",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:399ef7762efd933a1b986b28ed4ebde7b45536f34e338c5df767429324f558ba"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/80f35c6cc05220e018223b8c3d2eae8c244ee575b7579e5d9852dac5d9e4002a": {
+      "kappa": "did:holo:sha256:80f35c6cc05220e018223b8c3d2eae8c244ee575b7579e5d9852dac5d9e4002a",
+      "sri": "sha256-gPNcbMBSIOAYIjuMPS6ujCRO5XW3V55dmFLaxdnkACo=",
+      "multibase": "uEiCA81xswFIg4BgiO4w9Lq6MJE7ldbdXnl2YUtrF2eQAKg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:d07bce3f2a6b764d8f9b9048d6de3f3f77ead0d2f87d8bfb2e4f85d64a2cf554"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/85c3d4b05e86fa8acb745f6ba75b74a195dfdb9b13922da9239721b5024673ea": {
+      "kappa": "did:holo:sha256:85c3d4b05e86fa8acb745f6ba75b74a195dfdb9b13922da9239721b5024673ea",
+      "sri": "sha256-hcPUsF6G+orLdF9rp1t0oZXf25sTki2pI5chtQJGc+o=",
+      "multibase": "uEiCFw9SwXob6ist0X2unW3Shld_bmxOSLakjlyG1AkZz6g",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:0577ed0098d88f52c73688fd3936ff447690fcc1d8ae3dc77c128c0a2f3751e2"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/866c21bebf864f816c6a5c74e31dfb687bec75f51eba9a292ac645841e084b21": {
+      "kappa": "did:holo:sha256:866c21bebf864f816c6a5c74e31dfb687bec75f51eba9a292ac645841e084b21",
+      "sri": "sha256-hmwhvr+GT4Fsalx04x37aHvsdfUeupopKsZFhB4ISyE=",
+      "multibase": "uEiCGbCG-v4ZPgWxqXHTjHftoe-x19R66mikqxkWEHghLIQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:1544c7c65f92f364d70dbd0889e96b9c94113583f0da6c515534c2e5c5f8096b"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/9b81e17b733191c24f6de28eb7ea62c4f81d2d7454ab817cb3eb3da15835fde8": {
+      "kappa": "did:holo:sha256:9b81e17b733191c24f6de28eb7ea62c4f81d2d7454ab817cb3eb3da15835fde8",
+      "sri": "sha256-m4Hhe3MxkcJPbeKOt+pixPgdLXRUq4F8s+s9oVg1/eg=",
+      "multibase": "uEiCbgeF7czGRwk9t4o636mLE-B0tdFSrgXyz6z2hWDX96A",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:1d48eb501bd925cabef6720471aa88904c498ad072cef6bae019254b07f63dc0"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/b64673d943284c4b76b001592ed7aeb1955e483c1031c1c8dbbcfdca5d9c1a1f": {
+      "kappa": "did:holo:sha256:b64673d943284c4b76b001592ed7aeb1955e483c1031c1c8dbbcfdca5d9c1a1f",
+      "sri": "sha256-tkZz2UMoTEt2sAFZLteusZVeSDwQMcHI27z9yl2cGh8=",
+      "multibase": "uEiC2RnPZQyhMS3awAVku166xlV5IPBAxwcjbvP3KXZwaHw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3332a93e07ff39d6d80c62ec47f129f471c6d929f11249752e18c61979f76635"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/c3b3843d996faf41d6e31803cb6948da15e4b4572840cc7ab33433949ff47f1b": {
+      "kappa": "did:holo:sha256:c3b3843d996faf41d6e31803cb6948da15e4b4572840cc7ab33433949ff47f1b",
+      "sri": "sha256-w7OEPZlvr0HW4xgDy2lI2hXktFcoQMx6szQzlJ/0fxs=",
+      "multibase": "uEiDDs4Q9mW-vQdbjGAPLaUjaFeS0VyhAzHqzNDOUn_R_Gw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:b560a3c648a9dd94618de780efed0007285b800b87084b38531480778a643940"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/ca825613af377f2285fa0f6a86bdacb5c5cb8ef5c22cae9439a1c7169d9d952c": {
+      "kappa": "did:holo:sha256:ca825613af377f2285fa0f6a86bdacb5c5cb8ef5c22cae9439a1c7169d9d952c",
+      "sri": "sha256-yoJWE683fyKF+g9qhr2stcXLjvXCLK6UOaHHFp2dlSw=",
+      "multibase": "uEiDKglYTrzd_IoX6D2qGvay1xcuO9cIsrpQ5occWnZ2VLA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:978dbaad3e6692c1ea34d340946185a1b324a60fb64564ff4688878a657a8c8b"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/cbea91b288729e458226d5386f3d8cace6a9239f16c654a37b4b65dc7f4f038a": {
+      "kappa": "did:holo:sha256:cbea91b288729e458226d5386f3d8cace6a9239f16c654a37b4b65dc7f4f038a",
+      "sri": "sha256-y+qRsohynkWCJtU4bz2MrOapI58WxlSje0tl3H9PA4o=",
+      "multibase": "uEiDL6pGyiHKeRYIm1ThvPYys5qkjnxbGVKN7S2Xcf08Dig",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:1811f1cb38e2746ce8d36f0aff57c43540c0c5c61fb2aeb3ea9157717e51489c"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/cea5d9d31bf340894de6473a34e874b3b6942b777b0d6ed5df3e4788559faf1b": {
+      "kappa": "did:holo:sha256:cea5d9d31bf340894de6473a34e874b3b6942b777b0d6ed5df3e4788559faf1b",
+      "sri": "sha256-zqXZ0xvzQIlN5kc6NOh0s7aUK3d7DW7V3z5HiFWfrxs=",
+      "multibase": "uEiDOpdnTG_NAiU3mRzo06HSztpQrd3sNbtXfPkeIVZ-vGw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:f4391bbbdf6eeb85322f0d4fe2bd979ab9d943e73db7db67ea33c6bcf3412ad5"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/dce5f9365405359ae25019ded38e9ee1b27dfebfab721d87bca0ead594d52c61": {
+      "kappa": "did:holo:sha256:dce5f9365405359ae25019ded38e9ee1b27dfebfab721d87bca0ead594d52c61",
+      "sri": "sha256-3OX5NlQFNZriUBne046e4bJ9/r+rch2HvKDq1ZTVLGE=",
+      "multibase": "uEiDc5fk2VAU1muJQGd7Tjp7hsn3-v6tyHYe8oOrVlNUsYQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:c30d9282b421a5593ce8542d957efbb0847c7768eebcd60b91ef1cd56e901e44"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/df65f68085ead1ac9140fe47fe6d790866b35c22d821a0c3558b55b86f26494b": {
+      "kappa": "did:holo:sha256:df65f68085ead1ac9140fe47fe6d790866b35c22d821a0c3558b55b86f26494b",
+      "sri": "sha256-32X2gIXq0ayRQP5H/m15CGazXCLYIaDDVYtVuG8mSUs=",
+      "multibase": "uEiDfZfaAherRrJFA_kf-bXkIZrNcItghoMNVi1W4byZJSw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3ffb6ad5260ea91cdaf4b517cc956cff8d7c6b1f8176864ad4dd3b1e9893fbe8"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/e383486a54a5c865c0ffe1db4277e1c50f325910de337781b5b5596678a87994": {
+      "kappa": "did:holo:sha256:e383486a54a5c865c0ffe1db4277e1c50f325910de337781b5b5596678a87994",
+      "sri": "sha256-44NIalSlyGXA/+HbQnfhxQ8yWRDeM3eBtbVZZnioeZQ=",
+      "multibase": "uEiDjg0hqVKXIZcD_4dtCd-HFDzJZEN4zd4G1tVlmeKh5lA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:55faad49aa9a2cf2ce3c1f4f8627fe6feee801f0096a10877e1818618f564cc0"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/e3dcd089f9b210c2070e94c844db343bb1b6fd30c709e9c884266ff4f06e1d9c": {
+      "kappa": "did:holo:sha256:e3dcd089f9b210c2070e94c844db343bb1b6fd30c709e9c884266ff4f06e1d9c",
+      "sri": "sha256-49zQifmyEMIHDpTIRNs0O7G2/TDHCenIhCZv9PBuHZw=",
+      "multibase": "uEiDj3NCJ-bIQwgcOlMhE2zQ7sbb9MMcJ6ciEJm_08G4dnA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:205342831cfcee6dfd45a1d73397e91abc16a32ca2ee2e703e5662291ec8abb3"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/eb47c9c5004122999775ea9ed3a61a5923def2b0efde1dc49259a13357e052a7": {
+      "kappa": "did:holo:sha256:eb47c9c5004122999775ea9ed3a61a5923def2b0efde1dc49259a13357e052a7",
+      "sri": "sha256-60fJxQBBIpmXdeqe06YaWSPe8rDv3h3EklmhM1fgUqc=",
+      "multibase": "uEiDrR8nFAEEimZd16p7TphpZI97ysO_eHcSSWaEzV-BSpw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:df74ba27b106d4297e1b960a36c8ff3f4b977f26d4266ecad9cbdf7dc085b1b0"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/f3376f2e73697ee309cbde5c10d73024eebb6eb02929da7e3c395fd797ae63e7": {
+      "kappa": "did:holo:sha256:f3376f2e73697ee309cbde5c10d73024eebb6eb02929da7e3c395fd797ae63e7",
+      "sri": "sha256-8zdvLnNpfuMJy95cENcwJO67brApKdp+PDlf15euY+c=",
+      "multibase": "uEiDzN28uc2l-4wnL3lwQ1zAk7rtusCkp2n48OV_Xl65j5w",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:dc46aa49b58901b9ff31f0a576d08121ba251deb01e7f48bba09c337e78d8159"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks/.holo/sha256/f76584d0584a72ea598a61e307eef5d6db4ae22358fbea8f82d777a744dce462": {
+      "kappa": "did:holo:sha256:f76584d0584a72ea598a61e307eef5d6db4ae22358fbea8f82d777a744dce462",
+      "sri": "sha256-92WE0FhKcupZimHjB+711ttK4iNY++qPgtd3p0Tc5GI=",
+      "multibase": "uEiD3ZYTQWEpy6lmKYeMH7vXW20riI1j76o-C13enRNzkYg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:aebe10205f3e3c4b4a7f235cef60a930741f170fb82fda287b055c60531944ac"
+      ]
+    },
+    "apps/windows30-old/images/Win30.iso.kblocks.json": {
+      "kappa": "did:holo:sha256:8e0e81a21fd9d625c731c461acc3ad86be286a38324eaad554660da0ba48373a",
+      "sri": "sha256-jg6Boh/Z1iXHMcRhrMOthr4oajgyTqrVVGYNoLpINzo=",
+      "multibase": "uEiCODoGiH9nWJccxxGGsw62GvihqODJOqtVUZg2gukg3Og",
+      "bytes": 3281,
+      "alsoKnownAs": [
+        "did:holo:blake3:5be7c4a765d8854e920c0414bcb79ee631d47f3f849242c8a83fee789c0b78e7"
+      ]
+    },
+    "apps/windows30-old/index.html": {
+      "kappa": "did:holo:sha256:b3076265c9e2a4308ad23074902b4d4c9f5926c015b4c0564104d01118552b9e",
+      "sri": "sha256-swdiZcnipDCK0jB0kCtNTJ9ZJsAVtMBWQQTQERhVK54=",
+      "multibase": "uEiCzB2JlyeKkMIrSMHSQK01Mn1kmwBW0wFZBBNARGFUrng",
+      "bytes": 24449,
+      "alsoKnownAs": [
+        "did:holo:blake3:d5679bece4d230befd0c34f43616eefa1723dbc53b8c5d0fbac521899f6f36d3"
+      ]
+    },
+    "apps/windows30-old/kappa.json": {
+      "kappa": "did:holo:sha256:0c7fae93605d3048eb96584956a838be21c53b6832b90d4343d9a332f648ce9a",
+      "sri": "sha256-DH+uk2BdMEjrllhJVqg4viHFO2gyuQ1DQ9mjMvZIzpo=",
+      "multibase": "uEiAMf66TYF0wSOuWWElWqDi-IcU7aDK5DUND2aMy9kjOmg",
+      "bytes": 1934,
+      "alsoKnownAs": [
+        "did:holo:blake3:d3a269a93c0f7a89110331ee9afa691313ec5f7bf8626a0416301a66527d98ea"
+      ]
+    },
+    "apps/windows30-old/sw.js": {
+      "kappa": "did:holo:sha256:f6f46ebb92f6b0372ba3572bbc27b4d0719284487fa152e8f89105ad40bf39fd",
+      "sri": "sha256-9vRuu5L2sDcro1crvCe00HGShEh/oVLo+JEFrUC/Of0=",
+      "multibase": "uEiD29G67kvawNyujVyu8J7TQcZKESH-hUuj4kQWtQL85_Q",
+      "bytes": 5018,
+      "alsoKnownAs": [
+        "did:holo:blake3:613094f250d51b3e88ad06a07c1c431183db00d7392434b3fccc9844b309688f"
+      ]
+    },
+    "apps/windows30-old/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/windows30-old/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/windows30-old/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/windows30-old/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/windows30-old/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/windows30-old/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/windows30-old/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/windows30-old/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

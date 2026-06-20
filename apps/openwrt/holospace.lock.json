@@ -1,0 +1,418 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:aec6c75ca2529d475e79dd14d82de0dd0de73222558b3a63a4607dd79d241efb",
+  "identifier": "org.hologram.V86OpenWrt",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 12027,
+    "page": 46,
+    "byte": 251,
+    "r96": 59,
+    "phi": 12027
+  },
+  "files": 44,
+  "closure": {
+    "apps/openwrt/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/openwrt/holospace.json": {
+      "kappa": "did:holo:sha256:9d8686368b08cd685680ba6d12dd87018baed5c422e6018f14d3db165ab5eb71",
+      "sri": "sha256-nYaGNosIzWhWgLptEt2HAYuu1cQi5gGPFNPbFlq163E=",
+      "multibase": "uEiCdhoY2iwjNaFaAum0S3YcBi67VxCLmAY8U09sWWrXrcQ",
+      "bytes": 860,
+      "alsoKnownAs": [
+        "did:holo:blake3:881ffb407655cd13548f81e8b488934929619f708d79904c49754577e47dfa0d"
+      ]
+    },
+    "apps/openwrt/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img": {
+      "kappa": "did:holo:sha256:b89d73d079322f844a49c7d829f91054159bfec06a65261114127bd440a2e36a",
+      "sri": "sha256-uJ1z0HkyL4RKScfYKfkQVBWb/sBqZSYRFBJ71ECi42o=",
+      "multibase": "uEiC4nXPQeTIvhEpJx9gp-RBUFZv-wGplJhEUEnvUQKLjag",
+      "bytes": 19846474,
+      "alsoKnownAs": [
+        "did:holo:blake3:af4832bdfadce38e2b6716a72fdc486a34ac405898d20516beb1b8f122605baa"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/0c6da838885ced460ae868c9559c7cf3cd6b97dd47662d973bb4011de66d59f0": {
+      "kappa": "did:holo:sha256:0c6da838885ced460ae868c9559c7cf3cd6b97dd47662d973bb4011de66d59f0",
+      "sri": "sha256-DG2oOIhc7UYK6GjJVZx8881rl91HZi2XO7QBHeZtWfA=",
+      "multibase": "uEiAMbag4iFztRgroaMlVnHzzzWuX3UdmLZc7tAEd5m1Z8A",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:047fe57335f9b4c69a5b53f51b0a737e4f47922985195ddaadcca256a53aa878"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/156e3b341582a2f44f7e8f3a25ffc50368f76e0a74695470d0ac7ed82e421221": {
+      "kappa": "did:holo:sha256:156e3b341582a2f44f7e8f3a25ffc50368f76e0a74695470d0ac7ed82e421221",
+      "sri": "sha256-FW47NBWCovRPfo86Jf/FA2j3bgp0aVRw0Kx+2C5CEiE=",
+      "multibase": "uEiAVbjs0FYKi9E9-jzol_8UDaPduCnRpVHDQrH7YLkISIQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:2c49fc2e3e835cf5a4a19a393ce8691e0067fdab07fa93cb5ab876e5857c2dd6"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/1a832e9d15e047ce8b715a34f8546530625ca6183507bdac52cb91415b8e9d48": {
+      "kappa": "did:holo:sha256:1a832e9d15e047ce8b715a34f8546530625ca6183507bdac52cb91415b8e9d48",
+      "sri": "sha256-GoMunRXgR86LcVo0+FRlMGJcphg1B72sUsuRQVuOnUg=",
+      "multibase": "uEiAagy6dFeBHzotxWjT4VGUwYlymGDUHvaxSy5FBW46dSA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:aa3a433df9908c3045566bb75e211ac82e2c3c7407ac642199337dd35f8d71d7"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/2581820ad8c77e43302cb45e076729eedca7d4aa5537a1dc81982a78b13eda58": {
+      "kappa": "did:holo:sha256:2581820ad8c77e43302cb45e076729eedca7d4aa5537a1dc81982a78b13eda58",
+      "sri": "sha256-JYGCCtjHfkMwLLReB2cp7tyn1KpVN6HcgZgqeLE+2lg=",
+      "multibase": "uEiAlgYIK2Md-QzAstF4HZynu3KfUqlU3odyBmCp4sT7aWA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:94e2e04b5577067bf55e02e8204329597d553f33a9f7b75ae89127ddfa349927"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/26b128d9dac049b76ae76bd137b745094d92123da164174ed9dba8faaef01560": {
+      "kappa": "did:holo:sha256:26b128d9dac049b76ae76bd137b745094d92123da164174ed9dba8faaef01560",
+      "sri": "sha256-JrEo2drASbdq52vRN7dFCU2SEj2hZBdO2duo+q7wFWA=",
+      "multibase": "uEiAmsSjZ2sBJt2rna9E3t0UJTZISPaFkF07Z26j6rvAVYA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:7931ba64c3ec9cf635fae178944fa474436c90e235db6cc7f3f8fd1f8459ffe4"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/3f2254f2543ab1b4895a0034aed6f45b06fba717455e4e41adbb06a6b9f4fdea": {
+      "kappa": "did:holo:sha256:3f2254f2543ab1b4895a0034aed6f45b06fba717455e4e41adbb06a6b9f4fdea",
+      "sri": "sha256-PyJU8lQ6sbSJWgA0rtb0Wwb7pxdFXk5BrbsGprn0/eo=",
+      "multibase": "uEiA_IlTyVDqxtIlaADSu1vRbBvunF0VeTkGtuwamufT96g",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:954fcea3eaa4f50f948c9d26c6975732ab1f279df4dd3491c3de9232951f1410"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/479fbeff0b59aa9e71b9a17d9edfd031448f4cba82e6407ed814977de11322c6": {
+      "kappa": "did:holo:sha256:479fbeff0b59aa9e71b9a17d9edfd031448f4cba82e6407ed814977de11322c6",
+      "sri": "sha256-R5++/wtZqp5xuaF9nt/QMUSPTLqC5kB+2BSXfeETIsY=",
+      "multibase": "uEiBHn77_C1mqnnG5oX2e39AxRI9MuoLmQH7YFJd94RMixg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:e1e73e6b5ed0cb9d6c3452ebcc268078446a0580fa5073e552584fa2e2e8bc8b"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/5ab5b6a59377f8c20d7d6631f2811f8d2e966ab402cd83f404fab7d4a582c75a": {
+      "kappa": "did:holo:sha256:5ab5b6a59377f8c20d7d6631f2811f8d2e966ab402cd83f404fab7d4a582c75a",
+      "sri": "sha256-WrW2pZN3+MINfWYx8oEfjS6WarQCzYP0BPq31KWCx1o=",
+      "multibase": "uEiBatbalk3f4wg19ZjHygR-NLpZqtALNg_QE-rfUpYLHWg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:632a03b05c90d9b0310e7f72f398801aac122b43483c2b9eaa77169d50c63e72"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/75878c93984fe8e05b376d54ade41fe6d077b0b71b1d2904da946c0aea77df3b": {
+      "kappa": "did:holo:sha256:75878c93984fe8e05b376d54ade41fe6d077b0b71b1d2904da946c0aea77df3b",
+      "sri": "sha256-dYeMk5hP6OBbN21UreQf5tB3sLcbHSkE2pRsCup33zs=",
+      "multibase": "uEiB1h4yTmE_o4Fs3bVSt5B_m0HewtxsdKQTalGwK6nffOw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:ee776990a6fe8f15e84912cd7d1991c05f27f3fab995ee4c9c26c62c7a46d165"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/7b7cb994e70725ab197c3f770cd77a68eb269a8c49ab057e4b844b3a59452e04": {
+      "kappa": "did:holo:sha256:7b7cb994e70725ab197c3f770cd77a68eb269a8c49ab057e4b844b3a59452e04",
+      "sri": "sha256-e3y5lOcHJasZfD93DNd6aOsmmoxJqwV+S4RLOllFLgQ=",
+      "multibase": "uEiB7fLmU5wclqxl8P3cM13po6yaajEmrBX5LhEs6WUUuBA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:0207828d30967ae2e39f18f21f9110a1aaa23fb095673707ad20112732aadcad"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/818d976f21730b021f8de54e6c073188b28a2d702246b531b602191944b2b453": {
+      "kappa": "did:holo:sha256:818d976f21730b021f8de54e6c073188b28a2d702246b531b602191944b2b453",
+      "sri": "sha256-gY2XbyFzCwIfjeVObAcxiLKKLXAiRrUxtgIZGUSytFM=",
+      "multibase": "uEiCBjZdvIXMLAh-N5U5sBzGIsootcCJGtTG2AhkZRLK0Uw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:ae0037433f44bc21f8555073e7479c4c8bb63ceb4f0c0b45372f6ff9f0e3ab50"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90": {
+      "kappa": "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+      "sri": "sha256-ijnSq9OZmrc8NNskdoSc3fMDzjibNYJoUPmnAFibSpA=",
+      "multibase": "uEiCKOdKr05matzw02yR2hJzd8wPOOJs1gmhQ-acAWJtKkA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:86bb2b521a10612d5a1d38204fac4fa632466d1866144d8a6a7e3afc050ce7ae"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/992971a83164aaa0d5f1a9e12e72d7d21b31eeb303a8a047453cad4d1bd56599": {
+      "kappa": "did:holo:sha256:992971a83164aaa0d5f1a9e12e72d7d21b31eeb303a8a047453cad4d1bd56599",
+      "sri": "sha256-mSlxqDFkqqDV8anhLnLX0hsx7rMDqKBHRTytTRvVZZk=",
+      "multibase": "uEiCZKXGoMWSqoNXxqeEuctfSGzHuswOooEdFPK1NG9VlmQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:bb8c8a462c4414b297741d2180694b695384840def6ff3dde9a73ed96454c736"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/9aec374558bad7fa75a55ebff21398dd6d863e7d9d412f6e1a5cf44d79caff9d": {
+      "kappa": "did:holo:sha256:9aec374558bad7fa75a55ebff21398dd6d863e7d9d412f6e1a5cf44d79caff9d",
+      "sri": "sha256-muw3RVi61/p1pV6/8hOY3W2GPn2dQS9uGlz0TXnK/50=",
+      "multibase": "uEiCa7DdFWLrX-nWlXr_yE5jdbYY-fZ1BL24aXPRNecr_nQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:038f6170b2183e607766f088813b4b4bf1638980de92468eac72851e5f70cedc"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/9ec2a895d87892edcc8fb31b2aa25063e337ba830bd04f20f7d4a9df38641f69": {
+      "kappa": "did:holo:sha256:9ec2a895d87892edcc8fb31b2aa25063e337ba830bd04f20f7d4a9df38641f69",
+      "sri": "sha256-nsKoldh4ku3Mj7MbKqJQY+M3uoML0E8g99Sp3zhkH2k=",
+      "multibase": "uEiCewqiV2HiS7cyPsxsqolBj4ze6gwvQTyD31KnfOGQfaQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:a21047e9f0f16324569aac9b065509dcce1b4587f6a94de85a8a011f80fd5459"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/a89803a4c42cc37395c87cd1439de800a051a4d55e057410b77ba8f67fa9e50c": {
+      "kappa": "did:holo:sha256:a89803a4c42cc37395c87cd1439de800a051a4d55e057410b77ba8f67fa9e50c",
+      "sri": "sha256-qJgDpMQsw3OVyHzRQ53oAKBRpNVeBXQQt3uo9n+p5Qw=",
+      "multibase": "uEiComAOkxCzDc5XIfNFDnegAoFGk1V4FdBC3e6j2f6nlDA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:9f298224aff6ba1ee4514b85d53aa1cb8ef6404b6c912ac05114954261ae4843"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/b18ce787ff30c027515af30dc71727e0c9e99e6b1245de0b545dbe21ae925444": {
+      "kappa": "did:holo:sha256:b18ce787ff30c027515af30dc71727e0c9e99e6b1245de0b545dbe21ae925444",
+      "sri": "sha256-sYznh/8wwCdRWvMNxxcn4MnpnmsSRd4LVF2+Ia6SVEQ=",
+      "multibase": "uEiCxjOeH_zDAJ1Fa8w3HFyfgyemeaxJF3gtUXb4hrpJURA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:15631ab0aa7d45070e58295f3e346eaa368710f58ebfb2aa60d9b3b8da1944c0"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/b80d5b2a44747feca41bebfbec75b7ccf8449bf952d140c9f7dd02e7b04c20f0": {
+      "kappa": "did:holo:sha256:b80d5b2a44747feca41bebfbec75b7ccf8449bf952d140c9f7dd02e7b04c20f0",
+      "sri": "sha256-uA1bKkR0f+ykG+v77HW3zPhEm/lS0UDJ990C57BMIPA=",
+      "multibase": "uEiC4DVsqRHR_7KQb6_vsdbfM-ESb-VLRQMn33QLnsEwg8A",
+      "bytes": 185674,
+      "alsoKnownAs": [
+        "did:holo:blake3:2845de323a143ea09d53ef82583a86e9e8130be697ca4830889f55610c996bdc"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/b9dc30411dbd554a7308ba79c8fae83edd302ed1ab167dc54d51c966ef6abfc7": {
+      "kappa": "did:holo:sha256:b9dc30411dbd554a7308ba79c8fae83edd302ed1ab167dc54d51c966ef6abfc7",
+      "sri": "sha256-udwwQR29VUpzCLp5yProPt0wLtGrFn3FTVHJZu9qv8c=",
+      "multibase": "uEiC53DBBHb1VSnMIunnI-ug-3TAu0asWfcVNUclm72q_xw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:fdaa69f04ef6d09dffe87dad9bb4cf51d91cb589a2e9ae239c2406b9dde61a2a"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/bc4385631502198afb0ce259fece6b0189d555c0153f843a872abee75f04c179": {
+      "kappa": "did:holo:sha256:bc4385631502198afb0ce259fece6b0189d555c0153f843a872abee75f04c179",
+      "sri": "sha256-vEOFYxUCGYr7DOJZ/s5rAYnVVcAVP4Q6hyq+518EwXk=",
+      "multibase": "uEiC8Q4VjFQIZivsM4ln-zmsBidVVwBU_hDqHKr7nXwTBeQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:9cb52938d1dd21a3284b6961f32e6bffda121ba57950ea8a2400b9a7d0439963"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/c703593217a97d3a86df82390dd9457c5870b59c933054fe23c87032d5d0a132": {
+      "kappa": "did:holo:sha256:c703593217a97d3a86df82390dd9457c5870b59c933054fe23c87032d5d0a132",
+      "sri": "sha256-xwNZMhepfTqG34I5DdlFfFhwtZyTMFT+I8hwMtXQoTI=",
+      "multibase": "uEiDHA1kyF6l9OobfgjkN2UV8WHC1nJMwVP4jyHAy1dChMg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:d6643625988fedbe1d4a99190a56c84bee5368db6cd163641fba21f86e9b617d"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/c73384be0cde9623da352a678b1e2019f49c654ca3b641483cd727c8e703199b": {
+      "kappa": "did:holo:sha256:c73384be0cde9623da352a678b1e2019f49c654ca3b641483cd727c8e703199b",
+      "sri": "sha256-xzOEvgzeliPaNSpnix4gGfScZUyjtkFIPNcnyOcDGZs=",
+      "multibase": "uEiDHM4S-DN6WI9o1KmeLHiAZ9JxlTKO2QUg81yfI5wMZmw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:b0f7d3c498a83c56c7428dad58dca032207ebb347424d5888f920d8c783259a7"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/ce465b5a7d48e2c73712ca5419b55e80e35f9a1bc995e31534c1f41a3a398ed1": {
+      "kappa": "did:holo:sha256:ce465b5a7d48e2c73712ca5419b55e80e35f9a1bc995e31534c1f41a3a398ed1",
+      "sri": "sha256-zkZbWn1I4sc3EspUGbVegONfmhvJleMVNMH0Gjo5jtE=",
+      "multibase": "uEiDORltafUjixzcSylQZtV6A41-aG8mV4xU0wfQaOjmO0Q",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3d12f935a53d1bc8eed5b835bae2e05045cc335c581f04d437b5719a3c3a2d6c"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/d3993343f3af2c30f0c4b379be6d95b77e23dd57600288015e144330b41ebb80": {
+      "kappa": "did:holo:sha256:d3993343f3af2c30f0c4b379be6d95b77e23dd57600288015e144330b41ebb80",
+      "sri": "sha256-05kzQ/OvLDDwxLN5vm2Vt34j3VdgAogBXhRDMLQeu4A=",
+      "multibase": "uEiDTmTND868sMPDEs3m-bZW3fiPdV2ACiAFeFEMwtB67gA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:01a123ab346e2b31cfbad3f635d162809109bb8aadf356af62175f7effe37dc3"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/d8ecc4d0424c1cf0adaf250e01c6c5bac1c416f5dd9567cfcc0478f01d2b7439": {
+      "kappa": "did:holo:sha256:d8ecc4d0424c1cf0adaf250e01c6c5bac1c416f5dd9567cfcc0478f01d2b7439",
+      "sri": "sha256-2OzE0EJMHPCtryUOAcbFusHEFvXdlWfPzAR48B0rdDk=",
+      "multibase": "uEiDY7MTQQkwc8K2vJQ4BxsW6wcQW9d2VZ8_MBHjwHSt0OQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:d11719b65a7219179bf4236611580bd20b909864d1354612a0b11aacc3e7ea08"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/e8926850a0ecb79ea708fe3f063be86e8303d467dd8f4d061604d371ee8a7f26": {
+      "kappa": "did:holo:sha256:e8926850a0ecb79ea708fe3f063be86e8303d467dd8f4d061604d371ee8a7f26",
+      "sri": "sha256-6JJoUKDst56nCP4/BjvoboMD1Gfdj00GFgTTce6KfyY=",
+      "multibase": "uEiDokmhQoOy3nqcI_j8GO-hugwPUZ92PTQYWBNNx7op_Jg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:a7e9a6ba9df2663ddbf525768edb193a1a9c896a63ebc24a34a8134c26943433"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks/.holo/sha256/ed04c264e435f31fd4de6f3f84f89d3683bf6deb7f2fcbc162a777277a05111c": {
+      "kappa": "did:holo:sha256:ed04c264e435f31fd4de6f3f84f89d3683bf6deb7f2fcbc162a777277a05111c",
+      "sri": "sha256-7QTCZOQ18x/U3m8/hPidNoO/bet/L8vBYqd3J3oFERw=",
+      "multibase": "uEiDtBMJk5DXzH9Tebz-E-J02g79t638vy8Fip3cnegURHA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:772f080a4c38b3ddf5003b32510dc94d8adc81a636774afc4e90b82850ce6f79"
+      ]
+    },
+    "apps/openwrt/images/openwrt-18.06.1-x86-legacy-combined-squashfs.img.kblocks.json": {
+      "kappa": "did:holo:sha256:50bfdb597357f4a7570df52ed8cfcf613a203f9aa991e81ded6a290dfe9da83e",
+      "sri": "sha256-UL/bWXNX9KdXDfUu2M/PYTogP5qpkegd7WopDf6dqD4=",
+      "multibase": "uEiBQv9tZc1f0p1cN9S7Yz89hOiA_mqmR6B3taikN_p2oPg",
+      "bytes": 7370,
+      "alsoKnownAs": [
+        "did:holo:blake3:280afbf4989927981f28640c2ddbcb5ab166f67d8ffb7c0acb42cb835f3ed21a"
+      ]
+    },
+    "apps/openwrt/index.html": {
+      "kappa": "did:holo:sha256:0f0aea5bbbdd4926f8e34e7c1000e2dc05061e346dfdc1aa5803ec64ba64e059",
+      "sri": "sha256-DwrqW7vdSSb44058EADi3AUGHjRt/cGqWAPsZLpk4Fk=",
+      "multibase": "uEiAPCupbu91JJvjjTnwQAOLcBQYeNG39wapYA-xkumTgWQ",
+      "bytes": 24471,
+      "alsoKnownAs": [
+        "did:holo:blake3:20414134ad223675f4d235c32707cc951fab58fa733e1d8f74603d84542832ae"
+      ]
+    },
+    "apps/openwrt/kappa.json": {
+      "kappa": "did:holo:sha256:072c65c31c44cb03c7aa8657a9c37664633b77b8fc71083b434c2e74112cc6da",
+      "sri": "sha256-ByxlwxxEywPHqoZXqcN2ZGM7d7j8cQg7Q0wudBEsxto=",
+      "multibase": "uEiAHLGXDHETLA8eqhlepw3ZkYzt3uPxxCDtDTC50ESzG2g",
+      "bytes": 1969,
+      "alsoKnownAs": [
+        "did:holo:blake3:55a5b7d7c5d2352ee54f4ec50ff264f807e7c920181e479d0d3b51db84a576de"
+      ]
+    },
+    "apps/openwrt/sw.js": {
+      "kappa": "did:holo:sha256:87e1f3769848d269c579e2347011c7c0bc9215910de2fabf27a5e5502c97393b",
+      "sri": "sha256-h+HzdphI0mnFeeI0cBHHwLySFZEN4vq/J6XlUCyXOTs=",
+      "multibase": "uEiCH4fN2mEjSacV54jRwEcfAvJIVkQ3i-r8npeVQLJc5Ow",
+      "bytes": 5057,
+      "alsoKnownAs": [
+        "did:holo:blake3:d1b68c3f88c13831ded5066105663b7f52b0bf524cf96576773ab9593d863e12"
+      ]
+    },
+    "apps/openwrt/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/openwrt/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/openwrt/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/openwrt/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/openwrt/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/openwrt/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/openwrt/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/openwrt/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

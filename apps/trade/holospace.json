@@ -1,0 +1,83 @@
+{
+  "$comment": "Holo Trade Phase 0 (read plane) of ADR-0070. Hand-authored P0 stub; once the catalog/lock/seal cascade runs (tools/gen-app-defs.mjs etc.) this is regenerated from the hub catalog.",
+  "id": "org.hologram.HoloTrade",
+  "name": "Holo Trade",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A self-sovereign trading terminal over Hyperliquid verifiable, key-less, in the browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "FinanceApplication",
+  "conforms": {
+    "specs": [
+      "holo-trade"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloTrade"
+    ]
+  },
+  "shared": [
+    "holo-hypercore-stream.js",
+    "holo-hypercore.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.css",
+    "holo-theme.js",
+    "holo-ux.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "Trading shouldn't mean trusting an exchange's account, holding API secrets, or running a server."
+    },
+    {
+      "p": "Holo Trade is the intent surface over Hyperliquid's on-chain order book. Phase 0 is the live read plane: perp markets, a per-market live order book and trade firehose, and read-only account positions & fills straight from the official Hyperliquid Info API + WebSocket, key-less, serverless, verified in your browser (Law L5)."
+    },
+    {
+      "ul": [
+        "Live perp markets mark price, funding, open interest, 24h volume",
+        "Per-market live order book + trade firehose (WebSocket)",
+        "Read-only account positions & fills by 0x address",
+        "No key, no signing in P0 signing arrives in P1 via the wallet's default-deny gate (ADR-0070)"
+      ]
+    }
+  ],
+  "categories": [
+    "Finance",
+    "Network"
+  ],
+  "keywords": [
+    "hyperliquid",
+    "hypercore",
+    "perpetuals",
+    "perps",
+    "spot",
+    "dex",
+    "trading",
+    "order-book",
+    "exchange",
+    "defi",
+    "self-custody",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://hologram.os/apps/trade",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-12",
+      "description": "Phase 0 (ADR-0070): the live read plane over Hyperliquid HyperCore markets terminal, live order book + trade firehose, read-only positions & fills. Reuses the shipping HyperCore Info/WebSocket layer verbatim. No signing key (zero key risk)."
+    }
+  ],
+  "accent": "#f2c14e"
+}

@@ -1,0 +1,40 @@
+# Hologram native host — a Tauri v2 application (https://github.com/tauri-apps/tauri).
+# Canonical structure: this is the standard src-tauri crate. The app is a thin shell over the OS's
+# own engines; the only first-party Rust is the `holo://` κ-route (lib.rs) — everything else is
+# Tauri + its official plugins, used verbatim per the spec (no hand-rolled webview/IPC/build).
+[package]
+name = "hologram"
+version = "0.1.0"
+description = "Hologram — the native, content-addressed UOR browser/OS host"
+authors = ["Hologram Technologies"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+# Tauri’s required lib + binary split (the desktop bin calls into the lib; the lib is also the
+# mobile entry point). This is the layout `create-tauri-app` emits — kept verbatim.
+[lib]
+name = "hologram_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri core + the OFFICIAL plugins that give the native powers a sandboxed browser can’t:
+#   deep-link → hologram:// (one link boots the host)        shell → a real terminal
+#   fs        → the real filesystem                          http  → live web with NO CORS (the proxy disappears)
+# `unstable` enables multi-webview (Window::add_child) — Route A: each tab is a real native
+# Chromium WebContents rather than an iframe. Part of Tauri, behind the unstable flag.
+tauri = { version = "2", features = ["unstable"] }
+tauri-plugin-deep-link = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-http = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Law L5 — re-derive every byte to its content address before serving it. sha256 is the OS object
+# identity (did:holo:sha256:…). The substrate σ-axis (blake3, holospaces ADR-052) is a follow-up; add
+# the `blake3` crate when the host emits the σ-address too.
+sha2 = "0.10"

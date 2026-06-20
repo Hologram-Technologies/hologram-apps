@@ -1,0 +1,26 @@
+{
+  "id": "org.hologram.HoloX86",
+  "name": "Holo x86",
+  "type": ["schema:SoftwareApplication", "schema:WebApplication"],
+  "summary": "A real x86 Linux — v86 engine + BIOS + image all verified — booted in a browser tab.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    { "p": "A real x86 Linux boots in the tab on v86 (a BSD-2-Clause x86-to-wasm JIT). Unlike a serial-only emulator, v86 renders VGA to a canvas with real keyboard + mouse — a graphical machine in the browser, no install, no server." },
+    { "p": "Every byte is anchored in the κ-substrate: the v86 engine, its wasm core, both BIOSes, and the Linux image are each content-addressed. Their SHA-256 κ is re-derived and gated before execution (Law L5); v86 is handed only verified bytes — so the ENGINE, not just the images, is substrate-native." },
+    { "ul": [
+      "Real x86 Linux (Buildroot) on the v86 JIT — graphical VGA, mouse + keyboard",
+      "κ-gated engine AND image: bytes admitted by content address, not trust",
+      "Tamper one byte → boot refused",
+      "100% serverless after first load",
+      "Swap the image κ-pin to boot a graphical X desktop (Arch/DSL)"
+    ] }
+  ],
+  "categories": ["System", "Education", "Emulator"],
+  "keywords": ["linux", "x86", "v86", "emulator", "kappa", "content-addressed", "graphical"],
+  "developer": { "id": "org.hologram", "name": "Hologram Technologies" },
+  "license": "BSD-2-Clause",
+  "homepage": "https://hologram.os/apps/holo-x86",
+  "releases": [ { "version": "0.1", "date": "2026-06-17", "description": "κ-gated v86 boot of a real x86 Buildroot Linux, rendered to canvas." } ]
+}

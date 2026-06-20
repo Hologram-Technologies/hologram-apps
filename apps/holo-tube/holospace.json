@@ -1,0 +1,91 @@
+{
+  "id": "org.hologram.HoloTube",
+  "name": "Holo Tube",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Stream video natively as verified objects. Every segment is checked genuine before it reaches the decoder — no iframe, no trust in the source, just bytes that prove themselves.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "MultimediaApplication",
+  "conforms": {
+    "specs": [
+      "media-source-extensions",
+      "iso-bmff",
+      "content-addressing",
+      "law-l1",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloTube"
+    ]
+  },
+  "comment_shared": "Holo Tube composes the OS κ-feed (holo-media.mjs over holo-kstore.js) — every media segment is resolved BY ITS κ and re-derived before decode. The demo MediaGraph + its fMP4 segments are vendored under media/ so they seal into the app closure and resolve at /.holo/sha256/<hex> offline.",
+  "shared": [
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-mobile.css",
+    "holo-fx.js",
+    "holo-media.mjs",
+    "holo-kstore.js",
+    "holo-blake3.mjs",
+    "holo-atlas-coord.mjs",
+    "holo-uor.mjs"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "A video player with no foreign runtime and no trust in the origin. A stream is immutable per segment — an init segment plus an ordered list of media segments — so a video is a finite content-addressed DAG (a MediaGraph) and a playlist or radio queue is an open DAG walked through 'next'."
+    },
+    {
+      "p": "Every segment is pulled BY ITS κ through the OS κ-store (arena → OPFS → /.holo route → IPFS heal) and re-derived against that κ before a single byte reaches the decoder (Law L5). A tampered segment is refused — playback stalls rather than plays bad bytes. Segments are bit-exact to source; nothing is transcoded on the identity path."
+    },
+    {
+      "ul": [
+        "Native MSE playback — no iframe embed",
+        "κ-verified segments: every played byte re-derives to its address",
+        "Offline replay: a watched video plays from the OPFS κ-store, origin dead",
+        "Gapless playlist / radio: the next video's κ is buffered before this one ends",
+        "Source-agnostic ingest: any DASH/HLS origin; YouTube is one adapter",
+        "A live 'verified ✓ N segments' counter — the L5 flex made visible"
+      ]
+    }
+  ],
+  "categories": [
+    "Multimedia",
+    "Video",
+    "Utility"
+  ],
+  "keywords": [
+    "video",
+    "streaming",
+    "mse",
+    "media-source",
+    "fmp4",
+    "dash",
+    "youtube",
+    "playlist",
+    "kappa",
+    "content-addressed",
+    "law-l5"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "LicenseRef-proprietary",
+  "homepage": "https://hologram.os/apps/holo-tube",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-18",
+      "description": "Native κ-addressed video streaming in Holo Hub. A MediaGraph seals a stream as a content-addressed DAG of fMP4/WebM segments; the MSE κ-feed (holo-media.mjs) resolves each segment by its κ and re-derives it before decode (Law L5). VOD seals finite, radio walks 'next' gapless. Bit-exact segments, offline replay from OPFS, source-agnostic ingest (DASH/HLS; YouTube adapter)."
+    }
+  ],
+  "accent": "#ff5c8a"
+}

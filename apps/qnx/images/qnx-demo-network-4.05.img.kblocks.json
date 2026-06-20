@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "qnx-demo-network-4.05.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:f439cadab460e3f2c8c1a1de303baff92464bf655b9ba7086aefa81c359130f9"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:cad825f9dfd9435c4fa60e962f54b3bee1a49c8055530259b32ba1d9e08d1d55",
+  "blocks": [
+    "did:holo:sha256:1bf6165097e754c29144e837baecdd7c957704758ce6c5c9baa190b511fde8f8",
+    "did:holo:sha256:293ad4417d921f38d37c46227885131a935cd300aaa77e1655613c4ba9adfb36",
+    "did:holo:sha256:00091fc658b656a542a01e898af7697096b217826476f047e23eea1d3b82a72d",
+    "did:holo:sha256:3fb67288aa5f392b8a30997483786606b9b38d326b9bdfc95ad06a3201921024",
+    "did:holo:sha256:c5eb266df5b5d50a67620eb935861247a93b69ceda3751dbe54caab692b35bba",
+    "did:holo:sha256:1fb271ac410143cd87caaf68632d8989d44f0ea796fcdae555bb1448bb5d056e"
+  ]
+}

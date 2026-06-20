@@ -1,0 +1,1686 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Scan Hologram OS</title>
+    <meta
+      name="description"
+      content="Holo Scan a hologram-native, multi-chain blockchain explorer modeled on the open-source Blockscout (and its API v2). Real on-chain data across 25+ EVM chains, Solana, and Hyperliquid HyperCore blocks, transactions, addresses, tokens, NFTs, holders, verified contracts, gas, live mempool/firehose with a UOR superpower: every object is content-addressed and verified in your browser (keccak256/RLP re-derivation on EVM; ed25519 on Solana). Per-chain branding, serverless, no API key."
+    />
+    <script src="coi-serviceworker.min.js"></script>
+    <link rel="stylesheet" href="/.holo/sha256/c4414e9c61a6ae6b8c19145dddbbe24c68bea83784666434a94cf033b06cc483.css" data-holo-shared="holo-theme.css" />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <link rel="stylesheet" href="/.holo/sha256/af0f2b5ff47f414281246d8e8e786edc6302bed6731174897f74f105dd2f93f3.css" data-holo-shared="holo-phi.css" />
+    <script type="module" src="/.holo/sha256/f06225898cce8ded3bddebb5abf6a4f2478e40b7eac828905d38290cebb820de.js" data-holo-shared="holo-ux.js"></script>
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --panel: var(--holo-surface); --panel2: var(--holo-surface-2); --line: var(--holo-border); --dim: var(--holo-ink-dim);
+        --ink: var(--holo-ink); --acc: var(--holo-accent); --acc2: color-mix(in srgb, var(--holo-accent) 72%, var(--holo-ink)); --link: var(--holo-accent); --good: var(--holo-ok); --bad: var(--holo-danger); --warn: var(--holo-warn); --burn: #f08c3a; --pur: #a371f7;
+        /* golden-ratio proportion: canonical --holo-size-* / --holo-phi-fr from _shared/holo-phi.css (ADR-028, ADR-030) */ }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: row; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; --brand: var(--holo-accent); }
+      a { color: var(--link); text-decoration: none; } a:hover { text-decoration: underline; }
+      .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+      .mut { color: var(--dim); }
+
+      /* ── left rail nav (Blockscout-style) ── */
+      #rail { flex: 0 0 auto; width: 58px; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 0.6rem 0; background: var(--bg); border-right: 1px solid var(--line); z-index: 70; }
+      #rail .raillogo { width: 38px; height: 38px; display: grid; place-items: center; color: var(--brand); margin-bottom: 0.5rem; transition: color .3s; }
+      #rail .raillogo svg { width: 26px; height: 26px; }
+      .railnav { display: flex; flex-direction: column; gap: 0.25rem; width: 100%; align-items: center; }
+      .railitem { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; color: var(--dim); position: relative; border: 0; background: transparent; cursor: pointer; transition: color .15s, background .15s; }
+      .railitem svg { width: 21px; height: 21px; }
+      .railitem:hover { color: var(--ink); background: var(--panel2); text-decoration: none; }
+      .railitem.on { color: var(--brand); background: color-mix(in srgb, var(--brand) 16%, transparent); }
+      .railitem .raildot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+      .railsettings { margin-top: auto; }
+      #app { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+      .chainchip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.18rem 0.5rem 0.18rem 0.3rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--line)); background: color-mix(in srgb, var(--brand) 12%, transparent); }
+      .chainchip img { width: 17px; height: 17px; border-radius: 50%; } .chainchip b { font-size: var(--holo-text-sm, 1rem); }
+      .pricechip, .gaschip { font: var(--holo-text-sm, 1rem) ui-mono, monospace; color: var(--dim); white-space: nowrap; }
+      .pricechip b { color: var(--ink); } .pricechip .up { color: var(--good); } .pricechip .dn { color: var(--bad); }
+      @media (max-width: 820px) { .pricechip, .gaschip { display: none; } #rail { width: 50px; } }
+
+      /* ── holospace chrome ── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0.9rem;
+        background: color-mix(in srgb, var(--bg) 80%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); font-size: var(--holo-text-sm, 1rem); user-select: none; z-index: 60; }
+      #bar .brand { font-weight: 800; display: flex; align-items: center; gap: 0.45rem; }
+      #bar .brand .dia { width: 16px; height: 16px; }
+      #bar .brand b { color: var(--acc2); }
+      #bar .tag { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      #bar .k { color: var(--link); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; max-width: 28vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+      #bar .ver { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; padding: 0.06rem 0.45rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+      #bar .ver.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, var(--line)); } #bar .ver.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+      #bar .sp { margin-left: auto; }
+      #bar select, #bar button { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0.24rem 0.55rem; cursor: pointer; }
+      #bar select:hover, #bar button:hover { border-color: var(--holo-border-emphasized, var(--line)); }
+
+      /* ── nav + instant search ── */
+      nav.top { flex: 0 0 auto; display: flex; align-items: center; gap: 0.15rem; padding: 0.3rem 0.9rem; border-bottom: 1px solid var(--line); background: var(--panel); position: relative; z-index: 55; }
+      nav.top a.navlink { color: var(--dim); padding: 0.3rem 0.7rem; border-radius: 7px; font-weight: 600; font-size: var(--holo-text-sm, 1rem); white-space: nowrap; }
+      nav.top a.navlink:hover { color: var(--ink); background: var(--panel2); text-decoration: none; }
+      nav.top a.navlink.on { color: var(--ink); background: var(--panel2); }
+      .searchbox { margin-left: auto; position: relative; width: 30rem; max-width: 46vw; }
+      .searchbox input { width: 100%; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 0.4rem 0.8rem; font: inherit; outline: none; }
+      .searchbox input:focus { border-color: var(--acc); }
+      .sdrop { position: absolute; top: 110%; left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 16px 40px #0009; max-height: 60vh; overflow: auto; display: none; z-index: 80; }
+      .sdrop.open { display: block; }
+      .sdrop .sgrp { color: var(--dim); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.5rem 0.8rem 0.2rem; }
+      .sdrop .sitem { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.8rem; cursor: pointer; border-top: 1px solid var(--panel2); }
+      .sdrop .sitem:hover, .sdrop .sitem.sel { background: var(--panel2); }
+      .sdrop .sitem .ic { width: 26px; height: 26px; border-radius: 7px; background: var(--panel2); border: 1px solid var(--line); display: grid; place-items: center; font: 600 0.6rem ui-monospace, monospace; color: var(--dim); flex: none; }
+      .sdrop .sitem .t { font-weight: 600; } .sdrop .sitem .s { color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      .sdrop .sitem .mid { min-width: 0; flex: 1; overflow: hidden; } .sdrop .sitem .mid > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      main { flex: 1 1 auto; min-height: 0; overflow: auto; }
+      /* full-bleed: use the entire screen, with φ-scaled gutters */
+      .wrap { max-width: none; width: 100%; margin: 0; padding: var(--holo-size-m) clamp(var(--holo-size-s), 3.2vw, var(--holo-size-xl)) var(--holo-size-xl); }
+      .wrap.narrow { max-width: 70rem; margin: 0 auto; }   /* detail/about read better bounded */
+      h1.page { font-size: 1.25rem; margin: 0 0 0.15rem; font-weight: 700; }
+      .crumbs { color: var(--dim); font-size: var(--holo-text-sm, 1rem); margin: 0 0 1rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+      .crumbs a { color: var(--link); }
+
+      /* ── chips / badges ── */
+      .nametag { display: inline-block; padding: 0.02rem 0.42rem; border-radius: 6px; font-size: 0.72rem; background: var(--panel2); border: 1px solid var(--line); color: var(--acc2); vertical-align: middle; }
+      .vchk { color: var(--good); font-size: 0.85em; } .scam { color: var(--bad); }
+      .tag2 { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.74rem; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+      .tag2.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, var(--line)); background: color-mix(in srgb, var(--good) 14%, transparent); }
+      .tag2.fail { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+      .tag2.type { color: var(--acc2); border-color: color-mix(in srgb, var(--acc) 50%, var(--line)); } .tag2.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+      .kv { color: var(--good); font: 0.78rem ui-monospace, monospace; cursor: help; white-space: nowrap; } .kv.bad { color: var(--bad); } .kv.wait, .kv.na { color: var(--dim); }
+      .meth { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 0.05rem 0.42rem; font-size: 0.73rem; color: var(--ink); max-width: 11rem; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+      .inout { font-size: 0.66rem; padding: 0.04rem 0.4rem; border-radius: 5px; border: 1px solid; }
+      .inout.in { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, var(--line)); } .inout.out { color: var(--burn); border-color: color-mix(in srgb, var(--burn) 50%, var(--line)); } .inout.self { color: var(--dim); border-color: var(--line); }
+      .ticon { width: 18px; height: 18px; border-radius: 50%; vertical-align: -4px; background: var(--panel2); object-fit: cover; }
+
+      /* ── stat cards + chart ── */
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--holo-size-s); margin-bottom: var(--holo-size-s); }
+      .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 0.7rem 0.9rem; }
+      .stat .l { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); }
+      .stat .v { font-weight: 700; font-size: 1.04rem; margin-top: 0.15rem; }
+      .stat .s { color: var(--dim); font-size: 0.74rem; margin-top: 0.1rem; }
+      .up { color: var(--good); } .dn { color: var(--bad); }
+      @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+      .homechart { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 0.7rem 0.9rem; }
+      .homechart h3 { margin: 0 0 0.3rem; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); display: flex; justify-content: space-between; align-items: baseline; }
+      .homechart h3 b { color: var(--ink); font-size: 1.4rem; text-transform: none; letter-spacing: 0; }
+      svg.spark { width: 100%; height: clamp(90px, 9vw, 150px); display: block; }
+      /* ── Blockscout-style hero + chain branding ── */
+      .hero { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--holo-radius-lg, 16px); padding: 1.15rem 1.3rem; margin-bottom: var(--holo-size-s);
+        background: linear-gradient(120deg, color-mix(in srgb, var(--brand) 30%, var(--bg)) 0%, color-mix(in srgb, var(--brand) 10%, var(--bg)) 42%, var(--bg) 100%); }
+      .hero .herobrand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.7rem; }
+      .hero .herologo { width: 44px; height: 44px; border-radius: var(--holo-radius, 12px); flex: none; box-shadow: 0 4px 18px #0007; background: var(--bg); }
+      .hero h2 { margin: 0; font-size: 1.35rem; font-weight: 800; }
+      .hero .hdesc { margin: 0.1rem 0 0; color: var(--ink); font-size: 0.86rem; max-width: 60rem; }
+      .hero .sb { display: flex; gap: 0.5rem; }
+      .hero .sb input { flex: 1; background: var(--bg)cc; color: var(--ink); border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--line)); border-radius: 10px; padding: 0.65rem 0.9rem; font: inherit; outline: none; }
+      .hero .sb input:focus { border-color: var(--brand); }
+      .hero .sb button { background: var(--brand); border: 0; color: var(--brand-ink, #0a0d12); font-weight: 700; padding: 0 1.3rem; border-radius: 10px; cursor: pointer; }
+      .herolinks { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+      .herolinks a { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); border-radius: 999px; padding: 0.18rem 0.6rem; }
+      .herolinks a:hover { background: #ffffff22; text-decoration: none; border-color: var(--brand); }
+      .homegrid { display: grid; grid-template-columns: 1fr var(--holo-phi-fr); gap: var(--holo-size-s); margin-bottom: var(--holo-size-s); align-items: stretch; }
+      .statgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--holo-size-s); }
+      .chartside { display: flex; gap: 1.2rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--line); flex-wrap: wrap; }
+      .chartside .cs { } .chartside .cs .l { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); } .chartside .cs .v { font-weight: 700; }
+      @media (max-width: 900px) { .homegrid { grid-template-columns: 1fr; } .statgrid { grid-template-columns: repeat(2, 1fr); } }
+      /* ── Omnichain Account ── */
+      .nwhero { display: grid; grid-template-columns: 1fr auto; gap: 1rem 1.4rem; align-items: end; border: 1px solid var(--line); border-radius: var(--holo-radius-lg, 16px); padding: 1.1rem 1.3rem; margin-bottom: var(--holo-size-s);
+        background: linear-gradient(120deg, color-mix(in srgb, var(--brand, #627eea) 26%, var(--bg)) 0%, var(--bg) 70%); }
+      .nwhero .nwlabel { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+      .nwhero .nwval { font-size: clamp(1.8rem, 4vw, 2.7rem); font-weight: 800; line-height: 1.05; }
+      .nwhero .nwsub { color: var(--dim); font-size: 0.84rem; margin-top: 0.2rem; }
+      .nwhero .nwaddr { font-size: 0.78rem; }
+      .omniprogwrap { height: 5px; border-radius: 99px; background: #ffffff14; overflow: hidden; margin: 0.6rem 0 0; }
+      .omniprog { height: 100%; width: 0; background: var(--brand, #627eea); transition: width 0.25s ease; }
+      .chipscan { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+      .cscan { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; padding: 0.16rem 0.5rem; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); }
+      .cscan img { width: 14px; height: 14px; border-radius: 4px; }
+      .crow { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: 0.7rem; align-items: center; padding: 0.6rem 0.2rem; border-bottom: 1px solid var(--line); cursor: pointer; }
+      .crow:hover { background: #ffffff08; }
+      .crow img.clogo { width: 26px; height: 26px; border-radius: 7px; background: var(--bg); }
+      .crow .cname { font-weight: 600; } .crow .cmeta { color: var(--dim); font-size: 0.78rem; }
+      .crow .cusd { text-align: right; font-weight: 700; } .crow .cshare { text-align: right; color: var(--dim); font-size: 0.74rem; }
+      .crow .bar { grid-column: 2 / 4; height: 4px; border-radius: 99px; background: #ffffff10; overflow: hidden; margin-top: 0.25rem; }
+      .crow .bar i { display: block; height: 100%; background: var(--cbar, var(--brand)); }
+      .kbadge { font-size: 0.64rem; padding: 0.05rem 0.34rem; border-radius: 5px; border: 1px solid var(--line); color: var(--dim); margin-left: 0.35rem; vertical-align: middle; }
+      .kbadge.on { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }
+      .toklist { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem 1.2rem; }
+      .toklist .tk { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.3rem 0; border-bottom: 1px solid var(--line); font-size: 0.86rem; }
+      .toklist .tk .sym { font-weight: 600; } .toklist .tk .on { color: var(--dim); font-size: 0.74rem; font-weight: 400; }
+      .casnap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem; }
+      .casnap .mono { color: var(--brand, #8aa0ff); cursor: pointer; word-break: break-all; }
+      @media (max-width: 760px) { .nwhero { grid-template-columns: 1fr; } .toklist { grid-template-columns: 1fr; } }
+      /* ── AI Agent / MCP console ── */
+      .toolgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.6rem; }
+      .toolcard { border: 1px solid var(--line); border-radius: 11px; padding: 0.6rem 0.75rem; background: var(--panel); }
+      .toolcard .tn { font-weight: 700; font-family: var(--mono, ui-monospace, monospace); color: var(--brand, #8aa0ff); font-size: 0.86rem; }
+      .toolcard .td { color: var(--dim); font-size: 0.76rem; margin-top: 0.2rem; line-height: 1.45; }
+      .toolcard .tk { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.35rem; }
+      .toolcard .tk.kappa { color: var(--good); } .toolcard .tk.state { color: var(--dim); }
+      .runbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.2rem 0 0.7rem; }
+      .runbar select, .runbar input { background: var(--bg)cc; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 0.5rem 0.7rem; font: inherit; }
+      .runbar input { flex: 1; min-width: 12rem; font-family: var(--mono, ui-monospace, monospace); font-size: 0.84rem; }
+      .runbar button { background: var(--brand, #7c5cff); border: 0; color: var(--brand-ink, #fff); font-weight: 700; padding: 0.5rem 1.1rem; border-radius: 9px; cursor: pointer; }
+      .preset { display: inline-flex; gap: 0.3rem; font-size: 0.76rem; padding: 0.22rem 0.6rem; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: var(--ink); }
+      .preset:hover { border-color: var(--brand); }
+      .envbox { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+      .envhead { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); background: var(--bg); }
+      .envhead .esum { font-weight: 600; } .envhead .eca { font-family: var(--mono, ui-monospace, monospace); color: var(--brand, #8aa0ff); font-size: 0.78rem; cursor: pointer; word-break: break-all; }
+      .vbadge { font-size: 0.7rem; font-weight: 700; padding: 0.12rem 0.5rem; border-radius: 6px; border: 1px solid var(--line); }
+      .vbadge.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }
+      .vbadge.no { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+      .vbadge.na { color: var(--dim); }
+      .envbody { margin: 0; padding: 0.7rem 0.8rem; font-family: var(--mono, ui-monospace, monospace); font-size: 0.74rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 24rem; overflow: auto; color: var(--ink); }
+      .ehonest { padding: 0.5rem 0.8rem; border-top: 1px solid var(--line); color: var(--dim); font-size: 0.76rem; }
+      .codeblock { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.9rem; font-family: var(--mono, ui-monospace, monospace); font-size: 0.76rem; white-space: pre; overflow: auto; color: var(--ink); }
+
+      /* ── two-column lists ── */
+      /* home lists in golden proportion (blocks 1 : transactions φ) */
+      .cols { display: grid; grid-template-columns: 1fr var(--holo-phi-fr); gap: var(--holo-size-s); align-items: start; }
+      @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); overflow: hidden; }
+      .card > h3 { margin: 0; padding: 0.65rem 0.9rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 0.5rem; }
+      .lrow { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.9rem; border-bottom: 1px solid var(--panel2); }
+      .lrow:last-child { border-bottom: 0; }
+      .lrow .badge { width: 36px; height: 36px; flex: none; border-radius: 9px; background: var(--panel2); border: 1px solid var(--line); display: grid; place-items: center; color: var(--dim); font: 600 0.62rem ui-monospace, monospace; }
+      .lrow .mid { min-width: 0; flex: 1; } .lrow .mid > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .lrow .mid .s { color: var(--dim); font-size: 0.78rem; }
+      .lrow .right { text-align: right; white-space: nowrap; }
+      .pill { display: inline-block; padding: 0.04rem 0.45rem; border-radius: 6px; font-size: 0.72rem; border: 1px solid var(--line); color: var(--dim); }
+      .card .foot { text-align: center; padding: 0.5rem; border-top: 1px solid var(--line); }
+      .card .foot a { font-weight: 600; color: var(--dim); } .card .foot a:hover { color: var(--ink); }
+
+      /* ── tables ── */
+      .tablecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); overflow: hidden; }
+      table.t { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+      table.t th { text-align: left; color: var(--dim); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+      table.t td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--panel2); vertical-align: middle; white-space: nowrap; }
+      table.t tr:last-child td { border-bottom: 0; }
+      table.t tr:hover td { background: var(--panel2); }
+      .pager { text-align: center; padding: 0.6rem; border-top: 1px solid var(--line); }
+      .pager button { background: var(--panel2); border: 1px solid var(--line); color: var(--ink); border-radius: var(--holo-radius-sm, 8px); padding: 0.4rem 1.1rem; cursor: pointer; font: inherit; }
+      .pager button:hover { border-color: var(--holo-border-emphasized, var(--line)); } .pager button:disabled { opacity: 0.5; }
+
+      /* ── detail (dl) ── */
+      .detail { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 0.2rem 0.2rem; }
+      dl.kv2 { display: grid; grid-template-columns: 15.5rem 1fr; margin: 0; }
+      dl.kv2 dt { color: var(--dim); padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--panel2); display: flex; align-items: center; gap: 0.35rem; }
+      dl.kv2 dd { margin: 0; padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--panel2); word-break: break-word; }
+      dl.kv2 dt .q { color: var(--dim); cursor: help; border: 1px solid var(--line); border-radius: 999px; width: 14px; height: 14px; display: inline-grid; place-items: center; font-size: var(--holo-text-sm, 1rem); flex: none; }
+      dl.kv2 > dt:last-of-type, dl.kv2 > dd:last-of-type { border-bottom: 0; }
+      @media (max-width: 780px) { dl.kv2 { grid-template-columns: 1fr; } dl.kv2 dt { border-bottom: 0; padding-bottom: 0.1rem; } }
+      .gasbar { height: 7px; border-radius: 999px; background: var(--panel2); overflow: hidden; display: inline-block; width: 7rem; vertical-align: middle; margin-left: 0.4rem; }
+      .gasbar > i { display: block; height: 100%; background: var(--acc); }
+      pre.data { background: var(--bg); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0.6rem 0.7rem; overflow: auto; font: var(--holo-text-sm, 1rem)/1.5 ui-monospace, monospace; color: var(--ink); white-space: pre-wrap; word-break: break-all; max-height: 22rem; margin: 0; }
+      .summarybox { background: linear-gradient(135deg, color-mix(in srgb, var(--acc) 12%, var(--panel)), var(--bg)); border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--line)); border-radius: 10px; padding: 0.6rem 0.8rem; margin-bottom: 0.8rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+      .summarybox .spark2 { color: var(--acc2); }
+
+      /* ── tabs ── */
+      .tabs2 { display: flex; gap: 0.2rem; margin: 1rem 0 0.7rem; border-bottom: 1px solid var(--line); overflow-x: auto; }
+      .tabs2 button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--dim); font: 600 0.84rem inherit; padding: 0.5rem 0.85rem; cursor: pointer; white-space: nowrap; }
+      .tabs2 button.on { color: var(--ink); border-bottom-color: var(--acc); }
+      .tabs2 button .cnt { color: var(--dim); font-weight: 400; }
+      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+      .seg button { background: var(--bg); color: var(--dim); border: 0; border-left: 1px solid var(--line); padding: 0.22rem 0.6rem; cursor: pointer; font: inherit; }
+      .seg button:first-child { border-left: 0; } .seg button.on { background: var(--panel2); color: var(--ink); }
+
+      .note { color: var(--dim); font-size: 0.8rem; margin: 0.9rem 0; padding: 0.55rem 0.8rem; border: 1px dashed var(--line); border-radius: 9px; background: var(--panel2); }
+      .note b { color: #c9b48a; }
+      .empty { color: var(--dim); text-align: center; padding: 2.2rem 1rem; }
+      .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--acc); border-radius: 50%; animation: sp 0.7s linear infinite; vertical-align: -2px; }
+      @keyframes sp { to { transform: rotate(360deg); } }
+      .skel { background: linear-gradient(110deg, var(--bg) 30%, var(--panel2) 50%, var(--bg) 70%); background-size: 220% 100%; animation: shim 1.3s linear infinite; border-radius: 6px; }
+      @keyframes shim { to { background-position: -220% 0; } }
+      .gaslane { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; margin: 0.4rem 0 1rem; }
+      .gaslane .g { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 1rem; text-align: center; }
+      .gaslane .g .lab { color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .gaslane .g .gw { font-size: 1.7rem; font-weight: 800; }
+      .gaslane .g.low .gw { color: var(--good); } .gaslane .g.avg .gw { color: var(--acc2); } .gaslane .g.high .gw { color: var(--warn); }
+      .nftgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.8rem; }
+      .nft { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+      .nft .img { aspect-ratio: 1; background: var(--bg) center/cover no-repeat; display: grid; place-items: center; color: var(--dim); }
+      .nft .cap { padding: 0.5rem 0.6rem; } .nft .cap .t { font-weight: 600; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .nft .cap .s { color: var(--dim); font-size: 0.74rem; }
+      .tokimg { width: 44px; height: 44px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); object-fit: cover; }
+      .codebox { background: var(--bg); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); }
+      .codebox .hd { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 0.78rem; display: flex; justify-content: space-between; }
+      .codebox pre { margin: 0; max-height: 28rem; overflow: auto; padding: 0.7rem; font: var(--holo-text-sm, 1rem)/1.55 ui-monospace, monospace; color: var(--ink); white-space: pre; }
+
+      dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 1.2rem 1.3rem; width: min(34rem, 92vw); }
+      dialog::backdrop { background: rgba(0,0,0,0.6); }
+      dialog h3 { margin: 0 0 0.6rem; } dialog .row { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+      dialog button { font: inherit; padding: 0.45rem 1rem; border-radius: var(--holo-radius-sm, 8px); border: 1px solid var(--line); background: var(--panel2); color: var(--ink); cursor: pointer; }
+      #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--holo-border-emphasized, var(--line)); border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem 0.9rem; font-size: var(--holo-text-sm, 1rem); opacity: 0; transition: opacity .2s; z-index: 99; pointer-events: none; }
+      #toast.show { opacity: 1; }
+
+      /* ── real-time / "alive" layer ── */
+      .livedot { width: 9px; height: 9px; border-radius: 50%; background: var(--holo-border-emphasized, var(--line)); flex: none; transition: background .3s; }
+      .livedot.on { background: var(--good); animation: beat 1.6s ease-out infinite; }
+      .lat { font-size: var(--holo-text-sm, 1rem); color: var(--good); white-space: nowrap; }
+      @keyframes beat { 0% { box-shadow: 0 0 0 0 #3fb95077; } 70% { box-shadow: 0 0 0 7px #3fb95000; } 100% { box-shadow: 0 0 0 0 #3fb95000; } }
+      .livetag { font-size: 0.56rem; font-weight: 800; letter-spacing: 0.06em; color: var(--bad); border: 1px solid color-mix(in srgb, var(--bad) 50%, var(--line)); border-radius: 4px; padding: 0 0.25rem; vertical-align: 1px; }
+      .liveind { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; color: var(--dim); }
+      .liveind .d { width: 8px; height: 8px; border-radius: 50%; background: var(--holo-border-emphasized, var(--line)); }
+      .liveind.on .d { background: var(--good); animation: beat 1.6s ease-out infinite; } .liveind.on { color: var(--good); }
+      @keyframes streamin { 0% { transform: translateY(-12px); } 100% { transform: translateY(0); } }
+      .streamin { animation: streamin .55s cubic-bezier(.2,.8,.2,1); }
+      tr.streamin td, .frow.streamin { animation: rowflash 1.3s ease-out; }
+      @keyframes rowflash { 0% { background: color-mix(in srgb, var(--acc) 18%, transparent); } 100% { background: transparent; } }
+      .kpop { display: inline-block; animation: kpop .5s ease-out; } @keyframes kpop { 0% { transform: scale(.3); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+      /* mempool dashboard — golden-ratio split (1 : φ) */
+      .mpstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--holo-size-s); margin-bottom: var(--holo-size-s); }
+      .mpstats .s { background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: var(--holo-size-xs) var(--holo-size-s); }
+      .mpstats .s .l { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); }
+      .mpstats .s .v { font-weight: 800; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+      .mpstats .s .v.acc { color: var(--acc2); } .mpstats .s .v.good { color: var(--good); } .mpstats .s .v.warn { color: var(--warn); }
+      @media (max-width: 760px) { .mpstats { grid-template-columns: repeat(2, 1fr); } }
+      .mpcols { display: grid; grid-template-columns: 1fr var(--holo-phi-fr); gap: var(--holo-size-s); align-items: start; }
+      @media (max-width: 900px) { .mpcols { grid-template-columns: 1fr; } }
+      .feed { max-height: 76vh; overflow: hidden; }
+      .feed .frow { display: flex; align-items: center; gap: 0.6rem; padding: 0.42rem 0.9rem; border-bottom: 1px solid var(--panel2); font-size: 0.84rem; }
+      .feed .frow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); flex: none; box-shadow: 0 0 6px var(--warn); }
+      .feed .frow .h { color: var(--link); } .feed .frow .mid { flex: 1; min-width: 0; display: flex; gap: 0.4rem; align-items: center; overflow: hidden; }
+      .feed .frow .mid > * { white-space: nowrap; } .feed .frow .r { color: var(--dim); font-size: 0.74rem; text-align: right; white-space: nowrap; }
+      .feed .frow .v { font-variant-numeric: tabular-nums; } .arrow { color: var(--dim); }
+      .blockcard { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--panel2); }
+      .blockcard .n { font-weight: 800; font-size: 1.05rem; } .blockcard .drain { margin-left: auto; text-align: right; font-size: 0.74rem; color: var(--dim); }
+      .ratebar { height: 6px; border-radius: 999px; background: var(--panel2); overflow: hidden; margin-top: 0.35rem; }
+      .ratebar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--good), var(--warn)); transition: width .4s; }
+      .mempoolteaser { margin-top: var(--holo-size-s); background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius, 12px); padding: 0.6rem 0.9rem; display: flex; align-items: center; gap: 0.8rem; overflow: hidden; }
+      .mempoolteaser .flow { flex: 1; min-width: 0; display: flex; gap: 1.1rem; color: var(--dim); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; -webkit-mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+      .mempoolteaser .flow span { white-space: nowrap; }
+      .mempoolteaser a { white-space: nowrap; font-weight: 600; }
+      /* HyperCore order book */
+      .hcbook { font: var(--holo-text-sm, 1rem)/1.45 ui-monospace, monospace; }
+      .hcrow { position: relative; display: flex; align-items: center; padding: 0.13rem 0.7rem; }
+      .hcrow .bar { position: absolute; right: 0; top: 0; bottom: 0; opacity: 0.13; }
+      .hcrow .bar.bid { background: var(--good); } .hcrow .bar.ask { background: var(--bad); }
+      .hcrow .px { width: 7rem; z-index: 1; } .hcrow .px.bid { color: var(--good); } .hcrow .px.ask { color: var(--bad); }
+      .hcrow .sz { z-index: 1; color: var(--dim); margin-left: auto; }
+      .hcmid { padding: 0.3rem 0.7rem; color: var(--dim); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 0.72rem; }
+
+      @media (max-width: 720px) { #bar .k { display: none; } .searchbox { max-width: 60vw; } nav.top a.navlink { padding: 0.3rem 0.5rem; } }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Scan"></holo-splash>
+
+    <!-- left rail nav (Blockscout-style) -->
+    <div id="rail">
+      <a class="raillogo" href="#/" title="Holo Scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.6"/><path d="M12 2.2v3M12 18.8v3M2.2 12h3M18.8 12h3"/></svg></a>
+      <nav class="railnav">
+        <a class="railitem" data-nav="home" href="#/" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></a>
+        <a class="railitem" data-nav="blocks" href="#/blocks" title="Blocks" aria-label="Blocks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 12l9-5M12 12v10M12 12L3 7"/></svg></a>
+        <a class="railitem" data-nav="txs" href="#/txs" title="Transactions" aria-label="Transactions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg></a>
+        <a class="railitem" data-nav="omni" href="#/portfolio" title="Omnichain Portfolio" aria-label="Omnichain Portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.4 4 5.6 4 9s-1.4 6.6-4 9c-2.6-2.4-4-5.6-4-9s1.4-6.6 4-9z"/></svg></a>
+        <a class="railitem" data-nav="mempool" href="#/mempool" title="Live" aria-label="Live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg><span class="raildot"></span></a>
+        <a class="railitem" data-nav="gas" href="#/gas" title="Gas / Network" aria-label="Gas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 21V5a2 2 0 012-2h5v18M6 11h7M16 8l3 2v8a2 2 0 01-4 0"/></svg></a>
+        <a class="railitem" data-nav="agent" href="#/agent" title="AI Agent / MCP" aria-label="AI Agent / MCP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4M9 4h6M9 13h.01M15 13h.01M9 19v2M15 19v2"/></svg></a>
+        <a class="railitem" data-nav="about" href="#/about" title="About" aria-label="About"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.2"/></svg></a>
+      </nav>
+      <button class="railitem railsettings" type="button" title="Theme & display settings" aria-label="Settings" onclick="window.HoloTheme && HoloTheme.openSettings && HoloTheme.openSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.8 7.8 0 000-2l2-1.5-2-3.4-2.3 1a7.6 7.6 0 00-1.7-1L14.9 3H9.1l-.5 2.6a7.6 7.6 0 00-1.7 1l-2.3-1-2 3.4 2 1.5a7.8 7.8 0 000 2l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 001.7 1L9.1 21h5.8l.5-2.6a7.6 7.6 0 001.7-1l2.3 1 2-3.4z"/></svg></button>
+    </div>
+
+    <div id="app">
+      <div id="bar">
+        <span class="brand"><svg class="dia" viewBox="0 0 24 24" fill="none" stroke="var(--brand,#627eea)" stroke-width="1.9"><rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 2.6v2.6M18.8 12h2.6"/></svg>Holo <b>Scan</b></span>
+        <span class="pricechip" id="pricechip"></span>
+        <span class="gaschip" id="gaschip"></span>
+        <span class="ver" id="ver" title="Law L5 engine self-test / in-browser verification">engine…</span>
+        <span class="sp"></span>
+        <div class="searchbox"><input id="search" type="search" placeholder="Search by address / txn / block / token…" spellcheck="false" autocomplete="off" aria-label="Search" /><div class="sdrop" id="sdrop"></div></div>
+        <select id="netsel" title="network" aria-label="Select network"></select>
+      </div>
+      <main><div class="wrap" id="view"><div class="empty"><span class="spin"></span> loading…</div></div></main>
+    </div>
+    <div id="toast"></div>
+
+    <dialog id="keyDlg">
+      <h3 style="margin:0 0 .4rem">Unlock this chain's index</h3>
+      <p style="color:var(--dim);font-size: var(--holo-text-sm, 1rem);margin:0 0 .6rem">This network indexes via the <b>Etherscan&nbsp;V2</b> API. Paste a free key (one-time, stored only in your browser) to unlock full transaction history, token transfers and verified source. Live blocks, the mempool and κ-verification already work without it.</p>
+      <input id="keyInput" placeholder="Etherscan API key" spellcheck="false" autocomplete="off" style="width:100%;background:#010409;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:.5rem .6rem;font:inherit;outline:none" />
+      <p style="margin:.55rem 0 0"><a href="https://etherscan.io/apis" target="_blank" rel="noopener">Get a free key →</a> · one key works across 60+ chains</p>
+      <div class="row"><button id="keySkip">Skip · live-only</button><button class="primary" id="keySave">Save &amp; reload</button></div>
+    </dialog>
+
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      import * as E from "./_shared/holo-eth.js";
+      import { CHAINS, Blockscout } from "./holo-blockscout.js";
+      import { EtherscanFamily } from "./holo-etherscan-api.js";
+      import { EthStream } from "./holo-eth-stream.js";
+      import { SolanaSource, isSolAddress, isSolSig, fmtSol, progName, LAMPORTS } from "./_shared/holo-solana.js";
+      import { SolStream } from "./_shared/holo-solana-stream.js";
+      import { HyperCore } from "./_shared/holo-hypercore.js";
+      import { HcStream } from "./_shared/holo-hypercore-stream.js";
+      import { BRAND, brandOf, chainLinks, inkOn } from "./holo-chain-brand.js";
+      import { OmniAccount } from "./_shared/holo-omni.js";
+      import { makeTools } from "./holo-scan-tools.js";
+      const $ = (id) => document.getElementById(id);
+      const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstElementChild; };
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      let toastT; const toast = (m) => { const e = $("toast"); e.textContent = m; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2200); };
+
+      // ── state (dual-source: Blockscout indexer + JSON-RPC κ re-derivation) ──────────
+      const params = new URLSearchParams(location.search);
+      let chainId = parseInt(params.get("net") || localStorage.getItem("holoes.net") || "1", 10);
+      if (!CHAINS[chainId]) chainId = 1;
+      const chain = () => CHAINS[chainId];
+      // ── per-chain branding: logo + accent colour + name in the chrome (feels native) ──
+      function setBrand() {
+        const b = brandOf(chainId);
+        document.body.style.setProperty("--brand", b.color);
+        const logo = $("chainlogo"); if (logo) { if (b.logo) { logo.src = b.logo; logo.style.display = ""; } else logo.style.display = "none"; }
+        const nm = $("chainname"); if (nm) nm.textContent = chain().name;
+        $("pricechip").innerHTML = ""; $("gaschip").innerHTML = "";
+      }
+      function setTopChips(stats) {            // Blockscout-style top bar: coin price + gas
+        const sym = chain().sym; const pc = $("pricechip"), gc = $("gaschip");
+        if (stats?.coin_price && pc) { const chg = parseFloat(stats.coin_price_change_percentage); pc.innerHTML = `${esc(sym)} <b>${usd(stats.coin_price)}</b>${isNaN(chg) ? "" : ` <span class="${chg >= 0 ? "up" : "dn"}">${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%</span>`}`; }
+        const gp = stats?.gas_prices; if (gp && gc) { const a = gp.average?.price ?? gp.average; if (a != null) gc.innerHTML = `· Gas <b>${a}</b> Gwei`; }
+      }
+      // ── shared Blockscout-style hero: chain logo · concise metadata · official + social links ──
+      function heroHtml() {
+        return `<div class="hero">
+          <div class="herobrand"><img class="herologo" id="herologo" alt="" /><div><h2 id="herotitle">Blockchain explorer</h2><p class="hdesc" id="herodesc"></p></div></div>
+          <form class="sb" id="hform"><input id="hsearch" placeholder="Search by address / txn hash / block / token…" spellcheck="false" autocomplete="off" aria-label="Search" /><button>Search</button></form>
+          <div class="herolinks" id="herolinks"></div>
+        </div>`;
+      }
+      function paintHero() {
+        const b = brandOf(chainId);
+        const t = $("herotitle"); if (t) t.textContent = chain().name + " explorer";
+        const d = $("herodesc"); if (d) d.textContent = b.desc || "";
+        const lg = $("herologo"); if (lg) { if (b.logo) { lg.src = b.logo; lg.style.display = ""; } else lg.style.display = "none"; }
+        const hl = $("herolinks"); if (hl) hl.innerHTML = chainLinks(chainId).map((l) => `<a href="${esc(l.href)}" target="_blank" rel="noopener"><span>${l.icon}</span> ${esc(l.label)}</a>`).join("");
+        document.body.style.setProperty("--brand-ink", inkOn(b.color));
+        const f = $("hform"); if (f) f.onsubmit = (e) => { e.preventDefault(); directSearch($("hsearch").value); };
+      }
+      // one indexer interface, two backends — Blockscout native, or the Etherscan-family
+      // adapter (Routescan no-key / Etherscan V2 key) normalized to the same shape.
+      const getKey = () => localStorage.getItem("holoes.eskey") || "";
+      function makeIndexer() { return indexerFor(chainId); }
+      // build an indexer for ANY chain id (the omnichain account fans out over all of them).
+      // ?bs= overrides every Blockscout base at once → the browser witness can mock all chains.
+      function indexerFor(cid) {
+        const c = CHAINS[cid];
+        if (c.indexer === "etherscan") return new EtherscanFamily({ chainId: cid, mode: c.esMode, esBase: c.esBase, apiKey: c.esMode === "etherscanV2" ? getKey() : "", rpc: c.rpc, coingecko: c.coingecko });
+        return new Blockscout(params.get("bs") || c.api);
+      }
+      // every EVM chain (no `family`) is in the same 0x keyspace → one address spans them all.
+      const evmChains = Object.entries(CHAINS).filter(([, c]) => !c.family).map(([id, c]) => [+id, { name: c.name, sym: c.sym, kappa: !!c.kappa, kappaTx: !!c.kappaTx }]);
+      const omni = new OmniAccount({
+        indexerFor, evmChains, concurrency: 10, timeoutMs: 12000,
+        hypercore: async (addr) => { try { const hc = new HyperCore(params.get("info") || CHAINS[1000000].info); const s = await hc.userState(addr); const v = +(s?.marginSummary?.accountValue || 0); return v > 0 ? { accountValue: v, positions: (s?.assetPositions || []).length } : null; } catch { return null; } },
+      });
+      // the same isomorphic agent-tool layer the MCP server exposes — so the in-page #/agent
+      // console demos the EXACT envelopes an AI agent receives (answer + re-derivable κ).
+      const scanTools = makeTools({ E, CHAINS, indexerFor, rpcFor: (cid) => new E.Rpc(params.get("rpc") || CHAINS[cid].rpc), omni });
+      let bs = makeIndexer();
+      let rpc = new E.Rpc(params.get("rpc") || chain().rpc);
+      const store = new E.KappaStore();
+
+      // ── real-time stream (lowest-latency push: newHeads + full mempool over WSS) ──────
+      // Kept alive for the whole session with warm ring buffers, so any live view re-opens
+      // instantly. Each streamed block header is κ-verified the moment it arrives.
+      let stream = null;
+      const streamUrls = () => { const p = params.get("ws"); return p ? [p] : (chain().wss || (chain().ws ? [chain().ws] : [])); };
+      function ensureStream() {
+        if (stream) return stream;
+        const urls = streamUrls(); if (!urls.length) return null;
+        stream = new EthStream(urls, { verify: chain().kappa ? (h) => E.verifyBlock(h).ok : null });
+        stream.on("status", () => updateLive());
+        stream.connect();
+        return stream;
+      }
+      function resetStream() { for (const s of [stream, solStream, hcStream]) if (s) s.close(); stream = solStream = hcStream = sol = hc = null; updateLive(); }
+      // ── non-EVM families: Solana firehose + HyperCore markets ──
+      let sol = null, solStream = null, hc = null, hcStream = null;
+      function solSrc() { if (!sol) sol = new SolanaSource(params.get("rpc") || chain().rpc); return sol; }
+      function ensureSolStream() { if (solStream) return solStream; solStream = new SolStream(params.get("ws") || chain().ws); solStream.on("status", () => updateLive()); solStream.connect(); return solStream; }
+      function hcSrc() { if (!hc) hc = new HyperCore(params.get("info") || chain().info); return hc; }
+      function ensureHcStream() { if (hcStream) return hcStream; hcStream = new HcStream(params.get("ws") || chain().ws); hcStream.on("status", () => updateLive()); hcStream.connect(); return hcStream; }
+      function bootStream() { const f = chain().family; if (f === "solana") ensureSolStream(); else if (f === "hypercore") ensureHcStream(); else ensureStream(); }
+      function updateLive() {
+        const fam = chain().family, st = fam === "solana" ? solStream : fam === "hypercore" ? hcStream : stream, d = $("livedot"), lat = $("lat"), c = st && st.connected;
+        if (d) { d.classList.toggle("on", !!c); d.title = c ? (fam === "solana" ? "live · Solana firehose" : fam === "hypercore" ? "live · HyperCore markets" : `live · ${stream.sources} source${stream.sources === 1 ? "" : "s"} racing`) : "reconnecting…"; }
+        if (lat) lat.textContent = !c ? "" : fam === "solana" ? (solStream.rate() ? "⚡ " + Math.round(solStream.rate()) + " tx/s" : "⚡ live") : fam === "hypercore" ? "⚡ live" : (stream.rttMs != null ? "⚡ " + Math.round(stream.rttMs) + "ms" : "⚡ live");
+      }
+      // every JSON-RPC κ check rides the warm WebSocket (no per-call TLS); HTTP is the fallback.
+      async function rpcCall(method, p) { if (stream && stream.connected) { try { return await stream.call(method, p); } catch {} } return rpc.call(method, p); }
+      async function rpcBatch(calls) { if (stream && stream.connected) { try { return await stream.batch(calls); } catch {} } return rpc.batch(calls); }
+
+      // ── format helpers ──────────────────────────────────────────────────────────────
+      const big = (h) => { try { return BigInt(h == null ? 0 : h); } catch { return 0n; } };
+      const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      const num = (h) => Number(big(h));
+      function fromUnits(v, dec = 18, dp = 6) {
+        v = big(v); const neg = v < 0n; let s = (neg ? -v : v).toString().padStart(dec + 1, "0");
+        const i = s.slice(0, s.length - dec), f = s.slice(s.length - dec).replace(/0+$/, "").slice(0, dp);
+        return (neg ? "-" : "") + commas(i) + (f ? "." + f : "");
+      }
+      const eth = (wei, dp = 8) => fromUnits(wei, 18, dp);
+      const gwei = (wei, dp = 2) => { const v = Number(big(wei)) / 1e9; return v >= 0.01 || v === 0 ? v.toFixed(dp) : v.toPrecision(2); };
+      const usd = (n) => n == null || isNaN(n) ? "" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: Number(n) < 1 ? 4 : 2 });
+      const usdc = (n) => n == null ? "" : "$" + Number(n).toLocaleString(undefined, { notation: Number(n) > 1e6 ? "compact" : "standard", maximumFractionDigits: 2 });
+      const short = (h, a = 8, b = 6) => { h = String(h || ""); return h.length > a + b + 3 ? h.slice(0, a) + "…" + h.slice(-b) : h; };
+      const agoISO = (iso) => { const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000); return s < 60 ? Math.floor(s) + " secs ago" : s < 3600 ? Math.floor(s / 60) + " mins ago" : s < 86400 ? Math.floor(s / 3600) + " hrs ago" : Math.floor(s / 86400) + " days ago"; };
+      const absISO = (iso) => new Date(iso).toUTCString();
+      const checksum = (a) => { try { return E.toChecksumAddress(a); } catch { return a; } };
+
+      // ── chips / renderers ─────────────────────────────────────────────────────────────
+      function addrChip(o, { len } = {}) {
+        if (!o) return "";
+        if (typeof o === "string") o = { hash: o };
+        const tag = o.public_tags?.[0]?.display_name || o.metadata?.tags?.find((t) => t.tagType === "name")?.name;
+        const label = o.ens_domain_name || o.name || tag || short(checksum(o.hash), len || 8, 6);
+        const v = o.is_verified ? `<span class="vchk" title="verified contract">◆</span>` : "";
+        const scam = o.is_scam ? `<span class="scam" title="flagged">⚠</span>` : "";
+        return `<a class="mono" href="#/address/${o.hash}" title="${esc(checksum(o.hash))}">${esc(label)}</a>${v}${scam}`;
+      }
+      function tokenChip(tk, { amount } = {}) {
+        if (!tk) return "";
+        const img = tk.icon_url ? `<img class="ticon" src="${esc(tk.icon_url)}" loading="lazy" onerror="this.style.display='none'">` : "";
+        const nm = `${esc(tk.symbol || tk.name || "Token")}`;
+        return `${amount != null ? esc(amount) + " " : ""}${img} <a href="#/token/${tk.address_hash || tk.address}">${nm}</a>`;
+      }
+      const txMethod = (it) => { const m = it.method || (it.decoded_input && it.decoded_input.method_call?.split("(")[0]); return m ? `<span class="meth" title="${esc(m)}">${esc(m)}</span>` : `<span class="meth">Transfer</span>`; };
+      function statusBadge(it) { const ok = it.status === "ok" || it.result === "success" || it.status === "1"; const failed = it.status === "error" || (it.result && it.result !== "success" && it.result !== "pending") || it.status === "0"; return ok ? `<span class="tag2 ok">✓ Success</span>` : failed ? `<span class="tag2 fail">✗ Failed</span>` : `<span class="tag2">⏳ Pending</span>`; }
+      const blkLink = (n) => `<a class="mono" href="#/block/${num(n)}">${commas(num(n))}</a>`;
+      const txLink = (h) => `<a class="mono" href="#/tx/${h}">${short(h)}</a>`;
+      const kappaBadge = (st) => st === true ? `<span class="kv" title="raw header/tx re-derived via JSON-RPC (keccak256/RLP) → matches the indexer's hash (Law L5)">✓ κ</span>` : st === false ? `<span class="kv bad" title="κ mismatch refused">✗ κ</span>` : st === "na" ? `<span class="kv na" title="κ re-derivation is exact on Ethereum/PoW headers; this chain's header format differs">κ </span>` : `<span class="kv wait">…</span>`;
+      const inout = (a, b) => { a = (a || "").toLowerCase(); b = (b || "").toLowerCase(); return a === b ? `<span class="inout self">SELF</span>` : `<span class="inout out">OUT</span>`; };
+
+      // ── chrome ────────────────────────────────────────────────────────────────────────
+      let curK = "";
+      function setK(kappa, ok) {
+        curK = kappa || "";
+        { const ka = $("kaddr"); if (ka) ka.textContent = kappa ? "holo://" + short(kappa, 12, 8) : "holo://" + chain().name.toLowerCase(); }
+        if (ok !== undefined) { $("ver").textContent = ok === true ? "✓ κ-verified" : ok === false ? "✗ κ mismatch" : "κ "; $("ver").className = "ver " + (ok === true ? "ok" : ok === false ? "bad" : ""); }
+        if (kappa && window.HoloTeleport) HoloTeleport.stamp(kappa);
+      }
+      { const ka = $("kaddr"); if (ka) ka.onclick = () => { if (curK) { navigator.clipboard?.writeText(curK); toast("copied " + short(curK)); } }; }
+
+      // ── κ bridge: re-derive a Blockscout block/tx from raw RPC bytes (Law L5) ──────────
+      async function verifyBlockHash(hash) {
+        if (!chain().kappa) return "na";
+        try { const raw = await rpcCall("eth_getBlockByHash", [hash, false]); return raw ? E.verifyBlock(raw).ok : null; } catch { return null; }
+      }
+      async function verifyTxHash(hash) {
+        if (!chain().kappa && !chain().kappaTx) return "na";       // tx κ works on many chains whose headers don't (standard EVM txs)
+        try { const raw = await rpcCall("eth_getTransactionByHash", [hash]); return raw ? E.verifyTx(raw).ok : null; } catch { return null; }   // ok=null ⇒ "κ —" for non-standard tx types
+      }
+
+      // ── router ──────────────────────────────────────────────────────────────────────
+      const view = $("view");
+      const routes = [];
+      const route = (re, fn) => routes.push([re, fn]);
+      const solRoutes = [];                              // Solana (non-EVM) gets its own route table
+      const sroute = (re, fn) => solRoutes.push([re, fn]);
+      const hcRoutes = [];                               // Hyperliquid HyperCore (markets terminal)
+      const hroute = (re, fn) => hcRoutes.push([re, fn]);
+      let token = 0;                          // cancellation token: stale async renders bail
+      let viewCleanups = [];                  // teardown (stream listeners, timers) on navigate
+      const onLeave = (fn) => viewCleanups.push(fn);
+      function cleanupView() { for (const fn of viewCleanups) { try { fn(); } catch {} } viewCleanups = []; }
+      function setNav(name) { for (const a of document.querySelectorAll("#rail .railitem")) a.classList.toggle("on", a.dataset.nav === name); }
+      const loading = (m) => { view.innerHTML = `<div class="wrap"><div class="empty"><span class="spin"></span> ${esc(m || "loading…")}</div></div>`; };
+      async function render() {
+        const myTok = ++token;
+        cleanupView();
+        const hash = location.hash.replace(/^#/, "") || "/";
+        const fam0 = chain().family;
+        // the Omnichain views are cross-family (one 0x address spans every EVM chain + HyperCore),
+        // so they're always served by the EVM route table no matter which network is active.
+        const table = /^(omni|portfolio|agent)\b/.test(hash) ? routes : fam0 === "solana" ? solRoutes : fam0 === "hypercore" ? hcRoutes : routes;
+        for (const [re, fn] of table) { const m = hash.match(re); if (m) { try { await fn(...m.slice(1).map((x) => x && decodeURIComponent(x)), myTok); } catch (e) { if (myTok === token) view.innerHTML = `<div class="wrap"><div class="note">⚠ ${esc(e.message || e)}</div></div>`; } return; } }
+        view.innerHTML = `<div class="wrap"><div class="empty">Not found.</div></div>`;
+      }
+      const live = (tok) => tok === token;        // is this render still current?
+      addEventListener("hashchange", render);
+
+      // ── reusable cursor pager (Blockscout next_page_params) ───────────────────────────
+      function attachPager(card, first, fetchNext, rowFn, empty) {
+        const tbody = card.querySelector("tbody"); const foot = card.querySelector(".pager");
+        let next = first.next_page_params;
+        tbody.innerHTML = (first.items || []).map(rowFn).join("") || `<tr><td colspan="20" class="empty">${esc(empty || "Nothing here.")}</td></tr>`;
+        const draw = () => {
+          foot.innerHTML = next ? `<button>Load more</button>` : (first.items || []).length ? `<span class="mut"> end of indexed results </span>` : "";
+          const b = foot.querySelector("button");
+          if (b) b.onclick = async () => { b.disabled = true; b.textContent = "Loading…"; try { const r = await fetchNext(next); tbody.insertAdjacentHTML("beforeend", (r.items || []).map(rowFn).join("")); next = r.next_page_params; draw(); } catch (e) { b.disabled = false; b.textContent = "Retry"; toast("load failed: " + (e.message || e)); } };
+        };
+        draw();
+      }
+      // ── reusable lazy tabs ────────────────────────────────────────────────────────────
+      function tabs(defs, mountId) {
+        const bar = el(`<div class="tabs2">${defs.map((d, i) => `<button data-i="${i}" class="${i === 0 ? "on" : ""}">${esc(d.label)}${d.count != null ? ` <span class="cnt">${typeof d.count === "number" ? commas(d.count) : esc(d.count)}</span>` : ""}</button>`).join("")}</div>`);
+        const pane = el(`<div id="${mountId}"></div>`);
+        const loaded = new Set();
+        const sel = (i) => { for (const b of bar.children) b.classList.toggle("on", +b.dataset.i === i); if (!loaded.has(i)) { loaded.add(i); pane.innerHTML = `<div class="empty"><span class="spin"></span></div>`; Promise.resolve(defs[i].load(pane)).catch((e) => { pane.innerHTML = `<div class="note">⚠ ${esc(e.message || e)}</div>`; }); } else if (defs[i].keep && defs[i].keep.has) { /* cached dom kept */ } };
+        bar.querySelectorAll("button").forEach((b) => b.onclick = () => { const i = +b.dataset.i; loaded.delete(i); sel(i); });
+        setTimeout(() => sel(0), 0);
+        return [bar, pane];
+      }
+
+      // ════════════════════════════ HOME ════════════════════════════
+      route(/^\/$/, async (tok) => {
+        setNav("home"); setK("", undefined); $("ver").textContent = $("ver").textContent.includes("✗") ? $("ver").textContent : "✓ engine verified"; if (!$("ver").className.includes("bad")) $("ver").className = "ver ok";
+        view.innerHTML = `<div class="wrap">
+          ${heroHtml()}
+          <div class="homegrid">
+            <div class="statgrid" id="stats">${Array(6).fill('<div class="stat"><div class="l skel" style="height:.7rem;width:55%"></div><div class="v skel" style="height:1.1rem;margin-top:.4rem;width:70%"></div></div>').join("")}</div>
+            <div class="homechart" id="homechart"><h3>Daily Transactions <b id="dtval"></b></h3><svg class="spark" id="spark" preserveAspectRatio="none"></svg><div class="chartside" id="chartside"></div></div>
+          </div>
+          <div class="cols">
+            <div class="card"><h3>Latest Blocks <span class="liveind" id="lbind"><span class="d"></span> live</span></h3><div class="rows" id="lblocks"><div class="empty"><span class="spin"></span></div></div><div class="foot"><a href="#/blocks">View all blocks →</a></div></div>
+            <div class="card"><h3>Latest Transactions</h3><div class="rows" id="ltxs"><div class="empty"><span class="spin"></span></div></div><div class="foot"><a href="#/txs">View all transactions →</a></div></div>
+          </div>
+          <div class="mempoolteaser" id="mpteaser">
+            <span class="liveind" id="mpind"><span class="d"></span> Mempool</span>
+            <div class="flow" id="mpflow"></div>
+            <a href="#/mempool">Watch live mempool →</a>
+          </div>
+          <div class="note">Live blocks & the mempool stream from the chain over a WebSocket to an open public node each new block is κ-verified the instant it arrives. Indexed data is served by the open-source <b>Blockscout</b> API v2 all real, no simulation; the UOR superpower re-derives every block & tx hash from raw bytes (<span class="kv">✓ κ</span>, Law L5).</div>
+        </div>`;
+        paintHero();
+        const [stats, chart, blocks, txs] = await Promise.all([
+          bs.stats().catch(() => null), bs.statsChart("transactions").catch(() => null),
+          bs.mainBlocks().catch(() => []), bs.mainTxs().catch(() => []),
+        ]);
+        if (!live(tok)) return;
+        // top-bar price / gas chips
+        if (stats) setTopChips(stats);
+        // stat cards — Blockscout's home metric set (Total Blocks · Avg Block Time ·
+        // Total Transactions · Total Addresses · Gas Tracker · native price)
+        if (stats) {
+          const gp = stats.gas_prices || {}; const chg = parseFloat(stats.coin_price_change_percentage);
+          const gasv = (x) => (x == null ? "" : (x.price ?? x));
+          $("stats").innerHTML = [
+            statCard("Total Blocks", `<span id="lbcount">${commas(stats.total_blocks || (blocks[0] && blocks[0].height) || 0)}</span>`, stats.network_utilization_percentage != null ? (+stats.network_utilization_percentage).toFixed(1) + "% network util" : ""),
+            statCard("Average Block Time", stats.average_block_time ? (stats.average_block_time / 1000).toFixed(1) + "s" : "", ""),
+            statCard("Total Transactions", commas(stats.total_transactions || 0), stats.transactions_today ? commas(stats.transactions_today) + " today" : ""),
+            statCard("Total Addresses", commas(stats.total_addresses || 0), ""),
+            statCard("Gas Tracker", gasv(gp.average) + " Gwei", `slow ${gasv(gp.slow)} · fast ${gasv(gp.fast)} Gwei`),
+            statCard(chain().sym + " Price", usd(stats.coin_price), isNaN(chg) ? (stats.market_cap ? "MCap " + usdc(stats.market_cap) : "") : `<span class="${chg >= 0 ? "up" : "dn"}">${chg >= 0 ? "▲" : "▼"} ${Math.abs(chg).toFixed(2)}%</span>`),
+          ].join("");
+        }
+        // chart + side panel (daily txns value, price, market cap, TVL)
+        if (chart && chart.chart_data?.length) {
+          drawSpark($("spark"), chart.chart_data.slice(-14).map((d) => d.transactions_count));
+          const last = chart.chart_data[chart.chart_data.length - 1];
+          if (last) $("dtval").textContent = last.transactions_count >= 1e6 ? (last.transactions_count / 1e6).toFixed(2) + "M" : commas(last.transactions_count);
+        } else { const hc = $("homechart"); if (hc) hc.style.display = "none"; }
+        if (stats) $("chartside").innerHTML = [
+          ["Price", usd(stats.coin_price)],
+          stats.market_cap ? ["Market Cap", usdc(stats.market_cap)] : null,
+          stats.tvl ? ["TVL", usdc(stats.tvl)] : null,
+        ].filter(Boolean).map(([l, v]) => `<div class="cs"><div class="l">${esc(l)}</div><div class="v">${v}</div></div>`).join("");
+        // latest blocks (+ κ on each via one batched RPC call)
+        const lb = $("lblocks"); lb.innerHTML = "";
+        for (const b of blocks.slice(0, 8)) lb.appendChild(el(`<div class="lrow" data-bn="${b.height}">
+          <div class="badge">Bk</div>
+          <div class="mid"><div>${blkLink(b.height)} <span class="kv wait" data-kb="${b.hash}" data-h="${b.height}">…</span></div>
+            <div class="s">Fee Recipient ${addrChip(b.miner, { len: 6 })} · ${agoISO(b.timestamp)}</div></div>
+          <div class="right"><span class="pill">${commas(b.transaction_count ?? b.transactions_count ?? 0)} txns</span></div></div>`));
+        verifyHomeBlocks(blocks.slice(0, 8), lb, tok);
+        // latest txs
+        const lt = $("ltxs"); lt.innerHTML = "";
+        for (const t of txs.slice(0, 8)) lt.appendChild(el(`<div class="lrow">
+          <div class="badge">Tx</div>
+          <div class="mid"><div>${txLink(t.hash)} ${t.method ? `<span class="meth">${esc(t.method)}</span>` : ""}</div>
+            <div class="s">From ${addrChip(t.from, { len: 6 })} → ${t.to ? addrChip(t.to, { len: 6 }) : '<span class="pill">Contract Creation</span>'}</div></div>
+          <div class="right"><span class="pill">${eth(t.value, 5)} ${chain().sym}</span></div></div>`));
+        // chrome κ = the latest block
+        if (blocks[0]) { const ok = await verifyBlockHash(blocks[0].hash); if (live(tok)) setK(blocks[0].hash, ok === "na" ? undefined : ok); }
+
+        // ── LIVE: stream new blocks on top + a flowing mempool teaser ──
+        const s = ensureStream();
+        if (s) {
+          const lbind = $("lbind"); lbind.classList.toggle("on", s.connected);
+          for (const h of s.blocks.slice().reverse()) prependLiveBlock(h, lb, false);   // warm buffer
+          onLeave(s.on("block", (h) => { if (!live(tok)) return; prependLiveBlock(h, lb, true); lbind.classList.add("on");
+            const st = $("lbcount"); if (st) { st.textContent = commas(num(h.number)); st.classList.remove("kpop"); void st.offsetWidth; st.classList.add("kpop"); }
+            setK(h.hash, h._kappa == null ? undefined : h._kappa); }));
+          const flow = $("mpflow"), mpind = $("mpind");
+          const pushPending = (tx) => { const sp = document.createElement("span"); sp.textContent = short(tx.hash, 8, 4); flow.prepend(sp); while (flow.children.length > 10) flow.lastElementChild.remove(); };
+          for (const tx of s.mempool.slice(0, 10).reverse()) pushPending(tx);
+          onLeave(s.on("pending", (tx) => { if (live(tok)) pushPending(tx); }));
+          const iv = setInterval(() => { if (!live(tok)) return; mpind.classList.toggle("on", s.connected); mpind.innerHTML = `<span class="d"></span> Mempool · ${commas(s.pendingCount)} seen · ~${s.rate().toFixed(0)}/s`; }, 1000);
+          onLeave(() => clearInterval(iv));
+        }
+      });
+      function prependLiveBlock(h, container, animate) {
+        const n = num(h.number); if (container.querySelector(`[data-bn="${n}"]`)) return;
+        const pct = num(h.gasLimit) ? num(h.gasUsed) / num(h.gasLimit) * 100 : 0;
+        container.prepend(el(`<div class="lrow ${animate ? "streamin" : ""}" data-bn="${n}">
+          <div class="badge">Bk</div>
+          <div class="mid"><div>${blkLink(n)} <span class="kpop">${kappaBadge(h._kappa)}</span></div>
+            <div class="s">Fee Recipient ${addrChip(h.miner, { len: 6 })} · just now</div></div>
+          <div class="right"><span class="pill">${pct.toFixed(0)}% gas</span></div></div>`));
+        while (container.children.length > 9) container.lastElementChild.remove();
+      }
+      const statCard = (l, v, s) => `<div class="stat"><div class="l">${esc(l)}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`;
+      function drawSpark(svg, vals) {
+        if (!vals.length) return; const W = 600, H = 70, mx = Math.max(...vals), mn = Math.min(...vals);
+        const x = (i) => (i / (vals.length - 1)) * W, y = (v) => H - 6 - (mx === mn ? H / 2 : ((v - mn) / (mx - mn)) * (H - 14));
+        const line = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+        const area = `0,${H} ${line} ${W},${H}`;
+        svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+        svg.innerHTML = `<polygon points="${area}" fill="#627eea22"/><polyline points="${line}" fill="none" stroke="#627eea" stroke-width="2"/>`;
+      }
+      async function verifyHomeBlocks(blocks, container, tok) {
+        // one batched eth_getBlockByNumber, re-derive each header off the worker
+        if (!chain().kappa) { for (const sp of container.querySelectorAll("[data-kb]")) sp.outerHTML = kappaBadge("na"); return; }
+        try {
+          const raws = await rpcBatch(blocks.map((b) => ({ method: "eth_getBlockByNumber", params: ["0x" + Number(b.height).toString(16), false] })));
+          if (!live(tok)) return;
+          const res = await verifyBatch(raws.filter(Boolean));
+          const map = new Map(res.map((r) => [String(r.hash).toLowerCase(), r.ok]));
+          for (const sp of container.querySelectorAll("[data-kb]")) sp.outerHTML = kappaBadge(map.has(sp.dataset.kb.toLowerCase()) ? map.get(sp.dataset.kb.toLowerCase()) : null);
+        } catch { for (const sp of container.querySelectorAll("[data-kb]")) sp.outerHTML = kappaBadge(null); }
+      }
+
+      // verification worker (bulk keccak/RLP off the UI thread)
+      let worker = null, wjob = 0; const wjobs = new Map();
+      try { worker = new Worker("etherscan-worker.js", { type: "module" }); worker.onmessage = (e) => { const cb = wjobs.get(e.data.id); if (cb && (e.data.cmd === "blocksVerified")) { wjobs.delete(e.data.id); cb(e.data.results); } }; } catch { worker = null; }
+      const verifyBatch = (blocks) => new Promise((res) => { if (!worker) { res(blocks.map((b) => ({ hash: b.hash, ok: E.verifyBlock(b).ok }))); return; } const id = ++wjob; wjobs.set(id, res); worker.postMessage({ cmd: "verifyBlocks", id, blocks }); });
+
+      // ════════════════════════════ BLOCKS LIST ════════════════════════════
+      route(/^\/blocks$/, async (tok) => {
+        setNav("blocks"); loading("loading blocks…");
+        const first = await bs.blocks(); if (!live(tok)) return;
+        setK(first.items?.[0]?.hash, undefined);
+        view.innerHTML = `<div class="wrap"><h1 class="page">Blocks</h1><div class="crumbs">Latest indexed blocks on ${esc(chain().name)}</div>
+          <div class="tablecard"><table class="t"><thead><tr><th>Block</th><th>Age</th><th>Txn</th><th>Fee Recipient</th><th>Gas Used</th><th>Base Fee</th><th>Burnt (${esc(chain().sym)})</th></tr></thead><tbody></tbody></table><div class="pager"></div></div></div>`;
+        const rowFn = (b) => { const pct = b.gas_used_percentage ?? (num(b.gas_limit) ? num(b.gas_used) / num(b.gas_limit) * 100 : 0); return `<tr>
+          <td>${blkLink(b.height)}</td><td class="mut">${agoISO(b.timestamp)}</td><td>${commas(b.transactions_count ?? b.transaction_count ?? 0)}</td>
+          <td>${addrChip(b.miner)}</td><td>${commas(num(b.gas_used))} <span class="gasbar"><i style="width:${Math.min(100, pct).toFixed(0)}%"></i></span> <span class="mut">${(+pct).toFixed(1)}%</span></td>
+          <td class="mut">${b.base_fee_per_gas != null ? gwei(b.base_fee_per_gas) + " Gwei" : ""}</td><td class="mut">🔥 ${b.burnt_fees ? eth(b.burnt_fees, 4) : ""}</td></tr>`; };
+        attachPager(view.querySelector(".tablecard"), first, (p) => bs.blocks(p), rowFn, "No blocks.");
+      });
+
+      // ════════════════════════════ BLOCK DETAIL ════════════════════════════
+      route(/^\/block\/([^/]+)$/, async (id, tok) => {
+        setNav("blocks"); loading("loading block " + esc(id) + "…");
+        const b = await bs.block(id); if (!live(tok)) return;
+        if (!b || b.message) { view.innerHTML = `<div class="wrap"><div class="note">Block not found.</div></div>`; return; }
+        const kap = await verifyBlockHash(b.hash); if (!live(tok)) return; setK(b.hash, kap === "na" ? undefined : kap);
+        const row = (k, v, q) => `<dt>${esc(k)}${q ? ` <span class="q" title="${esc(q)}">?</span>` : ""}</dt><dd>${v}</dd>`;
+        const reward = (b.rewards || []).reduce((a, r) => a + Number(big(r.reward)), 0);
+        const tabsDom = tabs([
+          { label: "Transactions", count: b.transactions_count, load: async (pane) => { const f = await bs.blockTxns(id); pane.innerHTML = txTableHtml(); attachPager(pane.querySelector(".tablecard"), f, (p) => bs.blockTxns(id, p), txRow, "No transactions."); } },
+          { label: "Withdrawals", count: b.withdrawals_count, load: async (pane) => { if (!b.withdrawals_count) { pane.innerHTML = `<div class="empty">No withdrawals.</div>`; return; } const f = await bs.blockWithdrawals(id); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Index</th><th>Validator</th><th>To</th><th>Amount</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`; attachPager(pane.querySelector(".tablecard"), f, (p) => bs.blockWithdrawals(id, p), (w) => `<tr><td>${commas(w.index)}</td><td>${commas(w.validator_index)}</td><td>${addrChip(w.receiver)}</td><td>${eth(w.amount, 9)} ${esc(chain().sym)}</td></tr>`, "No withdrawals."); } },
+        ], "blkpane");
+        view.innerHTML = `<div class="wrap"><h1 class="page">Block <span class="mono">#${commas(num(b.height))}</span></h1>
+          <div class="crumbs"><a href="#/blocks">Blocks</a> › #${commas(num(b.height))} · ${kappaBadge(kap)}</div>
+          <div class="detail"><dl class="kv2">
+            ${row("Block Height", `<b>${commas(num(b.height))}</b>`)}
+            ${row("Timestamp", `${agoISO(b.timestamp)} (${esc(absISO(b.timestamp))})`)}
+            ${row("Transactions", `<a href="javascript:void 0" onclick="return false">${commas(b.transactions_count || 0)} transactions</a>${b.withdrawals_count ? ` and ${commas(b.withdrawals_count)} withdrawals` : ""} in this block`)}
+            ${row("Fee Recipient", addrChip(b.miner) + (reward ? ` <span class="mut">(reward ${eth(String(reward), 6)} ${esc(chain().sym)})</span>` : ""))}
+            ${row("Block Hash (κ)", `<span class="mono">${esc(b.hash)}</span>`, "keccak256(RLP(header)) this IS the content address; re-derived from raw RPC bytes")}
+            ${row("Parent Hash", `<a class="mono" href="#/block/${esc(b.parent_hash)}">${esc(b.parent_hash)}</a>`)}
+            ${row("Gas Used", `${commas(num(b.gas_used))} (${(+(b.gas_used_percentage || 0)).toFixed(2)}%) <span class="gasbar"><i style="width:${Math.min(100, +(b.gas_used_percentage || 0)).toFixed(0)}%"></i></span>`)}
+            ${row("Gas Limit", commas(num(b.gas_limit)))}
+            ${b.base_fee_per_gas != null ? row("Base Fee Per Gas", `${eth(b.base_fee_per_gas, 12)} ${esc(chain().sym)} (${gwei(b.base_fee_per_gas, 4)} Gwei)`, "EIP-1559") : ""}
+            ${b.burnt_fees ? row("Burnt Fees", `🔥 ${eth(b.burnt_fees, 8)} ${esc(chain().sym)}${b.burnt_fees_percentage ? ` (${(+b.burnt_fees_percentage).toFixed(2)}%)` : ""}`, "baseFee × gasUsed, removed from supply (EIP-1559)") : ""}
+            ${b.blob_gas_used != null && +b.blob_gas_used ? row("Blob Gas Used", commas(num(b.blob_gas_used)), "EIP-4844") : ""}
+            ${row("Nonce", `<span class="mono">${esc(b.nonce)}</span>`)}
+            ${row("Size", `${commas(num(b.size))} bytes`)}
+          </dl></div>
+          <div id="blktabs"></div>
+          <div style="display:flex;gap:.5rem;justify-content:center;margin-top:1rem"><a class="pill" href="#/block/${num(b.height) - 1}">‹ Prev</a><a class="pill" href="#/block/${num(b.height) + 1}">Next ›</a></div></div>`;
+        $("blktabs").append(tabsDom[0], tabsDom[1]);
+      });
+
+      // shared tx table
+      const txTableHtml = () => `<div class="tablecard"><table class="t"><thead><tr><th>Txn Hash</th><th>Method</th><th>Block</th><th>Age</th><th>From</th><th></th><th>To</th><th>Value</th><th>Fee</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`;
+      const txRow = (t) => `<tr>
+        <td>${txLink(t.hash)} ${t.status === "error" ? '<span class="kv bad" title="failed">✗</span>' : ""}</td>
+        <td>${txMethod(t)}</td><td>${blkLink(t.block_number ?? t.block)}</td><td class="mut">${t.timestamp ? agoISO(t.timestamp) : ""}</td>
+        <td>${addrChip(t.from, { len: 7 })}</td><td>${inout(t.from?.hash, t.to?.hash)}</td>
+        <td>${t.to ? addrChip(t.to, { len: 7 }) : '<span class="pill">Contract Creation</span>'}</td>
+        <td>${eth(t.value, 6)} ${esc(chain().sym)}</td><td class="mut">${t.fee?.value ? eth(t.fee.value, 6) : ""}</td></tr>`;
+
+      // ════════════════════════════ TRANSACTIONS LIST ════════════════════════════
+      route(/^\/txs$/, async (tok) => {
+        setNav("txs"); loading("loading transactions…");
+        const first = await bs.txns(); if (!live(tok)) return;
+        setK(first.items?.[0]?.hash, undefined);
+        view.innerHTML = `<div class="wrap"><h1 class="page">Transactions</h1><div class="crumbs">Latest indexed transactions on ${esc(chain().name)}</div>${txTableHtml()}</div>`;
+        attachPager(view.querySelector(".tablecard"), first, (p) => bs.txns(p), txRow, "No transactions.");
+      });
+
+      // ════════════════════════════ TRANSACTION DETAIL ════════════════════════════
+      route(/^\/tx\/(0x[0-9a-fA-F]{64})$/, async (h, tok) => {
+        setNav("txs"); loading("loading transaction " + short(h) + "…");
+        const [t, sum] = await Promise.all([bs.tx(h), bs.txSummary(h).catch(() => null)]); if (!live(tok)) return;
+        if (!t || t.message) { view.innerHTML = `<div class="wrap"><div class="note">Transaction not found (pending or unknown).</div></div>`; return; }
+        const kap = await verifyTxHash(h); if (!live(tok)) return; setK(t.hash, kap === "na" ? undefined : kap);
+        const row = (k, v, q) => `<dt>${esc(k)}${q ? ` <span class="q" title="${esc(q)}">?</span>` : ""}</dt><dd>${v}</dd>`;
+        const feeUsd = t.exchange_rate && t.fee?.value ? " (" + usd(Number(eth(t.fee.value, 18).replace(/,/g, "")) * +t.exchange_rate) + ")" : "";
+        const valUsd = t.exchange_rate && big(t.value) > 0n ? " (" + usd(Number(eth(t.value, 18).replace(/,/g, "")) * +t.exchange_rate) + ")" : "";
+        const summaryHtml = renderSummary(sum);
+        const tabsDom = tabs([
+          { label: "Token Transfers", count: t.token_transfers?.length || (t.token_transfers_overflow ? "many" : 0), load: async (pane) => { const f = t.token_transfers?.length ? { items: t.token_transfers } : await bs.txTokenTransfers(h); pane.innerHTML = ttTableHtml(); attachPager(pane.querySelector(".tablecard"), f, (p) => bs.txTokenTransfers(h, p), ttRow, "No token transfers."); } },
+          { label: "Internal Txns", load: async (pane) => { const f = await bs.txInternal(h); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Type</th><th>From</th><th></th><th>To</th><th>Value</th><th>Gas Limit</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`; attachPager(pane.querySelector(".tablecard"), f, (p) => bs.txInternal(h, p), (i) => `<tr><td><span class="pill">${esc(i.type || i.call_type || "call")}</span></td><td>${addrChip(i.from)}</td><td>${inout(i.from?.hash, i.to?.hash)}</td><td>${i.to ? addrChip(i.to) : (i.created_contract ? addrChip(i.created_contract) + ' <span class="pill">created</span>' : "")}</td><td>${eth(i.value, 8)} ${esc(chain().sym)}</td><td class="mut">${commas(num(i.gas_limit))}</td></tr>`, "No internal transactions."); } },
+          { label: "Logs", load: async (pane) => { const f = await bs.txLogs(h); pane.innerHTML = (f.items || []).map(logHtml).join("") || `<div class="empty">No logs.</div>`; } },
+          { label: "State", load: async (pane) => { const f = await bs.txStateChanges(h); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Address</th><th>Type</th><th>Before</th><th>After</th></tr></thead><tbody>${(f.items || []).map((s) => `<tr><td>${addrChip(s.address)}</td><td><span class="pill">${esc(s.type || s.change_type || "")}</span></td><td class="mut mono">${esc(fmtStateVal(s.balance_before ?? s.value_before ?? s.before, s))}</td><td class="mono">${esc(fmtStateVal(s.balance_after ?? s.value_after ?? s.after, s))}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">No state changes.</td></tr>`}</tbody></table></div>`; } },
+          { label: "Raw Trace", load: async (pane) => { const f = await bs.txRawTrace(h).catch(() => null); pane.innerHTML = `<pre class="data">${esc(JSON.stringify(f, null, 2))}</pre>`; } },
+        ], "txpane");
+        const typ = t.type == null ? 0 : num(t.type);
+        const typeLabel = { 0: "Legacy", 1: "EIP-2930", 2: "EIP-1559", 3: "EIP-4844 Blob", 4: "EIP-7702 Set-Code" }[typ] || ("Type " + typ);
+        view.innerHTML = `<div class="wrap"><h1 class="page">Transaction Details</h1>
+          <div class="crumbs"><a href="#/txs">Transactions</a> › ${short(t.hash)} · ${kappaBadge(kap)}</div>
+          ${summaryHtml}
+          <div class="detail"><dl class="kv2">
+            ${row("Transaction Hash (κ)", `<span class="mono">${esc(t.hash)}</span>`, "keccak256(typeByte ‖ RLP(fields)) re-derived from raw RPC bytes (Law L5)")}
+            ${row("Status", statusBadge(t) + (t.revert_reason ? ` <span class="mut"> ${esc(typeof t.revert_reason === "string" ? t.revert_reason : t.revert_reason.raw || JSON.stringify(t.revert_reason))}</span>` : ""))}
+            ${row("Block", `${blkLink(t.block_number)} ${t.confirmations != null ? `<span class="tag2 ok">${commas(t.confirmations)} Block Confirmations</span>` : ""}`)}
+            ${t.timestamp ? row("Timestamp", `${agoISO(t.timestamp)} (${esc(absISO(t.timestamp))})`) : ""}
+            ${t.transaction_types?.length ? row("Transaction Action", t.transaction_types.map((x) => `<span class="tag2 type">${esc(x.replace(/_/g, " "))}</span>`).join(" ")) : ""}
+            ${t.method ? row("Method", `<span class="meth">${esc(t.method)}</span>`) : ""}
+            ${row("From", addrChip(t.from))}
+            ${row(t.created_contract ? "To (Contract Created)" : "To", t.created_contract ? addrChip(t.created_contract) + ' <span class="pill">created</span>' : addrChip(t.to))}
+            ${row("Value", `<b>${eth(t.value, 18)} ${esc(chain().sym)}</b>${valUsd}`)}
+            ${row("Transaction Fee", `${t.fee?.value ? eth(t.fee.value, 18) : ""} ${esc(chain().sym)}${feeUsd}`, "gas used × effective gas price")}
+            ${row("Gas Price", `${gwei(t.gas_price, 6)} Gwei`)}
+            ${row("Gas Limit & Usage", `${commas(num(t.gas_limit))} | ${commas(num(t.gas_used))}${num(t.gas_limit) ? ` (${(num(t.gas_used) / num(t.gas_limit) * 100).toFixed(2)}%)` : ""}`)}
+            ${typ >= 2 ? row("Gas Fees (Gwei)", `Base: ${gwei(t.base_fee_per_gas, 2)} | Max: ${gwei(t.max_fee_per_gas, 2)} | Max Priority: ${gwei(t.max_priority_fee_per_gas, 2)}`, "EIP-1559") : ""}
+            ${t.transaction_burnt_fee ? row("Burnt Fee", `🔥 ${eth(t.transaction_burnt_fee, 12)} ${esc(chain().sym)}`) : ""}
+            ${row("Other", `<span class="tag2 type">${esc(typeLabel)}</span> <span class="mut">Nonce ${commas(num(t.nonce))} · Position ${t.position ?? ""}</span>`)}
+            ${t.raw_input && t.raw_input !== "0x" ? row("Input Data", inputHtml(t)) : ""}
+          </dl></div>
+          <div id="txtabs"></div>
+          <div class="note">The <span class="kv">✓ κ</span> proves <b>data integrity</b> the indexer's tx hash equals keccak256(RLP) of the raw envelope fetched from a node. It does not prove consensus finality; an in-browser light client is a documented future target.</div></div>`;
+        $("txtabs").append(tabsDom[0], tabsDom[1]);
+      });
+      function renderSummary(sum) {
+        const s = sum?.data?.summaries?.[0]; if (!s) return "";
+        let txt = s.summary_template; const v = s.summary_template_variables || {};
+        txt = txt.replace(/\{(\w+)\}/g, (_, k) => { const vv = v[k]?.value; if (vv == null) return ""; if (typeof vv === "object") return vv.symbol || vv.name || (vv.hash ? short(checksum(vv.hash)) : ""); return String(vv); });
+        return `<div class="summarybox"><span class="spark2">✦</span> <b>Transaction Action:</b> ${esc(txt.trim())}</div>`;
+      }
+      const ttTableHtml = () => `<div class="tablecard"><table class="t"><thead><tr><th>Type</th><th>From</th><th></th><th>To</th><th>Amount</th><th>Token</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`;
+      function ttRow(x) {
+        const isNft = x.token_type && x.token_type !== "ERC-20";
+        const amt = isNft ? (x.total?.token_id != null ? "#" + x.total.token_id : (x.total?.value || "1")) : (x.total ? fromUnits(x.total.value, +x.total.decimals || 0, 6) : "");
+        return `<tr><td><span class="pill">${esc(x.token_type || "ERC-20")}</span></td><td>${addrChip(x.from, { len: 7 })}</td><td>${inout(x.from?.hash, x.to?.hash)}</td><td>${addrChip(x.to, { len: 7 })}</td><td>${esc(amt)}</td><td>${tokenChip(x.token)}</td></tr>`;
+      }
+      function logHtml(lg) {
+        const dec = lg.decoded;
+        return `<div class="card" style="margin-bottom:.6rem"><div style="padding:.6rem .8rem"><div class="s mut">Address ${addrChip(lg.address)}</div>
+          ${dec ? `<div style="margin:.3rem 0"><span class="meth">${esc(dec.method_call || dec.method_id)}</span> ${(dec.parameters || []).map((p) => `<span class="mut">${esc(p.name)}=</span><span class="mono">${esc(typeof p.value === "object" ? JSON.stringify(p.value) : short(String(p.value), 14, 8))}</span>`).join(" ")}</div>` : ""}
+          <pre class="data">${(lg.topics || []).filter(Boolean).map((t, i) => `[topic${i}] ${esc(t)}`).join("\n")}${lg.data && lg.data !== "0x" ? "\n[data] " + esc(lg.data) : ""}</pre></div></div>`;
+      }
+      const fmtStateVal = (v, s) => v == null ? "" : (s.token || s.type === "token") ? String(v) : eth(v, 8) + " " + chain().sym;
+      function inputHtml(t) {
+        const dec = t.decoded_input;
+        return `<div class="seg" style="margin-bottom:.4rem"><button class="on" data-id="raw">Raw</button>${dec ? '<button data-id="dec">Decoded</button>' : ""}</div>
+          <pre class="data" data-pane="raw">${esc(t.raw_input)}</pre>
+          ${dec ? `<pre class="data" data-pane="dec" hidden>Function: ${esc(dec.method_call)}\nMethodID: ${esc(dec.method_id)}\n${(dec.parameters || []).map((p, i) => `[${i}] ${esc(p.name)} (${esc(p.type)}) = ${esc(typeof p.value === "object" ? JSON.stringify(p.value) : p.value)}`).join("\n")}</pre>` : ""}`;
+      }
+      view.addEventListener("click", (e) => { const b = e.target.closest(".seg button[data-id]"); if (!b) return; const seg = b.closest(".seg"); for (const x of seg.querySelectorAll("button")) x.classList.toggle("on", x === b); for (const p of seg.parentElement.querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== b.dataset.id; });
+
+      // ════════════════════════════ OMNICHAIN ACCOUNT ════════════════════════════
+      // One address → every chain at once: a merged, κ-addressed portfolio. The UOR move
+      // is that the whole snapshot gets its OWN re-derivable content address (holo://…),
+      // and each chain row drills into its full per-chain (hash-re-deriving) view.
+      function activateChain(cid) { if (!CHAINS[cid]) return; chainId = cid; localStorage.setItem("holoes.net", String(cid)); const s = $("netsel"); if (s) s.value = String(cid); bs = makeIndexer(); rpc = new E.Rpc(chain().rpc); store.m.clear(); resetStream(); setBrand(); }
+      view.addEventListener("click", (e) => { const g = e.target.closest("[data-gochain]"); if (!g) return; e.preventDefault(); activateChain(+g.dataset.gochain); location.hash = g.dataset.hash; });
+      view.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (!c) return; navigator.clipboard?.writeText(c.dataset.copy); toast("copied " + short(c.dataset.copy)); });
+      const omniRecent = () => { try { return JSON.parse(localStorage.getItem("holoes.omni") || "[]"); } catch { return []; } };
+      const omniRemember = (addr, ens) => { try { const r = omniRecent().filter((x) => x.addr.toLowerCase() !== addr.toLowerCase()); r.unshift({ addr, ens: ens || null }); localStorage.setItem("holoes.omni", JSON.stringify(r.slice(0, 6))); } catch {} };
+      const fmtAmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: n !== 0 && Math.abs(n) < 1 ? 6 : 4 });
+      const clogo = (cid, cls = "clogo") => { const b = brandOf(cid); return b.logo ? `<img class="${cls}" src="${esc(b.logo)}" alt="" onerror="this.style.visibility='hidden'" />` : `<span class="${cls}"></span>`; };
+
+      route(/^\/portfolio$/, async () => {
+        setNav("omni"); setK("", undefined);
+        const rec = omniRecent();
+        view.innerHTML = `<div class="wrap"><div class="nwhero" style="--brand:var(--holo-accent)">
+            <div><div class="nwlabel">Omnichain Account</div>
+              <div class="nwval" style="font-size:1.7rem">One address. Every chain. One verifiable view.</div>
+              <div class="nwsub">Type an address (or ENS) and Holo Scan fans out to all ${evmChains.length} EVM chains + Hyperliquid at once a single net worth, unified activity, and a re-derivable <span class="mono">holo://</span> content address for the whole snapshot. No backend aggregator; each chain drills into its own κ-verified view.</div>
+              <form class="sb" id="omniform" style="margin-top:.9rem;max-width:46rem"><input id="omniaddr" placeholder="0x address or ENS name (e.g. vitalik.eth)…" spellcheck="false" autocomplete="off" aria-label="Address or ENS" /><button>Scan all chains</button></form>
+              <div class="chipscan">${rec.map((r) => `<a class="cscan" href="#/omni/${esc(r.addr)}">${esc(r.ens || short(r.addr))}</a>`).join("")}<a class="cscan" href="#/omni/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045">Try: vitalik.eth</a></div>
+            </div></div>
+          <div class="note">Same EVM account exists on every EVM chain (one private key → one 0x address), and Hyperliquid HyperCore shares that keyspace so a single address spans them all. USD figures are estimates from each chain's index price feed; the snapshot's <b>holo://</b> address proves the manifest's integrity (re-derive it and you get the same κ), and every chain row links to its full per-chain view where block/tx hashes re-derive (the deeper κ, Law L5).</div></div>`;
+        $("omniform").onsubmit = async (e) => { e.preventDefault(); const q = $("omniaddr").value.trim(); if (!q) return; if (E.isAddress(q)) return void (location.hash = "#/omni/" + checksum(q)); toast("resolving " + q + "…"); const eb = new Blockscout(params.get("bs") || CHAINS[1].api); const r = await eb.search(q).catch(() => null); const hit = r?.items?.find((x) => x.address_hash); if (hit) location.hash = "#/omni/" + checksum(hit.address_hash); else toast("could not resolve “" + q + "”"); };
+      });
+
+      route(/^\/omni\/(0x[0-9a-fA-F]{40})$/, async (raw, tok) => {
+        setNav("omni"); const addr = checksum(raw); setK(addr, undefined);
+        let running = 0, present = 0;
+        view.innerHTML = `<div class="wrap">
+          <div class="nwhero" style="--brand:var(--holo-accent)">
+            <div><div class="nwlabel">Omnichain net worth</div>
+              <div class="nwval" id="omninw">$0</div>
+              <div class="nwsub"><span id="omnipresent">0</span> active networks · <span id="omnicount">0 / ${evmChains.length}</span> scanned</div>
+              <div class="omniprogwrap"><div class="omniprog" id="omniprog"></div></div>
+              <div class="chipscan" id="omnichips"></div></div>
+            <div style="text-align:right"><div class="nwlabel">Account</div><div class="nwaddr mono">${esc(short(addr, 10, 8))}</div><div class="nwsub" id="omniens"></div>
+              <button class="cscan" type="button" data-copy="${esc(addr)}" style="margin-top:.4rem;cursor:pointer">Copy address</button></div>
+          </div>
+          <div class="cols" style="align-items:start">
+            <div class="card"><h3>Holdings by chain <span class="mut" id="omnichainsn"></span></h3><div id="omnichains"><div class="empty"><span class="spin"></span> scanning every chain in parallel…</div></div></div>
+            <div class="card"><h3>Top holdings (all chains)</h3><div class="toklist" id="omnitokens"><div class="empty"></div></div>
+              <h3 style="margin-top:1rem">Snapshot address <span class="kbadge on">✓ κ</span></h3>
+              <div class="casnap"><span class="mono" id="omnica" title="content address of this whole omnichain snapshot re-derivable by anyone">computing…</span></div>
+              <p class="mut" style="font-size:.74rem;margin:.4rem 0 0">A sha256 of the canonical manifest of every balance above. Scan the same account at the same block and you get the identical κ a portfolio you can pin and verify.</p>
+            </div>
+          </div>
+          <div class="card" style="margin-top:1rem"><h3>Unified activity <span class="mut">· newest across all chains</span></h3>
+            <div class="tablecard"><table class="t"><thead><tr><th>Txn</th><th>Chain</th><th>Age</th><th>From</th><th></th><th>To</th><th>Value</th></tr></thead><tbody id="omnitl"><tr><td colspan="7" class="empty"><span class="spin"></span> merging timelines…</td></tr></tbody></table></div>
+          </div></div>`;
+        const result = await omni.scan(addr, {
+          onChain: (r) => { if (!live(tok)) return; if (!r.present) return; present++; running += r.totalUsd || 0;
+            $("omninw").textContent = usd(running); $("omnipresent").textContent = present;
+            const chips = $("omnichips"); if (chips) chips.insertAdjacentHTML("beforeend", `<span class="cscan">${clogo(r.chainId)}<b>${esc(r.name)}</b>${r.totalUsd ? " · " + usd(r.totalUsd) : ""}</span>`); },
+          onProgress: (d, n) => { if (!live(tok)) return; const p = $("omniprog"); if (p) p.style.width = Math.round(d / n * 100) + "%"; const c = $("omnicount"); if (c) c.textContent = d + " / " + n; },
+        });
+        if (!live(tok)) return;
+        omniRemember(addr, result.chains.find((c) => c.chainId === 1)?.ens);
+        renderOmni(result, addr, tok);
+      });
+
+      async function renderOmni(result, addr, tok) {
+        const ens = result.chains.find((c) => c.chainId === 1)?.ens;
+        if (ens && $("omniens")) $("omniens").textContent = ens;
+        $("omninw").textContent = usd(result.totalUsd);
+        $("omnipresent").textContent = result.activeCount;
+        const prog = $("omniprog"); if (prog) prog.style.width = "100%";
+        // breakdown by chain (present, sorted by value desc) + HyperCore row
+        const rows = result.chains.filter((c) => c.present).slice();
+        if (result.hyper) rows.push({ chainId: 1000000, name: "Hyperliquid · HyperCore", sym: "USD", totalUsd: result.hyper.accountValue, hyperRow: true, positions: result.hyper.positions });
+        rows.sort((a, b) => (b.totalUsd || 0) - (a.totalUsd || 0));
+        const max = Math.max(1, ...rows.map((r) => r.totalUsd || 0));
+        $("omnichainsn").textContent = rows.length ? "· " + rows.length + " networks" : "";
+        $("omnichains").innerHTML = rows.length ? rows.map((r) => {
+          const b = brandOf(r.chainId); const share = (r.totalUsd || 0) / max * 100;
+          const kc = r.hyperRow ? "" : `<span class="kbadge ${r.kappa ? "on" : r.kappaTx ? "on" : ""}">${r.kappa ? "✓ κ block" : r.kappaTx ? "✓ κ tx" : "κ "}</span>`;
+          const meta = r.hyperRow ? `${r.positions || 0} open position${r.positions === 1 ? "" : "s"} · perps account` : `${fmtAmt(r.nativeBalance)} ${esc(r.sym)}${r.nativeUsd ? " · " + usd(r.nativeUsd) : ""}${r.tokens && r.tokens.length ? " · " + r.tokens.length + " token" + (r.tokens.length === 1 ? "" : "s") : ""}`;
+          const hash = r.hyperRow ? "#/address/" + addr : "#/address/" + addr;
+          return `<div class="crow" data-gochain="${r.chainId}" data-hash="${esc(hash)}" title="Open ${esc(r.name)} view">
+            ${clogo(r.chainId)}
+            <div><div class="cname">${esc(r.name)} ${kc}</div><div class="cmeta">${meta}</div></div>
+            <div><div class="cusd">${usd(r.totalUsd || 0)}</div><div class="cshare">${share.toFixed(0)}%</div></div>
+            <div class="bar" style="--cbar:${esc(b.color || "#627eea")}"><i style="width:${share}%"></i></div>
+          </div>`;
+        }).join("") : `<div class="empty">No balances or activity found on any chain.</div>`;
+        // aggregate top token holdings across all chains (by symbol) — only market-priced
+        // holdings count; spam/over-valued airdrop tokens are excluded but disclosed below.
+        const agg = new Map(); let flagged = 0;
+        for (const c of result.chains) for (const t of c.tokens || []) {
+          if (t.suspect) { flagged++; continue; }
+          if (!t.priced) continue;
+          const k = t.symbol; const o = agg.get(k) || { sym: k, usd: 0, bal: 0, chains: new Set() };
+          o.usd += t.usd || 0; o.bal += t.balance || 0; o.chains.add(c.chainId); agg.set(k, o);
+        }
+        const top = [...agg.values()].sort((a, b) => b.usd - a.usd || b.bal - a.bal).slice(0, 12);
+        $("omnitokens").innerHTML = (top.length ? top.map((t) => `<div class="tk"><span><span class="sym">${esc(t.sym)}</span> <span class="on">${t.chains.size} chain${t.chains.size === 1 ? "" : "s"}</span></span><span>${t.usd ? usd(t.usd) : fmtAmt(t.bal)}</span></div>`).join("") : `<div class="empty">No market-priced token holdings.</div>`)
+          + (flagged ? `<div class="tk" style="border:0;color:var(--dim);font-size:.74rem"><span>${flagged} spam / over-valued token${flagged === 1 ? "" : "s"} excluded from net worth</span><span></span></div>` : "");
+        // unified timeline
+        const tl = $("omnitl");
+        tl.innerHTML = result.timeline.length ? result.timeline.slice(0, 40).map((t) => `<tr>
+          <td><a class="mono" href="#" data-gochain="${t.chainId}" data-hash="#/tx/${esc(t.hash)}">${esc(short(t.hash, 8, 6))}</a></td>
+          <td><span class="cscan" style="padding:.05rem .4rem">${clogo(t.chainId)}${esc(t.name)}</span></td>
+          <td class="mut">${t.timestamp ? agoISO(t.timestamp) : ""}</td>
+          <td>${addrChip(t.from, { len: 6 })}</td><td>${t.from && t.from.toLowerCase() === addr.toLowerCase() ? '<span class="inout out">OUT</span>' : '<span class="inout in">IN</span>'}</td>
+          <td>${t.to ? addrChip(t.to, { len: 6 }) : '<span class="pill">Creation</span>'}</td>
+          <td>${fmtAmt(t.value)} ${esc(t.sym)}</td></tr>`).join("") : `<tr><td colspan="7" class="empty">No recent activity indexed.</td></tr>`;
+        // the UOR artifact: a content address for the whole snapshot
+        const ca = await omni.contentAddress(result); if (tok != null && !live(tok)) return;
+        const e = $("omnica"); if (ca && e) { e.textContent = ca; e.dataset.full = ca; e.onclick = () => { navigator.clipboard?.writeText(ca); toast("copied snapshot κ"); }; setK(ca.replace("holo://", ""), true); }
+      }
+
+      // ════════════════════════════ AI AGENT / MCP ════════════════════════════
+      // The machine face of the same substrate: the verified multi-chain graph as agent
+      // tools. Every answer carries a re-derivable κ — the agent verifies, doesn't trust.
+      function renderEnvelope(env) {
+        const v = env.verification || {};
+        const ver = v.verified === true ? `<span class="vbadge ok">✓ κ re-derived</span>` : v.verified === false ? `<span class="vbadge no">✗ κ mismatch</span>` : env.content_address ? `<span class="vbadge na">κ </span>` : "";
+        const ca = env.content_address ? `<span class="eca" data-full="${esc(env.content_address)}" title="click to copy">${esc(env.content_address)}</span>` : "";
+        const disp = {};
+        if (env.data !== undefined) { disp.data = { ...env.data }; if (disp.data.raw) disp.data.raw = "‹raw consensus bytes the agent re-derives κ from these›"; }
+        if (v.scheme) { disp.verification = { scheme: v.scheme, verified: v.verified, derived: v.derived, claimed: v.claimed }; if (v.manifest) disp.verification.manifest = "‹canonical manifest recompute sha256 to check κ›"; }
+        return `<div class="envbox"><div class="envhead"><span class="esum">${esc(env.summary || (env.ok ? "ok" : "error: " + (env.error || "")))}</span>${ver}${ca}</div>
+          <pre class="envbody">${esc(JSON.stringify(disp.data !== undefined || disp.verification !== undefined ? disp : env, null, 2)).slice(0, 7000)}</pre>
+          ${env.honest ? `<div class="ehonest">⚖ ${esc(env.honest)}</div>` : ""}</div>`;
+      }
+      route(/^\/agent$/, async (tok) => {
+        setNav("agent"); setK("", undefined);
+        const T = scanTools.manifest;
+        const presets = [
+          { label: "Verify the latest block", name: "get_block", args: { chain: 1, block: "latest" } },
+          { label: "omni_account · vitalik.eth", name: "omni_account", args: { address: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" } },
+          { label: "engine_selftest", name: "engine_selftest", args: {} },
+          { label: "list_chains", name: "list_chains", args: {} },
+        ];
+        const cfg = `{
+  "mcpServers": {
+    "holo-scan": {
+      "command": "node",
+      "args": ["…/os/holo-scan-mcp.mjs"]
+    }
+  }
+}`;
+        view.innerHTML = `<div class="wrap">
+          <div class="hero" style="--brand:var(--holo-accent)"><div class="herobrand"><div>
+            <h2>AI Agent access · MCP</h2>
+            <p class="hdesc">Any AI agent (Claude Desktop, an Agent-SDK app, any MCP client) gets seamless, <b>verified</b> access to all ${Object.keys(CHAINS).length} networks. Every answer carries a re-derivable <span class="mono">holo://</span> content address the agent <b>verifies</b> instead of trusting an API. The web2 / web3 / AI interoperability thesis, as a running tool surface.</p>
+          </div></div></div>
+          <div class="cols" style="align-items:start">
+            <div class="card"><h3>Live tool console <span class="mut">· the exact envelope an agent receives</span></h3>
+              <div class="runbar"><select id="agtool" aria-label="tool"></select><input id="agargs" aria-label="arguments (JSON)" value='{"chain":1,"block":"latest"}' /><button id="agrun" type="button">Call</button></div>
+              <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem">${presets.map((p, i) => `<button class="preset" type="button" data-preset="${i}">▶ ${esc(p.label)}</button>`).join("")}</div>
+              <div id="agout"><div class="empty">Pick a preset or call a tool you get real on-chain data plus a κ you can re-derive.</div></div>
+            </div>
+            <div class="card"><h3>Connect an agent</h3>
+              <p class="mut" style="font-size:.8rem;margin:.2rem 0 .6rem">Add Holo Scan to Claude Desktop (<span class="mono">claude_desktop_config.json</span>) or any MCP client. Zero dependencies the server reuses the same in-browser κ-engine.</p>
+              <div class="codeblock">${esc(cfg)}</div>
+              <h3 style="margin-top:1.1rem">Tool surface <span class="mut">· ${T.length} tools</span></h3>
+              <div class="toolgrid">${T.map((t) => { const kappa = /get_block|get_transaction|verify_hash|omni_account|engine_selftest/.test(t.name); return `<div class="toolcard"><div class="tn">${esc(t.name)}</div><div class="td">${esc(t.description)}</div><div class="tk ${kappa ? "kappa" : "state"}">${kappa ? "✓ returns a re-derivable κ" : "indexer / registry"}</div></div>`; }).join("")}</div>
+            </div>
+          </div>
+          <div class="note">κ = re-derivable content address (Law L5). Hashed objects blocks, transactions, the omnichain snapshot are verifiable by re-derivation from raw bytes; mutable state (a balance) is not, and its envelope says so. This is integrity / authenticity, not consensus finality an in-browser light client is the roadmap. The console runs the <b>same</b> isomorphic tool layer (<span class="mono">_shared/holo-scan-tools.js</span>) the MCP server exposes.</div></div>`;
+        const sel = $("agtool"); sel.innerHTML = T.map((t) => `<option value="${t.name}">${t.name}</option>`).join("");
+        const argsEl = $("agargs"), out = $("agout");
+        const run = async (name, args) => {
+          sel.value = name; argsEl.value = JSON.stringify(args);
+          out.innerHTML = `<div class="empty"><span class="spin"></span> calling ${esc(name)}…</div>`;
+          let env; try { env = await scanTools.call(name, args); } catch (e) { env = { ok: false, error: String(e && e.message || e) }; }
+          if (!live(tok)) return;
+          out.innerHTML = renderEnvelope(env);
+          const ca = out.querySelector(".eca"); if (ca) ca.onclick = () => { navigator.clipboard?.writeText(ca.dataset.full); toast("copied " + short(ca.dataset.full)); };
+        };
+        $("agrun").onclick = () => { let a = {}; try { a = JSON.parse(argsEl.value || "{}"); } catch { toast("arguments must be valid JSON"); return; } run(sel.value, a); };
+        view.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => { const p = presets[+b.dataset.preset]; run(p.name, p.args); }));
+        run(presets[0].name, presets[0].args);   // auto-run one so the magic is visible on open
+      });
+
+      // ════════════════════════════ ADDRESS ════════════════════════════
+      route(/^\/address\/([^/]+)$/, async (raw, tok) => {
+        setNav(""); loading("loading " + short(raw) + "…");
+        if (!E.isAddress(raw)) { const r = await bs.search(raw).catch(() => null); const hit = r?.items?.find((x) => x.address_hash); if (hit) return (location.hash = "#/address/" + hit.address_hash); view.innerHTML = `<div class="wrap"><div class="note">Not a valid address or known name.</div></div>`; return; }
+        const a = checksum(raw); setK(a, undefined);
+        const [info, counters] = await Promise.all([bs.address(a), bs.addressCounters(a).catch(() => ({}))]); if (!live(tok)) return;
+        if (!info || info.message) { view.innerHTML = `<div class="wrap"><div class="note">Address not found.</div></div>`; return; }
+        const isC = info.is_contract;
+        const balUsd = info.exchange_rate ? usd(Number(eth(info.coin_balance, 18).replace(/,/g, "")) * +info.exchange_rate) : null;
+        const tagHtml = (info.public_tags || []).map((t) => `<span class="nametag">${esc(t.display_name)}</span>`).join(" ");
+        view.innerHTML = `<div class="wrap">
+          <h1 class="page">${isC ? "Contract" : "Address"} ${info.ens_domain_name ? `<span class="tag2 type">${esc(info.ens_domain_name)}</span>` : ""} ${info.is_verified ? '<span class="tag2 ok">◆ Verified</span>' : ""}</h1>
+          <div class="crumbs"><span class="mono">${esc(a)}</span> ${tagHtml} <span class="tag2 ${isC ? "type" : "ok"}">${isC ? "Contract" : "EOA"}</span> <a class="cscan" href="#/omni/${esc(a)}" style="margin-left:.4rem;text-decoration:none">🌐 View across all chains →</a></div>
+          <div class="cols" style="margin-bottom:1rem">
+            <div class="card"><h3>Overview</h3><dl class="kv2" style="grid-template-columns:10rem 1fr">
+              <dt>Balance</dt><dd><b>${eth(info.coin_balance, 18)} ${esc(chain().sym)}</b></dd>
+              <dt>Value</dt><dd>${balUsd || ""}</dd>
+              ${info.token ? `<dt>Token</dt><dd>${tokenChip(info.token)} <span class="pill">${esc(info.token.type)}</span></dd>` : ""}
+            </dl></div>
+            <div class="card"><h3>More Info</h3><dl class="kv2" style="grid-template-columns:10rem 1fr">
+              <dt>Transactions</dt><dd>${commas(counters?.transactions_count || 0)} txns <span class="mut">· ${commas(counters?.token_transfers_count || 0)} transfers</span></dd>
+              ${info.creator_address_hash ? `<dt>Creator</dt><dd>${addrChip({ hash: info.creator_address_hash })}${info.creation_transaction_hash ? ` at ${txLink(info.creation_transaction_hash)}` : ""}</dd>` : ""}
+              ${isC ? `<dt>Type</dt><dd>${info.is_verified ? "Verified contract" : "Unverified contract"}${info.proxy_type ? ` · <span class="pill">${esc(info.proxy_type)}</span>` : ""}</dd>` : `<dt>Type</dt><dd>Externally Owned Account</dd>`}
+            </dl></div>
+          </div>
+          <div id="addrtabs"></div></div>`;
+        const defs = [
+          { label: "Transactions", count: counters?.transactions_count, load: async (pane) => { const f = await bs.addressTxns(a); pane.innerHTML = addrTxTableHtml(); attachPager(pane.querySelector(".tablecard"), f, (p) => bs.addressTxns(a, p), (t) => addrTxRow(t, a), "No transactions."); } },
+          { label: "Token Transfers", count: counters?.token_transfers_count, load: async (pane) => { const f = await bs.addressTokenTransfers(a); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Txn</th><th>Age</th><th>From</th><th></th><th>To</th><th>Amount</th><th>Token</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`; attachPager(pane.querySelector(".tablecard"), f, (p) => bs.addressTokenTransfers(a, p), (x) => addrTtRow(x, a), "No token transfers."); } },
+          { label: "Internal", load: async (pane) => { const f = await bs.addressInternal(a); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Txn</th><th>Block</th><th>From</th><th></th><th>To</th><th>Value</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`; attachPager(pane.querySelector(".tablecard"), f, (p) => bs.addressInternal(a, p), (i) => `<tr><td>${txLink(i.transaction_hash)}</td><td>${blkLink(i.block_number ?? i.block)}</td><td>${addrChip(i.from, { len: 7 })}</td><td>${inout(i.from?.hash, i.to?.hash)}</td><td>${i.to ? addrChip(i.to, { len: 7 }) : ""}</td><td>${eth(i.value, 8)} ${esc(chain().sym)}</td></tr>`, "No internal transactions."); } },
+          { label: "Tokens", load: async (pane) => { const f = await bs.addressTokens(a); const items = f.items || []; pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Token</th><th>Type</th><th>Balance</th><th>Value</th></tr></thead><tbody>${items.map((x) => { const t = x.token; const bal = x.token_id != null ? "#" + x.token_id : fromUnits(x.value, +t.decimals || 0, 6); const val = t.exchange_rate && t.decimals ? usd(Number(fromUnits(x.value, +t.decimals, 8).replace(/,/g, "")) * +t.exchange_rate) : ""; return `<tr><td>${tokenChip(t)} <span class="mut">${esc(t.name || "")}</span></td><td><span class="pill">${esc(t.type)}</span></td><td>${esc(bal)}</td><td class="mut">${val}</td></tr>`; }).join("") || `<tr><td colspan="4" class="empty">No tokens.</td></tr>`}</tbody></table></div>`; } },
+          { label: "NFTs", load: async (pane) => { const f = await bs.addressNfts(a); const items = f.items || []; pane.innerHTML = items.length ? `<div class="nftgrid">${items.map(nftCard).join("")}</div>` : `<div class="empty">No NFTs.</div>`; } },
+        ];
+        if (isC) defs.push({ label: "Contract", count: info.is_verified ? "◆" : null, load: (pane) => contractPane(pane, a) });
+        const tabsDom = tabs(defs, "atabpane"); $("addrtabs").append(tabsDom[0], tabsDom[1]);
+      });
+      const addrTxTableHtml = () => `<div class="tablecard"><table class="t"><thead><tr><th>Txn Hash</th><th>Method</th><th>Block</th><th>Age</th><th>From</th><th></th><th>To</th><th>Value</th><th>Fee</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`;
+      const addrTxRow = (t, self) => { const out = t.from?.hash?.toLowerCase() === self.toLowerCase(); return `<tr>
+        <td>${txLink(t.hash)} ${t.status === "error" ? '<span class="kv bad">✗</span>' : ""}</td><td>${txMethod(t)}</td><td>${blkLink(t.block_number)}</td><td class="mut">${agoISO(t.timestamp)}</td>
+        <td>${addrChip(t.from, { len: 7 })}</td><td>${t.from?.hash?.toLowerCase() === t.to?.hash?.toLowerCase() ? '<span class="inout self">SELF</span>' : out ? '<span class="inout out">OUT</span>' : '<span class="inout in">IN</span>'}</td>
+        <td>${t.to ? addrChip(t.to, { len: 7 }) : '<span class="pill">Creation</span>'}</td><td>${eth(t.value, 6)} ${esc(chain().sym)}</td><td class="mut">${t.fee?.value ? eth(t.fee.value, 6) : ""}</td></tr>`; };
+      const addrTtRow = (x, self) => { const out = x.from?.hash?.toLowerCase() === self.toLowerCase(); const isNft = x.token_type && x.token_type !== "ERC-20"; const amt = isNft ? (x.total?.token_id != null ? "#" + x.total.token_id : "1") : (x.total ? fromUnits(x.total.value, +x.total.decimals || 0, 6) : ""); return `<tr>
+        <td>${txLink(x.transaction_hash)}</td><td class="mut">${agoISO(x.timestamp)}</td><td>${addrChip(x.from, { len: 6 })}</td><td>${out ? '<span class="inout out">OUT</span>' : '<span class="inout in">IN</span>'}</td><td>${addrChip(x.to, { len: 6 })}</td><td>${esc(amt)}</td><td>${tokenChip(x.token)}</td></tr>`; };
+      function nftCard(n) {
+        const img = n.image_url || n.media_url || (n.metadata && (n.metadata.image || n.metadata.image_url));
+        const name = n.metadata?.name || (n.token?.name ? n.token.name + " #" + (n.id ?? "") : "#" + (n.id ?? ""));
+        return `<div class="nft"><div class="img" style="${img ? `background-image:url('${esc(img)}')` : ""}">${img ? "" : "NFT"}</div><div class="cap"><div class="t">${esc(name)}</div><div class="s">${tokenChip(n.token)}</div></div></div>`;
+      }
+      async function contractPane(pane, a) {
+        const sc = await bs.smartContract(a);
+        if (!sc || sc.message || !sc.is_verified) { pane.innerHTML = `<div class="note">This contract's source code is <b>not verified</b> on the indexer.${sc?.deployed_bytecode ? "" : ""} Bytecode is still on-chain and its keccak256 is the code hash.</div>`; return; }
+        const sources = [{ file_path: sc.file_path || (sc.name ? sc.name + ".sol" : "Contract.sol"), source_code: sc.source_code }, ...(sc.additional_sources || [])];
+        const readW = sc.abi ? sc.abi.filter((x) => x.type === "function" && /view|pure/.test(x.stateMutability || "")).length : 0;
+        const writeW = sc.abi ? sc.abi.filter((x) => x.type === "function" && !/view|pure/.test(x.stateMutability || "")).length : 0;
+        pane.innerHTML = `<dl class="kv2" style="grid-template-columns:12rem 1fr;border:1px solid var(--line);border-radius: var(--holo-radius, 12px);margin-bottom:.8rem">
+          <dt>Contract Name</dt><dd><b>${esc(sc.name || "")}</b></dd>
+          <dt>Compiler</dt><dd>${esc(sc.compiler_version || "")} · ${esc(sc.language || "solidity")}${sc.evm_version ? " · EVM " + esc(sc.evm_version) : ""}</dd>
+          <dt>Optimization</dt><dd>${sc.optimization_enabled ? "Yes" + (sc.optimization_runs ? ` (${sc.optimization_runs} runs)` : "") : "No"}</dd>
+          <dt>Verified</dt><dd><span class="tag2 ok">◆ ${sc.is_fully_verified ? "Fully verified" : "Verified"}</span>${sc.license_type ? ` · ${esc(sc.license_type)}` : ""}${sc.verified_at ? ` · ${agoISO(sc.verified_at)}` : ""}</dd>
+          <dt>ABI</dt><dd>${sc.abi ? `${sc.abi.length} entries · ${readW} read / ${writeW} write methods` : ""}</dd>
+        </dl>
+        ${sources.map((s) => `<div class="codebox" style="margin-bottom:.7rem"><div class="hd"><span>📄 ${esc(s.file_path || "source")}</span><span>${(s.source_code || "").split("\n").length} lines</span></div><pre>${esc(s.source_code || "")}</pre></div>`).join("")}
+        ${sc.abi ? `<div class="codebox"><div class="hd"><span>Contract ABI</span></div><pre>${esc(JSON.stringify(sc.abi, null, 2))}</pre></div>` : ""}`;
+      }
+
+      // ════════════════════════════ TOKEN ════════════════════════════
+      route(/^\/token\/(0x[0-9a-fA-F]{40})$/, async (raw, tok) => {
+        setNav(""); loading("loading token " + short(raw) + "…");
+        const a = checksum(raw); setK(a, undefined);
+        const [t, counters] = await Promise.all([bs.token(a), bs.tokenCounters(a).catch(() => ({}))]); if (!live(tok)) return;
+        if (!t || t.message) { view.innerHTML = `<div class="wrap"><div class="note">Token not found.</div></div>`; return; }
+        const isNft = t.type && t.type !== "ERC-20";
+        const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+        const defs = [
+          { label: "Transfers", count: counters?.transfers_count, load: async (pane) => { const f = await bs.tokenTransfers(a); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Txn</th><th>Age</th><th>From</th><th></th><th>To</th><th>Amount</th></tr></thead><tbody></tbody></table><div class="pager"></div></div>`; attachPager(pane.querySelector(".tablecard"), f, (p) => bs.tokenTransfers(a, p), (x) => { const amt = isNft ? (x.total?.token_id != null ? "#" + x.total.token_id : "1") : (x.total ? fromUnits(x.total.value, +x.total.decimals || 0, 6) : ""); return `<tr><td>${txLink(x.transaction_hash)}</td><td class="mut">${agoISO(x.timestamp)}</td><td>${addrChip(x.from, { len: 7 })}</td><td>${inout(x.from?.hash, x.to?.hash)}</td><td>${addrChip(x.to, { len: 7 })}</td><td>${esc(amt)}</td></tr>`; }, "No transfers."); } },
+          { label: "Holders", count: t.holders_count, load: async (pane) => { const f = await bs.tokenHolders(a); const items = f.items || []; const supply = big(t.total_supply); pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>#</th><th>Holder</th><th>Quantity</th><th>Percentage</th></tr></thead><tbody>${items.map((hd, i) => { const q = isNft ? hd.value : fromUnits(hd.value, +t.decimals || 0, 4); const pc = supply > 0n ? (Number(big(hd.value) * 10000n / supply) / 100).toFixed(4) + "%" : ""; return `<tr><td>${i + 1}</td><td>${addrChip(hd.address)}</td><td>${esc(q)}</td><td class="mut">${pc}</td></tr>`; }).join("") || `<tr><td colspan="4" class="empty">No holders.</td></tr>`}</tbody></table><div class="pager"></div></div>`; attachPager(pane.querySelector(".tablecard"), f, (p) => bs.tokenHolders(a, p), (hd) => { const q = isNft ? hd.value : fromUnits(hd.value, +t.decimals || 0, 4); return `<tr><td>·</td><td>${addrChip(hd.address)}</td><td>${esc(q)}</td><td class="mut"></td></tr>`; }, ""); } },
+        ];
+        if (isNft) defs.push({ label: "Inventory", load: async (pane) => { const f = await bs.tokenInstances(a); const items = f.items || []; pane.innerHTML = items.length ? `<div class="nftgrid">${items.map((n) => nftCard({ ...n, token: t })).join("")}</div>` : `<div class="empty">No inventory.</div>`; } });
+        defs.push({ label: "Contract", count: null, load: (pane) => contractPane(pane, a) });
+        view.innerHTML = `<div class="wrap">
+          <h1 class="page">${t.icon_url ? `<img class="tokimg" src="${esc(t.icon_url)}" style="width:24px;height:24px;vertical-align:-5px" onerror="this.remove()"> ` : ""}${esc(t.name || "Token")} ${t.symbol ? `<span class="tag2 type">${esc(t.symbol)}</span>` : ""} <span class="tag2">${esc(t.type)}</span></h1>
+          <div class="crumbs">Token · <span class="mono">${esc(a)}</span> · <a href="#/address/${a}">view as address</a></div>
+          <div class="detail" style="margin-bottom:1rem"><dl class="kv2">
+            ${t.exchange_rate ? row("Price", `${usd(t.exchange_rate)}${t.circulating_market_cap ? ` · Market Cap ${usdc(t.circulating_market_cap)}` : ""}`) : ""}
+            ${row("Total Supply", `${t.total_supply ? fromUnits(t.total_supply, +t.decimals || 0, 4) : ""} ${esc(t.symbol || "")}`)}
+            ${row("Holders", commas(t.holders_count || 0))}
+            ${t.decimals != null ? row("Decimals", commas(t.decimals)) : ""}
+            ${counters?.transfers_count ? row("Transfers", commas(counters.transfers_count)) : ""}
+            ${t.volume_24h ? row("24h Volume", usdc(t.volume_24h)) : ""}
+            ${row("Contract", `<span class="mono">${esc(a)}</span>`)}
+          </dl></div>
+          <div id="toktabs"></div></div>`;
+        const tabsDom = tabs(defs, "tokpane"); $("toktabs").append(tabsDom[0], tabsDom[1]);
+      });
+
+      // ════════════════════════════ GAS ════════════════════════════
+      route(/^\/gas$/, async (tok) => {
+        setNav("gas"); loading("reading gas market…");
+        const stats = await bs.stats(); if (!live(tok)) return; setK("gas:" + chain().name, undefined);
+        const gp = stats.gas_prices || {}; const g = (x) => (x?.price ?? x ?? "");
+        const fiat = (x) => x?.fiat_price ? ` <span class="mut">≈ $${(+x.fiat_price).toFixed(2)}/tx</span>` : "";
+        view.innerHTML = `<div class="wrap"><h1 class="page">Gas Tracker</h1>
+          <div class="crumbs">Live gas oracle on ${esc(chain().name)} · via Blockscout stats${stats.gas_prices_update_in ? ` · refresh ${(stats.gas_prices_update_in / 1000).toFixed(0)}s` : ""}</div>
+          <div class="gaslane">
+            <div class="g low"><div class="lab">Slow</div><div class="gw">${g(gp.slow)}</div><div class="lab">Gwei</div>${fiat(gp.slow)}</div>
+            <div class="g avg"><div class="lab">Average</div><div class="gw">${g(gp.average)}</div><div class="lab">Gwei</div>${fiat(gp.average)}</div>
+            <div class="g high"><div class="lab">Fast</div><div class="gw">${g(gp.fast)}</div><div class="lab">Gwei</div>${fiat(gp.fast)}</div>
+          </div>
+          <div class="detail"><dl class="kv2">
+            <dt>Network Utilization</dt><dd>${stats.network_utilization_percentage != null ? (+stats.network_utilization_percentage).toFixed(1) + "%" : ""}</dd>
+            <dt>Gas Used Today</dt><dd>${stats.gas_used_today ? commas(stats.gas_used_today) : ""}</dd>
+            <dt>Total Gas Used</dt><dd>${stats.total_gas_used ? commas(stats.total_gas_used) : ""}</dd>
+            <dt>Average Block Time</dt><dd>${stats.average_block_time ? (stats.average_block_time / 1000).toFixed(2) + "s" : ""}</dd>
+          </dl></div></div>`;
+      });
+
+      // ════════════════════════════ MEMPOOL (live) ════════════════════════════
+      route(/^\/mempool$/, async (tok) => {
+        setNav("mempool"); setK("", undefined);
+        const s = ensureStream();
+        view.innerHTML = `<div class="wrap">
+          <div class="mphead"><h1 class="page" style="margin:0">Mempool</h1>
+            <span class="liveind" id="mpdind"><span class="d"></span> connecting…</span>
+            <span class="mut" style="margin-left:auto">Streaming live from the chain over WebSocket (newHeads + full pending transactions) lowest-latency push, no polling.</span></div>
+          <div class="mpstats">
+            <div class="s"><div class="l">Pending seen (session)</div><div class="v acc" id="mp-seen">0</div></div>
+            <div class="s"><div class="l">Throughput</div><div class="v good" id="mp-rate">0 <span style="font-size:.8rem">tx/s</span></div><div class="ratebar"><i id="mp-ratebar" style="width:0%"></i></div></div>
+            <div class="s"><div class="l">Latency · node RTT</div><div class="v warn" id="mp-lat"></div><div class="l" id="mp-lat2" style="margin-top:.15rem">measuring…</div></div>
+            <div class="s"><div class="l">Latest block · <span id="mp-src">0</span> src racing</div><div class="v" id="mp-block"></div></div>
+          </div>
+          <div class="mpcols">
+            <div class="card"><h3>Live Blocks <span class="liveind" id="mpbind"><span class="d"></span></span></h3><div id="mp-blocks"></div></div>
+            <div class="card"><h3>Pending Transactions <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">· the live mempool firehose</span></h3><div class="feed" id="mp-feed"></div></div>
+          </div>
+          <div class="note">The mempool is the set of transactions broadcast to the network but <b>not yet mined</b> watch them arrive, then drain into the next block. Each new block header is re-derived (keccak256/RLP) and κ-verified the instant it streams in (<span class="kv">✓ κ</span>). Volume is sampled by the public node, so the rate shown is the live feed rate.</div>
+        </div>`;
+        const feed = $("mp-feed"), blocksEl = $("mp-blocks"), ind = $("mpdind"), bind = $("mpbind");
+        const methodOf = (input) => (!input || input === "0x" || input.length < 10) ? "" : `<span class="meth" style="max-width:7rem">${input.slice(0, 10)}</span>`;
+        const pendingRow = (tx, animate) => el(`<div class="frow ${animate ? "streamin" : ""}">
+            <span class="dot"></span>
+            <div class="mid"><a class="h mono" href="#/tx/${tx.hash}">${short(tx.hash, 10, 6)}</a> ${addrChip(tx.from, { len: 6 })} <span class="arrow">→</span> ${tx.to ? addrChip(tx.to, { len: 6 }) : '<span class="pill">create</span>'} ${methodOf(tx.input)}</div>
+            <div class="r"><span class="v">${eth(tx.value, 5)} ${esc(chain().sym)}</span> · ${gwei(tx.maxFeePerGas || tx.gasPrice, 1)} Gwei</div></div>`);
+        // rAF-batched firehose: coalesce all pending that arrived this frame into ONE prepend
+        let pendQ = [], rafId = 0;
+        const flushPend = () => { rafId = 0; if (!pendQ.length) return; const frag = document.createDocumentFragment(); for (let i = pendQ.length - 1; i >= 0; i--) frag.appendChild(pendingRow(pendQ[i], true)); pendQ = []; feed.prepend(frag); while (feed.children.length > 60) feed.lastElementChild.remove(); };
+        const queuePending = (tx) => { pendQ.push(tx); if (!rafId) rafId = requestAnimationFrame(flushPend); };
+        onLeave(() => { if (rafId) cancelAnimationFrame(rafId); });
+        function addBlock(h, animate) {
+          const n = num(h.number); if (blocksEl.querySelector(`[data-bn="${n}"]`)) return;
+          blocksEl.prepend(el(`<div class="blockcard ${animate ? "streamin" : ""}" data-bn="${n}">
+            <div class="badge" style="width:34px;height:34px">Bk</div>
+            <div><div class="n">${blkLink(n)} <span class="kpop">${kappaBadge(h._kappa)}</span></div>
+              <div class="s mut" style="font-size:.76rem">${addrChip(h.miner, { len: 6 })} · ${num(h.gasLimit) ? (num(h.gasUsed) / num(h.gasLimit) * 100).toFixed(0) : 0}% gas</div></div>
+            <div class="drain">${animate ? `<span style="color:var(--good)">▼ mined</span><br>` : ""}${num(h.gasUsed) ? commas(Math.round(num(h.gasUsed) / 21000)) + "+ txns" : ""}</div></div>`));
+          while (blocksEl.children.length > 8) blocksEl.lastElementChild.remove();
+          $("mp-block").textContent = "#" + commas(n);
+          setK(h.hash, h._kappa == null ? undefined : h._kappa);
+          if (animate) { const rows = feed.querySelectorAll(".frow"); for (let i = 40; i < rows.length; i++) rows[i].remove(); }   // drain older pending
+        }
+        if (!s) { ind.innerHTML = `<span class="d"></span> streaming unavailable on this network`; return; }
+        // seed the blocks column instantly from the indexer (so it's never empty at cold start)
+        (async () => {
+          try {
+            const bl = await bs.mainBlocks(); if (!live(tok)) return;
+            for (const b of bl.slice(0, 8)) { if (blocksEl.querySelector(`[data-bn="${b.height}"]`)) continue;
+              blocksEl.appendChild(el(`<div class="blockcard" data-bn="${b.height}"><div class="badge" style="width:34px;height:34px">Bk</div>
+                <div><div class="n">${blkLink(b.height)} <span class="kv wait" data-kb="${b.hash}">…</span></div>
+                  <div class="s mut" style="font-size:.76rem">${addrChip(b.miner, { len: 6 })} · ${commas(b.transactions_count ?? b.transaction_count ?? 0)} txns</div></div>
+                <div class="drain mut">${agoISO(b.timestamp)}</div></div>`)); }
+            if (bl[0]) $("mp-block").textContent = "#" + commas(bl[0].height);
+            if (chain().kappa) { const raws = await rpcBatch(bl.slice(0, 8).map((b) => ({ method: "eth_getBlockByNumber", params: ["0x" + Number(b.height).toString(16), false] }))); if (!live(tok)) return; const res = await verifyBatch(raws.filter(Boolean)); const m = new Map(res.map((r) => [String(r.hash).toLowerCase(), r.ok])); for (const sp of blocksEl.querySelectorAll("[data-kb]")) sp.outerHTML = kappaBadge(m.has(sp.dataset.kb.toLowerCase()) ? m.get(sp.dataset.kb.toLowerCase()) : null); }
+            else for (const sp of blocksEl.querySelectorAll("[data-kb]")) sp.outerHTML = kappaBadge("na");
+          } catch {}
+        })();
+        // seed from warm buffers (live data that arrived before this view opened)
+        for (const h of s.blocks.slice(0, 8).reverse()) addBlock(h, false);
+        { const frag = document.createDocumentFragment(); for (const tx of s.mempool.slice(0, 40)) frag.appendChild(pendingRow(tx, false)); feed.appendChild(frag); }
+        $("mp-seen").textContent = commas(s.pendingCount);
+        const setConn = (c) => { ind.classList.toggle("on", c); bind.classList.toggle("on", c); ind.innerHTML = `<span class="d"></span> ${c ? "live" : "reconnecting…"}`; };
+        setConn(s.connected);
+        onLeave(s.on("status", (st) => { if (live(tok)) setConn(st.connected); }));
+        onLeave(s.on("pending", (tx) => { if (live(tok)) queuePending(tx); }));
+        onLeave(s.on("block", (h) => { if (live(tok)) addBlock(h, true); }));
+        const iv = setInterval(() => { if (!live(tok)) return;
+          $("mp-seen").textContent = commas(s.pendingCount);
+          const r = s.rate(); $("mp-rate").innerHTML = r.toFixed(0) + ` <span style="font-size:.8rem">tx/s</span>`; $("mp-ratebar").style.width = Math.min(100, r * 4) + "%";
+          $("mp-lat").textContent = s.rttMs != null ? Math.round(s.rttMs) + " ms" : "";
+          $("mp-lat2").textContent = s.lastBlockLatencyMs != null ? "last block +" + (s.lastBlockLatencyMs / 1000).toFixed(1) + "s" : "measuring…";
+          $("mp-src").textContent = s.sources;
+        }, 1000);
+        onLeave(() => clearInterval(iv));
+      });
+
+      // ════════════════════════════ ABOUT ════════════════════════════
+      route(/^\/about$/, async () => {
+        setNav("about"); setK("", undefined);
+        view.innerHTML = `<div class="wrap narrow"><h1 class="page">About Holo Scan</h1>
+          <div class="detail" style="padding:1rem 1.1rem;line-height:1.75">
+            <p><b>Holo Scan</b> delivers an Etherscan-identical experience as a hologram-native holospace serverless, multi-chain, running entirely in your browser, over <b>real on-chain data with no simulation</b>. One universal explorer for 27 networks (25 EVM chains plus Solana and Hyperliquid HyperCore); each chain feels native, with its own logo, accent, concise metadata and official links.</p>
+            <p><b>Dual-source architecture.</b> The complete explorer surface (full paginated history, token holdings, NFTs, holders, verified contract source + ABI, internal txns, stats, charts, instant search, human-readable transaction actions) is served by the open-source <a href="https://github.com/blockscout/blockscout" target="_blank" rel="noopener">Blockscout</a> explorer's REST API v2 the indexer that makes this depth possible in a browser, no API key.</p>
+            <p><b>Real-time, straight from the chain.</b> A WebSocket to an open, key-less public node (<a href="https://www.publicnode.com" target="_blank" rel="noopener">publicnode</a>, a public good) pushes <code>newHeads</code> and the full <code>newPendingTransactions</code> mempool the lowest-latency way to read Ethereum (push, not polling). New blocks and pending transactions stream in live; the <b>Mempool</b> view is the firehose. Beautifully, a <code>newHeads</code> header carries everything needed to re-derive its own hash, so each block is κ-verified the <i>instant</i> it arrives no extra round trip.</p>
+            <p><b>The UOR superpower (what no other explorer has).</b> Every block and transaction hash is independently <b>re-derived from raw consensus bytes</b> in your browser (keccak256 + RLP, <code>_shared/holo-eth.js</code>) and content-verified the <span class="kv">✓ κ</span> badge (holospaces Law L5). The object's hash <i>is</i> its <code>holo://</code> content address; the κ-store caches by content.</p>
+            <ul>
+              <li><b>Storage</b> content-addressed κ-store keyed by block/tx hash.</li>
+              <li><b>Compute</b> in-browser keccak256/RLP re-derivation (Law L5), off the UI thread.</li>
+              <li><b>Networking</b> WebSocket stream (newHeads + mempool, lowest latency) + Blockscout API v2 (index) + JSON-RPC (re-derivation).</li>
+            </ul>
+            <p class="mut">Networks: ${Object.values(CHAINS).map((c) => esc(c.name)).join(" · ")} each a real Blockscout instance. Conforms to: Blockscout API v2 · JSON-RPC eth_subscribe · Ethereum Yellow Paper (RLP) · Keccak-256 · EIP-55/137/1559/2718/4844. Honesty: κ proves data integrity, not consensus finality (a future light-client target); strict header re-derivation is exact on Ethereum/PoW-style headers; mempool volume is sampled by the public node.</p>
+            <p class="mut">Modeled on <a href="https://etherscan.io" target="_blank" rel="noopener">etherscan.io</a>, powered by <a href="https://www.blockscout.com" target="_blank" rel="noopener">Blockscout</a>. Indexer: <span class="mono">${esc(bs.api)}</span> · Node: <span class="mono">${esc(rpc.url)}</span></p>
+          </div></div>`;
+      });
+
+      // ── instant search (debounced dropdown) ───────────────────────────────────────────
+      const sIn = $("search"), sDrop = $("sdrop"); let sTimer, sAbort, sItems = [], sSel = -1;
+      const TYPE_IC = { address: "Ad", contract: "Co", token: "Tk", block: "Bk", transaction: "Tx", ens_domain: "EN", label: "La", token_transfer: "Tt", user_operation: "Op" };
+      const TYPE_GRP = { address: "Addresses", contract: "Contracts", token: "Tokens", block: "Blocks", transaction: "Transactions", ens_domain: "ENS / Names", label: "Labels" };
+      function destFor(it) {
+        if (it.type === "block") return "#/block/" + (it.block_number ?? it.block_hash ?? it.height);
+        if (it.type === "transaction") return "#/tx/" + (it.transaction_hash ?? it.tx_hash);
+        if (it.type === "token") return "#/token/" + it.address_hash;
+        return "#/address/" + (it.address_hash || it.ens_info?.address_hash);
+      }
+      function renderDrop() {
+        if (!sItems.length) { sDrop.classList.remove("open"); return; }
+        const groups = {}; for (const it of sItems) { const g = TYPE_GRP[it.type] || "Results"; (groups[g] ||= []).push(it); }
+        let html = "", idx = 0; sFlat = [];
+        for (const [g, list] of Object.entries(groups)) {
+          html += `<div class="sgrp">${esc(g)}</div>`;
+          for (const it of list) {
+            const label = it.ens_info?.name || it.name || (it.type === "block" ? "Block #" + (it.block_number ?? it.height) : it.type === "transaction" ? short(it.transaction_hash ?? it.tx_hash) : short(checksum(it.address_hash || "")));
+            const sub = it.type === "token" ? `${esc(it.symbol || "")} · ${short(checksum(it.address_hash))}` : it.address_hash ? short(checksum(it.address_hash)) : (it.transaction_hash ? short(it.transaction_hash) : "");
+            const ver = it.is_smart_contract_verified ? ' <span class="vchk">◆</span>' : "";
+            html += `<div class="sitem" data-i="${idx}"><div class="ic">${TYPE_IC[it.type] || "?"}</div><div class="mid"><div class="t">${esc(label)}${ver}</div><div class="s">${esc(sub)}</div></div></div>`;
+            sFlat.push(it); idx++;
+          }
+        }
+        sDrop.innerHTML = html; sDrop.classList.add("open"); sSel = -1;
+        sDrop.querySelectorAll(".sitem").forEach((d) => { d.onmousedown = (e) => { e.preventDefault(); go(sFlat[+d.dataset.i]); }; });
+      }
+      let sFlat = [];
+      const go = (it) => { if (!it) return; sDrop.classList.remove("open"); sIn.value = ""; location.hash = destFor(it); };
+      sIn.addEventListener("input", () => {
+        const q = sIn.value.trim(); clearTimeout(sTimer); if (sAbort) sAbort.abort();
+        if (q.length < 2 || chain().family === "solana") { sDrop.classList.remove("open"); return; }   // Solana: route on Enter (no fuzzy index)
+        sTimer = setTimeout(async () => {
+          sAbort = new AbortController();
+          try { const r = await bs.search(q, { signal: sAbort.signal }); sItems = (r.items || []).slice(0, 30); renderDrop(); } catch {}
+        }, 220);
+      });
+      sIn.addEventListener("keydown", (e) => {
+        const items = sDrop.querySelectorAll(".sitem");
+        if (e.key === "ArrowDown") { e.preventDefault(); sSel = Math.min(items.length - 1, sSel + 1); } else if (e.key === "ArrowUp") { e.preventDefault(); sSel = Math.max(0, sSel - 1); }
+        else if (e.key === "Enter") { e.preventDefault(); if (sSel >= 0 && sFlat[sSel]) return go(sFlat[sSel]); return directSearch(sIn.value.trim()); }
+        else if (e.key === "Escape") { sDrop.classList.remove("open"); return; } else return;
+        items.forEach((d, i) => d.classList.toggle("sel", i === sSel)); items[sSel]?.scrollIntoView({ block: "nearest" });
+      });
+      sIn.addEventListener("blur", () => setTimeout(() => sDrop.classList.remove("open"), 150));
+      async function directSearch(q) {
+        if (!q) return; sDrop.classList.remove("open");
+        if (chain().family === "solana") {
+          if (/^\d+$/.test(q)) return (location.hash = "#/block/" + q);
+          if (isSolSig(q)) return (location.hash = "#/tx/" + q);
+          if (isSolAddress(q)) return (location.hash = "#/address/" + q);
+          return toast("enter a Solana signature, address, or slot");
+        }
+        if (chain().family === "hypercore") {
+          if (E.isAddress(q)) return (location.hash = "#/address/" + q);
+          return (location.hash = "#/market/" + q.toUpperCase());          // a coin symbol → its market
+        }
+        if (/^\d+$/.test(q)) return (location.hash = "#/block/" + q);
+        if (E.isAddress(q)) return (location.hash = "#/address/" + q);
+        if (E.isHash32(q)) { const t = await bs.tx(q).catch(() => null); return (location.hash = t && !t.message ? "#/tx/" + q : "#/block/" + q); }
+        const r = await bs.search(q).catch(() => null); if (r?.items?.[0]) return go(r.items[0]); toast("no results for “" + q + "”");
+      }
+
+      // ════════════════════════════ SOLANA MODE (non-EVM) ════════════════════════════
+      // Solana's own renderers — base58 identities, slots, the live tx firehose, and κ =
+      // ed25519 signature verification (proves authenticity, not a hash match). holo://
+      // address = base58(SHA-256(message)).
+      const solAddr = (pk, len) => pk ? `<a class="mono" href="#/address/${pk}">${esc(short(pk, len || 6, 6))}</a>` : "";
+      const solSig = (s) => `<a class="mono" href="#/tx/${s}">${esc(short(s, 8, 6))}</a>`;
+      const solSlot = (n) => `<a class="mono" href="#/block/${n}">${commas(n)}</a>`;
+      const solK = (k) => k == null ? `<span class="kv wait">…</span>` : k.ok ? `<span class="kv" title="ed25519 signature verified over the re-serialized message cryptographically authentic">✓ ed25519</span>` : `<span class="kv bad" title="signature failed to verify">✗</span>`;
+      const agoUnix = (s) => { if (!s) return ""; const d = Math.max(0, Date.now() / 1000 - s); return d < 60 ? Math.floor(d) + "s ago" : d < 3600 ? Math.floor(d / 60) + "m ago" : d < 86400 ? Math.floor(d / 3600) + "h ago" : Math.floor(d / 86400) + "d ago"; };
+      function progsFromLogs(logs) { const set = new Set(); for (const l of (logs || [])) { const m = l.match(/^Program (\w{32,44}) invoke \[1\]/); if (m) set.add(progName(m[1])); } return [...set].slice(0, 3).map((p) => `<span class="meth">${esc(p)}</span>`).join(" ") || `<span class="mut"></span>`; }
+      const solTxRow = (t, anim) => el(`<div class="lrow ${anim ? "streamin" : ""}"><div class="badge">Tx</div><div class="mid"><div>${solSig(t.sig)} ${t.err ? '<span class="kv bad">✗ fail</span>' : '<span class="kv" style="color:var(--good)">ok</span>'}</div><div class="s">${progsFromLogs(t.logs)} · slot ${commas(t.slot)}</div></div></div>`);
+
+      sroute(/^\/$/, async (tok) => {
+        setNav("home"); setK("", undefined);
+        const s = solSrc(), st = ensureSolStream();
+        view.innerHTML = `<div class="wrap">
+          ${heroHtml()}
+          <div class="stats" id="stats">${Array(4).fill('<div class="stat"><div class="l skel" style="height:.7rem;width:50%"></div><div class="v skel" style="height:1rem;margin-top:.4rem;width:70%"></div></div>').join("")}</div>
+          <div class="cols">
+            <div class="card"><h3>Latest Slots <span class="liveind" id="lbind"><span class="d"></span> live</span></h3><div class="rows" id="lblocks"><div class="empty"><span class="spin"></span></div></div><div class="foot"><a href="#/blocks">View all slots →</a></div></div>
+            <div class="card"><h3>Live Transactions <span class="liveind" id="ltind"><span class="d"></span></span></h3><div class="rows" id="ltxs"><div class="empty"><span class="spin"></span> waiting for the firehose…</div></div><div class="foot"><a href="#/mempool">Watch the firehose →</a></div></div>
+          </div>
+          <div class="note">Solana has <b>no mempool</b> transactions go straight to the leader. The live feed is the <b>confirmed-transaction firehose</b> (logsSubscribe) at ~3000+ TPS. Each transaction is content-addressed (base58) and its <b>ed25519 signature is verified</b> in your browser on open (<span class="kv">✓ ed25519</span>). History &amp; balances are native to the RPC.</div>
+        </div>`;
+        paintHero();
+        const [slot, perf, price] = await Promise.all([s.getSlot(), s.perf(), s.price()]);
+        if (!live(tok)) return;
+        $("stats").innerHTML = [
+          statCard("SOL Price", price ? usd(price.usd) : "", price && price.usd_24h_change != null ? `<span class="${price.usd_24h_change >= 0 ? "up" : "dn"}">${price.usd_24h_change >= 0 ? "▲" : "▼"} ${Math.abs(price.usd_24h_change).toFixed(2)}%</span>${price.usd_market_cap ? " · MCap " + usdc(price.usd_market_cap) : ""}` : ""),
+          statCard("TPS · live", perf ? commas(Math.round(perf.tps)) : "", "transactions / second"),
+          statCard("Slot", commas(slot), "current"),
+          statCard("Network", "● live", "confirmed-tx firehose"),
+        ].join("");
+        const rb = await s.recentBlocks(6); if (!live(tok)) return;
+        const lb = $("lblocks"); lb.innerHTML = "";
+        for (const b of rb) lb.appendChild(el(`<div class="lrow"><div class="badge">Sl</div><div class="mid"><div>${solSlot(b.slot)}</div><div class="s">${commas(b.tx_count)} txns · ${agoUnix(b.block_time)}</div></div><div class="right"><span class="pill">${commas(b.tx_count)} txns</span></div></div>`));
+        const lt = $("ltxs"); lt.innerHTML = ""; for (const t of st.txs.slice(0, 6)) lt.appendChild(solTxRow(t, false));
+        onLeave(st.on("tx", (t) => { if (!live(tok)) return; lt.prepend(solTxRow(t, true)); while (lt.children.length > 6) lt.lastElementChild.remove(); $("ltind")?.classList.add("on"); }));
+        const iv = setInterval(() => { if (!live(tok)) return; $("lbind")?.classList.toggle("on", st.connected); $("ltind")?.classList.toggle("on", st.connected); const r = st.rate(); if (r) { const c2 = $("stats")?.querySelector(".stat:nth-child(2) .v"); if (c2) c2.textContent = commas(Math.round(r)); } const c3 = $("stats")?.querySelector(".stat:nth-child(3) .v"); if (c3 && st.slot) c3.textContent = commas(st.slot); }, 1000);
+        onLeave(() => clearInterval(iv));
+      });
+
+      // ── Solana firehose (#/mempool) — the magical centerpiece ──
+      sroute(/^\/mempool$/, async (tok) => {
+        setNav("mempool"); setK("", undefined);
+        const s = solSrc(), st = ensureSolStream();
+        view.innerHTML = `<div class="wrap">
+          <div class="mphead"><h1 class="page" style="margin:0">Transaction Firehose</h1>
+            <span class="liveind" id="mpdind"><span class="d"></span> connecting…</span>
+            <span class="mut" style="margin-left:auto">Solana has no mempool this is the live CONFIRMED-transaction stream (logsSubscribe), straight from the chain.</span></div>
+          <div class="mpstats">
+            <div class="s"><div class="l">Seen (session)</div><div class="v acc" id="mp-seen">0</div></div>
+            <div class="s"><div class="l">Stream rate</div><div class="v good" id="mp-rate">0 <span style="font-size:.8rem">tx/s</span></div><div class="ratebar"><i id="mp-ratebar" style="width:0%"></i></div></div>
+            <div class="s"><div class="l">Network TPS</div><div class="v warn" id="mp-tps"></div></div>
+            <div class="s"><div class="l">Slot</div><div class="v" id="mp-slot"></div></div>
+          </div>
+          <div class="card"><h3>Live Transactions <span class="mut" style="font-weight:400;text-transform:none">· each ed25519-verifiable on open</span></h3><div class="feed" id="mp-feed"></div></div>
+        </div>`;
+        const feed = $("mp-feed"), ind = $("mpdind");
+        const frow = (t, anim) => el(`<div class="frow ${anim ? "streamin" : ""}"><span class="dot" style="background:${t.err ? "var(--bad)" : "var(--good)"};box-shadow:0 0 6px ${t.err ? "var(--bad)" : "var(--good)"}"></span><div class="mid"><a class="h mono" href="#/tx/${t.sig}">${short(t.sig, 12, 8)}</a> ${progsFromLogs(t.logs)}</div><div class="r">${t.err ? '<span style="color:var(--bad)">✗ fail</span>' : '<span style="color:var(--good)">✓ ok</span>'} · slot ${commas(t.slot)}</div></div>`);
+        for (const t of st.txs.slice(0, 50)) feed.appendChild(frow(t, false));
+        let q = [], raf = 0; const flush = () => { raf = 0; if (!q.length) return; const f = document.createDocumentFragment(); for (let i = q.length - 1; i >= 0; i--) f.appendChild(frow(q[i], true)); q = []; feed.prepend(f); while (feed.children.length > 60) feed.lastElementChild.remove(); };
+        onLeave(() => { if (raf) cancelAnimationFrame(raf); });
+        const setConn = (c) => { ind.classList.toggle("on", c); ind.innerHTML = `<span class="d"></span> ${c ? "live" : "reconnecting…"}`; };
+        setConn(st.connected);
+        onLeave(st.on("status", (x) => { if (live(tok)) setConn(x.connected); }));
+        onLeave(st.on("tx", (t) => { if (!live(tok)) return; q.push(t); if (!raf) raf = requestAnimationFrame(flush); }));
+        const perf = await s.perf().catch(() => null); if (live(tok) && perf) $("mp-tps").textContent = commas(Math.round(perf.tps));
+        const iv = setInterval(() => { if (!live(tok)) return; $("mp-seen").textContent = commas(st.seen); const r = st.rate(); $("mp-rate").innerHTML = Math.round(r) + ` <span style="font-size:.8rem">tx/s</span>`; $("mp-ratebar").style.width = Math.min(100, r * 2) + "%"; if (st.slot) $("mp-slot").textContent = commas(st.slot); }, 1000);
+        onLeave(() => clearInterval(iv));
+      });
+
+      // ── Solana transaction detail (with ed25519 κ) ──
+      sroute(/^\/tx\/([1-9A-HJ-NP-Za-km-z]{43,90})$/, async (sig, tok) => {
+        setNav("txs"); loading("loading transaction " + short(sig) + "…");
+        const s = solSrc(); const t = await s.tx(sig); if (!live(tok)) return;
+        if (!t) { view.innerHTML = `<div class="wrap"><div class="note">Transaction not found.</div></div>`; return; }
+        const k = t._kappa; setK(k?.contentHash, k ? k.ok : undefined);
+        const msg = t.transaction.message, keys = msg.accountKeys || [];
+        const fee = t.meta?.fee || 0, failed = !!t.meta?.err;
+        const solDeltas = keys.map((a, i) => ({ a: a.pubkey, d: (t.meta.postBalances[i] || 0) - (t.meta.preBalances[i] || 0) })).filter((x) => x.d !== 0);
+        const tokDeltas = []; const pre = t.meta?.preTokenBalances || [], post = t.meta?.postTokenBalances || [];
+        for (const pb of post) { const p0 = pre.find((x) => x.accountIndex === pb.accountIndex); const d = (+(pb.uiTokenAmount?.uiAmount || 0)) - (+(p0?.uiTokenAmount?.uiAmount || 0)); if (d !== 0) tokDeltas.push({ owner: pb.owner, mint: pb.mint, d }); }
+        const ixs = msg.instructions || [];
+        const tmeta = new Map(); await Promise.all([...new Set(tokDeltas.map((x) => x.mint))].map(async (m) => tmeta.set(m, await s.tokenMeta(m)))); if (!live(tok)) return;   // on-chain Metaplex symbols
+        const tlabel = (mint) => tmeta.get(mint)?.symbol ? esc(tmeta.get(mint).symbol) : short(mint, 6, 4);
+        const row = (kk, v, q) => `<dt>${esc(kk)}${q ? ` <span class="q" title="${esc(q)}">?</span>` : ""}</dt><dd>${v}</dd>`;
+        view.innerHTML = `<div class="wrap"><h1 class="page">Transaction</h1>
+          <div class="crumbs"><a href="#/txs">Transactions</a> › ${short(sig)} · ${solK(k)}</div>
+          <div class="detail"><dl class="kv2">
+            ${row("Signature (κ)", `<span class="mono">${esc(sig)}</span>`, "the transaction id is its first ed25519 signature")}
+            ${row("Result", failed ? `<span class="tag2 fail">✗ Failed</span> <span class="mut">${esc(JSON.stringify(t.meta.err).slice(0, 80))}</span>` : '<span class="tag2 ok">✓ Success</span>')}
+            ${row("κ ed25519", k ? (k.ok ? `<span class="tag2 ok">✓ signature verified</span> <span class="mut">signer ${solAddr(k.signer)} · ${k.sigCount} sig${k.sigCount === 1 ? "" : "s"}</span>` : '<span class="tag2 fail">✗ invalid</span>') : "", "we re-serialize the message and verify the ed25519 signature in your browser")}
+            ${row("Content address", k ? `<span class="mono">holo://${esc(k.contentHash)}</span> <span class="mut">(base58 SHA-256 of the message)</span>` : "")}
+            ${row("Slot", solSlot(t.slot))}
+            ${t.blockTime ? row("Timestamp", `${agoUnix(t.blockTime)} (${esc(new Date(t.blockTime * 1000).toUTCString())})`) : ""}
+            ${row("Fee", `${fmtSol(fee)} SOL`)}
+            ${row("Signers", keys.filter((a) => a.signer).map((a) => solAddr(a.pubkey, 8) + (a.pubkey === keys[0]?.pubkey ? ' <span class="pill">fee payer</span>' : "")).join("&nbsp; ") || "")}
+            ${solDeltas.length ? row("SOL Balance Changes", `<div style="display:flex;flex-direction:column;gap:.2rem">${solDeltas.slice(0, 12).map((x) => `<div>${solAddr(x.a, 8)} <span style="color:${x.d > 0 ? "var(--good)" : "var(--burn)"}">${x.d > 0 ? "+" : ""}${fmtSol(x.d, 9)} SOL</span></div>`).join("")}</div>`) : ""}
+            ${tokDeltas.length ? row("Token Balance Changes", `<div style="display:flex;flex-direction:column;gap:.2rem">${tokDeltas.slice(0, 12).map((x) => `<div>${solAddr(x.owner, 8)} <span style="color:${x.d > 0 ? "var(--good)" : "var(--burn)"}">${x.d > 0 ? "+" : ""}${x.d}</span> <a href="#/token/${x.mint}">${tlabel(x.mint)}</a></div>`).join("")}</div>`) : ""}
+            ${row("Instructions (" + ixs.length + ")", `<div style="display:flex;flex-direction:column;gap:.3rem">${ixs.map((ix, i) => `<div><span class="pill">${i}</span> <span class="meth">${esc(ix.program || progName(ix.programId))}</span>${ix.parsed?.type ? ` <span class="mut">${esc(ix.parsed.type)}</span>` : ""}</div>`).join("")}</div>`)}
+            ${row("Program Logs", `<pre class="data">${esc((t.meta?.logMessages || []).join("\n") || "")}</pre>`)}
+          </dl></div>
+          <div class="note">κ here is <b>ed25519 signature verification</b> we re-serialize the transaction message and verify the signer's signature over it in your browser. That proves the transaction is cryptographically <b>authentic</b> (a stronger guarantee than a hash match).</div></div>`;
+      });
+
+      // ── Solana account / address ──
+      sroute(/^\/address\/([1-9A-HJ-NP-Za-km-z]{32,44})$/, async (addr, tok) => {
+        setNav(""); loading("loading account " + short(addr) + "…");
+        const s = solSrc(); setK(addr, undefined);
+        const [bal, info, price] = await Promise.all([s.balance(addr), s.account(addr), s.price()]); if (!live(tok)) return;
+        const acc = info?.value, exec = acc?.executable, owner = acc?.owner;
+        const usdv = price ? " · " + usd(bal / LAMPORTS * price.usd) : "";
+        view.innerHTML = `<div class="wrap"><h1 class="page">${exec ? "Program" : "Account"} <span class="mono" style="font-size:.9rem">${esc(addr)}</span></h1>
+          <div class="crumbs"><span class="tag2 ${exec ? "type" : "ok"}">${exec ? "Executable Program" : "Account"}</span>${owner ? ` · owner <span class="meth">${esc(progName(owner))}</span>` : ""}</div>
+          <div class="cols" style="margin-bottom:1rem">
+            <div class="card"><h3>Overview</h3><dl class="kv2" style="grid-template-columns:10rem 1fr">
+              <dt>SOL Balance</dt><dd><b>${fmtSol(bal)} SOL</b></dd>
+              <dt>Value</dt><dd>${price ? usd(bal / LAMPORTS * price.usd) : ""}</dd>
+            </dl></div>
+            <div class="card"><h3>More Info</h3><dl class="kv2" style="grid-template-columns:10rem 1fr">
+              <dt>Owner Program</dt><dd>${owner ? solAddr(owner) + ` <span class="meth">${esc(progName(owner))}</span>` : ""}</dd>
+              <dt>Executable</dt><dd>${exec ? "Yes (a program)" : "No"}</dd>
+            </dl></div>
+          </div>
+          <div class="tabs2" id="atabs"><button class="on" data-at="txns">Transactions</button><button data-at="tokens">Token Holdings</button></div>
+          <div id="apane"></div></div>`;
+        const pane = $("apane");
+        const loadTxns = async () => {
+          pane.innerHTML = `<div class="empty"><span class="spin"></span></div>`;
+          const sigs = await s.accountTxns(addr); if (!live(tok)) return;
+          const rowsHtml = (arr) => arr.map((g) => `<tr><td>${solSig(g.signature)} ${g.err ? '<span class="kv bad">✗</span>' : '<span class="kv" style="color:var(--good)">ok</span>'}</td><td>${solSlot(g.slot)}</td><td class="mut">${agoUnix(g.blockTime)}</td><td class="mut">${esc((g.memo || "").slice(0, 40))}</td></tr>`).join("");
+          pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Signature</th><th>Slot</th><th>Age</th><th>Memo</th></tr></thead><tbody>${rowsHtml(sigs) || '<tr><td colspan="4" class="empty">No transactions.</td></tr>'}</tbody></table><div class="pager">${sigs.length >= 25 ? '<button id="solmore">Load more</button>' : '<span class="mut"> end </span>'}</div></div>`;
+          let last = sigs[sigs.length - 1]?.signature;
+          $("solmore") && ($("solmore").onclick = async (e) => { e.target.disabled = true; e.target.textContent = "Loading…"; const more = await s.accountTxns(addr, last); pane.querySelector("tbody").insertAdjacentHTML("beforeend", rowsHtml(more)); last = more[more.length - 1]?.signature; if (more.length < 25) e.target.outerHTML = '<span class="mut"> end </span>'; else { e.target.disabled = false; e.target.textContent = "Load more"; } });
+        };
+        const loadTokens = async () => {
+          pane.innerHTML = `<div class="empty"><span class="spin"></span></div>`;
+          const toks = await s.tokenAccounts(addr); if (!live(tok)) return;
+          const metas = await Promise.all(toks.map((t) => s.tokenMeta(t.mint))); if (!live(tok)) return;   // on-chain Metaplex names
+          pane.innerHTML = `<div class="tablecard"><table class="t"><thead><tr><th>Token</th><th>Mint</th><th>Balance</th></tr></thead><tbody>${toks.map((t, i) => { const m = metas[i]; return `<tr><td><a href="#/token/${t.mint}">${m.symbol ? `<b>${esc(m.symbol)}</b>${m.name ? ` <span class="mut">${esc(m.name)}</span>` : ""}` : "Unknown"}</a></td><td class="mono mut">${short(t.mint, 6, 4)}</td><td>${esc(t.amount || "0")}</td></tr>`; }).join("") || '<tr><td colspan="3" class="empty">No SPL token holdings.</td></tr>'}</tbody></table></div>`;
+        };
+        for (const b of $("atabs").querySelectorAll("button")) b.onclick = () => { for (const x of $("atabs").querySelectorAll("button")) x.classList.toggle("on", x === b); b.dataset.at === "txns" ? loadTxns() : loadTokens(); };
+        loadTxns();
+      });
+
+      // ── Solana slot (block) ──
+      sroute(/^\/block\/(\d+)$/, async (slot, tok) => {
+        setNav("blocks"); loading("loading slot " + slot + "…");
+        const s = solSrc(); const b = await s.block(Number(slot), false); if (!live(tok)) return;
+        if (!b) { view.innerHTML = `<div class="wrap"><div class="note">Slot ${esc(slot)} not found or skipped.</div></div>`; return; }
+        setK(b.blockhash, undefined);
+        const sigs = b.signatures || [];
+        view.innerHTML = `<div class="wrap"><h1 class="page">Slot <span class="mono">${commas(+slot)}</span></h1>
+          <div class="crumbs"><a href="#/blocks">Slots</a> › ${commas(+slot)}</div>
+          <div class="detail" style="margin-bottom:1rem"><dl class="kv2">
+            <dt>Slot</dt><dd><b>${commas(+slot)}</b></dd>
+            <dt>Blockhash (κ)</dt><dd><span class="mono">${esc(b.blockhash)}</span></dd>
+            <dt>Parent Slot</dt><dd>${solSlot(b.parentSlot)}</dd>
+            <dt>Timestamp</dt><dd>${b.blockTime ? agoUnix(b.blockTime) + " (" + new Date(b.blockTime * 1000).toUTCString() + ")" : ""}</dd>
+            <dt>Transactions</dt><dd>${commas(sigs.length)}</dd>
+          </dl></div>
+          <div class="tablecard"><table class="t"><thead><tr><th>#</th><th>Signature</th></tr></thead><tbody>${sigs.slice(0, 100).map((sg, i) => `<tr><td>${i}</td><td>${solSig(sg)}</td></tr>`).join("") || '<tr><td colspan="2" class="empty">No transactions.</td></tr>'}</tbody></table></div>
+          <div style="display:flex;gap:.5rem;justify-content:center;margin-top:1rem"><a class="pill" href="#/block/${+slot - 1}">‹ Prev</a><a class="pill" href="#/block/${+slot + 1}">Next ›</a></div></div>`;
+      });
+      sroute(/^\/blocks$/, async (tok) => {
+        setNav("blocks"); loading("loading slots…");
+        const s = solSrc(); const rb = await s.recentBlocks(25); if (!live(tok)) return;
+        setK(rb[0]?.blockhash, undefined);
+        view.innerHTML = `<div class="wrap"><h1 class="page">Slots</h1><div class="crumbs">Recent slots on Solana</div>
+          <div class="tablecard"><table class="t"><thead><tr><th>Slot</th><th>Age</th><th>Txns</th><th>Blockhash</th></tr></thead><tbody>${rb.map((b) => `<tr><td>${solSlot(b.slot)}</td><td class="mut">${agoUnix(b.block_time)}</td><td>${commas(b.tx_count)}</td><td class="mono mut">${short(b.blockhash, 8, 6)}</td></tr>`).join("")}</tbody></table></div></div>`;
+      });
+      sroute(/^\/txs$/, async (tok) => {
+        setNav("txs"); const st = ensureSolStream();
+        view.innerHTML = `<div class="wrap"><h1 class="page">Transactions</h1><div class="crumbs">Live from the confirmed-transaction firehose · <a href="#/mempool">full firehose →</a></div>
+          <div class="tablecard"><table class="t"><thead><tr><th>Signature</th><th>Status</th><th>Programs</th><th>Slot</th></tr></thead><tbody id="soltxs"></tbody></table></div></div>`;
+        const tb = $("soltxs"); const r = (t) => `<tr><td>${solSig(t.sig)}</td><td>${t.err ? '<span class="tag2 fail">✗ Failed</span>' : '<span class="tag2 ok">✓ Success</span>'}</td><td>${progsFromLogs(t.logs)}</td><td>${solSlot(t.slot)}</td></tr>`;
+        tb.innerHTML = st.txs.slice(0, 40).map(r).join("");
+        onLeave(st.on("tx", (t) => { if (!live(tok)) return; tb.insertAdjacentHTML("afterbegin", r(t)); while (tb.children.length > 40) tb.lastElementChild.remove(); }));
+      });
+
+      // ── Solana token (mint) ──
+      sroute(/^\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})$/, async (mint, tok) => {
+        setNav(""); loading("loading mint " + short(mint) + "…");
+        const s = solSrc(); const m = await s.mint(mint); if (!live(tok)) return; setK(mint, undefined);
+        if (!m) { view.innerHTML = `<div class="wrap"><div class="note">${esc(mint)} is not an SPL mint.</div></div>`; return; }
+        const supply = m.decimals != null ? (Number(m.supply) / 10 ** m.decimals).toLocaleString(undefined, { maximumFractionDigits: m.decimals }) : m.supply;
+        const [sigs, meta] = await Promise.all([s.accountTxns(mint).catch(() => []), s.tokenMeta(mint)]); if (!live(tok)) return;
+        view.innerHTML = `<div class="wrap"><h1 class="page">${meta.name ? esc(meta.name) : "SPL Token"} <span class="tag2 type">${esc(meta.symbol || short(mint, 6, 6))}</span></h1>
+          <div class="crumbs">Mint · <span class="mono">${esc(mint)}</span> · <a href="#/address/${mint}">view as account</a></div>
+          <div class="detail" style="margin-bottom:1rem"><dl class="kv2">
+            ${meta.name ? `<dt>Name</dt><dd>${esc(meta.name)}${meta.symbol ? ` (<b>${esc(meta.symbol)}</b>)` : ""} <span class="mut">· on-chain Metaplex metadata</span></dd>` : ""}
+            <dt>Total Supply</dt><dd>${esc(supply)}</dd>
+            <dt>Decimals</dt><dd>${m.decimals}</dd>
+            <dt>Mint Authority</dt><dd>${m.mintAuthority ? solAddr(m.mintAuthority) : '<span class="mut">none (fixed supply)</span>'}</dd>
+            <dt>Standard</dt><dd>SPL Token</dd>
+          </dl></div>
+          <h1 class="page" style="font-size:1rem">Recent Activity</h1>
+          <div class="tablecard"><table class="t"><thead><tr><th>Signature</th><th>Slot</th><th>Age</th></tr></thead><tbody>${sigs.map((g) => `<tr><td>${solSig(g.signature)} ${g.err ? '<span class="kv bad">✗</span>' : ""}</td><td>${solSlot(g.slot)}</td><td class="mut">${agoUnix(g.blockTime)}</td></tr>`).join("") || '<tr><td colspan="3" class="empty">No recent activity.</td></tr>'}</tbody></table></div></div>`;
+      });
+
+      // ── Solana network (#/gas) + about ──
+      sroute(/^\/gas$/, async (tok) => {
+        setNav("gas"); setK("solana", undefined);
+        const s = solSrc(); const [epoch, perf, slot, price] = await Promise.all([s.call("getEpochInfo", []).catch(() => null), s.perf(), s.getSlot(), s.price()]); if (!live(tok)) return;
+        view.innerHTML = `<div class="wrap"><h1 class="page">Network</h1><div class="crumbs">Solana mainnet-beta · fixed fees (no gas auction)</div>
+          <div class="gaslane">
+            <div class="g low"><div class="lab">Base Fee</div><div class="gw">5000</div><div class="lab">lamports / sig</div><div class="usd">${price ? "≈ $" + (5000 / LAMPORTS * price.usd).toFixed(5) : "0.000005 SOL"}</div></div>
+            <div class="g avg"><div class="lab">TPS</div><div class="gw">${perf ? commas(Math.round(perf.tps)) : ""}</div><div class="lab">live</div></div>
+            <div class="g high"><div class="lab">Slot</div><div class="gw" style="font-size:1.2rem">${commas(slot)}</div><div class="lab">current</div></div>
+          </div>
+          <div class="detail"><dl class="kv2">
+            <dt>Epoch</dt><dd>${epoch ? commas(epoch.epoch) : ""}</dd>
+            <dt>Slot in Epoch</dt><dd>${epoch ? commas(epoch.slotIndex) + " / " + commas(epoch.slotsInEpoch) + " (" + (epoch.slotIndex / epoch.slotsInEpoch * 100).toFixed(1) + "%)" : ""}</dd>
+            <dt>Transactions (epoch)</dt><dd>${epoch?.transactionCount ? commas(epoch.transactionCount) : ""}</dd>
+            <dt>Priority Fees</dt><dd>Optional compute-unit price (set per transaction) Solana has no gas auction; the base fee is a flat 5000 lamports per signature.</dd>
+          </dl></div></div>`;
+      });
+      sroute(/^\/about$/, async () => {
+        setNav("about"); setK("", undefined);
+        view.innerHTML = `<div class="wrap narrow"><h1 class="page">About Solana mode</h1>
+          <div class="detail" style="padding:1rem 1.1rem;line-height:1.75">
+            <p><b>Holo Scan</b> unifies EVM and non-EVM chains in one content-addressed holospace. <b>Solana mode</b> is non-EVM: identities are <b>base58</b> ed25519 keys, blocks are <b>slots</b>, and there is no mempool the live feed is the <b>confirmed-transaction firehose</b> (logsSubscribe), straight from the chain at ~3000+ TPS.</p>
+            <p><b>κ on Solana = ed25519 verification.</b> A Solana transaction's id is its first ed25519 signature, not a content hash. So instead of re-deriving a hash, we re-serialize the transaction <b>message</b> and <b>verify the signer's ed25519 signature</b> over it in your browser (WebCrypto) proving the transaction is cryptographically <b>authentic</b>. Its <code>holo://</code> address is the base58 of SHA-256(message).</p>
+            <ul>
+              <li><b>Storage</b> content-addressed by base58 signatures, blockhashes and pubkeys.</li>
+              <li><b>Compute</b> in-browser ed25519 signature verification (WebCrypto).</li>
+              <li><b>Networking</b> Solana JSON-RPC (native history + holdings) + the logsSubscribe firehose, over an open key-less node.</li>
+            </ul>
+            <p class="mut">Node: <span class="mono">${esc(solSrc().url)}</span> · history via getSignaturesForAddress · holdings via getTokenAccountsByOwner. Modeled on the explorer experience; honest: ed25519 verification proves authenticity, not finality; block (slot) hashes are PoH-derived and content-addressed but not re-derived client-side.</p>
+          </div></div>`;
+      });
+
+      // ════════════════════════════ HYPERLIQUID HYPERCORE (perps L1) ════════════════════════════
+      // A markets terminal, not a block explorer: live order books + the trade firehose +
+      // funding/OI + per-account positions. Addresses are 0x (content-addressed).
+      const fmtPx = (p) => { p = +p; if (!isFinite(p)) return ""; return p >= 1000 ? p.toLocaleString(undefined, { maximumFractionDigits: 1 }) : p >= 1 ? p.toFixed(4) : p.toPrecision(4); };
+      const fmtSz = (s) => (+s).toLocaleString(undefined, { maximumFractionDigits: 4 });
+      const hcMarketsView = async (tok) => {
+        setNav("home"); setK("hyperliquid", undefined);
+        const h = hcSrc(), st = ensureHcStream();
+        view.innerHTML = `<div class="wrap">
+          ${heroHtml()}
+          <div class="stats" id="stats">${Array(4).fill('<div class="stat"><div class="l skel" style="height:.7rem;width:50%"></div><div class="v skel" style="height:1rem;margin-top:.4rem;width:70%"></div></div>').join("")}</div>
+          <h1 class="page" style="font-size:1rem;margin-bottom:.5rem">Perpetual Markets <span class="liveind" id="lbind"><span class="d"></span> live</span></h1>
+          <div class="tablecard"><table class="t"><thead><tr><th>Market</th><th>Mark Price</th><th>24h</th><th>Funding (1h)</th><th>Open Interest</th><th>24h Volume</th></tr></thead><tbody id="mkts"><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody></table></div>
+          <div class="note">HyperCore is the Hyperliquid <b>perps L1</b> a fully on-chain order-book exchange. Prices stream live (allMids); each market has a live order book + trade firehose. Accounts are Ethereum-style (0x), content-addressed. <b>HyperEVM</b> (Hyperliquid's EVM chain) is a separate network in the selector.</div></div>`;
+        paintHero();
+        const ms = await h.markets(); if (!live(tok)) return;
+        const totVol = ms.reduce((a, m) => a + m.dayNtlVlm, 0), totOi = ms.reduce((a, m) => a + m.openInterest * m.markPx, 0);
+        $("stats").innerHTML = [statCard("24h Volume", usdc(totVol), ms.length + " perp markets"), statCard("Open Interest", usdc(totOi), "across all markets"), statCard("Top Market", (ms[0]?.coin || "") + " · $" + fmtPx(ms[0]?.markPx), usdc(ms[0]?.dayNtlVlm) + " 24h"), statCard("Network", "● live", "on-chain order book")].join("");
+        const tb = $("mkts");
+        tb.innerHTML = ms.slice(0, 80).map((m) => `<tr><td><a href="#/market/${esc(m.coin)}"><b>${esc(m.coin)}</b></a> <span class="mut">${m.maxLeverage}×</span></td><td class="mono" data-px="${esc(m.coin)}">$${fmtPx(m.markPx)}</td><td class="${m.change24h >= 0 ? "up" : "dn"}">${m.change24h >= 0 ? "+" : ""}${m.change24h.toFixed(2)}%</td><td class="mut ${m.funding >= 0 ? "up" : "dn"}">${(m.funding * 100).toFixed(4)}%</td><td class="mut">${usdc(m.openInterest * m.markPx)}</td><td>${usdc(m.dayNtlVlm)}</td></tr>`).join("");
+        st.subscribe({ type: "allMids" }); onLeave(() => st.unsubscribe({ type: "allMids" }));
+        onLeave(st.on("mids", (mids) => { if (!live(tok)) return; for (const c in mids) { const cell = tb.querySelector(`[data-px="${CSS.escape(c)}"]`); if (cell) { const np = "$" + fmtPx(mids[c]); if (cell.textContent !== np) { cell.textContent = np; cell.classList.remove("kpop"); void cell.offsetWidth; cell.classList.add("kpop"); } } } }));
+        const iv = setInterval(() => { if (!live(tok)) return; $("lbind")?.classList.toggle("on", st.connected); }, 1000); onLeave(() => clearInterval(iv));
+      };
+      hroute(/^\/$/, hcMarketsView); hroute(/^\/blocks$/, hcMarketsView);
+
+      hroute(/^\/market\/([A-Za-z0-9@_-]+)$/, async (coin, tok) => {
+        setNav(""); loading("loading " + coin + " market…");
+        const h = hcSrc(), st = ensureHcStream();
+        const [book, trades, ctx] = await Promise.all([h.l2Book(coin), h.recentTrades(coin).catch(() => []), h.marketCtx(coin).catch(() => null)]); if (!live(tok)) return;
+        if (!ctx && !(book && book.levels)) { view.innerHTML = `<div class="wrap"><div class="note">Market ${esc(coin)} not found.</div></div>`; return; }
+        setK("hl:" + coin, undefined);
+        view.innerHTML = `<div class="wrap"><h1 class="page">${esc(coin)}-PERP <span class="mono" id="hc-mark">$${ctx ? fmtPx(ctx.markPx) : ""}</span> <span class="${ctx && ctx.change24h >= 0 ? "up" : "dn"}" style="font-size:1rem">${ctx ? (ctx.change24h >= 0 ? "+" : "") + ctx.change24h.toFixed(2) + "%" : ""}</span></h1>
+          <div class="crumbs">Oracle $${ctx ? fmtPx(ctx.oraclePx) : ""} · Funding ${ctx ? (ctx.funding * 100).toFixed(4) + "%/h" : ""} · OI ${ctx ? usdc(ctx.openInterest * ctx.markPx) : ""} · 24h Vol ${ctx ? usdc(ctx.dayNtlVlm) : ""} · ${ctx?.maxLeverage || ""}× max</div>
+          <div class="mpcols">
+            <div class="card"><h3>Order Book <span class="liveind" id="bkind"><span class="d"></span></span></h3><div id="hc-book"><div class="empty"><span class="spin"></span></div></div></div>
+            <div class="card"><h3>Live Trades <span class="mut" style="font-weight:400;text-transform:none">· firehose</span></h3><div class="feed" id="hc-trades"></div></div>
+          </div></div>`;
+        const renderBook = (levels) => { const bids = levels[0] || [], asks = levels[1] || []; const mx = Math.max(1, ...[...bids, ...asks].map((l) => +l.sz)); const side = (arr, cls) => arr.slice(0, 13).map((l) => `<div class="hcrow"><span class="bar ${cls}" style="width:${(+l.sz / mx * 100).toFixed(0)}%"></span><span class="px ${cls}">${fmtPx(l.px)}</span><span class="sz">${fmtSz(l.sz)}</span></div>`).join(""); $("hc-book").innerHTML = `<div class="hcbook">${side(asks.slice().reverse(), "ask")}<div class="hcmid">spread ${asks[0] && bids[0] ? fmtPx(+asks[0].px - +bids[0].px) : ""}</div>${side(bids, "bid")}</div>`; };
+        renderBook((book && book.levels) || [[], []]);
+        const tf = $("hc-trades"); const trow = (t) => `<div class="frow"><span class="dot" style="background:${t.side === "B" ? "var(--good)" : "var(--bad)"};box-shadow:0 0 6px ${t.side === "B" ? "var(--good)" : "var(--bad)"}"></span><div class="mid"><b style="color:${t.side === "B" ? "var(--good)" : "var(--bad)"}">$${fmtPx(t.px)}</b> <span class="mut">${fmtSz(t.sz)}</span></div><div class="r mut">${new Date(t.time).toLocaleTimeString()}</div></div>`;
+        tf.innerHTML = (trades || []).slice(0, 40).map(trow).join("");
+        st.subscribe({ type: "l2Book", coin }); st.subscribe({ type: "trades", coin }); st.subscribe({ type: "allMids" });
+        onLeave(() => { st.unsubscribe({ type: "l2Book", coin }); st.unsubscribe({ type: "trades", coin }); });
+        onLeave(st.on("book", (d) => { if (live(tok) && d.coin === coin) renderBook(d.levels); }));
+        onLeave(st.on("trade", (t) => { if (!live(tok) || t.coin !== coin) return; tf.insertAdjacentHTML("afterbegin", trow(t)); while (tf.children.length > 40) tf.lastElementChild.remove(); }));
+        onLeave(st.on("mids", (mids) => { if (live(tok) && mids[coin]) $("hc-mark").textContent = "$" + fmtPx(mids[coin]); }));
+        const iv = setInterval(() => { if (!live(tok)) return; $("bkind")?.classList.toggle("on", st.connected); }, 1000); onLeave(() => clearInterval(iv));
+      });
+      hroute(/^\/token\/(.+)$/, async (c) => { location.hash = "#/market/" + c; });
+
+      hroute(/^\/address\/(0x[0-9a-fA-F]{40})$/, async (addr, tok) => {
+        setNav(""); loading("loading account " + short(addr) + "…");
+        const h = hcSrc(); setK(addr, undefined);
+        const [state, fills] = await Promise.all([h.userState(addr).catch(() => null), h.userFills(addr).catch(() => [])]); if (!live(tok)) return;
+        const ms = state?.marginSummary || {}; const positions = (state?.assetPositions || []).map((p) => p.position).filter(Boolean);
+        view.innerHTML = `<div class="wrap"><h1 class="page">HyperCore Account <span class="mono" style="font-size:.9rem">${esc(addr)}</span></h1><div class="crumbs">Hyperliquid perps account</div>
+          <div class="stats">${statCard("Account Value", usd(+ms.accountValue || 0), "")}${statCard("Margin Used", usd(+ms.totalMarginUsed || 0), "")}${statCard("Withdrawable", usd(+state?.withdrawable || 0), "")}${statCard("Open Positions", String(positions.length), "")}</div>
+          <h1 class="page" style="font-size:1rem;margin-top:1rem">Positions</h1>
+          <div class="tablecard"><table class="t"><thead><tr><th>Market</th><th>Size</th><th>Entry</th><th>Value</th><th>Unrealized PnL</th><th>Lev.</th><th>Liq. Price</th></tr></thead><tbody>${positions.map((p) => `<tr><td><a href="#/market/${esc(p.coin)}"><b>${esc(p.coin)}</b></a></td><td class="${+p.szi >= 0 ? "up" : "dn"}">${fmtSz(p.szi)}</td><td class="mono">$${fmtPx(p.entryPx)}</td><td>${usd(Math.abs(+p.positionValue || 0))}</td><td class="${+p.unrealizedPnl >= 0 ? "up" : "dn"}">${+p.unrealizedPnl >= 0 ? "+" : ""}${usd(+p.unrealizedPnl || 0)}</td><td class="mut">${p.leverage?.value || p.leverage?.type || ""}×</td><td class="mut mono">${p.liquidationPx ? "$" + fmtPx(p.liquidationPx) : ""}</td></tr>`).join("") || '<tr><td colspan="7" class="empty">No open positions.</td></tr>'}</tbody></table></div>
+          <h1 class="page" style="font-size:1rem;margin-top:1rem">Recent Fills</h1>
+          <div class="tablecard"><table class="t"><thead><tr><th>Time</th><th>Market</th><th>Side</th><th>Price</th><th>Size</th><th>Closed PnL</th><th>Hash</th></tr></thead><tbody>${(fills || []).slice(0, 40).map((f) => `<tr><td class="mut">${new Date(f.time).toLocaleString()}</td><td><a href="#/market/${esc(f.coin)}">${esc(f.coin)}</a></td><td>${f.side === "B" ? '<span style="color:var(--good)">BUY</span>' : '<span style="color:var(--bad)">SELL</span>'}</td><td class="mono">$${fmtPx(f.px)}</td><td>${fmtSz(f.sz)}</td><td class="${+f.closedPnl >= 0 ? "up" : "dn"}">${f.closedPnl != null ? (+f.closedPnl >= 0 ? "+" : "") + usd(+f.closedPnl) : ""}</td><td class="mono mut">${f.hash ? short(f.hash, 8, 4) : ""}</td></tr>`).join("") || '<tr><td colspan="7" class="empty">No recent fills.</td></tr>'}</tbody></table></div></div>`;
+      });
+
+      const hcFirehoseView = async (tok) => {
+        setNav("mempool"); setK("hyperliquid", undefined);
+        const h = hcSrc(), st = ensureHcStream();
+        view.innerHTML = `<div class="wrap"><div class="mphead"><h1 class="page" style="margin:0">Live Trades</h1><span class="liveind" id="mpdind"><span class="d"></span> connecting…</span><span class="mut" style="margin-left:auto">Every fill across HyperCore's top markets, streaming live.</span></div>
+          <div class="card"><h3>Trade Firehose <span class="mut" style="font-weight:400;text-transform:none">· top markets</span></h3><div class="feed" id="hc-feed"></div></div></div>`;
+        const feed = $("hc-feed"), ind = $("mpdind");
+        const ms = await h.markets().catch(() => []); if (!live(tok)) return; const top = ms.slice(0, 12).map((m) => m.coin);
+        for (const coin of top) st.subscribe({ type: "trades", coin });
+        onLeave(() => { for (const coin of top) st.unsubscribe({ type: "trades", coin }); });
+        const frow = (t) => el(`<div class="frow streamin"><span class="dot" style="background:${t.side === "B" ? "var(--good)" : "var(--bad)"};box-shadow:0 0 6px ${t.side === "B" ? "var(--good)" : "var(--bad)"}"></span><div class="mid"><a class="h" href="#/market/${esc(t.coin)}"><b>${esc(t.coin)}</b></a> <b style="color:${t.side === "B" ? "var(--good)" : "var(--bad)"}">$${fmtPx(t.px)}</b> <span class="mut">${fmtSz(t.sz)}</span></div><div class="r mut">${t.side === "B" ? "BUY" : "SELL"} · ${new Date(t.time).toLocaleTimeString()}</div></div>`);
+        let q = [], raf = 0; const flush = () => { raf = 0; if (!q.length) return; const f = document.createDocumentFragment(); for (let i = q.length - 1; i >= 0; i--) f.appendChild(frow(q[i])); q = []; feed.prepend(f); while (feed.children.length > 60) feed.lastElementChild.remove(); };
+        onLeave(() => { if (raf) cancelAnimationFrame(raf); });
+        const setConn = (c) => { ind.classList.toggle("on", c); ind.innerHTML = `<span class="d"></span> ${c ? "live" : "reconnecting…"}`; };
+        setConn(st.connected); onLeave(st.on("status", (x) => { if (live(tok)) setConn(x.connected); }));
+        onLeave(st.on("trade", (t) => { if (!live(tok)) return; q.push(t); if (!raf) raf = requestAnimationFrame(flush); }));
+      };
+      hroute(/^\/mempool$/, hcFirehoseView); hroute(/^\/txs$/, hcFirehoseView);
+
+      hroute(/^\/gas$/, async (tok) => {
+        setNav("gas"); setK("hyperliquid", undefined); const h = hcSrc(); const ms = await h.markets(); if (!live(tok)) return;
+        const totVol = ms.reduce((a, m) => a + m.dayNtlVlm, 0), totOi = ms.reduce((a, m) => a + m.openInterest * m.markPx, 0);
+        view.innerHTML = `<div class="wrap"><h1 class="page">Network</h1><div class="crumbs">Hyperliquid HyperCore · on-chain order-book L1</div>
+          <div class="detail"><dl class="kv2">
+            <dt>Perp Markets</dt><dd>${ms.length}</dd>
+            <dt>24h Volume</dt><dd>${usdc(totVol)}</dd>
+            <dt>Total Open Interest</dt><dd>${usdc(totOi)}</dd>
+            <dt>Top by Volume</dt><dd>${ms.slice(0, 6).map((m) => `<a href="#/market/${esc(m.coin)}">${esc(m.coin)}</a>`).join(" · ")}</dd>
+            <dt>Settlement</dt><dd>On-chain order-book matching (no gas auction); maker/taker fees set by the protocol.</dd>
+          </dl></div></div>`;
+      });
+      hroute(/^\/about$/, async () => {
+        setNav("about"); setK("", undefined);
+        view.innerHTML = `<div class="wrap narrow"><h1 class="page">About HyperCore mode</h1>
+          <div class="detail" style="padding:1rem 1.1rem;line-height:1.75">
+            <p><b>Hyperliquid HyperCore</b> is a perps L1 a fully on-chain order-book exchange. So this isn't a block explorer view; it's a <b>markets terminal</b> in the same holospace: live perp markets (mark price, funding, open interest, 24h volume), a per-market <b>live order book</b> + <b>trade firehose</b>, and per-account <b>positions &amp; fills</b>.</p>
+            <p>Accounts are Ethereum-style <code>0x</code> addresses (content-addressed); trades and fills carry tx hashes (<code>holo://0x…</code>). Data is the official Hyperliquid Info API + WebSocket real, live, key-less. Honest: HyperCore exposes market data, not per-fill signatures, so there's no client-side signature verification here (unlike EVM keccak re-derivation or Solana ed25519). <b>HyperEVM</b> (Hyperliquid's EVM chain) is integrated separately as a normal EVM network.</p>
+            <p class="mut">Info: <span class="mono">${esc(hcSrc().url)}</span> · WS firehose: trades + l2Book + allMids.</p>
+          </div></div>`;
+      });
+
+      // ── network selector (real Blockscout instances) ─────────────────────────────────
+      function fillNet() { const s = $("netsel"); s.innerHTML = ""; for (const [id, c] of Object.entries(CHAINS)) s.add(new Option(c.name, id)); s.value = String(chainId); s.onchange = () => { chainId = parseInt(s.value, 10); localStorage.setItem("holoes.net", s.value); bs = makeIndexer(); rpc = new E.Rpc(chain().rpc); store.m.clear(); resetStream(); setBrand(); toast("switched to " + chain().name); maybePromptKey(); location.hash = "#/"; render(); }; }
+      // Etherscan-V2 chains need a free key for the INDEX (history/source); live blocks +
+      // mempool + κ work without it. Prompt once, store locally, rebuild the indexer.
+      function maybePromptKey() { const c = chain(); if (c.indexer === "etherscan" && c.esMode === "etherscanV2" && !getKey()) $("keyDlg")?.showModal(); }
+
+      // ── engine self-test (Law L5) ─────────────────────────────────────────────────────
+      (function () { const t = E.selfTest(); $("ver").textContent = t.ok ? "✓ engine verified" : "✗ engine mismatch"; $("ver").className = "ver " + (t.ok ? "ok" : "bad"); $("ver").title = "Self-test (Law L5): keccak256 KATs + genesis blockHash + EIP-55 + namehash re-derived against canonical constants. " + t.results.map((r) => (r.ok ? "✓" : "✗") + " " + r.name).join(" · "); if (!t.ok) toast("engine self-test FAILED"); })();
+
+      // API-key dialog wiring (Etherscan-family chains)
+      $("keySave").onclick = () => { const k = $("keyInput").value.trim(); if (k) localStorage.setItem("holoes.eskey", k); $("keyDlg").close(); bs = makeIndexer(); store.m.clear(); render(); toast(k ? "key saved full index unlocked" : "continuing live-only"); };
+      $("keySkip").onclick = () => { $("keyDlg").close(); toast("live-only blocks, mempool & κ work; the index needs a free key"); };
+      $("keyInput")?.addEventListener("keydown", (e) => { if (e.key === "Enter") $("keySave").click(); });
+
+      // public handle (automation / witness)
+      window.holoEtherscan = { E, bs: () => bs, rpc: () => rpc, stream: () => stream, makeIndexer, render, directSearch, get chainId() { return chainId; } };
+      fillNet(); setBrand(); render(); maybePromptKey();
+      bootStream();                            // open the warm pipe at boot (EVM WSS or Solana firehose)
+      setInterval(updateLive, 1000);           // keep the chrome latency/heartbeat fresh app-wide
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+<!-- ── Holo UI standardization (static chrome) ──────────────────────────────────────────────
+         Render the canonical shadcn UI objects from apps/ui (by their κ, via the universal
+         window.HoloRender path) into Holo Scan's STABLE chrome — search field, the key dialog, and a
+         network badge. Interactive objects use a FACADE: the shadcn component is the visible object,
+         and its events are delegated to Holo Scan's existing wired element (kept in the DOM, hidden) —
+         so the app's instant-search, dropdown nav and handlers keep working untouched. Mounted once. -->
+    <script type="module">
+      const K = {
+        button: "holo://sha256:1d581b4f9914ca22003e777f3a0405c6eb123bd2d7941a3a1b56bca50770a285",
+        badge:  "holo://sha256:52a0411dbaae7c5b462bc026c82d2cab195d6774a49a1d06e2a4b50234fb46a2",
+        input:  "holo://sha256:f7dbe9dd808e2592b13d6e04dddaca3dfdcb9a7cb1388d7c0e0821a3e58c4eb7",
+      };
+      const ready = async () => { for (let i = 0; i < 120 && !window.HoloRender; i++) await new Promise((r) => setTimeout(r, 50)); return window.HoloRender || null; };
+      const slotAfter = (orig, display) => { const s = document.createElement("span"); s.style.display = display; orig.style.display = "none"; orig.after(s); return s; };
+
+      function facadeButton(HR, orig, variant) {
+        if (!orig || orig.dataset.holoUi) return; orig.dataset.holoUi = "1";
+        const s = slotAfter(orig, "inline-flex");
+        HR.render(s, K.button, { props: { variant, type: orig.type || "button", onClick: (e) => { e.preventDefault(); orig.click(); } }, children: orig.textContent.trim() });
+      }
+      function facadeInput(HR, orig, extraStyle) {
+        if (!orig || orig.dataset.holoUi) return; orig.dataset.holoUi = "1";
+        const s = slotAfter(orig, "block"); if (extraStyle) Object.assign(s.style, extraStyle);
+        HR.render(s, K.input, { props: {
+          type: orig.getAttribute("type") || "text", placeholder: orig.placeholder || "", defaultValue: orig.value || "",
+          "aria-label": orig.getAttribute("aria-label") || orig.placeholder || "", spellcheck: false, autoComplete: "off",
+          onInput: (e) => { orig.value = e.currentTarget.value; orig.dispatchEvent(new Event("input", { bubbles: true })); },
+          onKeyDown: (e) => { orig.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, code: e.code, bubbles: true, cancelable: true })); },
+          onFocus: () => orig.dispatchEvent(new Event("focus", { bubbles: true })),
+          onBlur: () => orig.dispatchEvent(new Event("blur", { bubbles: true })),
+        } });
+      }
+
+      (async () => {
+        const HR = await ready(); if (!HR) return;
+        const $ = (id) => document.getElementById(id);
+        facadeInput(HR, $("search"), { flex: "1", minWidth: "0" });   // header instant-search → shadcn Input
+        facadeInput(HR, $("keyInput"));                                // key dialog field → shadcn Input
+        facadeButton(HR, $("keySkip"), "secondary");                   // key dialog → shadcn Buttons
+        facadeButton(HR, $("keySave"), "default");
+      })();
+    </script>
+  </body>
+</html>

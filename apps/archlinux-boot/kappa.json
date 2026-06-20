@@ -1,0 +1,48 @@
+{
+  "$comment": "κ-pins for a 9pfs v86 holo app. Engine + BIOSes + the fs.json inode tree are content-addressed and gated (Law L5). The root filesystem streams on demand: every file is fetched by its sha256 and re-derived before the guest sees it — content-addressing is self-verifying.",
+  "algo": "sha256",
+  "engine": {
+    "libv86": {
+      "url": "./vendor/v86/libv86.js",
+      "name": "v86 — x86 emulator (libv86.js, BSD-2-Clause)",
+      "sha256": "65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "did": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "bytes": 352483
+    },
+    "wasm": {
+      "url": "./vendor/v86/v86.wasm",
+      "name": "v86 JIT core (x86→wasm)",
+      "sha256": "3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "did": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "bytes": 2066716
+    },
+    "seabios": {
+      "url": "./vendor/v86/seabios.bin",
+      "name": "SeaBIOS",
+      "sha256": "43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "did": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "bytes": 131072
+    },
+    "vgabios": {
+      "url": "./vendor/v86/bochs-vgabios.bin",
+      "name": "VGA BIOS (bochs-vgabios.bin)",
+      "sha256": "8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "did": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "bytes": 43008
+    }
+  },
+  "image": {
+    "ninepfs": {
+      "name": "Arch Linux root (9pfs, κ-streamed)",
+      "basefs": "./fs.json",
+      "baseurl": "./fs9p/",
+      "cmdline": "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8 root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off audit=0 init_on_free=on tsc=reliable random.trust_cpu=on nowatchdog init=/usr/bin/init-openrc net.ifnames=0 biosdevname=0",
+      "fsjson": {
+        "url": "./fs.json",
+        "sha256": "a96773632a9f9bb5b8efb9724da24419fe72f5130d0b17857a5dc5f4d7f72035",
+        "did": "did:holo:sha256:a96773632a9f9bb5b8efb9724da24419fe72f5130d0b17857a5dc5f4d7f72035",
+        "bytes": 5815708
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <rect x="10" y="26" width="108" height="76" rx="14" fill="#ff5c8a" opacity="0.14"/>
+  <rect x="10" y="26" width="108" height="76" rx="14" stroke="#ff5c8a" stroke-width="5"/>
+  <!-- play head -->
+  <path d="M54 50 L82 64 L54 78 Z" fill="#ff5c8a"/>
+  <!-- κ-segment ticks: the stream as an ordered list of content-addressed segments -->
+  <g fill="#ff5c8a" opacity="0.85">
+    <rect x="24" y="92" width="10" height="4" rx="2"/>
+    <rect x="38" y="92" width="10" height="4" rx="2"/>
+    <rect x="52" y="92" width="10" height="4" rx="2"/>
+    <rect x="66" y="92" width="10" height="4" rx="2"/>
+    <rect x="80" y="92" width="10" height="4" rx="2"/>
+    <rect x="94" y="92" width="10" height="4" rx="2"/>
+  </g>
+</svg>

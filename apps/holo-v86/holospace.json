@@ -1,0 +1,41 @@
+{
+  "id": "org.hologram.HoloV86",
+  "name": "Holo v86",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "An easy menu of real operating systems — each one verified and booted right in your browser, no install.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    {
+      "p": "Holo v86 is a launcher for real operating systems running on the v86 x86-to-wasm JIT. Pick one and it boots in the tab — Linux, DOS, KolibriOS, and more."
+    },
+    {
+      "p": "Each OS is precompiled by the holo-v86 ingest pipeline: its disk is encoded as an ordered set of content-addressed κ-blocks, sealed into the substrate, and streamed lazily — every block re-derived before the guest sees a byte (Law L5). The engine and BIOSes are κ-anchored too."
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator",
+    "Education"
+  ],
+  "keywords": [
+    "v86",
+    "emulator",
+    "operating-system",
+    "linux",
+    "dos",
+    "kappa",
+    "content-addressed",
+    "menu"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "BSD-2-Clause",
+  "homepage": "https://hologram.os/apps/holo-v86"
+}

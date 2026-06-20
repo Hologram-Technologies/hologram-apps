@@ -1,0 +1,22 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "snowdrop.img",
+    "bytes": 1474560,
+    "did": "did:holo:sha256:42dd2fdba85d2ddc00aed7eb5ddd5f1b50d13c6477a4eff8fb88eba8c05d2e28"
+  },
+  "blockSize": 262144,
+  "blockCount": 6,
+  "uniqueBlocks": 6,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:6c47b2afa2c2a0b4e59a93ec455844fe2eb1aff929c1b8bbd8e30ed6e5d2b1b6",
+  "blocks": [
+    "did:holo:sha256:d48bc316601e217a9bd01050663d49f7991c0418f77de51e1d5e59357a3eb427",
+    "did:holo:sha256:da6701d7520d73d12dd6300ec0c4b647dcaea07e7e6fa72340d31b7aaab42a3f",
+    "did:holo:sha256:ca1f4cb497c552ab908ad4bb4c05fde9dfbba2873943821f45d4f88764296f45",
+    "did:holo:sha256:19784a55af0e0c127632a64053efca002a010a791e2329bb952bda37ed9f9d20",
+    "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+    "did:holo:sha256:6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da"
+  ]
+}

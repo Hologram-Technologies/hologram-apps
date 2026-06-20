@@ -1,0 +1,40 @@
+Vendored, verbatim, from the canonical upstream:
+
+  Repository : https://github.com/medusajs/medusa
+  Tag        : v2.15.5
+  Commit     : b74b5b19569534412a67835ffae8fb3afbf6f5c5  (pinned, see .pinned-commit)
+  Retrieved  : 2026-06-15
+  License    : MIT — Copyright (c) Medusa (see upstream LICENSE)
+
+ADOPT, DON'T RUN (ADR-0029 / ADR-0094). Medusa is a Node.js + PostgreSQL
+server; its "serverless" means serverless-Node-with-a-database, not the
+browser. Holo Hub therefore does NOT run Medusa. It ADOPTS Medusa's
+commerce MODEL and its Store-API contract as the byte-pinned source of
+truth — each file below appears in medusa-pin.kappa.json by its did:holo
+κ, and any claim is re-verified by re-hashing the file (Law L5).
+
+These bytes fall into three classes (see SPLIT.md for the full report):
+
+  ADOPT  (byte-pinned κ, the contract — never executed):
+    www/apps/api-reference/specs/store/openapi.full.yaml
+        — the Store-API OpenAPI contract; the storefront speaks this shape,
+          and it is projected as MCP tools + /~hub/api (ADR-0093).
+
+  COMPILE (vendored → verifiable Forge κ-transform, ADR-0051; deterministic,
+           re-derivable L5; runs in-tab via holo-hub-kernel.mjs):
+    packages/core/utils/src/totals/math.ts        — MathBN (the math engine)  ┐ Stage 3 DONE:
+    packages/core/utils/src/totals/big-number.ts  — the BigNumber value type  ├ compiled +
+    packages/core/utils/src/totals/tax/index.ts   — tax totals                ┘ witnessed 11/11
+    packages/core/utils/src/common/{is-defined,is-string,is-big-number,is-object}.ts — pure helpers
+    (dep: ../bignumber.js@9.1.2, vendored; the impure ../common barrel → a curated pure shim)
+    packages/core/utils/src/totals/{cart,line-item,shipping-method,promotion,adjustment,credit-lines}
+    packages/core/utils/src/pricing/price-list.ts — NEXT compile sub-stage (need wider curated common)
+
+  NATIVE (realized over the κ-store, the ADR-0029 trade — NOT compiled):
+    promotion/src/utils/compute-actions/**  — vendored but RECLASSIFIED (see SPLIT.md):
+        imports @medusajs/framework/utils + @mikro-orm/postgresql + @models (glue, not pure)
+    packages/modules/*/src/services/*-module-service.ts — the DI/ORM/transaction layer
+        (referenced only, surfaced not faked; written in later stages)
+
+Paths are preserved from upstream so every file re-hashes to its κ.
+Not one byte of Medusa's commerce logic is re-implemented here.

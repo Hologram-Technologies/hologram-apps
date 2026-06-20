@@ -1,0 +1,77 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloWorkspace",
+  "name": "Holo Workspace",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A code editor with language servers and a real filesystem, in the browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "web-platform"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloWorkspace"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.js",
+    "holo-app.mjs",
+    "holo-forge/holo-forge.mjs",
+    "holo-store.js"
+  ],
+  "engines": [],
+  "loader": "workspace.html",
+  "description": [
+    {
+      "p": "A real editing environment shouldn't require an install or a server."
+    },
+    {
+      "p": "A fast code-editor engine, Language Server Protocol support and a persistent filesystem let you open a folder, edit and run everything content-addressed underneath."
+    },
+    {
+      "ul": [
+        "A full code editor",
+        "Language Server Protocol support",
+        "A real, persistent filesystem",
+        "Content-addressed and serverless"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "IDE",
+    "TextEditor"
+  ],
+  "keywords": [
+    "code",
+    "editor",
+    "ide",
+    "monaco",
+    "vscode",
+    "programming"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/workspace",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Monaco editor with LSP and a persistent content-addressed filesystem."
+    }
+  ],
+  "accent": "#0098ff"
+}

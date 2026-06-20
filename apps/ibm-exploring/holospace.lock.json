@@ -1,0 +1,193 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:08573fe19d0f44e39b2e4cd1e4747ad2919c435b3ae3594758179a257953568f",
+  "identifier": "org.hologram.V86ExploringTheIBMPersonalComputer",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 5775,
+    "page": 22,
+    "byte": 143,
+    "r96": 47,
+    "phi": 5775
+  },
+  "files": 19,
+  "closure": {
+    "apps/ibm-exploring/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/ibm-exploring/holospace.json": {
+      "kappa": "did:holo:sha256:2d75fc7532345b8d92af91d30a2eaa8cb0462316d17d78a93e4bcfc67b67d9e9",
+      "sri": "sha256-LXX8dTI0W42Sr5HTCi6qjLBGIxbRfXipPkvPxntn2ek=",
+      "multibase": "uEiAtdfx1MjRbjZKvkdMKLqqMsEYjFtF9eKk-S8_Ge2fZ6Q",
+      "bytes": 974,
+      "alsoKnownAs": [
+        "did:holo:blake3:52c027ebcece0f12bb75a123509ea979a08432f5a2234c02ac4d314ca9e7c61c"
+      ]
+    },
+    "apps/ibm-exploring/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/ibm-exploring/images/ibm-exploring.img": {
+      "kappa": "did:holo:sha256:4c87cad7d2baa71461bf598e1e827829f18d3ec4289fb44d800e2ad74cb0e220",
+      "sri": "sha256-TIfK19K6pxRhv1mOHoJ4KfGNPsQon7RNgA4q10yw4iA=",
+      "multibase": "uEiBMh8rX0rqnFGG_WY4egngp8Y0-xCiftE2ADirXTLDiIA",
+      "bytes": 368640,
+      "alsoKnownAs": [
+        "did:holo:blake3:01b8b10d976de907dde7c788f1389caad2c1a3e3f851fd4018b8a8c0f5ec0ae1"
+      ]
+    },
+    "apps/ibm-exploring/images/ibm-exploring.img.kblocks/.holo/sha256/772369cf07e0af923a80e31809d2d1404da81a4b6341e6d9f9f33723535bb972": {
+      "kappa": "did:holo:sha256:772369cf07e0af923a80e31809d2d1404da81a4b6341e6d9f9f33723535bb972",
+      "sri": "sha256-dyNpzwfgr5I6gOMYCdLRQE2oGktjQebZ+fM3I1NbuXI=",
+      "multibase": "uEiB3I2nPB-CvkjqA4xgJ0tFATagaS2NB5tn58zcjU1u5cg",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:5a610df423c2869484ec8e90b1e7542a2a63641d52a7e4d8370bf44a41355d65"
+      ]
+    },
+    "apps/ibm-exploring/images/ibm-exploring.img.kblocks/.holo/sha256/b3a2eae718af954a27e6632705b711b3487b2d338b7478f7fe747653262401e9": {
+      "kappa": "did:holo:sha256:b3a2eae718af954a27e6632705b711b3487b2d338b7478f7fe747653262401e9",
+      "sri": "sha256-s6Lq5xivlUon5mMnBbcRs0h7LTOLdHj3/nR2UyYkAek=",
+      "multibase": "uEiCzournGK-VSifmYycFtxGzSHstM4t0ePf-dHZTJiQB6Q",
+      "bytes": 106496,
+      "alsoKnownAs": [
+        "did:holo:blake3:fb73c3e0c3039c0667cec99353d50cfb625487bb4c1805f2e7742a3fea76357d"
+      ]
+    },
+    "apps/ibm-exploring/images/ibm-exploring.img.kblocks.json": {
+      "kappa": "did:holo:sha256:dbe1b072afd82805c62983dea07ca64c5d1bfadf7bca849880ef9e4077117a74",
+      "sri": "sha256-2+Gwcq/YKAXGKYPeoHymTF0b+t97yoSYgO+eQHcRenQ=",
+      "multibase": "uEiDb4bByr9goBcYpg96gfKZMXRv633vKhJiA755AdxF6dA",
+      "bytes": 822,
+      "alsoKnownAs": [
+        "did:holo:blake3:2e46255b87549bdc9c2bc62b122de1b8f3af3f84182189a1141e17fadb65b7a9"
+      ]
+    },
+    "apps/ibm-exploring/index.html": {
+      "kappa": "did:holo:sha256:0ab928d361863e9ee7a054fc5b91a25fb0bfa1afee7e6dde78b501a6500af01e",
+      "sri": "sha256-Crko02GGPp7noFT8W5GiX7C/oa/ufm3eeLUBplAK8B4=",
+      "multibase": "uEiAKuSjTYYY-nuegVPxbkaJfsL-hr-5-bd54tQGmUArwHg",
+      "bytes": 24552,
+      "alsoKnownAs": [
+        "did:holo:blake3:2557137a501dfb32c463819f5a5a58e27b5fac977161876929d3abfdf189e059"
+      ]
+    },
+    "apps/ibm-exploring/kappa.json": {
+      "kappa": "did:holo:sha256:65e9e07b11f69cf963a88382a709d943601e896e0c7105bf61e2ba2360b772b9",
+      "sri": "sha256-ZengexH2nPljqIOCpwnZQ2AeiW4McQW/YeK6I2C3crk=",
+      "multibase": "uEiBl6eB7Efac-WOog4KnCdlDYB6JbgxxBb9h4rojYLdyuQ",
+      "bytes": 1966,
+      "alsoKnownAs": [
+        "did:holo:blake3:59ca627d437935a28a9ea618b058d6b4594c19d89e7225c242da74d24103c562"
+      ]
+    },
+    "apps/ibm-exploring/sw.js": {
+      "kappa": "did:holo:sha256:6a158491c016090f4a2e0a897e610b3688e1f6841be31c04d2f5e277d9c54879",
+      "sri": "sha256-ahWEkcAWCQ9KLgqJfmELNojh9oQb4xwE0vXid9nFSHk=",
+      "multibase": "uEiBqFYSRwBYJD0ouCol-YQs2iOH2hBvjHATS9eJ32cVIeQ",
+      "bytes": 5026,
+      "alsoKnownAs": [
+        "did:holo:blake3:7e63e6e364d5aba67ad8979234c96242660ba26810df3f2db4c67de71faf5e4c"
+      ]
+    },
+    "apps/ibm-exploring/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/ibm-exploring/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/ibm-exploring/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/ibm-exploring/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/ibm-exploring/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/ibm-exploring/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/ibm-exploring/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/ibm-exploring/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

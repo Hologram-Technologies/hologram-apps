@@ -1,0 +1,97 @@
+{
+  "id": "org.hologram.QvacSdk",
+  "name": "QVAC Playground",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Build, run and share serverless on-device AI apps with the QVAC SDK write QVAC code, run it instantly in your browser, share it as a link that arrives running. Every answer comes with a receipt that proves itself genuine.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "qvac-sdk",
+      "verifiable-inference",
+      "prov-inference-receipt",
+      "holo-sdk",
+      "holo-conform",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.QvacSdk"
+    ]
+  },
+  "shared": [
+    "holo-theme.js",
+    "holo-mobile.css",
+    "holo-icons.js",
+    "holo-conscience.js",
+    "holo-object.js",
+    "holo-sdk.js",
+    "holo-qvac.js",
+    "holo-qvac.mjs"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "QVAC is Tether's local AI SDK one interface over 13 AI capabilities that runs on a personal device with no cloud. Here it is encoded native to Hologram OS (ADR-0067): the contract, not the package."
+    },
+    {
+      "p": "Every capability call passes the fail-closed conscience gate, runs over the browser-native engine, and seals a re-derivable PROV-O inference receipt. The default reference brain always runs with no download; bind Holo Q (QVAC WebGPU) for a real on-device model."
+    },
+    {
+      "ul": [
+        "13 AI capabilities, one unified interface",
+        "On-device, private, serverless no key, no cloud",
+        "An OpenAI-compatible server answered with no server",
+        "Every answer is a re-derivable receipt (Law L5)"
+      ]
+    }
+  ],
+  "categories": [
+    "AI",
+    "Developer"
+  ],
+  "keywords": [
+    "qvac",
+    "playground",
+    "build run share",
+    "ai",
+    "sdk",
+    "local ai",
+    "on-device",
+    "llm",
+    "embeddings",
+    "rag",
+    "openai-compatible",
+    "inference receipt",
+    "verifiable inference",
+    "serverless",
+    "browser-native",
+    "content-addressing",
+    "uor",
+    "did:holo",
+    "prov-o",
+    "law-l5",
+    "tether"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://hologram.os/apps/qvac",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-12",
+      "description": "The QVAC SDK (docs.qvac.tether.io) encoded native to Hologram OS (ADR-0067): one self-verifying contract over Tether's local AI SDK its 13 AI capabilities, the model lifecycle, the runtime, P2P delegation and the OpenAI-compatible server satisfied by the substrate. Every call is conscience-gated (ADR-033), runs over the browser-native engine (a deterministic reference brain now; Holo Q / QVAC WebGPU when a model is bound), and seals a re-derivable inference receipt (Law L5). Serverless, lean, anchored in the UOR substrate. Encoded, not vendored; honest where weights are absent."
+    }
+  ],
+  "accent": "#8b7cff"
+}

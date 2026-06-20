@@ -1,0 +1,32 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "mojo-0.2.2.iso",
+    "bytes": 4048896,
+    "did": "did:holo:sha256:1bfbbb7ef94316e244117ed4b87d454f964dd1793c09487c0212d4b74ff72d28"
+  },
+  "blockSize": 262144,
+  "blockCount": 16,
+  "uniqueBlocks": 16,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:1735326893fc9d74c11bcdd548f16c20fb0b516ed05a0f26b6853070468b8db9",
+  "blocks": [
+    "did:holo:sha256:3f52174b0b453a9e674bbea2998d8e914f1cc3b90a5b805917a82d4f54e43d42",
+    "did:holo:sha256:036ba1f54b5eaa938757402b90d22b2183c729f54e8d3bc695c52297a9742f8a",
+    "did:holo:sha256:440431fa81214b507bf68d1371a2b59a3d3318dc4fa7e0a63e987e8e99cb721f",
+    "did:holo:sha256:f5088025ecb49f3379a5bf4889959ae92116248079b96e674f7ab2fe083eda2f",
+    "did:holo:sha256:cd68a6e992aa0180d0564ccc68db33091823d2ea8fe86a1dc6cf9036a414f20b",
+    "did:holo:sha256:dc069a92d88613ce10957b774569c6d50c920e3f9e5f33b99443f2158c094bc2",
+    "did:holo:sha256:9f902b0b9d362473ea0db4f442e5c2be1688f8a46f23c9a59334926e9a23e98d",
+    "did:holo:sha256:9d0f9e6ff93f42c40cbc027feecd8e7d5158ed1b54ba9ec34d3eea04f635446d",
+    "did:holo:sha256:9da1fec29b8d0d49964d75955a29263b5cbb85854f6288a38748ea0cde63ce93",
+    "did:holo:sha256:0fe18ba778ca3bc934a98cb29f53e5b28771530ad68a418a1d74be2a7bbd68b3",
+    "did:holo:sha256:43adcccba38238d3acb741ef8682f890af883839695b38a60c6cbff3efd2636c",
+    "did:holo:sha256:dadeb6af2b99e2cf35fe26cdff4c2741326024955a229694fa8ba35f2f6a50d6",
+    "did:holo:sha256:7e3c6ee89cc5af194472c064fe731b3e7605f7bd144202faefe3b6c283189f43",
+    "did:holo:sha256:1e2c2cbfdb5160dc43584e10b18c750983e58593323a9d25bacff6b823708f34",
+    "did:holo:sha256:9d2bc5707e4a7e06363575a028788d913a401a82218305aa616bcaa1203195d1",
+    "did:holo:sha256:d6697a56c0675418791a7cf1cb7ed8dcd6dd25aa0f23756c966b4f1d044ae994"
+  ]
+}

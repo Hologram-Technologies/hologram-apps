@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Holo Cosmos</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #01020a; overflow: hidden; color: #cfe0ff; font: var(--holo-text-sm, 0.875rem)/1.5 system-ui, sans-serif; }
+    holo-space { position: fixed; inset: 0; display: block; }
+    .hud { position: fixed; left: 14px; bottom: 14px; z-index: 5; pointer-events: none;
+      background: #0009; border: 1px solid #ffffff22; border-radius: var(--holo-radius, 10px); padding: 8px 12px; backdrop-filter: blur(6px); }
+    .hud b { color: #eaf2ff; font-weight: 600; }
+    .hud .sub { color: #93a7c6; }
+    .hud .k { display: block; margin-top: 4px; font: var(--holo-text-sm, 0.75rem) ui-monospace, monospace; color: #6fd3a0; }
+    .fallback { position: fixed; inset: 0; display: none; place-content: center; text-align: center; }
+    :root.no-gl .fallback { display: grid; } :root.no-gl holo-space { display: none; }
+  </style>
+  <script src="/_shared/holo-ui-kernel.js"></script>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Cosmos"></holo-splash>
+
+  <!-- One tag. A navigable, κ-seeded universe — the same surface the desktop wallpaper mounts (ADR-0080 L6). -->
+  <holo-space seed="org.hologram.HoloCosmos"></holo-space>
+  <div class="hud"><b>✦ Holo Cosmos</b> &nbsp;<span class="sub">move to look · scroll to throttle</span>
+    <span class="k" id="addr">resolving universe κ…</span></div>
+  <div class="fallback"><div><b>WebGL2 required</b><br><span class="sub">This device can't render the live cosmos.</span></div></div>
+  <script type="module">
+    import HoloSpace from "/_shared/holo-space3d.js";
+    // the universe's address IS the content hash of its seed — same seed → byte-identical cosmos (Law L5)
+    try {
+      const bytes = new TextEncoder().encode("org.hologram.HoloCosmos");
+      const h = await HoloSpace.sha256hex(bytes);
+      document.getElementById("addr").textContent = "holo://" + h.slice(0, 18) + "…";
+    } catch {}
+    // graceful note if WebGL2 is unavailable (the custom element will have rendered nothing)
+    setTimeout(() => { const el = document.querySelector("holo-space"); if (!el || !el.querySelector("canvas")) document.documentElement.classList.add("no-gl"); }, 800);
+  </script>
+</body>
+</html>

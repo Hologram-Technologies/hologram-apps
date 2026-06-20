@@ -1,0 +1,202 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:a7a8ae1f242f0daba422710ae3d89bbf1d5b97f609996c646b16fc5ecaff563e",
+  "identifier": "org.hologram.V86FloppyBird",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 1598,
+    "page": 6,
+    "byte": 62,
+    "r96": 62,
+    "phi": 1598
+  },
+  "files": 20,
+  "closure": {
+    "apps/floppybird/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/floppybird/holospace.json": {
+      "kappa": "did:holo:sha256:54f82bd88b39f209d9b44b6d931420c001a18a6db6825b54f67b7b2c132d5fd6",
+      "sri": "sha256-VPgr2Is58gnZtEttkxQgwAGhim22gltU9nt7LBMtX9Y=",
+      "multibase": "uEiBU-CvYiznyCdm0S22TFCDAAaGKbbaCW1T2e3ssEy1f1g",
+      "bytes": 878,
+      "alsoKnownAs": [
+        "did:holo:blake3:ea93b7dae0f868ba275c9373204961212dc437f6277c9fb6dacf0409b086cd0e"
+      ]
+    },
+    "apps/floppybird/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/floppybird/images/floppybird.img": {
+      "kappa": "did:holo:sha256:5db1b469e25e9eda7b8c0f666d6b655bab083c85618a9453ee72f1201cca840f",
+      "sri": "sha256-XbG0aeJentp7jA9mbWtlW6sIPIVhipRT7nLxIBzKhA8=",
+      "multibase": "uEiBdsbRp4l6e2nuMD2Zta2Vbqwg8hWGKlFPucvEgHMqEDw",
+      "bytes": 1474560,
+      "alsoKnownAs": [
+        "did:holo:blake3:eaa4977051c22e17d97e60e9027e74d2c9fcf8609ab994adb67e79356cae3d32"
+      ]
+    },
+    "apps/floppybird/images/floppybird.img.kblocks/.holo/sha256/6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da": {
+      "kappa": "did:holo:sha256:6cdd259c8ecbe61fbc369f3293c1961541386954a223b17a37899d7fd9ad42da",
+      "sri": "sha256-bN0lnI7L5h+8Np8yk8GWFUE4aVSiI7F6N4mdf9mtQto=",
+      "multibase": "uEiBs3SWcjsvmH7w2nzKTwZYVQThpVKIjsXo3iZ1_2a1C2g",
+      "bytes": 163840,
+      "alsoKnownAs": [
+        "did:holo:blake3:a39519a29a4b901e9dde7d03537960e3d4eccacc2863c0a4d9e04673d69ebd3e"
+      ]
+    },
+    "apps/floppybird/images/floppybird.img.kblocks/.holo/sha256/6f56745950fc36eee3c9a4ad608ffb976c67311382324caaab0fb6cc64e60c1b": {
+      "kappa": "did:holo:sha256:6f56745950fc36eee3c9a4ad608ffb976c67311382324caaab0fb6cc64e60c1b",
+      "sri": "sha256-b1Z0WVD8Nu7jyaStYI/7l2xnMROCMkyqqw+2zGTmDBs=",
+      "multibase": "uEiBvVnRZUPw27uPJpK1gj_uXbGcxE4IyTKqrD7bMZOYMGw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3799f44189aa0f9cb50fa9d65e7734e1de1dcc5a11c518406a74ccdc2fd0f077"
+      ]
+    },
+    "apps/floppybird/images/floppybird.img.kblocks/.holo/sha256/8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90": {
+      "kappa": "did:holo:sha256:8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+      "sri": "sha256-ijnSq9OZmrc8NNskdoSc3fMDzjibNYJoUPmnAFibSpA=",
+      "multibase": "uEiCKOdKr05matzw02yR2hJzd8wPOOJs1gmhQ-acAWJtKkA",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:86bb2b521a10612d5a1d38204fac4fa632466d1866144d8a6a7e3afc050ce7ae"
+      ]
+    },
+    "apps/floppybird/images/floppybird.img.kblocks.json": {
+      "kappa": "did:holo:sha256:caa9ca8b7346939801aaea9ec966a22c02e0708811df68f5a5479734ab2177f1",
+      "sri": "sha256-yqnKi3NGk5gBquqeyWaiLALgcIgR32j1pUeXNKshd/E=",
+      "multibase": "uEiDKqcqLc0aTmAGq6p7JZqIsAuBwiBHfaPWlR5c0qyF38Q",
+      "bytes": 1173,
+      "alsoKnownAs": [
+        "did:holo:blake3:9d0e46e828ee6e9c84f5d416ccb6b33a35ff234621db46e15ddce59c1b064b1c"
+      ]
+    },
+    "apps/floppybird/index.html": {
+      "kappa": "did:holo:sha256:f6dba5eacd022e8642176633566330dca16a92618813848f04ea2466d86308b0",
+      "sri": "sha256-9tul6s0CLoZCF2YzVmMw3KFqkmGIE4SPBOokZthjCLA=",
+      "multibase": "uEiD226XqzQIuhkIXZjNWYzDcoWqSYYgThI8E6iRm2GMIsA",
+      "bytes": 24453,
+      "alsoKnownAs": [
+        "did:holo:blake3:150758ca157369beb7592228beaf7f92883304008171c9a29450f172c28f009d"
+      ]
+    },
+    "apps/floppybird/kappa.json": {
+      "kappa": "did:holo:sha256:381d3485851c3aa8a92c2933c34a9edafbe7f559c7bbc4be009b6d70174c00f1",
+      "sri": "sha256-OB00hYUcOqipLCkzw0qe2vvn9VnHu8S+AJttcBdMAPE=",
+      "multibase": "uEiA4HTSFhRw6qKksKTPDSp7a--f1Wce7xL4Am21wF0wA8Q",
+      "bytes": 1939,
+      "alsoKnownAs": [
+        "did:holo:blake3:e883f28b49a1d75bf24e58163094d45478b1ef89930747a3bc33096b50b7bbec"
+      ]
+    },
+    "apps/floppybird/sw.js": {
+      "kappa": "did:holo:sha256:ba5fdef0da8a9c622c99cf3b12ce7c32605926a545606b0de9f07138f3a44f8c",
+      "sri": "sha256-ul/e8NqKnGIsmc87Es58MmBZJqVFYGsN6fBxOPOkT4w=",
+      "multibase": "uEiC6X97w2oqcYiyZzzsSznwyYFkmpUVgaw3p8HE486RPjA",
+      "bytes": 5023,
+      "alsoKnownAs": [
+        "did:holo:blake3:86743f34441db016aaf42cf7333bdacec155e4d0902e609141fe7f018709bd44"
+      ]
+    },
+    "apps/floppybird/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/floppybird/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/floppybird/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/floppybird/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/floppybird/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/floppybird/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/floppybird/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/floppybird/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

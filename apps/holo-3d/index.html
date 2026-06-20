@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en" data-holo-kappa-auto="off" data-holo-boot="off">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo 3D — a streamed κ-OS, rendered in WebGL</title>
+    <!-- HoloFX motion engine (data-holo-spin driver); kappa-auto/boot off to avoid touching the emulator surface -->
+    <script src="/_shared/holo-fx.js"></script>
+    <!-- Holo 3D service worker: (1) stamp COOP/COEP so v86's SharedArrayBuffer works on
+         any static host, (2) cache the whole app — shell, Three.js, the κ-pinned v86
+         engine + BIOSes + KolibriOS image — so once loaded it boots with the server OFF. -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./holo-3d-sw.js", { scope: "./" }).catch(() => {});
+        if (!self.crossOriginIsolated && !sessionStorage.getItem("holo3dCoiReload")) {
+          navigator.serviceWorker.ready.then(() => { sessionStorage.setItem("holo3dCoiReload", "1"); location.reload(); });
+        }
+      }
+    </script>
+    <style>
+      :root { color-scheme: dark; --bg:#000; --dim:#8b949e; --line:#1b2128; --acc:#58a6ff; --ok:#3fb950; --bad:#f85149; }
+      * { box-sizing: border-box; } html, body { height:100%; margin:0; }
+      body { background:#000; color:#d4d4d4; font:12.5px/1.4 ui-monospace, Menlo, Consolas, monospace; overflow:hidden; }
+
+      #bar { position:fixed; top:0; left:0; right:0; z-index:10; display:flex; align-items:center; gap:.7rem;
+        padding:.28rem .8rem; background:rgba(13,17,23,.66); backdrop-filter: blur(10px); border-bottom:1px solid var(--line); }
+      #bar .name { color:#e6edf3; font-weight:600; } #bar .tag { color:var(--dim); } #bar .sp { margin-left:auto; }
+      #bar .dot { color:#d29922; } #bar .dot.on { color:var(--ok); } #bar .dot.off { color:var(--bad); }
+      #bar .stat { color:var(--dim); font-variant-numeric:tabular-nums; }
+      #bar select { font:inherit; color:var(--dim); background:#0d1117; border:1px solid var(--line); border-radius:5px; padding:.12rem .4rem; cursor:pointer; }
+      #bar select:hover { color:#e6edf3; border-color:#30363d; }
+      #bar button { font:inherit; color:var(--dim); background:transparent; border:1px solid var(--line); border-radius:5px; padding:.12rem .5rem; cursor:pointer; }
+      #bar button:hover { color:#e6edf3; border-color:#30363d; }
+      #bar button.on { color:var(--ok); border-color:#1f3b25; background:#0e1c12; }
+      #kappa { position:fixed; top:1.78rem; left:0; right:0; z-index:10; display:flex; flex-wrap:wrap; gap:.3rem 1.2rem;
+        padding:.28rem .85rem; background:rgba(11,14,19,.58); backdrop-filter: blur(10px); border-bottom:1px solid var(--line); font-size:11.5px; }
+      #kappa .lbl{ color:var(--dim);} .pin{display:flex;align-items:center;gap:.4rem;} .pin .v{color:#d29922;font-weight:600;}
+      .pin.ok .v{color:var(--ok);} .pin.bad .v{color:var(--bad);} .pin .k{color:var(--acc);}
+
+      /* The WebGL surface fills the viewport. The OS is rendered flat, sharp, 1:1 aspect. */
+      #gl { position:fixed; inset:0; z-index:1; display:block; width:100%; height:100%; cursor:default; }
+      /* v86's real screen — offscreen but live; its <canvas> is the texture source. */
+      #screen { position:fixed; left:-99999px; top:0; width:1024px; height:768px; }
+      #screen > div { white-space:pre; font:14px monospace; color:#fff; }
+
+      #overlay { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:#05070c; transition:opacity .3s; }
+      #overlay.hidden { opacity:0; pointer-events:none; }
+      #panel { max-width:40rem; padding:1.5rem 1.75rem; }
+      #panel .ttl{ color:#e6edf3; font-size:1.02rem; font-weight:600; margin-bottom:.25rem;}
+      #panel .sub{ color:var(--dim); margin-bottom:1rem; line-height:1.5;}
+      #panel .status{ display:flex; align-items:center; gap:.6rem; color:#c9d1d9;}
+      #panel .spin{ color:var(--acc); font:700 13px/1 ui-monospace,Menlo,Consolas,monospace; min-width:1.1em; display:inline-block;}
+      #panel.err .status{ color:var(--bad);} #panel.err .spin{ display:none;}
+      #panel .hint{ margin-top:.7rem; color:var(--dim); white-space:pre-wrap; font-size:12px;}
+      /* a one-time, self-fading "it's live" hint */
+      #tip { position:fixed; left:50%; bottom:1rem; transform:translateX(-50%); z-index:9; color:var(--dim);
+        background:rgba(13,17,23,.7); border:1px solid var(--line); border-radius:999px; padding:.3rem .9rem; font-size:12px;
+        opacity:0; transition:opacity .4s; pointer-events:none; }
+      #tip.show { opacity:1; }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo 3D"></holo-splash>
+
+    <div id="bar">
+      <span class="name">Holo&nbsp;3D</span>
+      <span class="tag">· KolibriOS — a κ-gated OS streamed to WebGL</span>
+      <span class="sp"></span>
+      <button id="snapBtn" title="save this running OS to local storage as a κ — it resumes on reload, even offline">💾 snapshot</button>
+      <button id="resetBtn" title="forget the saved snapshot and cold-boot fresh">⟲ reset</button>
+      <button id="offlineBtn" title="cache the whole app so it boots with the server off (100% serverless)">⤓ offline</button>
+      <select id="quality" title="streamed render quality — changes live">
+        <option value="sharp">Quality · Sharp</option>
+        <option value="high">Quality · Ultra 2×</option>
+        <option value="native">Quality · Native 1×</option>
+        <option value="pixel">Quality · Pixel-perfect</option>
+        <option value="perf">Quality · Performance ½×</option>
+      </select>
+      <span class="stat" id="stat"></span>
+      <span class="dot" id="dot">●</span><span class="tag" id="state">starting</span>
+    </div>
+    <div id="kappa">
+      <span class="lbl">κ-anchored:</span>
+      <span class="pin" id="pin-engine"><span class="v">…</span><span>v86 engine</span> <span class="k">—</span></span>
+      <span class="pin" id="pin-bios"><span class="v">…</span><span>BIOS</span> <span class="k">—</span></span>
+      <span class="pin" id="pin-image"><span class="v">…</span><span>KolibriOS</span> <span class="k">—</span></span>
+    </div>
+
+    <canvas id="gl"></canvas>
+    <div id="screen"><div></div><canvas></canvas></div>
+    <div id="tip">click the screen to control · type to send keys · Esc releases</div>
+
+    <div id="overlay"><div id="panel">
+      <div class="ttl">Holo 3D <span class="tag" style="font-weight:400">— a whole OS, content-addressed, streamed to your screen</span></div>
+      <div class="sub">A real graphical OS (KolibriOS) boots on the κ-gated v86 engine; its live framebuffer is streamed to WebGL — flat, sharp, full-screen, fully interactive. The engine, BIOS and disk are admitted only by content address (Law L5).</div>
+      <div class="status"><span class="spin" data-holo-spin="cascade"></span><span id="pstatus">loading…</span></div>
+      <div class="hint" id="phint"></div>
+    </div></div>
+
+    <script src="./vendor/three.min.js"></script>
+    <script type="module">
+      // WebGPU screen backend (bit-exact with the Three.js unsharp path; P4). Selected when a device is
+      // confirmed; Three.js/WebGL is the fallback. ?forceGL / ?forceGPU override for witnessing.
+      import HoloScreenGPU from "./holo-screen-gpu.js";   // vendored (holo-3d is standalone/offline; nothing from the shared surface)
+      const $ = (id) => document.getElementById(id);
+      const setState=(t,c)=>{$("state").textContent=t;$("dot").className="dot"+(c?" "+c:"");};
+      const setStatus=(t)=>$("pstatus").textContent=t;
+      const hideOverlay=()=>$("overlay").classList.add("hidden");
+      const fail=(t,h)=>{$("overlay").classList.remove("hidden");$("panel").classList.add("err");setStatus(t);$("phint").textContent=h||"";setState("error","off");};
+      const toHex=(b)=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+      const sha256hex=async(b)=>toHex(await crypto.subtle.digest("SHA-256",b));
+      const shortK=(h)=>"did:holo:sha256:"+h.slice(0,8)+"…"+h.slice(-6);
+      const okPin=(w,h)=>{const e=$("pin-"+w);e.className="pin ok";e.querySelector(".v").textContent="✓";e.querySelector(".k").textContent=shortK(h);};
+
+      // ── OPFS persistence: the running OS state saved as a κ, resumed on reload ─────
+      const SNAP="holo3d-snapshot.bin";
+      async function opfsRead(name){ try{ const root=await navigator.storage.getDirectory(); const fh=await root.getFileHandle(name); const f=await fh.getFile(); return f.size?await f.arrayBuffer():null; }catch(_){ return null; } }
+      async function opfsWrite(name,buf){ const root=await navigator.storage.getDirectory(); const fh=await root.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(buf); await w.close(); }
+      async function opfsRemove(name){ try{ const root=await navigator.storage.getDirectory(); await root.removeEntry(name); }catch(_){} }
+      const saveState=()=>new Promise((res,rej)=>{ try{ const r=emulator.save_state((e,s)=>e?rej(e):res(s)); if(r&&r.then) r.then(res,rej); }catch(e){ rej(e); } });
+
+      async function fetchVerified(pin,label){
+        setStatus("fetching + κ-verifying "+label+"…");
+        const r=await fetch(pin.url,{cache:"force-cache"}); if(!r.ok) throw new Error("HTTP "+r.status+" "+pin.url);
+        const buf=await r.arrayBuffer(); const a=await sha256hex(buf);
+        if(a!==pin.sha256) throw Object.assign(new Error("κ mismatch on "+label),{gate:true,label,expected:pin.sha256,actual:a});
+        return buf;
+      }
+
+      // ── Flat, sharp, full-screen WebGL stream of the OS framebuffer. No shader, no
+      //    distortion, no animation — just the texture, crisp and 1:1 aspect. ──────────
+      const OSW=1024, OSH=768, OSA=OSW/OSH;
+      let renderer, scene, camera, mesh, mat, tex, srcCanvas=null;
+      let USE_GPU=false, gpuScreen=null, glScale=[1,1];   // WebGPU backend handle + current letterbox NDC scale
+      let quad={x:0,y:0,w:0,h:0};               // OS rect in CSS px (for pointer mapping)
+      let frames=0, lastT=performance.now(), fps=0;
+      let QPR=Math.min(devicePixelRatio||1, 2), QFILTER="linear", SHARPEN=0.35;   // live render-quality state
+      let screenDirty=true, forceRender=true, lastForced=0, drawn=0, patchFired=false;  // O(1) idle-skip: render only on change
+
+      // backend dispatch: WebGPU when a device is confirmed (set in boot), else Three.js/WebGL2.
+      function initGL(){
+        if(USE_GPU && !initGPU()) USE_GPU=false;   // GPU bring-up failed → fall back on a clean canvas
+        if(!USE_GPU) initGLThree();
+        addEventListener("resize",onResize); onResize(); setupInput(); renderLoop();
+      }
+      // WebGPU: one textured quad + the same 4-tap unsharp, bit-exact with the Three path (screen-parity.html).
+      function initGPU(){
+        try{
+          gpuScreen=HoloScreenGPU.createScreen($("gl"), { srcW:OSW, srcH:OSH, sharpen:SHARPEN, filter:QFILTER });
+          if(!gpuScreen){ freshGLCanvas(); return false; }   // canvas may be webgpu-tainted → give Three a clean one
+          return true;
+        }catch(_){ freshGLCanvas(); return false; }
+      }
+      // replace #gl with a fresh canvas (CSS targets it by id, so styling persists) for a clean fallback context.
+      function freshGLCanvas(){ const old=$("gl"); const c=document.createElement("canvas"); c.id="gl"; old.replaceWith(c); }
+      function initGLThree(){
+        renderer=new THREE.WebGLRenderer({canvas:$("gl"),antialias:false,alpha:false,powerPreference:"high-performance"});
+        renderer.setClearColor(0x000000,1);
+        scene=new THREE.Scene();
+        camera=new THREE.OrthographicCamera(-1,1,1,-1,-1,1);   // standard 2D quad ortho (mesh at z=0)
+        // Contrast-light unsharp-mask sharpen in the fragment shader: makes the upscaled
+        // OS framebuffer crisp (text/edges) on a retina panel. Cost is ~free (render path
+        // is sub-ms); the O(1) idle-skip means it only runs when the screen actually changes.
+        mat=new THREE.ShaderMaterial({
+          uniforms:{ map:{value:null}, texel:{value:new THREE.Vector2(1/OSW,1/OSH)}, sharpen:{value:0.35} },
+          vertexShader:"varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+          fragmentShader:
+            "uniform sampler2D map; uniform vec2 texel; uniform float sharpen; varying vec2 vUv;"+
+            "void main(){ vec2 uv=vec2(vUv.x, 1.0-vUv.y); vec3 c=texture2D(map,uv).rgb;"+
+            "  if(sharpen>0.001){ vec3 n=texture2D(map,uv+vec2(0.0,-texel.y)).rgb, s=texture2D(map,uv+vec2(0.0,texel.y)).rgb,"+
+            "    e=texture2D(map,uv+vec2(texel.x,0.0)).rgb, w=texture2D(map,uv+vec2(-texel.x,0.0)).rgb;"+
+            "    c=clamp(c*(1.0+4.0*sharpen)-(n+s+e+w)*sharpen, 0.0, 1.0); }"+
+            "  gl_FragColor=vec4(c,1.0); }",
+        });
+        mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),mat);
+        scene.add(mesh);
+      }
+      function onResize(){
+        const W=innerWidth, H=innerHeight, va=W/H;
+        // aspect-fit the OS into the viewport (letterbox), in NDC for the mesh + px for input
+        let nw, nh, qw, qh;
+        if(va>=OSA){ nh=2; nw=2*OSA/va; qh=H; qw=H*OSA; } else { nw=2; nh=2*va/OSA; qw=W; qh=W/OSA; }
+        if(USE_GPU){
+          const c=$("gl"); c.width=Math.max(2,Math.round(W*QPR)); c.height=Math.max(2,Math.round(H*QPR));
+          glScale=[nw/2, nh/2]; gpuScreen.setFit(glScale[0], glScale[1]);   // PlaneGeometry(1,1)·nw spans ±nw/2 in NDC
+        } else {
+          renderer.setPixelRatio(QPR); renderer.setSize(W,H,false); mesh.scale.set(nw,nh,1);
+        }
+        quad={ x:(W-qw)/2, y:(H-qh)/2, w:qw, h:qh };
+        forceRender=true;
+      }
+      function attachTexture(canvas){
+        srcCanvas=canvas;
+        if(USE_GPU){
+          gpuScreen.setSource(canvas);   // creates the rgba8 texture + bind group; texel/flip handled in the WGSL
+        } else {
+          tex=new THREE.CanvasTexture(canvas);
+          const f=QFILTER==="nearest"?THREE.NearestFilter:THREE.LinearFilter;
+          tex.magFilter=f; tex.minFilter=f;
+          tex.generateMipmaps=false; tex.flipY=false;   // shader flips Y explicitly
+          mat.uniforms.map.value=tex; mat.uniforms.texel.value.set(1/canvas.width, 1/canvas.height);
+        }
+        forceRender=true;
+        // O(1) change-detection: v86 paints the screen via the 2D context's putImageData;
+        // patch it to flag a dirty frame, so the render loop only re-uploads + re-runs the
+        // sharpen shader when the framebuffer actually changed (idle desktop ⇒ ~0 GPU work).
+        try{ const ctx=canvas.getContext("2d"); if(ctx && !ctx.__holoDirty){ ctx.__holoDirty=true;
+          for(const m of ["putImageData","drawImage"]){ const orig=ctx[m]; if(typeof orig==="function") ctx[m]=function(){ screenDirty=true; patchFired=true; return orig.apply(this,arguments); }; } } }catch(_){}
+      }
+      // Live streamed-render quality: render scale (supersample/perf) + filter (smooth/crisp).
+      function applyQuality(q){
+        const dpr=devicePixelRatio||1;
+        // [pixelRatio, filter, sharpenAmount]
+        const M={ sharp:[Math.min(dpr,2),"linear",0.35], high:[Math.min(dpr*2,4),"linear",0.40],
+                  native:[1,"linear",0.25], pixel:[Math.min(dpr,2),"nearest",0.0], perf:[0.5,"linear",0.20] };
+        const v=M[q]||M.sharp; QPR=v[0]; QFILTER=v[1]; SHARPEN=v[2];
+        if(USE_GPU){
+          if(gpuScreen) gpuScreen.setQuality({ filter:QFILTER, sharpen:SHARPEN });
+          forceRender=true; onResize(); return;
+        }
+        if(tex){ const f=QFILTER==="nearest"?THREE.NearestFilter:THREE.LinearFilter; tex.magFilter=f; tex.minFilter=f; tex.needsUpdate=true; }
+        if(mat&&mat.uniforms) mat.uniforms.sharpen.value=v[2];
+        forceRender=true;
+        if(renderer) onResize();
+      }
+      function renderLoop(){
+        const now=performance.now();
+        // O(1) idle-skip: only re-upload + re-render when the screen changed (or a periodic
+        // heartbeat / forced redraw). An idle desktop draws ~0 frames; the last frame stays
+        // on screen. Real changes (cursor, typing, windows) render instantly via screenDirty.
+        if(now-lastForced>250){ forceRender=true; lastForced=now; }   // heartbeat safety net
+        if(!patchFired) screenDirty=true;   // until change-detection is confirmed firing, render every frame (safe)
+        if(srcCanvas && srcCanvas.width>0 && (screenDirty||forceRender)){
+          if(USE_GPU){ gpuScreen.markDirty(); gpuScreen.render(); }
+          else { tex.needsUpdate=true; renderer.render(scene,camera); }
+          screenDirty=false; forceRender=false; drawn++;
+        }
+        frames++;
+        if(now-lastT>=500){ const hz=Math.round(frames*1000/(now-lastT)); fps=Math.round(drawn*1000/(now-lastT)); frames=0; drawn=0; lastT=now;
+          if(srcCanvas) $("stat").textContent=`${srcCanvas.width}×${srcCanvas.height} · ${fps} fps drawn / ${hz} Hz`; }
+        requestAnimationFrame(renderLoop);
+      }
+
+      // ── Input: pointer over the OS rect → relative mouse; keys → keyboard. Always on. ─
+      function setupInput(){
+        const gl=$("gl");
+        const ps2=()=>{ try{ return emulator.v86.cpu.devices.ps2; }catch(_){ return null; } };
+        const mouseMove=(dx,dy)=>{ if(!dx&&!dy) return; const p=ps2(); if(p&&p.mouse_send_delta) p.mouse_send_delta(dx,dy); else try{emulator.bus.send("mouse-delta",[dx,dy]);}catch(_){} };
+        const mouseClick=(l)=>{ const p=ps2(); if(p&&p.mouse_send_click) p.mouse_send_click(l,false,false); else try{emulator.bus.send("mouse-click",[l,false,false]);}catch(_){} };
+        // ONE cursor: pointer-lock hides the browser cursor; only the GUEST cursor shows.
+        // Click to capture, Esc to release. We read raw mouse counts (unadjustedMovement),
+        // accumulate sub-pixel deltas (no truncation loss), and invert Y to match v86's
+        // PS/2 convention — so it moves in BOTH axes and feels like the native pointer.
+        const locked=()=>document.pointerLockElement===gl;
+        const requestLock=()=>{ try{ const p=gl.requestPointerLock({unadjustedMovement:true});
+          if(p&&p.catch) p.catch(()=>{ try{gl.requestPointerLock();}catch(_){} }); }catch(_){ try{gl.requestPointerLock();}catch(_){} } };
+        let accX=0, accY=0;
+        const onMove=(ev)=>{ if(!locked()) return; accX+=ev.movementX||0; accY+=ev.movementY||0;
+          const dx=Math.trunc(accX), dy=Math.trunc(accY); accX-=dx; accY-=dy;
+          if(dx||dy) mouseMove(dx, -dy); };          // -dy: browser y-down → PS/2 y-up
+        document.addEventListener("mousemove", onMove);   // movementX/Y are reliable on mousemove under lock
+        gl.addEventListener("pointerdown",()=>{ if(!srcCanvas) return; if(!locked()){ requestLock(); } else { mouseClick(true); } });
+        gl.addEventListener("pointerup",()=>{ if(locked()) mouseClick(false); });
+        gl.addEventListener("contextmenu",(ev)=>ev.preventDefault());
+        gl.addEventListener("wheel",(ev)=>{ if(!locked()) return; ev.preventDefault(); try{emulator.bus.send("mouse-wheel",[0, ev.deltaY>0?-1:1]);}catch(_){} },{passive:false});
+        document.addEventListener("pointerlockchange",()=>{ const on=locked(); gl.style.cursor=on?"none":"default";
+          setState(on?"captured · click + type · Esc releases":"running · streamed to WebGL","on");
+          const tip=$("tip"); tip.textContent=on?"mouse captured — Esc to release":"click the screen to control · type to send keys";
+          tip.classList.add("show"); clearTimeout(window.__tipT); window.__tipT=setTimeout(()=>tip.classList.remove("show"),on?2600:3600); });
+        // keyboard: forward to the guest; leave browser shortcuts (Ctrl/Cmd/Alt) to the browser
+        const SC={Enter:[0x1c],Backspace:[0x0e],Tab:[0x0f],Escape:[0x01]," ":[0x39],
+          ArrowUp:[0xe0,0x48],ArrowDown:[0xe0,0x50],ArrowLeft:[0xe0,0x4b],ArrowRight:[0xe0,0x4d],
+          Delete:[0xe0,0x53],Home:[0xe0,0x47],End:[0xe0,0x4f]};
+        addEventListener("keydown",(ev)=>{ if(!emulator||ev.ctrlKey||ev.metaKey||ev.altKey) return;
+          try{ if(ev.key.length===1){ emulator.keyboard_send_text(ev.key); ev.preventDefault(); }
+               else if(SC[ev.key]){ emulator.keyboard_send_scancodes(SC[ev.key]); ev.preventDefault(); } }catch(_){} });
+        const qsel=$("quality"); if(qsel) qsel.addEventListener("change",(e)=>applyQuality(e.target.value));
+      }
+
+      let emulator=null;
+      async function boot(){
+        try{
+          await HoloScreenGPU.ready;   // resolve the WebGPU device probe before choosing a backend
+          const q=location.search||"";
+          USE_GPU = /[?&]forceGL\b/i.test(q) ? false : HoloScreenGPU.gpuAvailable();
+          document.documentElement.dataset.renderer = USE_GPU ? "webgpu" : "webgl";
+          $("bar").querySelector(".tag").textContent = "· KolibriOS — a κ-gated OS streamed to " + (USE_GPU ? "WebGPU" : "WebGL");
+          initGL();
+          const kappa=await(await fetch("./kappa.json",{cache:"no-store"})).json();
+          const libv86=await fetchVerified(kappa.engine.libv86,"v86 engine");
+          const wasm=await fetchVerified(kappa.engine.wasm,"v86 wasm core"); okPin("engine",kappa.engine.wasm.sha256);
+          const seabios=await fetchVerified(kappa.engine.seabios,"SeaBIOS");
+          const vgabios=await fetchVerified(kappa.engine.vgabios,"VGA BIOS"); okPin("bios",kappa.engine.seabios.sha256);
+          const fda=await fetchVerified(kappa.image.fda,"KolibriOS"); okPin("image",kappa.image.fda.sha256);
+
+          setStatus("loading the verified v86 engine…");
+          await new Promise((res,rej)=>{ const s=document.createElement("script");
+            s.src=URL.createObjectURL(new Blob([libv86],{type:"text/javascript"})); s.onload=res; s.onerror=()=>rej(new Error("libv86 load failed")); document.head.appendChild(s); });
+          const V86=window.V86||window.V86Starter; if(!V86) throw new Error("V86 global missing");
+
+          const wasmUrl=URL.createObjectURL(new Blob([wasm],{type:"application/wasm"}));
+          const snap=await opfsRead(SNAP);   // resume the exact saved OS state, if any
+          setStatus(snap?"resuming your saved session…":"powering on KolibriOS…"); setState("booting","");
+          const opts={ wasm_path:wasmUrl, screen_container:$("screen"),
+            bios:{buffer:seabios}, vga_bios:{buffer:vgabios}, fda:{buffer:fda},
+            memory_size:128*1024*1024, vga_memory_size:16*1024*1024, autostart:true };
+          if(snap) opts.initial_state={buffer:snap};
+          emulator=new V86(opts);
+          try{ emulator.mouse_set_status&&emulator.mouse_set_status(true); }catch(_){}
+          if(snap){ const b=$("snapBtn"); b.classList.add("on"); b.textContent="💾 resumed"; }
+
+          const grab=()=>{ const c=$("screen").querySelector("canvas"); if(c&&c.width>0){ attachTexture(c); hideOverlay(); setState("running · streamed to WebGL","on");
+            $("tip").classList.add("show"); setTimeout(()=>$("tip").classList.remove("show"),4200); return true; } return false; };
+          emulator.add_listener("emulator-started",()=>setStatus("v86 started — KolibriOS booting…"));
+          emulator.add_listener("screen-set-mode",()=>setTimeout(grab,250));
+          const iv=setInterval(()=>{ if(grab()) clearInterval(iv); },500); setTimeout(()=>clearInterval(iv),40000);
+        }catch(err){
+          if(err.gate) return fail("κ mismatch on the "+err.label+" — boot refused.","Holo 3D runs only bytes that match their content address (Law L5).\nexpected did:holo:sha256:"+err.expected+"\nactual   did:holo:sha256:"+err.actual);
+          fail(String(err&&err.message||err));
+        }
+      }
+      window.holo3d={ get emulator(){return emulator;}, get srcCanvas(){return srcCanvas;}, get renderer(){return renderer;}, get scene(){return scene;}, get camera(){return camera;}, get useGPU(){return USE_GPU;}, get gpuScreen(){return gpuScreen;} };
+
+      // ── snapshot / persistence: save the LIVE OS state to OPFS as a κ; resume on reload ──
+      (function(){
+        const snapBtn=$("snapBtn"), resetBtn=$("resetBtn");
+        snapBtn && snapBtn.addEventListener("click", async ()=>{
+          if(!emulator) return; const prev=snapBtn.textContent; snapBtn.textContent="saving…";
+          try{ const buf=await saveState(); await opfsWrite(SNAP, buf); const k=await sha256hex(buf instanceof ArrayBuffer?buf:buf.buffer||buf);
+            snapBtn.classList.add("on"); snapBtn.textContent="✓ saved · "+((buf.byteLength||0)/1048576).toFixed(0)+" MB";
+            snapBtn.title="your OS state is did:holo:sha256:"+k+" — resumes on reload, even offline"; }
+          catch(e){ snapBtn.textContent="save failed"; setTimeout(()=>snapBtn.textContent=prev,1600); }
+        });
+        resetBtn && resetBtn.addEventListener("click", async ()=>{ await opfsRemove(SNAP); resetBtn.textContent="✓ reset"; setTimeout(()=>location.reload(),450); });
+      })();
+
+      // ── offline control: cache the whole κ-app so it boots with the server OFF ─────
+      (function offlineControl(){
+        const btn=$("offlineBtn"); if(!btn||!navigator.serviceWorker) return;
+        const send=(m)=>{ const c=navigator.serviceWorker.controller; if(c) c.postMessage(m); };
+        const fmtMB=(b)=>(b/1048576).toFixed(1)+" MB";
+        const setReady=(cached,total,bytes)=>{ if(cached>=total&&total>0){ btn.classList.add("on"); btn.textContent="✓ offline-ready · "+fmtMB(bytes); btn.title="cached — boots with the server off"; } };
+        navigator.serviceWorker.addEventListener("message",(e)=>{ const m=e.data||{};
+          if(m.type==="holo-warm-progress") btn.textContent="caching… "+m.done+"/"+m.total;
+          else if(m.type==="holo-warm-done") setReady(m.done,m.total,m.bytes);
+          else if(m.type==="holo-cache-status") setReady(m.cached,m.total,m.bytes); });
+        btn.addEventListener("click",()=>{ if(btn.classList.contains("on")) return; btn.textContent="caching…"; send({type:"holo-warm"}); });
+        navigator.serviceWorker.ready.then(()=>setTimeout(()=>send({type:"holo-cache-status"}),700));
+      })();
+      boot();
+    </script>
+  </body>
+</html>

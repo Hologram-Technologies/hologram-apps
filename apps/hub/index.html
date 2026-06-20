@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="en" data-holo-kappa-auto="off" data-holo-boot="off">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holo Hub stream everything you can run</title>
+<!-- HoloFX motion engine (data-holo-spin driver); kappa-auto/boot off to keep hub's own κ rendering unchanged -->
+<script src="/_shared/holo-fx.js"></script>
+<script src="/_shared/holo-ui-kernel.js"></script>
+<meta name="description" content="The home for every holo-native thing. Each item is one self-verifying object named by its content streamed and rendered live in my browser, 100% serverless. Discover, watch, own, run. For people and AI agents alike." />
+
+<style>
+
+  :root{
+    color-scheme: dark;
+    --phi:1.618;
+    --bg:#0b0b0f; --bg2:#101015; --surface:#16161d; --surface-2:#1d1d27; --surface-3:#262633;
+    --border:#ffffff14; --border-2:#ffffff24; --ink:#f5f5fa; --dim:#aaaab8; --faint:#717182;
+    --accent:#8a7bff; --accent-2:#c07bff; --ok:#46dca6; --warn:#ffc15a; --like:#3ea6ff;
+    --glow1:#2a1d5e30; --glow2:#1d2e5e26; --chip:#1d1d27; --chip-on:#f5f5fa; --chip-on-ink:#0b0b0f;
+
+    --s1:5px; --s2:8px; --s3:13px; --s4:21px; --s5:34px; --s6:55px;
+
+    --fs-cap:.8rem; --fs-sm:.9rem; --fs:1rem; --fs-md:1.18rem; --fs-lg:1.45rem; --fs-xl:1.9rem; --fs-2xl:2.6rem;
+    --radius:16px; --radius-sm:12px; --radius-xs:9px; --card-w:300px;
+    --shadow:0 18px 50px -22px #000c, 0 4px 14px -8px #0009;
+    --ease:cubic-bezier(.22,.61,.36,1);
+
+    --header-h:60px; --rail-w:240px; --rail-min:72px; --maxw:1700px;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:#ffffff; --bg2:#ffffff; --surface:#ffffff; --surface-2:#f3f3f6; --surface-3:#e8e8ee;
+    --border:#0000001a; --border-2:#0000002b; --ink:#0f0f14; --dim:#5d5d6b; --faint:#8a8a98;
+    --accent:#6a5cf0; --accent-2:#a64dff; --ok:#16a673; --warn:#c77b12; --like:#065fd4;
+    --glow1:#6a5cf014; --glow2:#3d7cf012; --chip:#f1f1f4; --chip-on:#0f0f14; --chip-on-ink:#ffffff;
+    --shadow:0 18px 44px -26px #0002, 0 3px 12px -8px #0001;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:var(--fs)/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; font-synthesis:none;
+    transition:background .35s var(--ease), color .25s var(--ease);
+  }
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:ui-monospace,"Cascadia Code",Menlo,Consolas,monospace}
+  ::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+  ::-webkit-scrollbar{width:11px;height:11px} ::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+
+  header{position:sticky;top:0;z-index:40;height:var(--header-h);display:flex;align-items:center;gap:var(--s3);
+    padding:0 var(--s4);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(18px) saturate(140%);
+    border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:var(--s2);font-weight:760;letter-spacing:-.01em;font-size:var(--fs-md);cursor:pointer;flex:0 0 auto}
+  .brand .mark{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;color:#fff;font-weight:800;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 6px 18px -6px var(--accent)}
+  .hdr-sp{flex:1 1 auto}
+
+  .search{flex:0 0 auto;display:flex;align-items:center;gap:10px;height:42px;width:22rem;max-width:34vw;padding:0 16px;
+    border:1px solid var(--border-2);border-radius:99px;background:var(--surface);transition:border-color .2s,box-shadow .2s}
+  .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
+  .search .s-ic{width:20px;height:20px;flex:0 0 auto;color:var(--dim)}
+  .search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--ink);font-size:var(--fs);outline:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .icon-btn{width:40px;height:40px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;cursor:pointer;
+    border:0;background:transparent;color:var(--ink);font-size:1.1rem;transition:background .2s}
+  .icon-btn:hover{background:var(--surface-2)}
+
+  .layout{display:flex;align-items:flex-start;max-width:var(--maxw);margin:0 auto}
+  #rail{position:sticky;top:var(--header-h);flex:0 0 var(--rail-w);width:var(--rail-w);
+    height:calc(100vh - var(--header-h));overflow-y:auto;overflow-x:hidden;padding:var(--s3) var(--s2) var(--s4);
+    scrollbar-width:thin;transition:flex-basis .22s var(--ease),width .22s var(--ease)}
+  #rail::-webkit-scrollbar{width:8px}
+  .col{flex:1 1 auto;min-width:0}
+  .rail-item{display:flex;align-items:center;gap:var(--s3);width:100%;border:0;background:transparent;color:var(--ink);
+    cursor:pointer;border-radius:var(--radius-xs);padding:10px var(--s3);font:560 var(--fs-sm)/1.2 inherit;text-align:left;transition:background .14s}
+  .rail-item:hover{background:var(--surface-2)}
+  .rail-item.on{background:var(--surface-3);font-weight:680}
+  .rail-item.on .rail-ic{color:var(--accent)}
+  .rail-ic{flex:0 0 24px;width:24px;height:24px;display:grid;place-items:center;color:var(--dim)}
+  .rail-ic svg{width:21px;height:21px}
+  .rail-item.on .rail-ic svg{stroke-width:2.3}
+  .rail-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail-grp{padding:var(--s4) var(--s3) var(--s1);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);font-weight:700}
+  .rail-div{height:1px;background:var(--border);margin:var(--s2) var(--s3)}
+  .rail-foot{padding:var(--s4) var(--s3) 0;color:var(--faint);font-size:.72rem;line-height:1.5}
+  .scrim{display:none}
+
+  body.rail-min #rail{flex-basis:var(--rail-min);width:var(--rail-min)}
+  body.rail-min .rail-label,body.rail-min .rail-grp,body.rail-min .rail-foot{display:none}
+  body.rail-min .rail-item{justify-content:center;padding:11px 0}
+
+  body.watching #rail{display:none}
+
+  body.embedded{--header-h:0px}
+  body.embedded header{display:none}
+
+  main{max-width:var(--maxw);margin:0 auto;padding:var(--s4)}
+  .view{display:none} .view.on{display:block;animation:fade .3s var(--ease)}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:var(--s4) var(--s3)}
+  .empty{color:var(--faint);padding:var(--s6) 0;text-align:center}
+
+  .hero{position:relative;height:60vh;min-height:360px;overflow:hidden;
+    margin:calc(-1*var(--s4)) calc(-1*var(--s4)) var(--s5);background:#05070a}
+  .hero .hbg{position:absolute;inset:0;background:#05070a center/cover no-repeat;transform:scale(1.03)}
+  .hero .hbg svg{width:100%;height:100%}
+  .hero .hscrim{position:absolute;inset:0;background:
+    linear-gradient(90deg,color-mix(in srgb,var(--bg) 95%,transparent) 0%,color-mix(in srgb,var(--bg) 68%,transparent) 40%,transparent 66%),
+    linear-gradient(0deg,var(--bg) 2%,transparent 44%)}
+  .hero .hbody{position:absolute;left:var(--s5);right:var(--s5);bottom:var(--s5);max-width:min(42rem,66%)}
+  .hero h1{font-size:clamp(2.1rem,4.6vw,4rem);font-weight:820;line-height:1.04;letter-spacing:-.022em;margin:0 0 var(--s2);color:#fff;text-shadow:0 2px 22px #0009}
+  .hero .hmeta{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;color:#cfd3df;font-size:var(--fs);margin-bottom:var(--s3)}
+  .hero .hmeta .k{color:var(--ok);font-weight:600}
+  .hero p{color:#dbe1ea;font-size:var(--fs-md);line-height:1.5;margin:0 0 var(--s4);max-width:36rem;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .hero .hcta{display:flex;gap:var(--s3);align-items:center}
+  .hbtn{display:inline-flex;align-items:center;gap:9px;height:52px;padding:0 26px;border:0;border-radius:99px;
+    font-weight:700;font-size:var(--fs);cursor:pointer;background:var(--surface-2);color:var(--ink);transition:.15s var(--ease)}
+  .hbtn:hover{background:var(--surface-3)}
+  .hbtn.primary{background:#fff;color:#0b0b0f} .hbtn.primary:hover{filter:brightness(.92)}
+  .hbtn svg{width:22px;height:22px}
+  .rail{margin:var(--s5) 0}
+  .rail .rh{display:flex;align-items:baseline;gap:var(--s3);margin:0 0 var(--s3)}
+  .rail .rh h2{font-size:var(--fs-lg);font-weight:680;margin:0;letter-spacing:-.015em}
+  .rail .rh .sub{color:var(--faint);font-size:var(--fs)}
+  .strip{display:flex;gap:var(--s3);overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;padding-bottom:var(--s2)}
+  .strip::-webkit-scrollbar{display:none}
+  .strip>.card{width:var(--card-w);flex:0 0 var(--card-w);scroll-snap-align:start}
+  @media(max-width:560px){ .hero{height:54vh;min-height:300px} .hero .hbody{left:var(--s4);right:var(--s4);bottom:var(--s4)} }
+
+  .card{cursor:pointer;display:flex;flex-direction:column;gap:var(--s3);border-radius:var(--radius);transition:transform .2s var(--ease)}
+  .card:hover{transform:translateY(-2px)}
+  .cover{position:relative;aspect-ratio:var(--phi);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);
+    box-shadow:var(--shadow);display:grid;place-items:center;isolation:isolate}
+  .cover .bg{position:absolute;inset:0;z-index:0}
+  .cover .bg svg{display:block;width:100%;height:100%}
+
+  .cover::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+    background:linear-gradient(115deg,transparent 32%,#ffffff26 46%,#ffffff10 52%,transparent 64%);
+    transform:translateX(-130%);transition:transform .9s var(--ease)}
+  .card:hover .cover::after{transform:translateX(130%)}
+  .cover .ic{position:relative;z-index:2;width:37%;max-width:152px;aspect-ratio:1;border-radius:26%;padding:18px;
+    background:linear-gradient(160deg,#14141ccc,#0a0a12d9);backdrop-filter:blur(10px);border:1px solid #ffffff33;
+    display:grid;place-items:center;transition:transform .3s var(--ease);
+    box-shadow:0 18px 44px -12px #000c, 0 0 0 1px color-mix(in srgb,var(--ca,#8a7bff) 42%,transparent),
+      0 0 60px -8px color-mix(in srgb,var(--ca,#8a7bff) 78%,transparent)}
+  .card:hover .cover .ic{transform:scale(1.06)}
+  .cover .ic img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 10px #0007)}
+  .cover .badge{position:absolute;z-index:5;left:13px;top:13px;font-size:1rem;font-weight:800;letter-spacing:.03em;
+    text-transform:uppercase;border-radius:99px;padding:7px 16px;color:#fff;box-shadow:0 6px 18px -8px #000a;backdrop-filter:blur(4px)}
+  .cover .badge.new{background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+  .cover .badge.upd{background:var(--warn);color:#19120a}
+  .cover .badge.own{background:var(--ok);color:#04231a}
+
+  .cover .pv{position:absolute;inset:0;z-index:1;overflow:hidden;opacity:0;transition:opacity .45s var(--ease);pointer-events:none}
+  .cover.previewing .pv{opacity:1}
+  .cover .pv iframe{position:absolute;top:0;left:0;border:0;background:#0b0b14;pointer-events:none;
+    filter:saturate(.82) contrast(1.04) brightness(.9)}
+  .cover .tint{position:absolute;inset:0;z-index:2;opacity:0;transition:opacity .45s var(--ease);pointer-events:none;
+    background:radial-gradient(125% 135% at 50% -12%, transparent 46%, #0b0b14 116%),
+      linear-gradient(180deg, color-mix(in srgb,var(--ca,#8a7bff) 24%,transparent), transparent 40%)}
+  .cover.previewing .tint{opacity:1}
+  .cover.previewing .ic,.cover.previewing .play{opacity:0}
+
+  .cover .art{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover}
+  .cover .tint.show{opacity:1}
+  .cover .dur{position:absolute;z-index:5;right:12px;bottom:12px;background:#000c;backdrop-filter:blur(4px);color:#fff;
+    font-size:1rem;font-weight:700;padding:5px 12px;border-radius:8px;letter-spacing:.02em}
+  .cover .play{position:absolute;z-index:3;inset:0;display:grid;place-items:center;opacity:0;transition:opacity .2s;background:#0004}
+  .card:hover .cover .play{opacity:1}
+  .cover .play span{width:58px;height:58px;border-radius:50%;background:#000a;backdrop-filter:blur(6px);display:grid;place-items:center;
+    color:#fff;font-size:1.4rem;border:1px solid #fff5;padding-left:4px}
+  .meta{display:flex;gap:var(--s3);padding:0 2px}
+  .meta .av{width:38px;height:38px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.95rem;overflow:hidden}
+  .meta .av img{width:100%;height:100%;object-fit:cover}
+  .meta .txt{min-width:0;flex:1}
+  .meta h4{margin:0;font-size:1.06rem;font-weight:660;line-height:1.32;letter-spacing:-.01em;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .meta .chan{color:var(--dim);font-size:var(--fs);margin-top:4px;display:flex;align-items:center;gap:6px}
+  .meta .chan .vrf{color:var(--like)}
+
+  .shead{display:flex;align-items:baseline;gap:var(--s3);margin:var(--s5) 0 var(--s4)}
+  .shead:first-child{margin-top:var(--s2)}
+  .shead h2{font-size:var(--fs-lg);font-weight:680;margin:0;letter-spacing:-.015em}
+  .shead .sub{color:var(--faint);font-size:var(--fs-sm)}
+
+  #watch{display:none}
+  #watch.on{display:block;animation:fade .3s var(--ease)}
+  .watch-wrap{max-width:2200px;margin:0 auto;padding:var(--s4) var(--s5);
+    display:grid;grid-template-columns:minmax(0,1.618fr) minmax(340px,1fr);gap:var(--s5)}
+  body.watching .layout{max-width:none}
+
+  body.theater .watch-wrap{grid-template-columns:1fr;max-width:none;gap:var(--s4)}
+  body.theater .player{width:100%;max-width:calc((100vh - 150px) * 1.7778);margin:0 auto}
+  @media(max-width:1000px){ .watch-wrap{grid-template-columns:1fr;gap:var(--s4);padding:var(--s4)} }
+
+  .player{position:relative;border-radius:var(--radius);overflow:hidden;background:#000;border:1px solid var(--border);
+    box-shadow:var(--shadow);aspect-ratio:16/9}
+  .player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;opacity:0;transition:opacity .4s var(--ease)}
+  .player.ready iframe{opacity:1}
+  .player .boot{position:absolute;inset:0;z-index:2;display:grid;place-items:center;gap:var(--s3);background:var(--bg2);
+    color:var(--dim);text-align:center;transition:opacity .4s;pointer-events:none}
+  .player.ready .boot{opacity:0}
+  .player .boot .ring{font:700 30px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--accent);display:inline-block}
+
+  .player .ptop{position:absolute;z-index:3;inset:0 0 auto 0;padding:var(--s3) var(--s3) var(--s5);
+    background:linear-gradient(#0008,transparent);opacity:0;transition:opacity .2s;pointer-events:none}
+  .player:hover .ptop,.player:focus-within .ptop,.player:not(.ready) .ptop{opacity:1}
+  .player .live{display:inline-flex;align-items:center;gap:8px;background:#000a;backdrop-filter:blur(6px);
+    color:#fff;font-size:.92rem;font-weight:700;padding:7px 13px;border-radius:99px}
+  .player .live .rd{width:8px;height:8px;border-radius:50%;background:#ff4b4b;box-shadow:0 0 9px #ff4b4b;animation:pulse 1.8s infinite}
+  .player .live .v{color:var(--ok)}
+
+  .player .pbar{position:absolute;z-index:4;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;
+    gap:var(--s3);padding:var(--s5) var(--s3) var(--s3);background:linear-gradient(transparent,#000b 65%);
+    opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none}
+  .player:hover .pbar,.player:focus-within .pbar{opacity:1;transform:none;pointer-events:auto}
+  .player .pbar-l{display:flex;align-items:center;gap:9px;color:#fff;font-size:.95rem;font-weight:650;text-shadow:0 1px 6px #000c;min-width:0}
+  .player .pbar-l svg{width:21px;height:21px;flex:0 0 auto}
+  .player .pbar-r{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+  .player .pbtn{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:0;
+    background:#0006;backdrop-filter:blur(6px);color:#fff;cursor:pointer;transition:background .15s,transform .15s}
+  .player .pbtn:hover{background:#000c;transform:scale(1.06)}
+  .player .pbtn.on{background:var(--accent);color:#fff}
+  .player .pbtn svg{width:23px;height:23px}
+
+  .w-title{font-size:var(--fs-lg);font-weight:680;letter-spacing:-.015em;margin:var(--s4) 0 var(--s2)}
+  .w-bar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+  .w-chan{display:flex;align-items:center;gap:var(--s3);min-width:0;flex:1;flex-wrap:wrap}
+  .w-chan .av{width:42px;height:42px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;overflow:hidden}
+  .w-chan .av img{width:100%;height:100%;object-fit:cover}
+  .w-chan .who{flex:0 1 auto;min-width:0}
+  .w-chan .who b{font-size:var(--fs);font-weight:620;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .w-chan .who small{color:var(--faint);font-size:var(--fs-cap)}
+  .w-actions{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+  .w-actk{display:none}
+  body.ksurf .w-actk{display:flex;align-items:center}
+  body.ksurf .w-actions>.seg, body.ksurf #wShare, body.ksurf #wSave{display:none}   /* κ action row supersedes the legacy DOM row */
+  .cm-compose-k{display:none;margin-bottom:var(--s5)}
+  body.ksurf .cm-compose-k{display:block}
+  body.ksurf #cmCompose{display:none}   /* κ composer (input + buttons) supersedes the legacy DOM composer */
+  .w-headk{display:none}
+  body.ksurf .w-headk{display:block;flex:1}
+  body.ksurf .w-chan>.av, body.ksurf .w-chan>.who, body.ksurf #wGet, body.ksurf #wBuy{display:none}   /* κ channel header supersedes the legacy DOM header */
+  .qk{display:none}
+  body.ksurf .search>.s-ic, body.ksurf #q{display:none}
+  body.ksurf .search>.qk{display:block;width:100%}   /* κ search field supersedes the legacy DOM input */
+  .up-headk{display:none}
+  body.ksurf .up-headk{display:block}
+  body.ksurf .up-head{display:none}   /* κ up-next header supersedes the legacy DOM one */
+  body.ksurf #wMore{display:none}   /* κ description is always expanded — the clamp toggle is redundant */
+  .seg{display:flex;align-items:center;background:var(--surface-2);border-radius:99px;overflow:hidden;flex:0 0 auto}
+  .seg button{border:0;background:transparent;color:var(--ink);font:600 var(--fs)/1 inherit;white-space:nowrap;padding:10px 15px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .16s}
+  .seg button:hover{background:var(--surface-3)}
+  .seg .sp{width:1px;align-self:stretch;background:var(--border-2)}
+  .seg button.act{color:var(--like)}
+  .abtn{border:0;background:var(--surface-2);color:var(--ink);border-radius:99px;padding:10px 17px;font:600 var(--fs)/1 inherit;white-space:nowrap;flex:0 0 auto;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .16s}
+  .abtn:hover{background:var(--surface-3)}
+  .abtn.act{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+  .abtn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
+  .abtn.primary:hover{filter:brightness(1.08)}
+  .abtn.wallet{background:transparent;border:1px solid color-mix(in srgb,var(--ok) 45%,var(--border-2));color:var(--ok)}
+
+  .w-desc{margin-top:var(--s4);background:var(--surface-2);border-radius:var(--radius-sm);padding:var(--s3) var(--s4)}
+  .w-desc .stat{font-weight:600;font-size:var(--fs-sm);display:flex;gap:var(--s3);flex-wrap:wrap;color:var(--ink)}
+  .w-desc .stat .v{color:var(--ok)}
+  .w-desc .body{margin-top:var(--s2);color:var(--ink);font-size:var(--fs-sm);line-height:1.6}
+  .w-desc .body p{margin:0 0 var(--s2)}
+  .w-desc .body .lbl{color:var(--accent);font-weight:700;margin-right:6px}
+  .w-desc.clamp .body{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .w-desc .more{margin-top:var(--s1);background:none;border:0;color:var(--ink);font-weight:700;font-size:var(--fs-sm);cursor:pointer;padding:0}
+  .w-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s2);margin-top:var(--s3)}
+  .w-info .cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);padding:10px 13px}
+  .w-info .cell .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:3px}
+  .w-info .cell .vv{font-weight:600;font-size:var(--fs-sm);word-break:break-word} .w-info .cell .vv.ok{color:var(--ok)}
+
+  .w-comments{margin-top:var(--s5)}
+  .cm-head{display:flex;align-items:center;gap:var(--s4);margin-bottom:var(--s4)}
+  .cm-head h3{font-size:var(--fs-md);font-weight:680;margin:0}
+  .cm-compose{display:flex;gap:var(--s3);margin-bottom:var(--s5)}
+  .cm-compose .av{width:40px;height:40px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+  .cm-compose .field{flex:1}
+  .cm-compose input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--border-2);color:var(--ink);padding:8px 2px;font-size:var(--fs-sm);outline:none;transition:border-color .2s}
+  .cm-compose input:focus{border-color:var(--ink)}
+  .cm-compose .row{display:flex;justify-content:flex-end;gap:var(--s2);margin-top:var(--s2);height:0;overflow:hidden;transition:height .2s}
+  .cm-compose.open .row{height:40px}
+  .cm-compose .row button{border-radius:99px;padding:9px 16px;font:600 var(--fs-sm)/1 inherit;cursor:pointer;border:0}
+  .cm-compose .cancel{background:transparent;color:var(--ink)} .cm-compose .cancel:hover{background:var(--surface-2)}
+  .cm-compose .send{background:var(--accent);color:#fff} .cm-compose .send:disabled{opacity:.4;cursor:default}
+  .cm{display:flex;gap:var(--s3);margin-bottom:var(--s4)}
+  .cm .av{width:40px;height:40px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.95rem}
+  .cm .who{font-size:var(--fs-sm);font-weight:620} .cm .who small{color:var(--faint);font-weight:400;margin-left:7px;font-size:var(--fs-cap)}
+  .cm .text{font-size:var(--fs-sm);line-height:1.5;margin:3px 0 6px}
+  .cm .vote{display:flex;align-items:center;gap:var(--s3);color:var(--dim);font-size:var(--fs-cap)}
+  .cm .vote button{border:0;background:transparent;color:var(--dim);cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px;border-radius:7px;font-size:var(--fs-cap)}
+  .cm .vote button:hover{background:var(--surface-2);color:var(--ink)} .cm .vote button.act{color:var(--like)}
+  .cm .vote .reply{font-weight:600}
+  .cm-empty{color:var(--dim);font-size:var(--fs);padding:var(--s4) 0 var(--s5)}
+
+  .up-head{font-size:var(--fs);font-weight:680;margin:0 0 var(--s3);display:flex;align-items:center;gap:var(--s2)}
+  .up-head .rk{font-size:var(--fs-cap);color:var(--faint);font-weight:500}
+  .up{display:flex;gap:var(--s3);padding:var(--s2);margin:0 -8px;border-radius:var(--radius-sm);cursor:pointer;transition:background .15s}
+  .up:hover{background:var(--surface-2)}
+  .up .th{position:relative;width:168px;flex:0 0 auto;aspect-ratio:var(--phi);border-radius:11px;overflow:hidden;display:grid;place-items:center}
+  .up .th svg{position:absolute;inset:0;width:100%;height:100%}
+  .up .th .thart{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .up .th .dur{position:absolute;right:5px;bottom:5px;background:#000c;color:#fff;font-size:.78rem;font-weight:700;padding:2px 7px;border-radius:6px}
+  .up .th .ic{position:relative;z-index:1;width:46px;height:46px;border-radius:24%;padding:8px;
+    background:linear-gradient(160deg,#14141ccc,#0a0a12d9);border:1px solid #ffffff2e;display:grid;place-items:center;
+    box-shadow:0 0 24px -6px color-mix(in srgb,var(--ca,#8a7bff) 70%,transparent)}
+  .up .th .ic img{width:100%;height:100%;object-fit:contain}
+  .up .ut{min-width:0}
+  .up .ut h5{margin:0;font-size:var(--fs-sm);font-weight:620;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .up .ut .c{color:var(--dim);font-size:var(--fs-cap);margin-top:3px}
+  .up .ut .why{color:var(--accent);font-size:.74rem;margin-top:3px}
+  @media(max-width:1000px){ .up .th{width:160px} }
+
+  .w-back{position:sticky;top:calc(var(--header-h) + 10px);z-index:5;float:left;margin:0 0 -42px var(--s2)}
+  .w-back button{border:1px solid var(--border-2);background:var(--surface);color:var(--ink);border-radius:99px;padding:8px 16px;font-weight:600;font-size:var(--fs-sm);cursor:pointer}
+  .w-back button:hover{background:var(--surface-2)}
+
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:90;opacity:0;pointer-events:none;
+    background:var(--surface-3);color:var(--ink);border:1px solid var(--border-2);border-radius:99px;padding:11px 20px;font-size:var(--fs-sm);font-weight:600;box-shadow:var(--shadow);transition:.25s var(--ease)}
+  #toast.on{opacity:1;transform:translateX(-50%)}
+
+  @media(max-width:860px){
+    #rail{position:fixed;left:0;top:var(--header-h);z-index:45;background:var(--bg);border-right:1px solid var(--border);
+      transform:translateX(-100%);transition:transform .25s var(--ease)}
+    body.rail-min #rail{flex-basis:var(--rail-w);width:var(--rail-w)}
+    body.rail-min .rail-label,body.rail-min .rail-grp,body.rail-min .rail-foot{display:revert}
+    body.rail-min .rail-item{justify-content:flex-start;padding:10px var(--s3)}
+    body.rail-open #rail{transform:none;box-shadow:var(--shadow)}
+    body.rail-open .scrim{display:block;position:fixed;inset:var(--header-h) 0 0 0;z-index:44;background:#0007;backdrop-filter:blur(2px)}
+    .col{width:100%}
+  }
+  @media(max-width:560px){
+    :root{--header-h:56px}
+    header{padding:0 var(--s3);gap:var(--s2)}
+    .search{width:auto;flex:1 1 auto}
+    .grid{grid-template-columns:1fr;gap:var(--s4)}
+    main,.watch-wrap{padding:var(--s3)}
+  }
+</style>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Hub"></holo-splash>
+
+<header>
+  <button class="icon-btn" id="menuBtn" title="Menu" aria-label="Toggle navigation">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <div class="brand" id="home-btn"><span class="mark">✦</span><span>Holo Hub</span></div>
+  <div class="hdr-sp"></div>
+  <div class="search" role="search">
+    <div id="qK" class="qk"></div>
+    <svg class="s-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="search" placeholder="Search everything you can run…" autocomplete="off" aria-label="Search" />
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Switch light / dark">◐</button>
+</header>
+
+<div class="layout" id="layout">
+  <aside id="rail" aria-label="Browse holo-native things"></aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="col">
+
+<div class="view on" id="view-home">
+  <main>
+    <div class="chips" id="home-chips"></div>
+    <div id="home-sections"></div>
+    <div class="empty" id="home-empty" hidden>Nothing matches that filter yet.</div>
+  </main>
+</div>
+
+<div class="view" id="view-search">
+  <main>
+    <div class="shead" id="searchHead"><h2 id="searchTitle">Search</h2><span class="sub" id="searchSub">every holo-native thing, by content</span></div>
+    <div class="grid" id="searchResults"></div>
+    <div class="empty" id="search-empty" hidden>Nothing matches that. Try another word.</div>
+  </main>
+</div>
+
+<div class="view" id="watch">
+  <div class="w-back"><button id="wBack">‹ Back</button></div>
+  <div class="watch-wrap">
+    <div class="w-main">
+      <div class="player" id="player">
+        <iframe id="pFrame" title="live holospace" allow="clipboard-write; fullscreen"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"></iframe>
+        <div class="boot"><span class="ring" data-holo-spin="scan"></span><div>Loading…</div></div>
+        <div class="ptop"><div id="pLive" title="Content-verified in your browser — every byte re-derived from its content address." style="font:600 var(--holo-text-sm, 0.75rem)/1 system-ui,sans-serif;color:#9fe7c4;background:#0b3b2a88;border:1px solid #46dca644;padding:6px 10px;border-radius:999px;letter-spacing:.2px;backdrop-filter:blur(6px)">✓ Verified</div></div>
+        <div class="pbar"><div class="pbar-l" id="pbarL"></div><div class="pbar-r" id="pbarR"></div></div>
+      </div>
+      <h1 class="w-title" id="wTitle"></h1>
+      <div class="w-bar">
+        <div class="w-chan">
+          <div id="wHeadK" class="w-headk"></div>
+          <div class="av" id="wAv"></div>
+          <div class="who"><b id="wChan"></b><small id="wChanSub"></small></div>
+          <button class="abtn primary" id="wGet" style="margin-left:8px">Get · free</button>
+          <button class="abtn wallet" id="wBuy">Buy license</button>
+        </div>
+        <div class="w-actions">
+          <div id="wActK" class="w-actk"></div>
+          <div class="seg">
+            <button id="wLike"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM7 10l4-7a2 2 0 0 1 2 2v3h5a2 2 0 0 1 2 2.3l-1.4 7A2 2 0 0 1 16.6 21H7"/></svg><span id="wLikeN">0</span></button>
+            <span class="sp"></span>
+            <button id="wDislike"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(180deg)"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM7 10l4-7a2 2 0 0 1 2 2v3h5a2 2 0 0 1 2 2.3l-1.4 7A2 2 0 0 1 16.6 21H7"/></svg></button>
+          </div>
+          <button class="abtn" id="wShare">↗ Share</button>
+          <button class="abtn" id="wSave">🔖 Save</button>
+          <button class="abtn" id="wMenu">⋯</button>
+        </div>
+      </div>
+
+      <div class="w-desc clamp" id="wDesc">
+        <div class="stat" id="wStat"></div>
+        <div class="body" id="wBody"></div>
+        <div class="w-info" id="wInfo"></div>
+        <button class="more" id="wMore">…more</button>
+      </div>
+
+      <div class="w-comments">
+        <div class="cm-head"><h3 id="cmCount">Comments</h3></div>
+        <div id="cmComposeK" class="cm-compose-k"></div>
+        <div class="cm-compose" id="cmCompose">
+          <div class="av" id="cmMeAv">?</div>
+          <div class="field">
+            <input id="cmInput" placeholder="Add a comment…" maxlength="500" />
+            <div class="row"><button class="cancel" id="cmCancel">Cancel</button><button class="send" id="cmSend" disabled>Comment</button></div>
+          </div>
+        </div>
+        <div id="cmList"></div>
+      </div>
+    </div>
+
+    <aside class="w-side">
+      <div id="upHeadK" class="up-headk"></div>
+      <div class="up-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <span>Up next</span>
+        <label style="display:flex;align-items:center;gap:7px;font:500 var(--holo-text-sm, 0.75rem)/1 system-ui,sans-serif;cursor:pointer;opacity:.85"><span>Autoplay</span><input type="checkbox" id="autoplayToggle"></label>
+      </div>
+      <div id="upNext"></div>
+    </aside>
+  </div>
+</div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+
+const ADOPTED_MODEL = "did:holo:sha256:40e306a68628bd0e6f51b1dfa9dff9fac18a2db901a41f8f38d8ecf37a97ca78";
+const FEATURED = ["org.hologram.HoloAtlas","org.hologram.HoloQ","org.hologram.HoloMusic","org.hologram.HoloCode","org.hologram.HoloWallet","org.hologram.HoloJupyter"];
+
+const enc = new TextEncoder();
+const jcs = (v) => v===null||typeof v!=="object" ? JSON.stringify(v)
+  : Array.isArray(v) ? "["+v.map(jcs).join(",")+"]"
+  : "{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+jcs(v[k])).join(",")+"}";
+async function kappa(content){
+  const d = await crypto.subtle.digest("SHA-256", enc.encode(jcs(content)));
+  return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+const hint = (s)=>{ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; };
+
+const $ = (s,r=document)=>r.querySelector(s);
+const el = (t,c,h)=>{const n=document.createElement(t);if(c)n.className=c;if(h!=null)n.innerHTML=h;return n;};
+const abs = (p)=> p ? ("/"+String(p).replace(/^\/+/,"")) : "";
+const esc = (s)=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ── κ-render substrate migration (Phase 3 slice 1 · flagged ?ksurface=1) ───────────────────────────
+// A card's cover becomes a declarative holo:Surface — content-addressed (κ), L5-verified, and drawn by
+// the OS κ-render substrate (WebGPU, DOM fallback) via the SAME render() spine, not bespoke DOM/CSS.
+import HoloSurface from "/_shared/holo-surface.mjs";
+const KSURF = !new URLSearchParams(location.search).has("nok");   // default ON — the κ-substrate is how Hub renders; ?nok=1 = kill-switch
+if(KSURF) document.body.classList.add("ksurf");
+const KSTORE = new Map();
+const kHex = (k)=>String(k).replace(/^did:holo:sha256:/,"");
+const shaRaw = async (b)=>{ const d=await crypto.subtle.digest("SHA-256", b instanceof Uint8Array?b:new Uint8Array(b)); return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join(""); };
+const kResolve = async (k)=>{ const b=KSTORE.get(kHex(k)); if(!b) throw new Error("κ not found"); return b; };
+const kVerify  = async (k,b)=> (await shaRaw(b))===kHex(k);    // re-derive on receipt (Law L5)
+const hx2 = (h)=>{ h=String(h||"#8a7bff").replace("#",""); if(h.length===3) h=h.split("").map(c=>c+c).join(""); return [parseInt(h.slice(0,2),16)/255, parseInt(h.slice(2,4),16)/255, parseInt(h.slice(4,6),16)/255]; };
+// rasterise any cover art (raster OR svg) to a PNG, content-address it (κ), stash for L5 resolution.
+async function rasterizeToKappa(url, W, H){
+  return new Promise((res)=>{
+    const img=new Image(); img.crossOrigin="anonymous";
+    img.onload=()=>{ try{
+      const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d");
+      const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+      if(iw&&ih){ const ar=iw/ih, tr=W/H; let dw=W,dh=H,dx=0,dy=0; if(ar>tr){dh=H;dw=H*ar;dx=(W-dw)/2;} else {dw=W;dh=W/ar;dy=(H-dh)/2;} g.drawImage(img,dx,dy,dw,dh); }
+      else { g.drawImage(img,0,0,W,H); }
+      c.toBlob(async(blob)=>{ if(!blob) return res(null); const bytes=new Uint8Array(await blob.arrayBuffer()); const h=await shaRaw(bytes); KSTORE.set(h,bytes); res("did:holo:sha256:"+h); }, "image/png");
+    }catch{ res(null); } };
+    img.onerror=()=>res(null); img.src=url;
+  });
+}
+// the cover, rendered by the κ-substrate: the thumbnail as an image-κ (raster OR svg→png), else a
+// fill+title surface — composited BEHIND the existing overlays (play/badge/dur/hover-preview kept).
+async function renderKCover(coverEl, p, accent){
+  const a=hx2(accent), W=360, H=220;
+  let imgK=null; const artUrl=p.art || (typeof coverArt==="function"? null : null);
+  if(p.art){ imgK = await rasterizeToKappa(p.art, W, H); }
+  const scene = imgK
+    ? { "@type":"holo:Surface", kind:"container", w:W, h:H, layout:"stack", pad:0, gap:0, radius:0, fill:[0,0,0,0], children:[{ kind:"image", src:imgK, w:W, h:H }] }
+    : { "@type":"holo:Surface", kind:"container", w:W, h:H, layout:"stack", pad:18, gap:8, radius:0, fill:[0.08,0.09,0.13,1], accent:[a[0],a[1],a[2],1], accentH:54,
+        children:[ { kind:"text", text:String(p.name||""), textSize:23, h:64, textColor:[0.97,0.98,1,1] }, { kind:"text", text:String(p.channel||"")+"  (verified)", textSize:15, h:30, textColor:[0.62,0.65,0.76,1] } ] };
+  const bytes=enc.encode(jcs(scene)); const k="did:holo:sha256:"+await shaRaw(bytes); KSTORE.set(kHex(k),bytes);
+  const stage=document.createElement("div"); stage.style.cssText="position:absolute;left:-99999px;top:0"; document.body.appendChild(stage);
+  let canvas=null;
+  try{ const out=await HoloSurface.renderSurface(stage, k, { resolve:kResolve, verify:kVerify }); coverEl.dataset.kbackend=out.backend||""; canvas=stage.querySelector("canvas"); }
+  catch(e){ coverEl.dataset.kerror=String(e&&e.message||e); }
+  if(canvas){ canvas.className="kart"; canvas.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:0"; const old=coverEl.querySelector("img.art, .bg"); if(old) old.replaceWith(canvas); else coverEl.prepend(canvas); }
+  stage.remove();
+}
+
+// render a κ-surface scene directly INTO an element (the watch panels): content-addressed + L5.
+async function renderKScene(targetEl, scene, opts={}){
+  if(!targetEl) return;
+  const bytes=enc.encode(jcs(scene)); const k="did:holo:sha256:"+await shaRaw(bytes); KSTORE.set(kHex(k),bytes);
+  try{ const out=await HoloSurface.renderSurface(targetEl, k, { resolve:kResolve, verify:kVerify }); targetEl.dataset.kbackend=out.backend||"";
+    if(opts.stretch){ const cv=targetEl.querySelector("canvas"); if(cv){ cv.style.width="100%"; cv.style.height="auto"; cv.style.display="block"; } } }
+  catch(e){ targetEl.dataset.kerror=String(e&&e.message||e); }
+}
+// INTERACTIVE κ-surface: a scene whose `button` nodes carry content-addressed action ids; the host
+// supplies the `actions` map (id→fn). The substrate dispatches via the conscience gate (P7), runs NO
+// inline code (L4/L5), and emits no telemetry (P5). This is how every interactive control composes.
+async function renderKSceneActions(targetEl, scene, actions, opts={}){
+  if(!targetEl) return;
+  const bytes=enc.encode(jcs(scene)); const k="did:holo:sha256:"+await shaRaw(bytes); KSTORE.set(kHex(k),bytes);
+  try{ const out=await HoloSurface.renderSurface(targetEl, k, { resolve:kResolve, verify:kVerify, actions }); targetEl.dataset.kbackend=out.backend||"";
+    if(opts.stretch){ const cv=targetEl.querySelector("canvas"); if(cv){ cv.style.width="100%"; cv.style.height="auto"; cv.style.display="block"; } } }
+  catch(e){ targetEl.dataset.kerror=String(e&&e.message||e); }
+}
+// the watch action row (Like / Dislike / Share / Save) as κ-surface BUTTONS — state→scene, re-rendered
+// on every action. Wired to the same vote/save/share handlers the legacy DOM row uses (?nok=1).
+async function renderActionRowK(p){
+  const host=$("#wActK"); if(!host||!p) return;
+  const v=myVote(p.id), liked=v===1, disliked=v===-1, saved=isSaved(p.id), acc=[0.26,0.52,1,1];
+  const likeN=fmt(counts(p).likes+(liked?1:0));
+  const W=440, cols=4, gap=10, pad=2, h=44;
+  const scene={ "@type":"holo:Surface", kind:"container", w:W, h, layout:"grid", cols, gap, pad, fill:[0,0,0,0], children:[
+    { kind:"button", action:"like",    label:`👍 ${likeN}`,            h:40, radius:999, toggleable:true, toggled:liked,    accent:acc, aria:liked?"Remove like":"Like" },
+    { kind:"button", action:"dislike", label:"👎",                     h:40, radius:999, toggleable:true, toggled:disliked, accent:acc, aria:disliked?"Remove dislike":"Dislike" },
+    { kind:"button", action:"share",   label:"↗ Share",               h:40, radius:999, aria:"Share this" },
+    { kind:"button", action:"save",    label:saved?"✓ Saved":"🔖 Save", h:40, radius:999, toggleable:true, toggled:saved, accent:acc, aria:saved?"Remove from library":"Save to library" },
+  ] };
+  const actions={
+    like:    ()=>{ setVote(p.id, myVote(p.id)===1?0:1); syncVote(p); renderActionRowK(p); },
+    dislike: ()=>{ setVote(p.id, myVote(p.id)===-1?0:-1); syncVote(p); renderActionRowK(p); },
+    share:   async()=>{ const url=location.origin+location.pathname+"#watch/"+(p.ident||p.id);
+      try{ if(navigator.share){ await navigator.share({title:p.name,url}); } else { await navigator.clipboard.writeText(url); toast("Link copied anyone can open it in one tap"); } }catch{} },
+    save:    ()=>{ const s=toggleSaved(p.id); $("#wSave").classList.toggle("act",s); $("#wSave").innerHTML=s?"✓ Saved":"🔖 Save"; toast(s?"Saved to my library":"Removed from library"); renderActionRowK(p); },
+  };
+  await renderKSceneActions(host, scene, actions);
+}
+// the comment COMPOSER (text field + Cancel/Comment) as a κ-surface: the `input` kind paired with `button`s.
+// Rendered ONCE per watch-open — the live <input> is the source of truth, so typing never re-renders the
+// scene (that would destroy focus/caret); Comment/Enter read the field's current value at dispatch time.
+async function renderComposerK(p){
+  const host=$("#cmComposeK"); if(!host||!p) return;
+  const acc=[0.26,0.52,1,1];
+  const field=()=>host.querySelector('.holo-input-proxy, [data-holo-surface="input"]');
+  const post=async()=>{ if(!WATCH)return; const f=field(); const v=(f&&f.value||"").trim(); if(!v){ toast("Write something first"); return; }
+    await cmAdd(WATCH,v); if(f) f.value=""; renderComments(WATCH); toast("Comment posted · synced to your other tabs"); };
+  const scene={ "@type":"holo:Surface", kind:"container", w:560, layout:"stack", gap:10, pad:0, fill:[0,0,0,0], children:[
+    { kind:"input", action:"draft", submit:"send", value:"", placeholder:"Add a comment…", w:560, h:42, aria:"Add a comment" },
+    { "@type":"holo:Surface", kind:"container", w:560, layout:"grid", cols:2, gap:10, pad:0, fill:[0,0,0,0], children:[
+      { kind:"button", action:"clear",  label:"Cancel",  h:38, radius:999 },
+      { kind:"button", action:"send",    label:"Comment", h:38, radius:999, accent:acc, toggled:true },
+    ] },
+  ] };
+  const actions={ draft:()=>{}, send:post, clear:()=>{ const f=field(); if(f) f.value=""; f&&f.focus&&f.focus(); } };
+  await renderKSceneActions(host, scene, actions);
+}
+// the CHANNEL HEADER (avatar + name/sub + Get/Buy) as a κ-surface row; Get/Buy re-render on ownership change.
+async function renderHeaderK(p){
+  const host=$("#wHeadK"); if(!host||!p) return;
+  const owned=isOwned(p.id);
+  const a=hx2("#"+(hint(p.channel||"H")&0xffffff).toString(16).padStart(6,"0"));
+  const sub = p.isMedia ? (p.album || (p.mkind==="video"?"video":p.mkind==="file"?"file":"track")) : `${PRODUCTS.filter(x=>x.channel===p.channel).length} apps`;
+  const W=620, avW=46, gap=12, whoW=W-avW-140-140-gap*3;
+  const scene={ "@type":"holo:Surface", kind:"container", w:W, layout:"row", gap, pad:0, fill:[0,0,0,0], children:[
+    { kind:"container", w:avW, h:avW, radius:999, pad:0, layout:"stack", fill:[a[0],a[1],a[2],1],
+      children:[{ kind:"text", text:(p.channel||"H")[0].toUpperCase(), textSize:20, h:avW, align:"center", pad:Math.round((avW-28)/2), textColor:[1,1,1,1] }] },
+    { kind:"container", w:whoW, h:avW, pad:2, gap:3, layout:"stack", fill:[0,0,0,0], children:[
+      { kind:"text", text:String(p.channel||""), textSize:16, h:24, textColor:[0.97,0.98,1,1] },
+      { kind:"text", text:sub, textSize:13, h:18, textColor:[0.62,0.65,0.76,1] } ] },
+    { kind:"button", action:"get", label: owned?"✓ Owned":"Get · free", w:140, h:42, radius:999, toggleable:true, toggled:owned, accent:[0.18,0.50,0.38,1], fill: owned?[0.18,0.50,0.38,1]:[0.30,0.45,0.95,1], textColor:[1,1,1,1] },
+    { kind:"button", action:"buy", label: owned?"Buy another":"Buy license", w:140, h:42, radius:999, fill:[0.16,0.17,0.22,1] },
+  ] };
+  const actions={
+    get: async()=>{ if(isOwned(p.id)){ toast("You already hold a title to this"); return; } const t=await ownProduct(p); renderHeaderK(p); toast("Owned ✓ · title κ "+t["@id"].split(":").pop().slice(0,10)+" yours, portable"); },
+    buy: async()=>{ toast("Waiting for Holo Wallet approval…"); try{ const {hash}=await buyProduct(p,LICENSE); renderHeaderK(p); toast(`Paid ${LICENSE} USD₮ ✓ · tx ${String(hash).slice(0,10)}… · license held`); }catch(e){ toast(e.message||"Payment cancelled"); } },
+  };
+  await renderKSceneActions(host, scene, actions, { stretch:true });
+}
+// the SEARCH field as a κ-surface text `input` — typing routes to the same doSearch the legacy box used.
+function renderSearchK(){
+  const host=$("#qK"); if(!host) return;
+  const scene={ "@type":"holo:Surface", kind:"input", w:520, h:42, radius:999, fill:[1,1,1,0.06], placeholder:"Search everything you can run…", action:"q", submit:"q", aria:"Search", textColor:[0.97,0.98,1,1] };
+  const onq=(n,ev)=>{ const v=ev.target.value; if(v.trim()){ setView("search"); doSearch(v); } else setView("home"); };
+  renderKSceneActions(host, scene, { q:onq }, { stretch:true });
+}
+// a small κ-surface section header (title + sub) — replaces the DOM .shead / rail header.
+function kHead(title, sub){
+  const d=el("div","khead");
+  renderKScene(d, { "@type":"holo:Surface", kind:"container", w:680, layout:"stack", gap:3, pad:0, fill:[0,0,0,0], children:[
+    { kind:"text", text:String(title||""), textSize:20, h:28, textColor:[0.97,0.98,1,1] },
+    ...(sub?[{ kind:"text", text:String(sub), textSize:13, h:18, textColor:[0.62,0.65,0.76,1] }]:[]) ] }, {stretch:true});
+  return d;
+}
+// the watch view's CONTENT panels (description + info grid) as composed κ-surfaces — the same render()
+// spine as the cards. The player stays native media; channel header / comments stay DOM (chrome).
+async function renderWatchKappa(p){
+  const W=560, cols=2, pad=12, gap=12, ch=64; const cellW=Math.round((W-pad*2-gap*(cols-1))/cols);
+  const cells=[["Verified","✓ genuine"],["Type",typeOf(p)],["Shelf",shelfOf(p)],["Requires",p.reqs?(p.reqs+" parts"):"self-contained"],["Runtime","your browser"],["Version",p.version?("v"+p.version):"—"],["Ownership",isOwned(p.id)?"a title you hold":"free to own"],["Channel",p.channel||""]];
+  const kids=cells.map(([k,v])=>({ kind:"container", w:cellW, h:ch, fill:[0.16,0.17,0.22,1], radius:10, pad:10, gap:2, layout:"stack",
+    children:[ {kind:"text",text:k,textSize:12,h:18,textColor:[0.62,0.65,0.76,1]}, {kind:"text",text:String(v),textSize:16,h:26,textColor:[0.97,0.98,1,1]} ] }));
+  const rows=Math.ceil(cells.length/cols);
+  await renderKScene($("#wInfo"), { "@type":"holo:Surface", kind:"container", w:W, h:pad*2+rows*ch+(rows-1)*gap, layout:"grid", cols, gap, pad, fill:[0,0,0,0], children:kids });
+  const desc=String(p.desc||"A little something to enjoy.");
+  await renderKScene($("#wBody"), { "@type":"holo:Surface", kind:"container", w:W, h:140, layout:"stack", pad:16, gap:8, radius:12, fill:[0.08,0.09,0.13,1],
+    children:[ {kind:"text",text:String(p.name||""),textSize:20,h:30,textColor:[0.97,0.98,1,1]}, {kind:"text",text:desc,textSize:14,h:80,textColor:[0.62,0.65,0.76,1]} ] });
+}
+const slug = (s)=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+const fmt = (n)=> n>=1e6 ? (n/1e6).toFixed(n<1e7?1:0)+"M" : n>=1e3 ? (n/1e3).toFixed(n<1e4?1:0)+"K" : String(n);
+function ago(dateStr){
+  if(!dateStr) return "recently";
+  const t=Date.parse(dateStr); if(isNaN(t)) return "recently";
+  const d=Math.max(0,(Date.now()-t)/864e5);
+  if(d<1) return "today"; if(d<2) return "yesterday";
+  if(d<7) return Math.round(d)+" days ago";
+  if(d<30) return Math.round(d/7)+" week"+(d<14?"":"s")+" ago";
+  if(d<365) return Math.round(d/30)+" month"+(d<60?"":"s")+" ago";
+  return Math.round(d/365)+" year"+(d<730?"":"s")+" ago";
+}
+const fmtDur=(s)=>{ s=Math.round(s||0); if(!s) return ""; const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=String(s%60).padStart(2,"0");
+  return h ? `${h}:${String(m).padStart(2,"0")}:${ss}` : `${m}:${ss}`; };
+
+const MEDIA = {};
+const musicArtUrl=(coverArt)=>{ const hex=String(coverArt||"").replace(/^sha256:/,""); return hex ? `/apps/music/music/art/${hex}.svg` : ""; };
+async function buildMusic(lib){
+  return (lib.songs||[]).map((s)=>({
+    id:"mus:"+s.id, ident:s.id, name:s.title||"Untitled", channel:s.artist||"Unknown artist",
+    art: musicArtUrl(s.coverArt), landing:`/apps/music/index.html?song=${encodeURIComponent(s.id)}`,
+    k:(s.kappa||"").replace(/^sha256:/,""),
+    desc:`“${s.title}” by ${s.artist}${s.album?` from ${s.album}`:""}. A content-addressed audio object: streamed and verified by its κ, right in my browser. Plays in Holo Music.`,
+    date:s.year?(s.year+"-01-01"):"", dur:s.duration||0, album:s.album||"", size:s.size||0, fileType:s.contentType||"audio",
+    accent:"#1db954", isMedia:true, mkind:"track", _type:"Music",
+  }));
+}
+async function buildVideo(cat){
+  const enrich=cat.enrich||{};
+  return Promise.all((cat.items||[]).map(async (v)=>{ const e=enrich[v.id]||{};
+    return {
+      id:"vid:"+v.id, ident:v.id, name:v.title||"Untitled", channel:v.channel||e.channel||"Holo Video",
+      art: v.poster||"", landing:`/apps/video/index.html?src=${encodeURIComponent(v.src)}&type=${encodeURIComponent(v.type||"")}&poster=${encodeURIComponent(v.poster||"")}&title=${encodeURIComponent(v.title||"")}`,
+      k: await kappa({kind:"video",src:v.src,title:v.title,format:v.format}),
+      desc:`${e.blurb||v.title}. Streamed adaptively as ${(v.format||"video").toUpperCase()} every chunk content-verified through Holo Video.${v.license?` ${v.license}.`:""}`,
+      date:cat.generatedAt||"", dur:v.runtimeSec||0, license:v.license||"",
+      accent:"#7b68ee", isMedia:true, mkind:"video", _type:"Video",
+    };
+  }));
+}
+async function buildFiles(lib){
+
+  return (lib.songs||[]).map((s)=>({
+    id:"file:"+s.id, ident:s.id, name:(s.path||s.title||"file").split("/").pop(), channel:s.artist||"Holo Files",
+    art: musicArtUrl(s.coverArt), landing:`/apps/music/index.html?song=${encodeURIComponent(s.id)}`,
+    k:(s.kappa||"").replace(/^sha256:/,""),
+    desc:`${s.path||s.title} a ${(s.contentType||"file")} of ${(s.size/1024|0)} KB, addressed and verified by its content (κ). One object, the same bytes everywhere.`,
+    date:s.year?(s.year+"-01-01"):"", dur:s.duration||0, size:s.size||0, fileType:s.contentType||"file",
+    accent:"#3aa6ef", isMedia:true, mkind:"file", _type:"Files",
+  }));
+}
+const MEDIA_SRC = {
+  Music:{ url:"/apps/music/music/library.json", build:buildMusic },
+  Video:{ url:"/apps/player/feed/catalog.json", build:buildVideo },
+  Files:{ url:"/apps/music/music/library.json", build:buildFiles },
+};
+async function loadMedia(type){
+  if(MEDIA[type]) return MEDIA[type];
+  const cfg=MEDIA_SRC[type]; if(!cfg) return (MEDIA[type]=[]);
+  let data={}; try{ data=await (await fetch(cfg.url)).json(); }catch{}
+  try{ return (MEDIA[type]=await cfg.build(data)); }catch{ return (MEDIA[type]=[]); }
+}
+
+const SHELVES = ["Learn","Create","Play"];
+const SHELF_BLURB = { Learn:"Explore and understand the web, the machines, the ideas.", Create:"Make and get things done code, files, money, calls.", Play:"Stream and enjoy music, video, games, worlds." };
+function shelfOf(p){
+  const c=new Set([...(p.categories||[]), p.appcat||""]);
+  const has=(...x)=>x.some(v=>c.has(v));
+  if(has("Education","Science")) return "Learn";
+  if(has("Office","Development","Network","DeveloperApplication","BusinessApplication","FinanceApplication","SocialNetworkingApplication")) return "Create";
+  if(has("Game","AudioVideo","Audio","Video","Graphics","MultimediaApplication","GameApplication")) return "Play";
+  if(has("System","Utility","Settings","SecurityApplication")) return "Learn";
+  return "Create";
+}
+
+const TYPES = ["Apps","Books","Music","Video","Games","Files","Services","Dev","Worlds"];
+function typeOf(p){
+  if(p._type) return p._type;
+  const id=(p.ident||"").toLowerCase(), kw=new Set((p.keywords||[]).map(k=>k.toLowerCase())), c=new Set(p.categories||[]);
+  const any=(set,...x)=>x.some(v=>set.has(v));
+  if(/\b(music|amp|player)$/.test(id)||any(c,"Audio","Music")||any(kw,"music","radio","podcasts","audio")) return "Music";
+  if(/(video|stream|f1)$/.test(id)||any(c,"Video")||any(kw,"video","film","streaming")) return /f1$/.test(id)?"Video":"Video";
+  if(/(book|docs|terms|guide)$/.test(id)||any(c,"Education")||any(kw,"book","reading","docs","forum","discussion")) return "Books";
+  if(any(c,"Game")||any(kw,"game","gaming")) return "Games";
+  if(/(files|ipfs|cloud|capture)$/.test(id)||any(kw,"files","storage","filesystem")) return "Files";
+  if(/(wallet|trade|btc|evm|plasma|etherscan|meet|liberty|brcminer)$/.test(id)||any(c,"FinanceApplication","Network","SocialNetworkingApplication")||any(kw,"wallet","payments","swap","defi","crypto","video call","meeting")) return "Services";
+  if(/(code|forge|git|q$|qvac|qemu|tauri|control|workspace)$/.test(id)||any(c,"Development","DeveloperApplication")||any(kw,"code","editor","developer","compiler","ide")) return "Dev";
+  if(/(cosmos|atlas|os)$/.test(id)||any(kw,"map","3d","space","world","cosmos")) return "Worlds";
+  return "Apps";
+}
+
+function counts(p){
+  const a=hint(p.k), b=hint(p.k+"·s");
+  const streams = 1800 + (a % 880000);
+  const likes = Math.round(streams * (0.028 + (b%55)/1000));
+  return { streams, likes };
+}
+
+function hexToHsl(hex){
+  hex=String(hex||"#8a7bff").replace("#",""); if(hex.length===3) hex=hex.split("").map(c=>c+c).join("");
+  const r=parseInt(hex.slice(0,2),16)/255,g=parseInt(hex.slice(2,4),16)/255,b=parseInt(hex.slice(4,6),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b); let h=0,s=0,l=(mx+mn)/2;
+  if(mx!==mn){ const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn);
+    h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; }
+  return [h,s*100,l*100];
+}
+function hslToHex(h,s,l){
+  s/=100; l/=100; h=((h%360)+360)%360;
+  const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2; let r=0,g=0,b=0;
+  if(h<60){r=c;g=x;} else if(h<120){r=x;g=c;} else if(h<180){g=c;b=x;}
+  else if(h<240){g=x;b=c;} else if(h<300){r=x;b=c;} else {r=c;b=x;}
+  const f=v=>Math.round((v+m)*255).toString(16).padStart(2,"0"); return "#"+f(r)+f(g)+f(b);
+}
+const _cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
+function palette(a){
+  const [h,s,l]=hexToHsl(a);
+  return { h, base0:hslToHex(h,_cl(s*.55),5), base1:hslToHex(h,_cl(s*.85),12),
+    acc:hslToHex(h,_cl(s+6),_cl(Math.max(l,53))), accDim:hslToHex(h,_cl(s),_cl(Math.max(l,53)-20)),
+    iri:hslToHex(h+42,88,67), iri2:hslToHex(h+150,78,62) };
+}
+const _rng=(seed)=>{ let x=(seed>>>0)||1; return ()=>{ x^=x<<13;x^=x>>>17;x^=x<<5;x>>>=0; return x/4294967296; }; };
+
+function motifSVG(t,C,r){
+  const A=C.acc,I=C.iri,D=C.accDim;
+  switch(t){
+    case "Music":{
+      let bars=""; for(let i=0;i<13;i++){ const x=110+i*120, hh=120+Math.floor(r()*340); bars+=`<rect x="${x}" y="${940-hh}" width="58" height="${hh}" rx="29" fill="${A}" opacity="${.22+.18*(i%3)}"/>`; }
+      let rings=""; for(let i=1;i<=3;i++) rings+=`<circle cx="809" cy="450" r="${220+i*150}" fill="none" stroke="${I}" stroke-width="3" opacity="${.2/i}"/>`;
+      return rings+bars; }
+    case "Video":{
+      const perf=y=>Array.from({length:18},(_,i)=>`<rect x="${30+i*92}" y="${y}" width="40" height="26" rx="6" fill="${A}" opacity=".5"/>`).join("");
+      return `<path d="M-120 1060 L760 -90" stroke="${I}" stroke-width="190" opacity=".07" stroke-linecap="round"/>
+        <g>${perf(54)}${perf(920)}</g>
+        <g opacity=".42"><circle cx="809" cy="450" r="250" fill="none" stroke="${A}" stroke-width="5"/><path d="M735 350 L955 450 L735 550 Z" fill="${I}"/></g>`; }
+    case "Books":{
+      let pages=""; for(let i=-3;i<=3;i++) pages+=`<path d="M809 880 C ${809+i*150} 520, ${809+i*215} 350, ${809+i*150} 170" fill="none" stroke="${A}" stroke-width="4" opacity="${.5-Math.abs(i)*.05}"/>`;
+      let lines=""; for(let i=0;i<5;i++) lines+=`<rect x="110" y="${690+i*46}" width="${280-i*22}" height="12" rx="6" fill="${I}" opacity=".4"/>`;
+      return pages+lines; }
+    case "Games":{
+      const dx=1190,dy=600,a=72;
+      const dpad=`<g fill="${A}" opacity=".55"><rect x="${dx-a/2}" y="${dy-a*1.5}" width="${a}" height="${a*3}" rx="18"/><rect x="${dx-a*1.5}" y="${dy-a/2}" width="${a*3}" height="${a}" rx="18"/></g>`;
+      let hex=""; for(let i=0;i<5;i++) hex+=`<circle cx="${150+i*120}" cy="300" r="40" fill="none" stroke="${A}" stroke-width="3" opacity=".25"/>`;
+      return hex+dpad+`<circle cx="1420" cy="560" r="34" fill="${I}" opacity=".6"/><circle cx="1500" cy="640" r="34" fill="${A}" opacity=".6"/>`; }
+    case "Files":{
+      let s=""; for(let i=0;i<3;i++) s+=`<rect x="${550+i*72}" y="${290+i*62}" width="560" height="380" rx="36" fill="${C.base1}" stroke="${A}" stroke-width="4" opacity="${.45+i*.16}"/>`;
+      return s+`<rect x="600" y="350" width="220" height="16" rx="8" fill="${I}" opacity=".5"/>`; }
+    case "Services":{
+      const N=Array.from({length:7},()=>[120+Math.floor(r()*1380),120+Math.floor(r()*760)]);
+      let e=""; for(let i=0;i<N.length;i++) for(let j=i+1;j<N.length;j++) if(r()>.6) e+=`<line x1="${N[i][0]}" y1="${N[i][1]}" x2="${N[j][0]}" y2="${N[j][1]}" stroke="${A}" stroke-width="2" opacity=".22"/>`;
+      const nd=N.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="13" fill="${I}" opacity=".6"/>`).join("");
+      return e+nd+`<path d="M1360 290 L1280 510 L1360 510 L1300 720 L1490 450 L1395 450 Z" fill="${A}" opacity=".5"/>`; }
+    case "Dev":
+      return `<g fill="none" stroke="${A}" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" opacity=".5">
+        <path d="M560 310 L370 500 L560 690"/><path d="M1058 310 L1248 500 L1058 690"/><path d="M745 720 L875 280" stroke="${I}"/></g>
+        <rect x="110" y="850" width="130" height="36" rx="8" fill="${I}" opacity=".6"/>`;
+    case "Worlds":{
+      let lat="",lon=""; for(let i=1;i<=4;i++){ lat+=`<ellipse cx="809" cy="450" rx="330" ry="${80*i}" fill="none" stroke="${A}" stroke-width="3" opacity=".3"/>`; lon+=`<ellipse cx="809" cy="450" rx="${80*i}" ry="330" fill="none" stroke="${A}" stroke-width="3" opacity=".3"/>`; }
+      return `<circle cx="809" cy="450" r="330" fill="none" stroke="${I}" stroke-width="4" opacity=".4"/>`+lat+lon; }
+    default:{ let sq=""; for(let i=0;i<5;i++){ const s=130+i*150; sq+=`<rect x="${809-s/2}" y="${450-s/2}" width="${s}" height="${s}" rx="${s*.22}" fill="none" stroke="${A}" stroke-width="3" opacity="${.42-i*.06}"/>`; } return sq; }
+  }
+}
+let _uid=0;
+function coverArt(p){
+  const a=p.accent||("#"+(hint(p.name)&0xffffff).toString(16).padStart(6,"0"));
+  const C=palette(a), r=_rng(hint(p.k)), u="cv"+(++_uid);
+  return `<svg viewBox="0 0 1618 1000" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="b${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${C.base1}"/><stop offset="1" stop-color="${C.base0}"/></linearGradient>
+      <radialGradient id="h${u}" cx="50%" cy="45%" r="48%"><stop offset="0" stop-color="${C.acc}" stop-opacity=".6"/><stop offset="1" stop-color="${C.acc}" stop-opacity="0"/></radialGradient>
+      <linearGradient id="i${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${C.iri}"/><stop offset=".5" stop-color="${C.acc}"/><stop offset="1" stop-color="${C.iri2}"/></linearGradient>
+      <radialGradient id="s${u}" cx="50%" cy="0%" r="85%"><stop offset="0" stop-color="#ffffff" stop-opacity=".22"/><stop offset=".42" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="v${u}" cx="50%" cy="50%" r="75%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></radialGradient>
+    </defs>
+    <rect width="1618" height="1000" fill="url(#b${u})"/>
+    <rect width="1618" height="1000" fill="url(#h${u})"/>
+    ${motifSVG(typeOf(p),C,r)}
+    <rect width="1618" height="1000" fill="url(#i${u})" opacity=".13" style="mix-blend-mode:screen"/>
+    <rect width="1618" height="1000" fill="url(#s${u})"/>
+    <rect width="1618" height="1000" fill="url(#v${u})"/>
+  </svg>`;
+}
+const avBg=(seed)=>`linear-gradient(135deg, hsl(${hint(seed)%360} 62% 52%), hsl(${(hint(seed)+90)%360} 62% 46%))`;
+
+const PLASMA={chain:"plasma",token:"USDT0"}, MAKER="0x000000000000000000000000000000000000d011", LICENSE=4.99;
+function walletRequest(request,{timeoutMs=120000}={}){
+  return new Promise((resolve,reject)=>{
+    const id=(crypto.randomUUID&&crypto.randomUUID())||String(Math.random());
+    const bus=new BroadcastChannel("holo-wallet");
+    const t=setTimeout(()=>{done();reject(new Error("Holo Wallet didn't respond open it from the dock and unlock."));},timeoutMs);
+    function onMsg(e){const d=e.data;if(!d||d.type!=="holo-wallet:sign-result"||d.id!==id)return;done();d.error?reject(new Error(d.error)):resolve(d);}
+    function done(){clearTimeout(t);bus.removeEventListener("message",onMsg);bus.close();}
+    bus.addEventListener("message",onMsg); bus.postMessage({type:"holo-wallet:sign-request",id,request});
+  });
+}
+const walletSend=(to,amount)=>walletRequest({kind:"send",chain:PLASMA.chain,to,amount:String(amount),token:PLASMA.token});
+
+let IDENTITY=null;
+async function identity(){
+  if(IDENTITY) return IDENTITY;
+  const kp=await crypto.subtle.generateKey({name:"Ed25519"},true,["sign","verify"]);
+  const pub=new Uint8Array(await crypto.subtle.exportKey("raw",kp.publicKey));
+  const pubB64=btoa(String.fromCharCode(...pub));
+  const did="did:holo:sha256:"+(await kappa({pub:pubB64}));
+  IDENTITY={did,pubB64,sign:async(str)=>{const s=new Uint8Array(await crypto.subtle.sign({name:"Ed25519"},kp.privateKey,enc.encode(str)));return btoa(String.fromCharCode(...s));}};
+  return IDENTITY;
+}
+async function mintTitle(productK,paid){
+  const me=await identity();
+  const body={"@type":"https://hologram.os/ns/own#Title",owner:me.did,owned:productK,
+    rights:{license:"use",...(paid?{paid}:{})},issuer:{pub:me.pubB64,alg:"Ed25519"}};
+  const id="did:holo:sha256:"+(await kappa(body)); const sig=await me.sign(id);
+  return {...body,"@id":id,sig};
+}
+const OWNED_KEY="holo-hub:owned";
+const ownedMap=()=>{try{return JSON.parse(localStorage.getItem(OWNED_KEY)||"{}");}catch{return{};}};
+const isOwned=(id)=>!!ownedMap()[id];
+function saveOwned(id,title){const m=ownedMap();m[id]={title:title["@id"],when:new Date().toISOString(),paid:title.rights.paid||null};localStorage.setItem(OWNED_KEY,JSON.stringify(m));}
+async function ownProduct(p){const t=await mintTitle(p.k,null);saveOwned(p.id,t);return t;}
+async function buyProduct(p,price){const {hash}=await walletSend(MAKER,price);const t=await mintTitle(p.k,{txid:hash,amount:price,currency:PLASMA.token,chain:PLASMA.chain});saveOwned(p.id,t);return {hash,title:t};}
+
+const lsGet=(k)=>{try{return JSON.parse(localStorage.getItem(k)||"[]");}catch{return[];}};
+const lsSet=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const SAVED_KEY="holo-hub:saved", HIST_KEY="holo-hub:history";
+const isSaved=(id)=>lsGet(SAVED_KEY).includes(id);
+function toggleSaved(id){const s=new Set(lsGet(SAVED_KEY));s.has(id)?s.delete(id):s.add(id);lsSet(SAVED_KEY,[...s]);return s.has(id);}
+function noteWatched(id){const h=lsGet(HIST_KEY).filter(x=>x!==id);h.unshift(id);lsSet(HIST_KEY,h.slice(0,40));}
+
+const VOTE_KEY="holo-hub:votes";
+const votes=()=>{try{return JSON.parse(localStorage.getItem(VOTE_KEY)||"{}");}catch{return{};}};
+const myVote=(id)=>votes()[id]||0;
+function setVote(id,v){const m=votes();v?m[id]=v:delete m[id];localStorage.setItem(VOTE_KEY,JSON.stringify(m));}
+
+function rankFor(current, all, history){
+  const watched=new Set(history||[]);
+  const kwOf=(p)=>new Set([...(p.keywords||[]),...(p.categories||[]),typeOf(p),shelfOf(p)].map(x=>String(x).toLowerCase()));
+  const curKw=current?kwOf(current):new Set();
+  const histKw=new Set(); (history||[]).map(id=>all.find(p=>p.id===id)).filter(Boolean).forEach(p=>kwOf(p).forEach(k=>histKw.add(k)));
+  const score=(p)=>{
+    if(current&&p.id===current.id) return -1;
+    let s = counts(p).streams/1e6 * 0.4;
+    let overlap=0; for(const k of kwOf(p)) if(curKw.has(k)) overlap++;
+    let hov=0;     for(const k of kwOf(p)) if(histKw.has(k)) hov++;
+    s += overlap*1.0 + hov*0.5;
+    if(current && shelfOf(p)===shelfOf(current)) s+=0.6;
+    if(current && p.channel===current.channel) s+=0.8;
+    return s;
+  };
+  const reason=(p)=>{
+    if(current){
+      if(p.channel===current.channel) return `More from ${current.channel}`;
+      let best=null,bv=0; for(const k of kwOf(p)) if(curKw.has(k)&&k.length>3){ best=k; break; }
+      if(best) return `Because you're watching ${current.name}`;
+      if(shelfOf(p)===shelfOf(current)) return `More in ${shelfOf(current)}`;
+    }
+    const last=(history||[]).map(id=>all.find(x=>x.id===id)).find(Boolean);
+    if(last && last.id!==(current&&current.id)) return `Because you watched ${last.name}`;
+    return "Popular on Holo Hub";
+  };
+  return all.map(p=>({p,score:score(p),why:reason(p)}))
+    .filter(x=>x.score>=0).sort((a,b)=> b.score-a.score || (a.p.id<b.p.id?-1:1));
+}
+
+const cmId=(()=>{
+  const key="holo-hub:me"; let v; try{v=JSON.parse(localStorage.getItem(key));}catch{}
+  if(!v||!v.uh){ const r=crypto.getRandomValues(new Uint8Array(8)); v={uh:[...r].map(b=>b.toString(16).padStart(2,"0")).join(""),name:"You"}; localStorage.setItem(key,JSON.stringify(v)); }
+  return v;
+})();
+const CM_NS=(k)=>"holo-hub:cm:"+k;
+
+const cmLoad=(k)=>{try{ const l=JSON.parse(localStorage.getItem(CM_NS(k))||"[]");
+  return Array.isArray(l)?l.filter(c=>c&&!String(c.uh||"").startsWith("seed:")&&!String(c.id||"").startsWith("seed:")):[]; }catch{return[];}};
+const cmSave=(k,list)=>localStorage.setItem(CM_NS(k),JSON.stringify(list));
+let cmBus=null; try{ cmBus=new BroadcastChannel("holo-hub:comments"); }catch{}
+async function cmAdd(p,text){
+  const body={app:p.k,uh:cmId.uh,name:cmId.name||"You",color:"#8a7bff",text:String(text).slice(0,500),at:new Date().toISOString()};
+  body.id=await kappa(body); body.likes=0; body.mine=true;
+  const list=cmLoad(p.k); list.unshift(body); cmSave(p.k,list);
+  try{ cmBus&&cmBus.postMessage({app:p.k,comment:body}); }catch{}
+  return body;
+}
+function cmLike(p,id){
+  const list=cmLoad(p.k); const c=list.find(x=>x.id===id); if(!c) return;
+  c._liked=!c._liked; c.likes=(c.likes||0)+(c._liked?1:-1); cmSave(p.k,list);
+}
+if(cmBus) cmBus.onmessage=(e)=>{ const d=e.data; if(!d||!d.comment) return;
+  const list=cmLoad(d.app); if(!list.find(x=>x.id===d.comment.id)){ list.unshift(d.comment); cmSave(d.app,list);
+    if(WATCH&&WATCH.k===d.app) renderComments(WATCH); } };
+
+let PRODUCTS=[]; const byRef={};
+const findByRef=(ref)=>PRODUCTS.find(p=>p.id===ref||p.ident===ref||slug(p.name)===slug(ref)||(ref&&String(p.id).endsWith(ref)));
+function productContent(e){
+  return { "@type":["schema:Product","medusa:StoreProduct"],
+    name:e["schema:name"]||null, description:e["schema:description"]||null, image:e["schema:image"]||null,
+    category:e["schema:applicationCategory"]||null, handle:slug(e["schema:name"]), holo_app:e["@id"], adopted_model:ADOPTED_MODEL };
+}
+async function load(){
+  const cat = await (await fetch("/apps/index.jsonld")).json();
+  const ds = cat["dcat:dataset"]||[];
+  PRODUCTS = await Promise.all(ds.map(async (e)=>{
+    const landing=abs(e["dcat:landingPage"]);
+    const dir=String(e["dcat:landingPage"]||"").split("/")[1]||"";
+
+    let hs={}; try{ hs = await (await fetch(`/apps/${dir}/holospace.json`)).json(); }catch{}
+    const rel=(hs.releases||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
+    const p = {
+      entry:e, id:e["@id"], ident:e["schema:identifier"]||"", dir,
+      name:e["schema:name"]||e["schema:identifier"]||e["@id"],
+      appcat:e["schema:applicationCategory"]||"App", desc:e["schema:description"]||"",
+      icon:abs(e["schema:image"]), landing,
+      reqs:(e["schema:softwareRequirements"]||[]).length,
+      channel:(hs.developer&&hs.developer.name)||"Hologram Technologies",
+      accent:hs.accent||"", categories:hs.categories||[], keywords:hs.keywords||[],
+      version:rel?rel.version:"", date:rel?rel.date:"", license:hs.license||"",
+      k: await kappa(productContent(e)),
+    };
+    byRef[p.id]=p; return p;
+  }));
+
+  try{
+    const seen=JSON.parse(localStorage.getItem("holo-hub:seen")||"null");
+    if(seen) PRODUCTS.forEach(p=>{ if(!(p.id in seen)) p.isNew=true; else if(seen[p.id]!==p.k) p.isUpdated=true; });
+    const now={}; PRODUCTS.forEach(p=>now[p.id]=p.k); localStorage.setItem("holo-hub:seen",JSON.stringify(now));
+  }catch{}
+  $("#cmMeAv").textContent=(cmId.name||"Y")[0].toUpperCase();
+  if(KSURF) renderSearchK();   // the search field as a κ-surface input
+  buildRail(); renderHome(); route();
+  window.HoloHub={
+    products:PRODUCTS,
+    search:(q)=>{ $("#q").value=q; setView("search"); return doSearch(q); },
+    open:(ref)=>{ const p=findByRef(ref); if(p) openWatch(p); return !!p; },
+    play:(ref)=>{ const p=findByRef(ref); if(p) openWatch(p); return !!p; },
+    watch:(ref)=>{ const p=findByRef(ref); if(p) openWatch(p); return !!p; },
+    recommend:(ref)=>{ const p=ref?findByRef(ref):null; return rankFor(p,PRODUCTS,lsGet(HIST_KEY)).slice(0,12).map(x=>({id:x.p.id,name:x.p.name,why:x.why})); },
+    comment:(ref,text)=>{ const p=findByRef(ref); return p?cmAdd(p,text):Promise.resolve(null); },
+    own:(ref)=>{ const p=findByRef(ref); return p?ownProduct(p):Promise.resolve(null); },
+    buy:(ref,price=LICENSE)=>{ const p=findByRef(ref); return p?buyProduct(p,price):Promise.resolve(null); },
+    owned:()=>Object.keys(ownedMap()), saved:()=>lsGet(SAVED_KEY), identity:()=>identity(),
+  };
+}
+
+// ── the CARD as a single composed κ-surface (cover image/fill + overlay badge/duration/play + meta text).
+// Every visible pixel is content-addressed + L5-verified; the whole-card click is a container handler (no DOM
+// content), and the live hover-preview is a native iframe (a streamed app) layered over the κ canvas.
+const CARD_W=320, COVER_H=200;
+// cards are built detached (card()) then appended to the grid; a WebGPU/WebGL canvas rendered while its
+// element is OFF the document has an invalid swap-chain → "Destroyed texture … used in a submit" → blank
+// covers in real-GPU browsers. So render only once the card is connected (the hero already works because it
+// is appended before it renders). Resolves immediately if already connected; gives up after ~120 frames.
+function waitConnected(elm, frames=120){ return new Promise((res)=>{ if(elm.isConnected) return res(); const tick=()=>{ if(elm.isConnected||frames--<=0) return res(); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); }
+async function renderKCardInto(c, p){
+  const a=p.accent||("#"+(hint(p.name)&0xffffff).toString(16).padStart(6,"0")); const acc=hx2(a);
+  let imgK=null; if(p.art){ try{ imgK=await rasterizeToKappa(p.art, CARD_W, COVER_H); }catch{} }
+  const coverKids=[];
+  if(imgK) coverKids.push({ kind:"image", src:imgK, w:CARD_W, h:COVER_H });
+  const badge = isOwned(p.id)?["Owned",[0.16,0.52,0.38,1]] : p.isUpdated?["Updated",[0.26,0.42,0.86,1]] : p.isNew?["New",[0.52,0.38,0.86,1]] : null;
+  if(badge) coverKids.push({ kind:"container", abs:true, ax:10, ay:10, w:badge[0].length*8+22, h:24, radius:999, fill:badge[1], pad:0, layout:"stack",
+    children:[{ kind:"text", text:badge[0], textSize:12, h:24, pad:6, textColor:[1,1,1,1] }] });
+  if(p.isMedia && p.dur) coverKids.push({ kind:"container", abs:true, ax:CARD_W-62, ay:COVER_H-30, w:52, h:22, radius:6, fill:[0,0,0,0.78], pad:0, layout:"stack",
+    children:[{ kind:"text", text:fmtDur(p.dur), textSize:12, h:22, pad:4, textColor:[1,1,1,1] }] });
+  coverKids.push({ kind:"container", abs:true, ax:CARD_W/2-22, ay:COVER_H/2-22, w:44, h:44, radius:999, fill:[0,0,0,0.46], pad:0, layout:"stack",
+    children:[{ kind:"text", text:"▶", textSize:17, h:44, pad:11, textColor:[1,1,1,1] }] });
+  const cover={ kind:"container", w:CARD_W, h:COVER_H, radius:12, pad:0, layout:"stack", fill:[acc[0],acc[1],acc[2],1],
+    accent: imgK?null:[Math.min(1,acc[0]*1.25),Math.min(1,acc[1]*1.25),Math.min(1,acc[2]*1.25),1], accentH: imgK?0:COVER_H, children:coverKids };
+  const meta={ kind:"container", w:CARD_W, pad:12, gap:3, layout:"stack", fill:[0,0,0,0], children:[
+    { kind:"text", text:String(p.name||""), textSize:15, h:42, textColor:[0.97,0.98,1,1] },
+    { kind:"text", text:String(p.channel||"")+"  ✓", textSize:13, h:20, textColor:[0.62,0.65,0.76,1] },
+  ] };
+  const scene={ "@type":"holo:Surface", kind:"container", w:CARD_W, layout:"stack", gap:0, pad:0, fill:[0,0,0,0], children:[cover, meta] };
+  const bytes=enc.encode(jcs(scene)); const k="did:holo:sha256:"+await shaRaw(bytes); KSTORE.set(kHex(k),bytes);
+  await waitConnected(c);   // render in-place into the ATTACHED card (never into a detached canvas, never moved)
+  try{ const out=await HoloSurface.renderSurface(c, k, { resolve:kResolve, verify:kVerify }); c.dataset.kbackend=out.backend||"";
+    const cv=c.querySelector("canvas"); if(cv){ cv.style.cssText="width:100%;height:auto;display:block;border-radius:12px"; } }
+  catch(e){ c.dataset.kerror=String(e&&e.message||e); }
+}
+function card(p){
+  const c=el("div","card kcard"); c.dataset.id=p.id;
+  renderKCardInto(c, p);
+  if(!p.art){ c.addEventListener("pointerenter",()=>schedulePreview(c,p)); c.addEventListener("pointerleave",()=>endPreview(c)); }
+  c.onclick=()=>{ endPreview(c); openWatch(p, !!p.isMedia); };
+  return c;
+}
+
+let _pvTimer=null;
+function schedulePreview(card,p){ clearTimeout(_pvTimer); _pvTimer=setTimeout(()=>mountPreview(card,p),420); }
+function endPreview(card){ clearTimeout(_pvTimer); card.classList.remove("previewing");
+  const pv=card.querySelector(".pv"); if(pv){ const ifr=pv.querySelector("iframe"); if(ifr){ try{ifr.src="about:blank";}catch{} } pv.remove(); } }
+function mountPreview(card,p){
+  if(card.querySelector(".pv")) return;
+  const w=card.clientWidth||CARD_W, LW=1280, ratio=COVER_H/CARD_W;
+  const pv=document.createElement("div"); pv.className="pv";
+  pv.style.cssText=`position:absolute;left:0;top:0;width:100%;height:${(w*ratio)|0}px;overflow:hidden;border-radius:12px;z-index:2;pointer-events:none`;
+  const ifr=document.createElement("iframe");
+  ifr.title="preview"; ifr.tabIndex=-1; ifr.setAttribute("aria-hidden","true"); ifr.loading="lazy";
+  ifr.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock");
+  ifr.style.cssText=`width:${LW}px;height:${Math.round(LW*ratio)}px;transform:scale(${(w/LW).toFixed(4)});transform-origin:top left;border:0`;
+  ifr.onload=()=>card.classList.add("previewing");
+  pv.appendChild(ifr); card.appendChild(pv); ifr.src=p.landing;
+}
+function gridOf(list){ const g=el("div","grid"); list.forEach(p=>g.appendChild(card(p))); return g; }
+
+function railShell(title,sub){ const r=el("div","rail"); r.appendChild(kHead(title,sub)); r.appendChild(el("div","strip")); return r; }
+function fillStrip(rail,list){ const s=rail.querySelector(".strip"); s.innerHTML=""; list.forEach(p=>s.appendChild(card(p))); }
+function railOf(title,sub,list){ const r=railShell(title,sub); fillStrip(r,list); return r; }
+
+// the home HERO as a κ-surface: bg art (κ image) or accent fill, with title/meta/desc + Play/More buttons overlaid.
+async function renderHero(hostEl){
+  let h=null; try{ const v=await loadMedia("Video"); h=v.find(x=>/big buck bunny.*4k/i.test(x.name))||v.find(x=>x.art)||v[0]; }catch{}
+  if(!h) h=FEATURED.map(findByRef).filter(Boolean)[0];
+  if(!hostEl.isConnected) return; if(!h){ hostEl.remove(); return; }
+  const HW=1120, HH=440; let imgK=null; if(h.art){ try{ imgK=await rasterizeToKappa(h.art, HW, HH); }catch{} }
+  const acc=hx2(h.accent||"#8a7bff");
+  const kids=[]; if(imgK) kids.push({ kind:"image", src:imgK, w:HW, h:HH });
+  kids.push({ kind:"container", abs:true, ax:0, ay:HH-210, w:HW, h:210, pad:0, fill:[0,0,0,0.0], children:[] });   // (scrim handled by fill darkening below)
+  kids.push({ kind:"container", abs:true, ax:44, ay:HH-196, w:Math.round(HW*0.62), pad:0, gap:12, layout:"stack", fill:[0,0,0,0], children:[
+    { kind:"text", text:String(h.name||""), textSize:40, h:52, textColor:[1,1,1,1] },
+    { kind:"text", text:`${h.dur?fmtDur(h.dur)+"  ·  ":""}${h.channel||""}  ·  ✓ verified`, textSize:15, h:22, textColor:[0.86,0.88,0.96,1] },
+    { kind:"text", text:String(h.desc||"Yours the moment you open it."), textSize:15, h:46, textColor:[0.82,0.84,0.92,1] },
+    { kind:"container", w:300, h:48, layout:"row", gap:10, pad:0, fill:[0,0,0,0], children:[
+      { kind:"button", action:"play", label:"▶  Play", w:140, h:46, radius:999, fill:[0.97,0.98,1,1], textColor:[0.05,0.06,0.10,1] },
+      { kind:"button", action:"info", label:"More info", w:140, h:46, radius:999, fill:[0.20,0.21,0.28,0.92], textColor:[0.97,0.98,1,1] },
+    ] },
+  ] });
+  const scene={ "@type":"holo:Surface", kind:"container", w:HW, h:HH, radius:16, pad:0, layout:"stack", fill:[acc[0]*0.45,acc[1]*0.45,acc[2]*0.45,1], children:kids };
+  const open=()=>openWatch(h, !!h.isMedia);
+  await renderKSceneActions(hostEl, scene, { play:open, info:open }, { stretch:true });
+}
+
+const ICON=(n)=>({
+  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  learn:'<path d="M22 9 12 5 2 9l10 4 10-4Z"/><path d="M6 11v5c0 1 2.7 3 6 3s6-2 6-3v-5"/>',
+  create:'<path d="M12 3l2.1 6.1L20 11l-5.9 1.9L12 19l-2.1-6.1L4 11l5.9-1.9z"/>',
+  play:'<circle cx="12" cy="12" r="9"/><path d="M10 8.2 16 12l-6 3.8z" fill="currentColor" stroke="none"/>',
+  apps:'<rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/>',
+  books:'<path d="M12 6c-2-1.4-5-1.4-8 0v13c3-1.4 6-1.4 8 0 2-1.4 5-1.4 8 0V6c-3-1.4-6-1.4-8 0z"/><path d="M12 6v13"/>',
+  music:'<path d="M9 18V5l10-2v11"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="14" r="3"/>',
+  video:'<rect x="3" y="5" width="18" height="14" rx="2.6"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/>',
+  games:'<rect x="2" y="6" width="20" height="12" rx="5.5"/><path d="M7 12h4M9 10v4"/><circle cx="16" cy="11.4" r="1"/><circle cx="18" cy="13.4" r="1"/>',
+  files:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  services:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  dev:'<path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/>',
+  worlds:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.6 3 14.4 0 18M12 3c-3 3.6-3 14.4 0 18"/>',
+  saved:'<path d="M6 3h12v18l-6-4-6 4z"/>',
+  owned:'<path d="M9 12l2 2 4-4"/><path d="M12 3l2.3 1.7 2.8.2.9 2.7 2.3 1.7-.9 2.7.9 2.7-2.3 1.7-.9 2.7-2.8.2L12 21l-2.3-1.7-2.8-.2-.9-2.7L3.7 14.7l.9-2.7-.9-2.7 2.3-1.7.9-2.7 2.8-.2z"/>',
+}[n]||'');
+const CAT_ICON={Learn:"learn",Create:"create",Play:"play"};
+const TYPE_ICON={Apps:"apps",Books:"books",Music:"music",Video:"video",Games:"games",Files:"files",Services:"services",Dev:"dev",Worlds:"worlds"};
+
+let FILTER={shelf:"All",type:"All",special:null};
+const closeDrawer=()=>document.body.classList.remove("rail-open");
+// the navigation rail as a κ-surface: each item a `button` (left-aligned label), group headers + foot as text.
+function buildRail(){
+  const r=$("#rail"); if(!r) return;
+  const go=(f)=>{ FILTER={shelf:"All",type:"All",special:null,...f}; location.hash=""; setView("home"); renderHome(); buildRail(); closeDrawer(); window.scrollTo({top:0}); };
+  const W=232, IW=W-16, kids=[], actions={}; let i=0;
+  const item=(label,active,fn)=>{ const id="r"+(i++); const ink=active?[0.97,0.98,1,1]:[0.62,0.65,0.76,1];
+    kids.push({ kind:"button", action:id, aria:label, w:IW, h:42, radius:10, fill: active?[0.22,0.30,0.55,1]:[0,0,0,0],
+      children:[{ kind:"text", text:label, textSize:14, h:42, pad:14, align:"left", textColor:ink }] });
+    actions[id]=fn; };
+  const grp=(t)=>kids.push({ kind:"text", text:t, textSize:11, h:28, pad:14, textColor:[0.55,0.58,0.68,1] });
+  const div=()=>kids.push({ kind:"container", w:IW, h:1, pad:0, fill:[1,1,1,0.07], children:[] });
+  item("⌂   Home", FILTER.shelf==="All"&&FILTER.type==="All"&&!FILTER.special, ()=>go({}));
+  grp("Categories");
+  SHELVES.forEach(s=>item(s, FILTER.shelf===s, ()=>go({shelf:s})));
+  div(); grp("Browse by type");
+  const present=new Set(PRODUCTS.map(typeOf));
+  TYPES.filter(t=>present.has(t)).forEach(t=>item(t, FILTER.type===t, ()=>go({type:t})));
+  div(); grp("Yours");
+  item("Saved", FILTER.special==="saved", ()=>go({special:"saved"}));
+  item("Owned", FILTER.special==="owned", ()=>go({special:"owned"}));
+  kids.push({ kind:"text", text:"Private · instant · yours", textSize:11, h:34, pad:14, textColor:[0.45,0.48,0.58,1] });
+  renderKSceneActions(r, { "@type":"holo:Surface", kind:"container", w:W, layout:"stack", gap:4, pad:8, fill:[0,0,0,0], children:kids }, actions);
+}
+function passFilter(p){
+  if(FILTER.special==="saved") return isSaved(p.id);
+  if(FILTER.special==="owned") return isOwned(p.id);
+  return (FILTER.shelf==="All"||shelfOf(p)===FILTER.shelf) && (FILTER.type==="All"||typeOf(p)===FILTER.type);
+}
+
+// filter chips — the familiar one-tap row (All + categories + present types) as κ-surface BUTTONS, wired to FILTER.
+function renderChips(){
+  const bar=$("#home-chips"); if(!bar) return;
+  const isAll=FILTER.shelf==="All"&&FILTER.type==="All"&&!FILTER.special;
+  if(isAll){ bar.hidden=true; bar.replaceChildren(); return; }   // hero-first immersive home — no chip row over the cover
+  bar.hidden=false; bar.style.cssText="overflow-x:auto;padding:var(--s3) 0;scrollbar-width:none;-ms-overflow-style:none";
+  const go=(f)=>{ FILTER={shelf:"All",type:"All",special:null,...f}; setView("home"); renderHome(); buildRail(); window.scrollTo({top:0}); };
+  const present=new Set(PRODUCTS.map(typeOf));
+  const defs=[["All",{},isAll]];
+  SHELVES.forEach(s=>defs.push([s,{shelf:s},FILTER.shelf===s]));
+  TYPES.filter(t=>present.has(t)).forEach(t=>defs.push([t,{type:t},FILTER.type===t]));
+  const gap=8, kids=[], actions={};
+  defs.forEach(([label,f,active],i)=>{ const id="c"+i, w=label.length*8.2+30;
+    kids.push({ kind:"button", action:id, label, w, h:34, radius:999, toggleable:true, toggled:active,
+      fill: active?[0.93,0.94,0.99,1]:[0.16,0.17,0.22,1], textColor: active?[0.05,0.06,0.10,1]:[0.92,0.94,0.98,1] });
+    actions[id]=()=>go(f); });
+  const W=Math.round(kids.reduce((s,k)=>s+k.w,0)+gap*(kids.length-1));
+  renderKSceneActions(bar, { "@type":"holo:Surface", kind:"container", w:W, h:34, layout:"row", gap, pad:0, fill:[0,0,0,0], children:kids }, actions);
+}
+function renderHome(){
+  const host=$("#home-sections"); host.innerHTML=""; renderChips();
+  const list=PRODUCTS.filter(passFilter);
+  const empty=$("#home-empty"); empty.hidden=list.length>0;
+  empty.textContent = FILTER.special==="saved" ? "Nothing saved yet open something and tap Save."
+    : FILTER.special==="owned" ? "You don't own anything yet opening is free, owning mints a title you hold."
+    : "Nothing matches that filter yet.";
+  if(FILTER.shelf==="All"&&FILTER.type==="All"&&!FILTER.special){
+
+    const hero=el("div","hero"); host.appendChild(hero); renderHero(hero);
+    const feats=FEATURED.map(findByRef).filter(Boolean);
+    if(feats.length) host.appendChild(railOf("Featured","a few worth opening first", feats));
+    SHELVES.forEach(s=>{ const items=PRODUCTS.filter(p=>shelfOf(p)===s); if(items.length) host.appendChild(railOf(s, SHELF_BLURB[s], items)); });
+
+    const vidRail=railShell("Videos","play instantly, in full quality"); host.appendChild(vidRail);
+    loadMedia("Video").then(v=>{ if(vidRail.isConnected && v.length) fillStrip(vidRail, v); else if(vidRail.isConnected) vidRail.remove(); });
+    const musRail=railShell("Songs","every track, instant and yours"); host.appendChild(musRail);
+    loadMedia("Music").then(m=>{ if(musRail.isConnected && m.length) fillStrip(musRail, m); else if(musRail.isConnected) musRail.remove(); });
+  } else if(FILTER.shelf==="All" && !FILTER.special && (FILTER.type==="Music"||FILTER.type==="Video"||FILTER.type==="Files")){
+
+    const t=FILTER.type, label=t==="Music"?"songs":t==="Video"?"videos":"files";
+    const appName=t==="Music"?"Holo Music":t==="Video"?"Holo Player":"Holo Files";
+    empty.hidden=true;
+    host.appendChild(kHead(t,"play any of them instantly, right here"));
+    const mediaHost=el("div"); mediaHost.appendChild(el("div","empty",`loading ${label}…`)); host.appendChild(mediaHost);
+    const apps=PRODUCTS.filter(passFilter);
+    if(apps.length){ host.appendChild(kHead("Players","open the full app")); host.appendChild(gridOf(apps)); }
+    loadMedia(t).then(items=>{ if(FILTER.type!==t) return; mediaHost.innerHTML="";
+      if(!items.length){ mediaHost.appendChild(el("div","empty",`No ${label} yet.`)); return; }
+      mediaHost.appendChild(gridOf(items)); });
+  } else {
+    const head = FILTER.special==="saved" ? "Saved" : FILTER.special==="owned" ? "Owned"
+      : FILTER.shelf!=="All" ? FILTER.shelf : FILTER.type;
+    const sub = FILTER.special==="saved" ? "my library watch later, by content address"
+      : FILTER.special==="owned" ? "titles you hold portable, yours, never locked away"
+      : FILTER.shelf!=="All" ? SHELF_BLURB[FILTER.shelf]
+      : `${list.length} ${list.length===1?"thing":"things"} you can stream`;
+    host.appendChild(kHead(head,sub));
+    host.appendChild(gridOf(list));
+  }
+}
+
+const searchPool=()=>PRODUCTS.concat(...Object.values(MEDIA));
+function doSearch(query){
+  const term=(query||"").trim().toLowerCase();
+  const pool=searchPool();
+  const m=term?pool.filter(p=>(p.name+" "+(p.desc||"")+" "+(p.channel||"")+" "+typeOf(p)+" "+(p.album||"")+" "+(p.keywords||[]).join(" ")).toLowerCase().includes(term)):pool;
+  const g=$("#searchResults"); g.innerHTML=""; m.forEach(p=>g.appendChild(card(p)));
+  if(KSURF){ const head=$("#searchHead"); if(head) head.replaceChildren(kHead(term?`“${query}”`:"Search", `${m.length} ${m.length===1?"result":"results"} · by content address`)); }
+  else { $("#searchTitle").textContent=term?`“${query}”`:"Search"; $("#searchSub").textContent=`${m.length} ${m.length===1?"result":"results"} · by content address`; }
+  $("#search-empty").hidden=m.length>0;
+  return m;
+}
+$("#q").addEventListener("input",(e)=>{ const v=e.target.value; if(v.trim()){ setView("search"); doSearch(v); } else { setView("home"); } });
+
+function setView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===("view-"+name)||v.id===name));
+  document.body.classList.toggle("watching", name==="watch");
+  if(name!=="watch"){ document.body.classList.remove("theater"); window.scrollTo({top:0}); }
+}
+$("#home-btn").onclick=()=>{ FILTER={shelf:"All",type:"All",special:null}; location.hash=""; setView("home"); renderHome(); buildRail(); closeDrawer(); };
+
+const railMq=matchMedia("(max-width:860px)");
+$("#menuBtn").onclick=()=>{ if(railMq.matches) document.body.classList.toggle("rail-open"); else document.body.classList.toggle("rail-min"); };
+$("#scrim").onclick=closeDrawer;
+function route(){
+  const h=decodeURIComponent(location.hash.replace(/^#/,""));
+  if(h.startsWith("watch/")){ const p=findByRef(h.slice(6)); if(p){ openWatch(p,true); return; } }
+  setView("home"); WATCH=null; $("#pFrame").src="about:blank"; document.title="Holo Hub stream everything you can run";
+}
+addEventListener("hashchange",route);
+
+let WATCH=null;
+function openWatch(p, fromRoute){
+  if(!fromRoute && location.hash!=="#watch/"+(p.ident||p.id)){ location.hash="watch/"+(p.ident||p.id); return; }
+  WATCH=p; noteWatched(p.id);
+  setView("watch"); window.scrollTo({top:0});
+  document.title=p.name+" · Holo Hub";
+
+  const player=$("#player"), frame=$("#pFrame"); player.classList.remove("ready");
+  const t0=performance.now();
+  frame.onload=()=>{ const ms=Math.max(1,Math.round(performance.now()-t0)); player.classList.add("ready");
+    $("#pLive").textContent="✓ Verified"; };
+  frame.src=p.landing;
+  buildPlayerControls(p);
+
+  const cc=counts(p);
+  $("#wTitle").textContent=p.name;
+  $("#wChan").textContent=p.channel;
+  $("#wChanSub").textContent = p.isMedia ? (p.album || (p.mkind==="video"?"video":p.mkind==="file"?"file":"track")) : `${PRODUCTS.filter(x=>x.channel===p.channel).length} apps`;
+  const av=$("#wAv"); av.style.background=avBg(p.channel); av.innerHTML=`<span>${esc((p.channel||"H")[0]||"H")}</span>`;
+
+  syncVote(p); $("#wLikeN").textContent=fmt(cc.likes + (myVote(p.id)===1?1:0));
+
+  $("#wSave").classList.toggle("act",isSaved(p.id)); $("#wSave").innerHTML=isSaved(p.id)?"✓ Saved":"🔖 Save";
+
+  syncOwn(p);
+
+  $("#wStat").innerHTML=`<span>${fmt(cc.streams)} streams</span><span>·</span><span>Updated ${esc(ago(p.date))}</span><span>·</span><span class="v">✓ verified</span>`;
+  $("#wBody").innerHTML=
+    `<p>${esc(p.desc||"A little something to enjoy.")}</p>`+
+    `<p><span class="lbl">How it works</span> ${esc(p.name)} opens instantly and plays right here nothing to install, nothing to wait for, and it's genuinely yours.</p>`+
+    `<p><span class="lbl">What you get</span> Enjoy it instantly above. Own it to keep a copy that's truly yours, or back the maker with a license. It works the same on every device.</p>`;
+  $("#wInfo").innerHTML=[
+    ["Verified",`<span class='vv ok'>✓ genuine</span>`],
+    ["Type",esc(typeOf(p))],["Shelf",esc(shelfOf(p))],
+    ["Requires",p.reqs?(p.reqs+" parts"):"self-contained"],
+    ["Runtime","your browser"],
+    ["Version",p.version?("v"+esc(p.version)+(p.date?(" · "+esc(p.date)):"")):""],
+    ["Ownership", isOwned(p.id)?"<span class='vv ok'>a title you hold</span>":"free to own"],
+    ["Channel",esc(p.channel)],
+  ].map(([k,v])=>`<div class="cell"><div class="k">${k}</div><div class="vv">${v}</div></div>`).join("");
+  $("#wDesc").classList.add("clamp"); $("#wMore").textContent="…more";
+  if(KSURF){ $("#wDesc").classList.remove("clamp");
+    renderKScene($("#wTitle"), { "@type":"holo:Surface", kind:"container", w:760, pad:0, fill:[0,0,0,0], layout:"stack", children:[{ kind:"text", text:String(p.name||""), textSize:25, h:36, textColor:[0.98,0.99,1,1] }] }, {stretch:true});
+    renderKScene($("#wStat"), { "@type":"holo:Surface", kind:"container", w:560, h:24, pad:0, fill:[0,0,0,0], layout:"stack", children:[{ kind:"text", text:`${fmt(cc.streams)} streams · Updated ${ago(p.date)} · ✓ verified`, textSize:13, h:20, textColor:[0.62,0.65,0.76,1] }] }, {stretch:true});
+    renderHeaderK(p); renderWatchKappa(p); renderActionRowK(p); renderComposerK(p); }   // title + stat + header + panels + action row + composer via the κ-substrate
+
+  renderComments(p);
+  renderUpNext(p);
+  initAutoplay(); if(KSURF) renderUpHeadK();
+}
+
+const PICON=(n)=>({
+  restart:'<path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/>',
+  theater:'<rect x="2.5" y="6.5" width="19" height="11" rx="2.2"/>',
+  full:'<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>',
+  tab:'<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M19 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>',
+  pip:'<rect x="3" y="5" width="18" height="14" rx="2.4"/><rect x="11" y="11" width="8" height="6" rx="1.2" fill="currentColor" stroke="none"/>',
+}[n]||'');
+function buildPlayerControls(p){
+  const player=$("#player"), frame=$("#pFrame"), t=typeOf(p);
+  const restart={ic:"restart",label:"Restart stream",act:()=>{ player.classList.remove("ready"); const s=frame.src; frame.src="about:blank"; requestAnimationFrame(()=>{frame.src=s;}); }};
+  const theater={ic:"theater",label:"Theater mode",act:(b)=>{ const on=document.body.classList.toggle("theater"); b.classList.toggle("on",on); window.scrollTo({top:0}); }};
+  const full={ic:"full",label:"Full screen",act:()=>{ (player.requestFullscreen||frame.requestFullscreen).call(player.requestFullscreen?player:frame); }};
+  const tab={ic:"tab",label:"Open in new tab",act:()=>window.open(p.landing,"_blank")};
+  const pop={ic:"pip",label:"Pop-out player",act:()=>window.open(p.landing,"holo-pop","width=1000,height=640")};
+  let set,kind;
+  if(t==="Music"||t==="Video"){ set=[restart,pop,theater,full,tab]; kind="Streaming"; }
+  else if(t==="Worlds"||t==="Games"){ set=[restart,theater,full,tab]; kind="Immersive"; }
+  else if(t==="Books"){ set=[restart,theater,tab,full]; kind="Reading"; }
+  else { set=[restart,tab,theater,full]; kind="Live app"; }
+  $("#pbarL").innerHTML="";   // clean: no "kind · type" jargon on the player bar
+  const R=$("#pbarR"); R.innerHTML="";
+  set.forEach(c=>{ const b=el("button","pbtn"); b.title=c.label; b.setAttribute("aria-label",c.label);
+    b.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PICON(c.ic)}</svg>`;
+    if(c.ic==="theater"&&document.body.classList.contains("theater")) b.classList.add("on");
+    b.onclick=()=>c.act(b); R.appendChild(b); });
+}
+function syncVote(p){
+  const v=myVote(p.id);
+  $("#wLike").classList.toggle("act",v===1); $("#wDislike").classList.toggle("act",v===-1);
+  $("#wLikeN").textContent=fmt(counts(p).likes + (v===1?1:0));
+}
+function syncOwn(p){
+  const owned=isOwned(p.id), get=$("#wGet"), buy=$("#wBuy"), sub=$("#wChanSub");
+  if(owned){ get.textContent="✓ Owned"; get.classList.add("act"); get.classList.remove("primary"); buy.textContent="Buy another license"; }
+  else { get.textContent="Get · free"; get.classList.add("primary"); get.classList.remove("act"); buy.textContent="Buy license"; }
+}
+$("#wBack").onclick=()=>{ location.hash=""; };
+$("#wMore").onclick=()=>{ const d=$("#wDesc"); const c=d.classList.toggle("clamp"); $("#wMore").textContent=c?"…more":"Show less"; };
+$("#wLike").onclick=()=>{ if(!WATCH)return; setVote(WATCH.id, myVote(WATCH.id)===1?0:1); syncVote(WATCH); };
+$("#wDislike").onclick=()=>{ if(!WATCH)return; setVote(WATCH.id, myVote(WATCH.id)===-1?0:-1); syncVote(WATCH); };
+$("#wSave").onclick=()=>{ if(!WATCH)return; const s=toggleSaved(WATCH.id); $("#wSave").classList.toggle("act",s); $("#wSave").innerHTML=s?"✓ Saved":"🔖 Save"; toast(s?"Saved to my library":"Removed from library"); };
+$("#wShare").onclick=async()=>{ if(!WATCH)return; const url=location.origin+location.pathname+"#watch/"+(WATCH.ident||WATCH.id);
+  try{ if(navigator.share){ await navigator.share({title:WATCH.name,url}); } else { await navigator.clipboard.writeText(url); toast("Link copied anyone can open it in one tap"); } }catch{} };
+$("#wMenu").onclick=()=>{ if(!WATCH)return; navigator.clipboard?.writeText("did:holo:sha256:"+WATCH.k).then(()=>toast("Content address (κ) copied"),()=>{}); };
+$("#wGet").onclick=async()=>{ if(!WATCH)return; if(isOwned(WATCH.id)){ toast("You already hold a title to this"); return; }
+  const t=await ownProduct(WATCH); syncOwn(WATCH); toast("Owned ✓ · title κ "+t["@id"].split(":").pop().slice(0,10)+" yours, portable"); };
+$("#wBuy").onclick=async()=>{ if(!WATCH)return; const b=$("#wBuy"); b.disabled=true; toast("Waiting for Holo Wallet approval…");
+  try{ const {hash}=await buyProduct(WATCH,LICENSE); syncOwn(WATCH); toast(`Paid ${LICENSE} USD₮ ✓ · tx ${String(hash).slice(0,10)}… · license held`); }
+  catch(e){ toast(e.message); } finally{ b.disabled=false; } };
+
+// ── autoplay + keyboard shortcuts (familiar player ergonomics) ─────────────────────────────────────
+const AUTOPLAY_KEY="holo.hub.autoplay";
+const autoplayOn=()=> localStorage.getItem(AUTOPLAY_KEY)!=="0";   // default ON, like the platforms
+function initAutoplay(){ const t=$("#autoplayToggle"); if(!t) return; t.checked=autoplayOn(); t.onchange=()=>localStorage.setItem(AUTOPLAY_KEY, t.checked?"1":"0"); }
+// the up-next header (title + Autoplay toggle) as a κ-surface row
+function renderUpHeadK(){
+  const host=$("#upHeadK"); if(!host) return; const on=autoplayOn();
+  const scene={ "@type":"holo:Surface", kind:"container", w:360, layout:"row", gap:10, pad:0, fill:[0,0,0,0], children:[
+    { kind:"container", w:200, h:34, pad:0, layout:"stack", fill:[0,0,0,0], children:[{ kind:"text", text:"Up next", textSize:16, h:30, textColor:[0.97,0.98,1,1] }] },
+    { kind:"button", action:"toggle", label: on?"Autoplay ✓":"Autoplay", w:130, h:32, radius:999, toggleable:true, toggled:on, accent:[0.26,0.52,1,1], fill: on?[0.26,0.52,1,1]:[0.16,0.17,0.22,1] },
+  ] };
+  renderKSceneActions(host, scene, { toggle:()=>{ localStorage.setItem(AUTOPLAY_KEY, autoplayOn()?"0":"1"); renderUpHeadK(); } }, {stretch:true});
+}
+function playNext(){ if(!WATCH) return; const pool=(WATCH.isMedia&&Array.isArray(MEDIA[WATCH._type])&&MEDIA[WATCH._type].length)?MEDIA[WATCH._type]:PRODUCTS; const next=rankFor(WATCH,pool,lsGet(HIST_KEY)).map(x=>x.p).find(q=>q.id!==WATCH.id); if(next) openWatch(next, !!next.isMedia); }
+// best-effort: an embedded media player that posts an 'ended' message advances autoplay (honest: depends on the player emitting it)
+addEventListener("message",(e)=>{ const d=e&&e.data; if(d&&(d==="ended"||d.type==="ended"||d.event==="ended")&&autoplayOn()) playNext(); });
+// keyboard: "/" focus search · Esc back · t theater · f fullscreen · n next  (play/seek live inside the player)
+addEventListener("keydown",(e)=>{
+  const tag=(e.target.tagName||"").toLowerCase(); if(tag==="input"||tag==="textarea"||e.target.isContentEditable||e.metaKey||e.ctrlKey) return;
+  const watching=document.body.classList.contains("watching");
+  if(e.key==="/"){ e.preventDefault(); (document.querySelector(".search .holo-input-proxy, .search [data-holo-surface='input']")||$("#q"))?.focus(); }
+  else if(e.key==="Escape" && watching){ location.hash=""; }
+  else if(watching && (e.key==="t"||e.key==="T")){ document.body.classList.toggle("theater"); window.scrollTo({top:0}); }
+  else if(watching && (e.key==="f"||e.key==="F")){ const pl=$("#player"); if(pl?.requestFullscreen) pl.requestFullscreen(); }
+  else if(watching && (e.key==="n"||e.key==="N")){ playNext(); }
+});
+
+// the comment COUNT head + the comment LIST as composed κ-surfaces (avatar + name/meta + text + like/reply buttons).
+function renderComments(p){
+  const list=cmLoad(p.k);
+  renderKScene($("#cmCount"), { "@type":"holo:Surface", kind:"container", w:320, h:30, pad:0, layout:"stack", fill:[0,0,0,0],
+    children:[{ kind:"text", text:`${list.length} ${list.length===1?"Comment":"Comments"}`, textSize:18, h:28, textColor:[0.97,0.98,1,1] }] });
+  const host=$("#cmList");
+  if(!list.length){ renderKScene(host, { "@type":"holo:Surface", kind:"container", w:680, h:54, pad:14, layout:"stack", fill:[0,0,0,0],
+    children:[{ kind:"text", text:"No comments yet be the first to say something.", textSize:14, h:22, textColor:[0.62,0.65,0.76,1] }] }, {stretch:true}); return; }
+  const W=680, bodyW=W-52, lh=19, cpl=Math.max(12,Math.floor((bodyW-8)/7.3));
+  const kids=[], actions={};
+  list.forEach((c,idx)=>{
+    const a=hx2("#"+(hint(c.name||c.uh||"?")&0xffffff).toString(16).padStart(6,"0"));
+    const txt=String(c.text||""); const txtH=Math.max(lh, Math.ceil(txt.length/cpl)*lh)+6;
+    const lid="cl"+idx;
+    kids.push({ kind:"container", w:W, layout:"row", gap:12, pad:8, fill:[0,0,0,0], children:[
+      { kind:"container", w:40, h:40, radius:999, pad:0, layout:"stack", fill:[a[0],a[1],a[2],1],
+        children:[{ kind:"text", text:(c.name||"?")[0].toUpperCase(), textSize:16, h:40, align:"center", pad:10, textColor:[1,1,1,1] }] },
+      { kind:"container", w:bodyW, pad:0, gap:4, layout:"stack", fill:[0,0,0,0], children:[
+        { kind:"text", text:`${c.name||"Anonymous"} · ${ago(c.at)}${c.mine?" · you":""}`, textSize:12, h:18, textColor:[0.62,0.65,0.76,1] },
+        { kind:"text", text:txt, textSize:14, h:txtH, textColor:[0.90,0.92,0.98,1] },
+        { kind:"container", w:bodyW, h:34, layout:"row", gap:8, pad:0, fill:[0,0,0,0], children:[
+          { kind:"button", action:lid, label:`👍 ${fmt(c.likes||0)}`, w:84, h:30, radius:999, toggleable:true, toggled:!!c._liked, accent:[0.26,0.52,1,1], fill:[0.16,0.17,0.22,1] },
+          { kind:"button", action:lid+"r", label:"Reply", w:78, h:30, radius:999, fill:[0,0,0,0], textColor:[0.62,0.65,0.76,1] },
+        ] },
+      ] },
+    ] });
+    actions[lid]=()=>{ cmLike(p,c.id); renderComments(p); };
+    actions[lid+"r"]=()=>{ const f=$("#cmComposeK")?.querySelector('.holo-input-proxy, [data-holo-surface="input"]'); f&&f.focus&&f.focus(); };
+  });
+  renderKSceneActions(host, { "@type":"holo:Surface", kind:"container", w:W, layout:"stack", gap:6, pad:0, fill:[0,0,0,0], children:kids }, actions, {stretch:true});
+}
+const cmCompose=$("#cmCompose");
+$("#cmInput").addEventListener("focus",()=>cmCompose.classList.add("open"));
+$("#cmInput").addEventListener("input",(e)=>$("#cmSend").disabled=!e.target.value.trim());
+$("#cmCancel").onclick=()=>{ $("#cmInput").value=""; $("#cmSend").disabled=true; cmCompose.classList.remove("open"); };
+$("#cmSend").onclick=async()=>{ if(!WATCH)return; const v=$("#cmInput").value.trim(); if(!v)return;
+  await cmAdd(WATCH,v); $("#cmInput").value=""; $("#cmSend").disabled=true; cmCompose.classList.remove("open"); renderComments(WATCH); toast("Comment posted · synced to your other tabs"); };
+
+// the UP-NEXT rail as a κ-surface: each row a thumb (κ image/fill) + title/channel/why text; whole row clickable.
+async function renderUpNext(p){
+  const host=$("#upNext"); if(!host) return;
+  const pool = (p.isMedia && Array.isArray(MEDIA[p._type]) && MEDIA[p._type].length) ? MEDIA[p._type] : PRODUCTS;
+  const ranked=rankFor(p,pool,lsGet(HIST_KEY)).slice(0,14);
+  const W=360, thW=150, thH=Math.round(thW/1.6), bodyW=W-thW-10;
+  const kids=[], actions={};
+  for(let i=0;i<ranked.length;i++){
+    const {p:q,why}=ranked[i]; const cc=counts(q);
+    let imgK=null; if(q.art){ try{ imgK=await rasterizeToKappa(q.art, thW, thH); }catch{} }
+    const acc=hx2(q.accent||"#8a7bff");
+    const thumbKids=[]; if(imgK) thumbKids.push({ kind:"image", src:imgK, w:thW, h:thH });
+    if(q.isMedia&&q.dur) thumbKids.push({ kind:"container", abs:true, ax:thW-50, ay:thH-22, w:44, h:18, radius:5, pad:0, fill:[0,0,0,0.78], children:[{ kind:"text", text:fmtDur(q.dur), textSize:11, h:18, pad:3, textColor:[1,1,1,1] }] });
+    const id="u"+i;
+    kids.push({ kind:"button", action:id, w:W, h:thH+12, radius:12, fill:[0,0,0,0], aria:q.name, children:[
+      { kind:"container", w:W, layout:"row", gap:10, pad:0, fill:[0,0,0,0], children:[
+        { kind:"container", w:thW, h:thH, radius:10, pad:0, layout:"stack", fill:[acc[0],acc[1],acc[2],1], accent: imgK?null:[Math.min(1,acc[0]*1.25),Math.min(1,acc[1]*1.25),Math.min(1,acc[2]*1.25),1], accentH: imgK?0:thH, children:thumbKids },
+        { kind:"container", w:bodyW, h:thH, pad:0, gap:3, layout:"stack", fill:[0,0,0,0], children:[
+          { kind:"text", text:String(q.name||""), textSize:14, h:38, textColor:[0.97,0.98,1,1] },
+          { kind:"text", text:String(q.channel||"")+" ✓", textSize:12, h:16, textColor:[0.62,0.65,0.76,1] },
+          { kind:"text", text:`${fmt(cc.streams)} streams · ${ago(q.date)}`, textSize:11, h:15, textColor:[0.55,0.58,0.68,1] },
+          { kind:"text", text:"✦ "+String(why||""), textSize:11, h:15, textColor:[0.50,0.62,0.95,1] },
+        ] },
+      ] },
+    ] });
+    actions[id]=()=>openWatch(q, !!q.isMedia);
+  }
+  renderKSceneActions(host, { "@type":"holo:Surface", kind:"container", w:W, layout:"stack", gap:8, pad:0, fill:[0,0,0,0], children:kids }, actions, {stretch:true});
+}
+
+const THEME_KEY="holo-hub:theme";
+function applyTheme(t){ document.documentElement.setAttribute("data-theme",t); $("#themeBtn").textContent=t==="light"?"☾":"☀"; }
+$("#themeBtn").onclick=()=>{ const cur=document.documentElement.getAttribute("data-theme")==="light"?"dark":"light"; localStorage.setItem(THEME_KEY,cur); applyTheme(cur); };
+applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"));
+
+let toastT; function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("on"),3200); }
+
+load().catch(e=>console.error(e));
+
+const EMBEDDED = (()=>{ try{ return !!window.parent && window.parent!==window; }catch{ return true; } })();
+if(EMBEDDED){
+  document.body.classList.add("embedded");
+  const announce=()=>{ try{ parent.postMessage({type:"holo:search:ready", app:"Holo Hub", scope:"apps · media · files"}, "*"); }catch{} };
+  announce(); addEventListener("pageshow",announce);
+  Promise.all(["Music","Video","Files"].map(loadMedia)).catch(()=>{});
+  addEventListener("message",(e)=>{ const d=e.data; if(!d||d.type!=="holo:search") return;
+    const q=String(d.q||"").trim();
+    if(q){ setView("search"); doSearch(q); } else if($("#watch").classList.contains("on")||$("#view-search").classList.contains("on")){ setView("home"); } });
+}
+</script>
+</body>
+</html>

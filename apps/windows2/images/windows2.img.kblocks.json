@@ -1,0 +1,32 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "windows2.img",
+    "bytes": 4177920,
+    "did": "did:holo:sha256:4ce57d076a17dcb04253e15e88e40f3e4a29b487c1e71e8fbd99d5feb6176545"
+  },
+  "blockSize": 262144,
+  "blockCount": 16,
+  "uniqueBlocks": 16,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:0bcc695e2003783db021c709b20790768af3b5bbb9bdc34c416014bd2bfc8312",
+  "blocks": [
+    "did:holo:sha256:9c7866e8b25366b2f7fbafdd76579b235b7b210a4f9ea3edb2fed862802e339f",
+    "did:holo:sha256:43ddd7ef56eb6d8b012a1b87cd702b39a841586c6fae5aade4f9477c506c9af2",
+    "did:holo:sha256:a7a4f943d637db1f99075a7cef357a0ba06342fe40d3f2ee68f1355bf549917d",
+    "did:holo:sha256:bd218a63646eb11f0f013637bc59de5887b95b1b13b83c6de9d2ad83cd3193c3",
+    "did:holo:sha256:acdc78d37248e4371118b034f7159b2794e1b56c2bd7ec8911861845bd324135",
+    "did:holo:sha256:c7497e89314ab0d732efe74390f229ee17cb01cabf9694d77020111ae73663b4",
+    "did:holo:sha256:cf2337bd38eb732a6d6c85d48e4c87052d0a52e69ee1abc26fbec028fe36462c",
+    "did:holo:sha256:3a2052b81879e392c68a3f804c94265577aca105aff1fb9ba119bc413ccd9e26",
+    "did:holo:sha256:628372c51f82a839e6d952bf59940029e30ebfcdae9892ea257b2416bc111e32",
+    "did:holo:sha256:4dc5e710675ba66f1a7d5d5140c9753ed63312e0331ebbef521bbbc2ad474039",
+    "did:holo:sha256:a5824e861ea79dc6e65387b9a14656644acfc73b1851bd6f497107efcf6a1673",
+    "did:holo:sha256:2db4a8e43f8591c7038b7670d35100690fa421fc048227dbc890bc5997c0ae37",
+    "did:holo:sha256:59d01f72700b94abfbc21a51d80ac572f6e826b735da0eb731e933a26b20c9ed",
+    "did:holo:sha256:2f4f2f7bdd10c9f424b8bac25fd698c3b832c6c2063245e86c4a7872e2c44eb8",
+    "did:holo:sha256:30eea8ac3c23288e0c63fcc8185a9e2a3f8c8a94558f7c05f82cf60f88b99748",
+    "did:holo:sha256:9eb8fa54d87a9b9775dd55c07b3d164453884695bd1ed83fe2f63259ee9e6afc"
+  ]
+}

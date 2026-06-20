@@ -1,0 +1,25 @@
+{
+  "id": "org.hologram.HoloCosmos",
+  "name": "Holo Cosmos",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Fly through an infinite, seeded universe — procedural deep space, navigable and native.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "MultimediaApplication",
+  "conforms": { "specs": ["holo-cosmos", "holo-space3d"] },
+  "shared": ["holo-cosmos.js", "holo-cosmos-gpu.js", "holo-space3d.js"],
+  "engines": [],
+  "description": [
+    { "p": "A real-time, navigable, infinitely-detailed space environment rendered from a tiny κ seed." },
+    { "p": "Pure procedural: a WebGL2 raymarcher computes the starfield, nebula and a distant sun from world coordinates by hash so detail is unbounded and storage is zero. The whole universe IS its seed: the same seed κ re-derives a byte-identical cosmos on every device (Law L5)." },
+    { "ul": [
+      "Move to look around · scroll to throttle (the cockpit)",
+      "Mounts the shared <holo-space> surface the same one the desktop wallpaper uses (ADR-0080 L6)",
+      "κ-chunk streaming (L5) feeds detail on demand for authored scenes"
+    ] }
+  ],
+  "categories": ["Multimedia", "Graphics"]
+}

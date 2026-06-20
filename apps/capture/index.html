@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Capture Hologram OS</title>
+    <meta name="description" content="Holo Capture Flameshot, hologram-native: capture your screen with the W3C Screen Capture API, annotate with Flameshot's full tool set (pencil, line, arrow, rectangle, circle, marker, text, pixelate/blur, numbered counter), then copy, save, pin or share every capture content-addressed (holo://κ) and κ-verified. Runs entirely in the browser." />
+    <meta name="holo-app" content="Holo Capture" />
+    <!-- Shared mobile-conformance layer every shipped holospace adopts (enforce-witnesses gate). -->
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg: var(--holo-bg); --dim: var(--holo-ink-dim); --acc: var(--holo-accent); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* Thin holospace chrome — identity · κ-address · lifecycle. Same vocabulary as the
+         sibling holospaces so a Holo Capture reads like any other. */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6rem; position: relative; z-index: 60;
+        padding: 0.3rem 0.7rem; background: #0d1117; border-bottom: 1px solid #1b2128;
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 600; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .k { color: #2dd4bf; word-break: break-all; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: #3fb950; } #bar .ver.bad { color: #f85149; }
+      #bar .sp { margin-left: auto; }
+      #bar .stat { color: var(--dim); font-variant-numeric: tabular-nums; max-width: 22vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid #1b2128;
+        border-radius: 5px; padding: 0.18rem 0.5rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+      #bar button:disabled { opacity: 0.4; cursor: default; }
+      #bar button.cta { color: #04121f; background: var(--acc); border-color: var(--acc); font-weight: 600; }
+      #bar button.cta:hover { background: #5fe6d4; }
+
+      /* The capture stage fills the rest. */
+      #stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
+        background: radial-gradient(120% 120% at 50% 18%, #0b1016 0%, #05070a 70%, #000 100%);
+        touch-action: none; }
+      #wrap { position: absolute; transform-origin: top left; }
+      canvas#canvas { display: block; box-shadow: 0 8px 40px rgba(0,0,0,.6); image-rendering: auto; }
+      /* DOM UI layer (handles, magnifier, toolbar) positioned over the canvas in CSS px. */
+      #ui { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+
+      .handle { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+        background: var(--acc); border: 2px solid #03110f; pointer-events: auto; z-index: 22; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+      .handle.nw, .handle.se { cursor: nwse-resize; } .handle.ne, .handle.sw { cursor: nesw-resize; }
+      .handle.n, .handle.s { cursor: ns-resize; } .handle.e, .handle.w { cursor: ew-resize; }
+      #dim-label { position: absolute; z-index: 22; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: #d4f7ef;
+        background: #03110fcc; border: 1px solid #1f5e54; border-radius: 5px; padding: 1px 6px; pointer-events: none; white-space: nowrap; }
+
+      /* The Flameshot floating tool panel, anchored to the selection. */
+      #toolbar { position: absolute; z-index: 30; display: flex; flex-wrap: wrap; gap: 2px; max-width: 372px;
+        padding: 4px; background: #0d1117f2; border: 1px solid #2a3340; border-radius: 9px;
+        box-shadow: 0 10px 34px rgba(0,0,0,.55); pointer-events: auto; }
+      #toolbar button { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid transparent; border-radius: 7px; color: #c9d1d9; cursor: pointer; padding: 0; }
+      #toolbar button svg { width: 18px; height: 18px; }
+      #toolbar button:hover { border-color: #3a4452; color: #fff; }
+      #toolbar button.on { background: #11342f; border-color: var(--acc); color: var(--acc); }
+      #toolbar .sep { width: 1px; align-self: stretch; margin: 3px 2px; background: #232c37; }
+      #toolbar .swatch { width: 22px; height: 22px; margin: 5px; border-radius: 6px; border: 2px solid #2a3340; }
+
+      /* The side panel (Space) — color, thickness, opacity, options. */
+      #side { position: absolute; z-index: 30; width: 232px; padding: 11px 12px; pointer-events: auto;
+        background: #0d1117f5; border: 1px solid #2a3340; border-radius: 11px; box-shadow: 0 14px 40px rgba(0,0,0,.6);
+        display: none; flex-direction: column; gap: 11px; font-size: var(--holo-text-sm, 1rem); }
+      #side.on { display: flex; }
+      #side h4 { margin: 0; font: 600 var(--holo-text-sm, 1rem) ui-sans-serif; color: #8b949e; text-transform: uppercase; letter-spacing: .06em; }
+      #side .pal { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+      #side .pal .c { aspect-ratio: 1; border-radius: 6px; border: 2px solid #20262e; cursor: pointer; }
+      #side .pal .c.on { border-color: #fff; transform: scale(1.06); }
+      #side .row { display: flex; align-items: center; gap: 8px; }
+      #side .row label { color: #8b949e; flex: 0 0 58px; }
+      #side input[type=range] { flex: 1; accent-color: var(--acc); }
+      #side input[type=color] { width: 30px; height: 26px; border: 1px solid #2a3340; background: #0d1117; border-radius: 5px; padding: 0; }
+      #side .val { color: #c9d1d9; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; flex: 0 0 30px; text-align: right; }
+      #side .seg { display: flex; gap: 0; border: 1px solid #2a3340; border-radius: 6px; overflow: hidden; }
+      #side .seg button { flex: 1; background: transparent; border: 0; color: #8b949e; padding: 5px 0; cursor: pointer; font: var(--holo-text-sm, 1rem) ui-sans-serif; }
+      #side .seg button.on { background: #11342f; color: var(--acc); }
+
+      /* Magnifier lens — zoomed pixels + crosshair + color + coords (Flameshot). */
+      #lens { position: absolute; z-index: 28; width: 116px; pointer-events: none; display: none;
+        background: #03110f; border: 1px solid #1f5e54; border-radius: var(--holo-radius-sm, 8px); overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.6); }
+      #lens.on { display: block; } #lens canvas { display: block; width: 116px; height: 96px; image-rendering: pixelated; }
+      #lens .info { font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: #d4f7ef; padding: 2px 5px; display: flex; justify-content: space-between; gap: 6px; }
+      #lens .sw { width: 10px; height: 10px; border-radius: 2px; border: 1px solid #0006; }
+
+      /* Inline text editor for the Text tool. */
+      #textin { position: absolute; z-index: 34; display: none; background: transparent; border: 1px dashed var(--acc);
+        color: #fff; outline: none; resize: none; overflow: hidden; padding: 1px 2px; font: 600 18px ui-sans-serif, system-ui; min-width: 40px; }
+
+      /* Pinned overlays — Flameshot "pin" (always-on-top, draggable, resizable). */
+      .pin { position: absolute; z-index: 50; border: 1px solid var(--acc); border-radius: 6px; overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,.6); cursor: grab; resize: both; background: #000; min-width: 60px; min-height: 40px; }
+      .pin img { display: block; width: 100%; height: 100%; pointer-events: none; }
+      .pin .x { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 4px; border: 0;
+        background: #0d1117cc; color: #c9d1d9; cursor: pointer; font: var(--holo-text-sm, 1rem) ui-sans-serif; }
+
+      /* Empty state — choose a capture source. */
+      #empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 16px; text-align: center; padding: 24px; }
+      #empty.hide { display: none; }
+      #empty .glyph { color: #1f3b38; }
+      #empty h1 { margin: 0; font: 700 19px ui-sans-serif; color: #e6edf3; }
+      #empty p { margin: 0; color: var(--dim); max-width: 460px; }
+      #empty .opts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+      #empty .opts button { font: var(--holo-text-sm, 1rem) ui-sans-serif; padding: 9px 15px; border-radius: var(--holo-radius-sm, 8px); cursor: pointer;
+        border: 1px solid #2a3340; background: #11161d; color: #c9d1d9; display: inline-flex; align-items: center; gap: 7px; }
+      #empty .opts button.cta { background: var(--acc); color: #04121f; border-color: var(--acc); font-weight: 600; }
+      #empty .opts button:hover { border-color: var(--acc); }
+      #empty .hk { color: #4a525c; font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+
+      #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #161b22;
+        border: 1px solid #30363d; border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.85rem; font-size: var(--holo-text-sm, 1rem); opacity: 0;
+        transition: opacity 0.2s; z-index: 2147483003; pointer-events: none; max-width: 90vw; }
+      #toast.show { opacity: 1; }
+      .drag #stage { outline: 2px dashed var(--acc); outline-offset: -8px; }
+
+      @media (max-width: 640px) {
+        #bar { flex-wrap: wrap; gap: 0.35rem 0.5rem; }
+        #bar .k { max-width: 56vw; } #bar .stat { order: 99; flex-basis: 100%; max-width: 96vw; }
+        #bar button { min-height: 40px; }
+        #toolbar button { width: 38px; height: 38px; }
+        #empty .opts button { min-height: 44px; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Capture"></holo-splash>
+
+    <div id="bar">
+      <span class="name">Holo Capture</span>
+      <span class="tag">· holospace</span>
+      <span class="k" id="kaddr" title="content address of this capture (Law L5: the exported bytes re-derive to it)">holo://local</span>
+      <span class="ver" id="ver" title="Law L5: the exported capture re-derives to its κ"></span>
+      <span class="sp"></span>
+      <span class="stat" id="stat"></span>
+      <button id="newBtn" class="cta" title="New capture Screen Capture API" data-holo-shortcut="mod+N">+ New capture</button>
+      <button id="undoBtn" title="Undo" data-holo-shortcut="mod+Z" disabled>↶</button>
+      <button id="redoBtn" title="Redo" data-holo-shortcut="mod+Shift+Z" disabled>↷</button>
+      <button id="copyBtn" title="Copy to clipboard" data-holo-shortcut="mod+C" disabled>Copy</button>
+      <button id="saveBtn" title="Save PNG + κ-store" data-holo-shortcut="mod+S" disabled>Save</button>
+      <button id="shareBtn" title="Share holo://κ" data-holo-shortcut="mod+U" disabled>Share</button>
+      <button id="pinBtn" title="Pin (always-on-top)" disabled>Pin</button>
+      <button id="fsBtn" title="Fullscreen (F11)">⛶</button>
+    </div>
+
+    <div id="stage">
+      <div id="wrap">
+        <canvas id="canvas" width="16" height="16"></canvas>
+      </div>
+      <div id="ui"></div>
+      <textarea id="textin" rows="1" spellcheck="false"></textarea>
+      <div id="toolbar" style="display:none"></div>
+      <div id="side"></div>
+      <div id="lens"><canvas width="29" height="24"></canvas><div class="info"><span class="co">0,0</span><span style="display:flex;align-items:center;gap:4px"><span class="sw"></span><span class="hex">#000</span></span></div></div>
+
+      <div id="empty">
+        <div class="glyph" aria-hidden="true">
+          <svg width="84" height="84" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/>
+            <path d="M3 3l18 18" stroke="#2dd4bf"/>
+          </svg>
+        </div>
+        <h1>Capture anything</h1>
+        <p>Grab your screen, a window or a tab with the W3C Screen Capture API then annotate with
+          Flameshot's full tool set and copy, save, pin or share. Every capture is content-addressed.</p>
+        <div class="opts">
+          <button id="capScreen" class="cta">Capture screen</button>
+          <button id="capTab">This tab</button>
+          <button id="openFile">Open image…</button>
+          <button id="pasteBtn">Paste</button>
+          <button id="demoBtn">Try a sample</button>
+        </div>
+        <div class="hk">tools: P D A S R C M T B N · undo Ctrl+Z · copy Ctrl+C · save Ctrl+S · side panel Space · color right-click</div>
+      </div>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" hidden />
+    <div id="toast"></div>
+
+    <script src="/.holo/sha256/2d53ce1c49fc48b844dc124639996cc9c3900c7f170c5a8b2432cefcb38af7ed.js" data-holo-shared="holo-capture.js"></script>
+    <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const H = window.HoloCapture;
+      const params = new URLSearchParams(location.search);
+
+      // ── state ─────────────────────────────────────────────────────────────────────
+      const S = {
+        bitmap: null,          // ImageBitmap of the captured frame (full image)
+        sampleCtx: null,       // a base-image canvas for pixel sampling (eyedropper/lens)
+        doc: null,             // HoloCapture document (annotations)
+        tool: H.DEFAULTS.tool,
+        color: H.DEFAULTS.color,
+        thickness: H.DEFAULTS.thickness,
+        fill: H.DEFAULTS.fill,
+        opacity: 0.35,
+        fontSize: H.DEFAULTS.fontSize,
+        obscure: H.DEFAULTS.obscure,
+        sel: null,             // {x,y,w,h} crop selection (image coords)
+        scale: 1, offX: 0, offY: 0,
+        drawing: null,         // in-flight item
+        kappa: "", verified: null,
+      };
+
+      let toastT;
+      const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2000); };
+      const setStat = (m) => { $("stat").textContent = m; };
+      const showK = (k) => { $("kaddr").textContent = k ? (k.startsWith("holo://") ? k : "holo://" + k) : "holo://local"; $("kaddr").title = k ? ("content address: " + k) : "no capture yet"; };
+
+      // ── the compute worker (flatten → PNG + κ off the UI thread) ────────────────────
+      let worker = null, workerReady = false, jobId = 0; const jobs = new Map();
+      function startWorker() {
+        try {
+          worker = new Worker("capture-worker.js");
+          worker.onmessage = (e) => { const m = e.data; if (m.type === "ready") { workerReady = true; return; }
+            const j = jobs.get(m.id); if (!j) return; jobs.delete(m.id);
+            if (m.type === "flattened") j.resolve(m); else j.reject(new Error(m.message || "flatten failed")); };
+          worker.onerror = () => { workerReady = false; };
+        } catch { worker = null; }
+      }
+      startWorker();
+
+      // Flatten the current capture (cropped to selection) to { blob, kappa, bytes }.
+      // Worker path keeps the UI smooth; a main-thread fallback keeps it correct everywhere.
+      async function flatten(format = "png", quality = 0.92) {
+        const sel = S.sel || { x: 0, y: 0, w: S.doc.w, h: S.doc.h };
+        const expDoc = H.deserialize(H.serialize(S.doc)); expDoc.region = { x: sel.x | 0, y: sel.y | 0, w: Math.max(1, sel.w | 0), h: Math.max(1, sel.h | 0) };
+        if (worker && workerReady && typeof OffscreenCanvas !== "undefined") {
+          try {
+            const bmp = await createImageBitmap(S.bitmap);
+            const id = ++jobId;
+            const res = await new Promise((resolve, reject) => { jobs.set(id, { resolve, reject }); worker.postMessage({ type: "flatten", id, doc: expDoc, bitmap: bmp, format, quality }, [bmp]); });
+            const bytes = new Uint8Array(await res.blob.arrayBuffer());
+            return { blob: res.blob, kappa: res.kappa, bytes, width: res.width, height: res.height };
+          } catch { /* fall through to main thread */ }
+        }
+        // main-thread fallback
+        const c = document.createElement("canvas"); c.width = expDoc.region.w; c.height = expDoc.region.h;
+        const ctx = c.getContext("2d", { alpha: false }); H.render(ctx, expDoc, S.bitmap, {});
+        const blob = await new Promise((r) => c.toBlob(r, format === "jpeg" ? "image/jpeg" : "image/png", quality));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const kappa = await H.kappa(bytes);
+        return { blob, kappa, bytes, width: c.width, height: c.height };
+      }
+
+      // ── load a base image (from any source) and enter the editor ────────────────────
+      async function loadBitmap(bmp) {
+        S.bitmap = bmp; S.doc = H.createDoc({ w: bmp.width, h: bmp.height });
+        S.sel = { x: 0, y: 0, w: bmp.width, h: bmp.height };
+        // a sampling canvas for the magnifier + eyedropper (base pixels, no annotations)
+        const sc = document.createElement("canvas"); sc.width = bmp.width; sc.height = bmp.height;
+        S.sampleCtx = sc.getContext("2d", { willReadFrequently: true }); S.sampleCtx.drawImage(bmp, 0, 0);
+        S.doc.image = await imageKappa(bmp);
+        $("empty").classList.add("hide");
+        layout(); repaint(); buildToolbar(); enableActions(true);
+        setTool(S.tool); setStat(`${bmp.width}×${bmp.height}`);
+        showK(""); $("ver").textContent = ""; $("ver").className = "ver";
+        postStatus("captured");
+      }
+      async function imageKappa(bmp) {
+        try { const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+          const blob = await new Promise((r) => c.toBlob(r, "image/png")); return await H.kappa(new Uint8Array(await blob.arrayBuffer())); } catch { return ""; }
+      }
+      async function loadFromBlob(blob) { try { return loadBitmap(await createImageBitmap(blob)); } catch (e) { toast("could not read image"); } }
+      async function loadFromUrl(url) { try { const r = await fetch(url, { cache: "no-store" }); return loadFromBlob(await r.blob()); } catch { toast("could not load " + url); } }
+
+      // ── capture sources ─────────────────────────────────────────────────────────────
+      async function captureScreen(preferTab) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) { toast("Screen Capture API unavailable open or paste an image instead"); return; }
+        let stream;
+        try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 1 }, audio: false, preferCurrentTab: !!preferTab }); }
+        catch (e) { if (e && e.name === "NotAllowedError") return; toast("capture cancelled"); return; }
+        try {
+          const track = stream.getVideoTracks()[0];
+          let bmp;
+          if (window.ImageCapture) { try { bmp = await new ImageCapture(track).grabFrame(); } catch {} }
+          if (!bmp) { const v = document.createElement("video"); v.srcObject = stream; v.muted = true; await v.play().catch(() => {});
+            await new Promise((r) => (v.readyState >= 2 ? r() : (v.onloadeddata = r))); bmp = await createImageBitmap(v); v.pause(); v.srcObject = null; }
+          await loadBitmap(bmp); toast("captured · annotate, then copy/save/share");
+        } finally { stream.getTracks().forEach((t) => t.stop()); }
+      }
+
+      // ── coordinate transforms (CSS px ⇄ image px) ───────────────────────────────────
+      function layout() {
+        if (!S.bitmap) return;
+        const st = $("stage").getBoundingClientRect();
+        const pad = 24; const aw = st.width - pad * 2, ah = st.height - pad * 2;
+        S.scale = Math.min(aw / S.doc.w, ah / S.doc.h, 1) || 1;
+        const w = S.doc.w * S.scale, h = S.doc.h * S.scale;
+        S.offX = Math.max(pad, (st.width - w) / 2); S.offY = Math.max(pad, (st.height - h) / 2);
+        const wrap = $("wrap"); wrap.style.left = S.offX + "px"; wrap.style.top = S.offY + "px";
+        wrap.style.transform = `scale(${S.scale})`;
+        $("canvas").width = S.doc.w; $("canvas").height = S.doc.h;
+        renderChrome();
+      }
+      const imgToCss = (x, y) => ({ x: S.offX + x * S.scale, y: S.offY + y * S.scale });
+      function evToImg(e) { const r = $("canvas").getBoundingClientRect(); return { x: (e.clientX - r.left) / S.scale, y: (e.clientY - r.top) / S.scale }; }
+      const clampX = (x) => Math.max(0, Math.min(S.doc.w, x));
+      const clampY = (y) => Math.max(0, Math.min(S.doc.h, y));
+
+      // ── paint: base + annotations (+ live preview), then the selection chrome ────────
+      function repaint() {
+        if (!S.bitmap) return;
+        const ctx = $("canvas").getContext("2d");
+        H.render(ctx, S.doc, S.bitmap, { preview: S.drawing });
+        // dim mask outside the selection (drawn on the same canvas, scales cleanly)
+        const sel = S.sel;
+        if (sel && !(sel.x === 0 && sel.y === 0 && sel.w === S.doc.w && sel.h === S.doc.h)) {
+          ctx.save(); ctx.fillStyle = "rgba(3,6,10,0.55)";
+          ctx.beginPath(); ctx.rect(0, 0, S.doc.w, S.doc.h); ctx.rect(sel.x, sel.y, sel.w, sel.h); ctx.fill("evenodd");
+          ctx.strokeStyle = "#2dd4bf"; ctx.lineWidth = Math.max(1, 1 / S.scale); ctx.strokeRect(sel.x, sel.y, sel.w, sel.h); ctx.restore();
+        }
+        renderChrome();
+        updateHistoryButtons();
+      }
+
+      // selection handles + dimension label (DOM, crisp in CSS px)
+      const HPOS = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
+      function renderChrome() {
+        const ui = $("ui"); ui.innerHTML = ""; if (!S.bitmap) return;
+        const sel = S.sel; const showSel = S.tool === "selection";
+        if (sel && showSel) {
+          for (const k in HPOS) { const [fx, fy] = HPOS[k]; const p = imgToCss(sel.x + sel.w * fx, sel.y + sel.h * fy);
+            const h = document.createElement("div"); h.className = "handle " + k; h.style.left = p.x + "px"; h.style.top = p.y + "px";
+            h.dataset.h = k; h.addEventListener("pointerdown", startHandle); ui.appendChild(h); }
+          const lp = imgToCss(sel.x, sel.y); const lab = document.createElement("div"); lab.id = "dim-label";
+          lab.textContent = `${Math.round(sel.w)} × ${Math.round(sel.h)}`; lab.style.left = lp.x + "px"; lab.style.top = (lp.y - 22) + "px"; ui.appendChild(lab);
+        }
+        positionToolbar();
+      }
+
+      // ── the floating toolbar (all Flameshot tools + actions) ────────────────────────
+      const ICONS = {
+        pencil: '<path d="M4 20l4-1L19 8l-3-3L5 16z"/>', line: '<path d="M5 19L19 5"/>',
+        arrow: '<path d="M5 19L19 5M19 5h-7M19 5v7"/>', rectangle: '<rect x="4" y="6" width="16" height="12" rx="1"/>',
+        circle: '<ellipse cx="12" cy="12" rx="8" ry="6"/>', marker: '<path d="M4 18l8-8 4 4-8 8H4z"/><path d="M12 10l3-3 4 4-3 3"/>',
+        text: '<path d="M5 6h14M12 6v13M9 19h6"/>', pixelate: '<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',
+        counter: '<circle cx="12" cy="12" r="8"/><path d="M11 9l2-1v7"/>', move: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+        selection: '<path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/>',
+      };
+      const A_ICONS = {
+        undo: '<path d="M9 7L4 12l5 5M4 12h11a4 4 0 010 8h-1"/>', redo: '<path d="M15 7l5 5-5 5M20 12H9a4 4 0 000 8h1"/>',
+        invert: '<rect x="4" y="6" width="16" height="12" rx="1"/><path d="M4 6h16v12H4z" fill="currentColor" opacity=".4"/>',
+        copy: '<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M5 15V5h10"/>', save: '<path d="M5 4h11l3 3v13H5zM8 4v6h7V4M8 20v-6h8v6"/>',
+        upload: '<path d="M12 16V4M8 8l4-4 4 4M5 20h14"/>', openapp: '<path d="M14 4h6v6M20 4l-9 9M10 6H5v13h13v-5"/>',
+        pin: '<path d="M9 4h6l-1 6 3 3H7l3-3z M12 13v7"/>',
+      };
+      const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+      function buildToolbar() {
+        const tb = $("toolbar"); tb.innerHTML = "";
+        for (const t of H.TOOLS) { if (t.id === "move" || t.id === "selection") continue; const b = mkBtn(t.id, t.label + (t.key ? ` (${t.key.toUpperCase()})` : ""), ICONS[t.id]); b.dataset.tool = t.id; b.onclick = () => setTool(t.id); tb.appendChild(b); }
+        sep(tb);
+        for (const id of ["move", "selection"]) { const t = H.byId(id); const b = mkBtn(id, t.label + (t.key ? ` (${t.key.toUpperCase()})` : ""), ICONS[id]); b.dataset.tool = id; b.onclick = () => setTool(id); tb.appendChild(b); }
+        sep(tb);
+        const inv = mkBtn("invert", "Toggle fill (Invert)", A_ICONS.invert); inv.onclick = toggleFill; tb.appendChild(inv);
+        const sw = document.createElement("button"); sw.className = "swatchbtn"; sw.title = "Color (right-click canvas to pick)";
+        const swEl = document.createElement("span"); swEl.className = "swatch"; swEl.style.background = S.color; sw.appendChild(swEl); sw.onclick = toggleSide; tb.appendChild(sw);
+        sep(tb);
+        for (const [id, ic] of [["undo", A_ICONS.undo], ["redo", A_ICONS.redo], ["copy", A_ICONS.copy], ["save", A_ICONS.save], ["upload", A_ICONS.upload], ["pin", A_ICONS.pin], ["openapp", A_ICONS.openapp]]) {
+          const b = mkBtn(id, (H.byId(id) || {}).label || id, ic); b.onclick = () => doAction(id); tb.appendChild(b);
+        }
+        buildSide();
+      }
+      function mkBtn(id, title, icon) { const b = document.createElement("button"); b.title = title; b.innerHTML = svg(icon); b.dataset.id = id; return b; }
+      function sep(tb) { const s = document.createElement("div"); s.className = "sep"; tb.appendChild(s); }
+      function positionToolbar() {
+        const tb = $("toolbar"); if (!S.bitmap) { tb.style.display = "none"; return; } tb.style.display = "flex";
+        const sel = S.sel || { x: 0, y: 0, w: S.doc.w, h: S.doc.h };
+        const a = imgToCss(sel.x, sel.y + sel.h); const st = $("stage").getBoundingClientRect();
+        let top = a.y + 8, left = a.x;
+        const tbw = tb.offsetWidth || 360, tbh = tb.offsetHeight || 40;
+        if (top + tbh > st.height - 6) top = Math.max(6, imgToCss(sel.x, sel.y).y - tbh - 8);
+        left = Math.min(Math.max(6, left), st.width - tbw - 6);
+        tb.style.left = left + "px"; tb.style.top = top + "px";
+        const side = $("side"); if (side.classList.contains("on")) { side.style.left = Math.min(left, st.width - 244) + "px"; side.style.top = Math.min(top + tbh + 6, st.height - 220) + "px"; }
+      }
+
+      // ── side panel ───────────────────────────────────────────────────────────────────
+      function buildSide() {
+        const s = $("side");
+        s.innerHTML = `<h4>Color</h4><div class="pal"></div>
+          <div class="row"><label>Custom</label><input type="color" id="cpick" value="${S.color}"><span class="val" id="cval">${S.color}</span></div>
+          <h4>Thickness</h4><div class="row"><input type="range" id="thick" min="${H.THICKNESS_MIN}" max="${H.THICKNESS_MAX}" value="${S.thickness}"><span class="val" id="tval">${S.thickness}</span></div>
+          <h4>Marker opacity</h4><div class="row"><input type="range" id="op" min="10" max="80" value="${Math.round(S.opacity * 100)}"><span class="val" id="oval">${Math.round(S.opacity * 100)}</span></div>
+          <h4>Text size</h4><div class="row"><input type="range" id="fs" min="10" max="64" value="${S.fontSize}"><span class="val" id="fsval">${S.fontSize}</span></div>
+          <h4>Obscure</h4><div class="seg" id="obs"><button data-m="pixelate" class="${S.obscure === 'pixelate' ? 'on' : ''}">Pixelate</button><button data-m="blur" class="${S.obscure === 'blur' ? 'on' : ''}">Blur</button></div>`;
+        const pal = s.querySelector(".pal");
+        for (const c of H.PALETTE) { const d = document.createElement("div"); d.className = "c" + (c === S.color ? " on" : ""); d.style.background = c; d.title = c; d.onclick = () => setColor(c); pal.appendChild(d); }
+        s.querySelector("#cpick").oninput = (e) => setColor(e.target.value);
+        s.querySelector("#thick").oninput = (e) => { S.thickness = H.clampThick(+e.target.value); s.querySelector("#tval").textContent = S.thickness; };
+        s.querySelector("#op").oninput = (e) => { S.opacity = +e.target.value / 100; s.querySelector("#oval").textContent = e.target.value; };
+        s.querySelector("#fs").oninput = (e) => { S.fontSize = +e.target.value; s.querySelector("#fsval").textContent = e.target.value; };
+        s.querySelectorAll("#obs button").forEach((b) => b.onclick = () => { S.obscure = b.dataset.m; s.querySelectorAll("#obs button").forEach((x) => x.classList.toggle("on", x === b)); });
+      }
+      function toggleSide() { $("side").classList.toggle("on"); renderChrome(); }
+      function setColor(c) { S.color = c; const sw = document.querySelector("#toolbar .swatch"); if (sw) sw.style.background = c;
+        const cp = document.querySelector("#side #cpick"), cv = document.querySelector("#side #cval"); if (cp) cp.value = /^#[0-9a-f]{6}$/i.test(c) ? c : cp.value; if (cv) cv.textContent = c;
+        document.querySelectorAll("#side .pal .c").forEach((d) => d.classList.toggle("on", d.style.background && rgbEq(d.title, c))); }
+      const rgbEq = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+      function toggleFill() { S.fill = !S.fill; toast("fill " + (S.fill ? "on" : "off")); }
+
+      function setTool(id) {
+        S.tool = id;
+        document.querySelectorAll("#toolbar button[data-tool]").forEach((b) => b.classList.toggle("on", b.dataset.tool === id));
+        const editor = $("stage"); editor.style.cursor = id === "move" ? "default" : (id === "text" ? "text" : "crosshair");
+        renderChrome();
+      }
+
+      // ── pointer drawing ──────────────────────────────────────────────────────────────
+      let active = null;  // {mode, ...}
+      $("canvas").addEventListener("pointerdown", (e) => {
+        if (e.button === 2) return; // right-click handled separately (color pick)
+        if (!S.bitmap) return;
+        const p = evToImg(e); $("canvas").setPointerCapture(e.pointerid != null ? e.pointerid : e.pointerId);
+        if (S.tool === "selection") { active = { mode: "newsel", a: { x: clampX(p.x), y: clampY(p.y) } }; return; }
+        if (S.tool === "move") { const idx = H.hitTest(S.doc, p.x, p.y); active = idx >= 0 ? { mode: "move", idx, last: p, moved: false } : null; return; }
+        if (S.tool === "text") { startText(p); return; }
+        if (S.tool === "counter") { const it = H.makeItem("counter", { a: p, number: H.nextCounter(S.doc), color: S.color, radius: Math.max(11, S.thickness * 4) }); H.commit(S.doc, it); repaint(); afterEdit(); return; }
+        if (S.tool === "pencil" || S.tool === "marker") { S.drawing = H.makeItem(S.tool, { points: [p], color: S.color, thickness: S.thickness, opacity: S.opacity }); active = { mode: "freehand" }; repaint(); return; }
+        // line/arrow/rect/circle/pixelate: drag a/b
+        const props = { a: p, b: p, color: S.color, thickness: S.thickness, fill: S.fill };
+        if (S.tool === "pixelate") { props.mode = S.obscure; props.strength = S.obscure === "blur" ? H.DEFAULTS.blur : H.DEFAULTS.pixel; }
+        S.drawing = H.makeItem(S.tool, props); active = { mode: "drag" }; repaint();
+      });
+      $("canvas").addEventListener("pointermove", (e) => {
+        if (S.bitmap && (S.tool === "selection" || e.shiftKey || activeIsColor)) updateLens(e);
+        if (!active) return; const p = evToImg(e);
+        if (active.mode === "newsel") { const a = active.a; S.sel = norm(a, { x: clampX(p.x), y: clampY(p.y) }); repaint(); }
+        else if (active.mode === "freehand") { S.drawing.points.push({ x: p.x, y: p.y }); repaint(); }
+        else if (active.mode === "drag") { S.drawing.b = { x: p.x, y: p.y }; repaint(); }
+        else if (active.mode === "move") { const dx = p.x - active.last.x, dy = p.y - active.last.y; H.translateItem(S.doc.items[active.idx], dx, dy); active.last = p; active.moved = true; repaint(); }
+      });
+      const endDraw = (e) => {
+        if (!active) return; hideLens();
+        if (active.mode === "freehand" || active.mode === "drag") { const it = S.drawing; S.drawing = null;
+          if (significant(it)) { H.commit(S.doc, it); afterEdit(); } repaint(); }
+        else if (active.mode === "move") { if (active.moved) { S.doc._undo.push(JSON.stringify(beforeMove)); afterEdit(); } repaint(); }
+        else if (active.mode === "newsel") { afterEdit(); repaint(); }
+        active = null;
+      };
+      let beforeMove = [];
+      $("canvas").addEventListener("pointerdown", () => { beforeMove = JSON.parse(JSON.stringify(S.doc ? S.doc.items : [])); }, true);
+      $("canvas").addEventListener("pointerup", endDraw);
+      $("canvas").addEventListener("pointercancel", endDraw);
+      function significant(it) { const b = H.bounds(it); if (it.kind === "path" || it.kind === "marker") return (it.points || []).length > 1; return b.w > 2 || b.h > 2; }
+      function norm(a, b) { return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }; }
+
+      // right-click → eyedropper color pick (Flameshot's right-click color picker)
+      let activeIsColor = false;
+      $("canvas").addEventListener("contextmenu", (e) => { e.preventDefault(); if (!S.bitmap) return; const p = evToImg(e); const c = pickColor(p.x, p.y); if (c) { setColor(c); toast("color " + c); } });
+      function pickColor(x, y) { try { const d = S.sampleCtx.getImageData(x | 0, y | 0, 1, 1).data; return "#" + [d[0], d[1], d[2]].map((n) => n.toString(16).padStart(2, "0")).join(""); } catch { return ""; } }
+
+      // selection resize via handles
+      function startHandle(e) { e.stopPropagation(); const k = e.currentTarget.dataset.h; const base = { ...S.sel }; const start = evToImg(e);
+        const mv = (ev) => { const p = evToImg(ev); const nx = clampX(p.x), ny = clampY(p.y); let { x, y, w, h } = base;
+          if (k.includes("w")) { w = x + w - nx; x = nx; } if (k.includes("n")) { h = y + h - ny; y = ny; }
+          if (k.includes("e")) { w = nx - x; } if (k.includes("s")) { h = ny - y; }
+          S.sel = { x, y, w: Math.max(4, w), h: Math.max(4, h) }; repaint(); };
+        const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); afterEdit(); };
+        window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); }
+
+      // ── inline text editor ──────────────────────────────────────────────────────────
+      function startText(p) {
+        const ta = $("textin"); const css = imgToCss(p.x, p.y);
+        ta.style.display = "block"; ta.style.left = css.x + "px"; ta.style.top = css.y + "px";
+        ta.style.color = S.color; ta.style.fontSize = (S.fontSize * S.scale) + "px"; ta.value = "";
+        ta._at = { x: p.x, y: p.y }; setTimeout(() => ta.focus(), 0);
+      }
+      $("textin").addEventListener("blur", commitText);
+      $("textin").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitText(); } else if (e.key === "Escape") { $("textin").value = ""; commitText(); } });
+      function commitText() { const ta = $("textin"); if (ta.style.display === "none") return; const txt = ta.value; ta.style.display = "none";
+        if (txt.trim() && ta._at) { H.commit(S.doc, H.makeItem("text", { a: ta._at, text: txt, color: S.color, fontSize: S.fontSize })); repaint(); afterEdit(); } }
+
+      // ── magnifier lens ───────────────────────────────────────────────────────────────
+      function updateLens(e) {
+        if (!S.sampleCtx) return; const l = $("lens"); const p = evToImg(e); const ix = clampX(p.x) | 0, iy = clampY(p.y) | 0;
+        const cv = l.querySelector("canvas"); const z = cv.getContext("2d"); z.imageSmoothingEnabled = false; z.clearRect(0, 0, cv.width, cv.height);
+        try { z.drawImage(S.sampleCtx.canvas, ix - 14, iy - 11, 29, 24, 0, 0, 29, 24); } catch {}
+        const c = pickColor(ix, iy); l.querySelector(".sw").style.background = c; l.querySelector(".hex").textContent = c; l.querySelector(".co").textContent = ix + "," + iy;
+        const st = $("stage").getBoundingClientRect(); let lx = e.clientX - st.left + 16, ly = e.clientY - st.top + 16;
+        if (lx + 120 > st.width) lx -= 140; if (ly + 120 > st.height) ly -= 140;
+        l.style.left = lx + "px"; l.style.top = ly + "px"; l.classList.add("on");
+      }
+      function hideLens() { const l = $("lens"); if (l) l.classList.remove("on"); }
+
+      // ── after any edit: update buttons, status, nest mirror ──────────────────────────
+      function afterEdit() { S.kappa = ""; S.verified = null; $("ver").textContent = ""; $("ver").className = "ver"; updateHistoryButtons(); postStatus("edited"); }
+      function updateHistoryButtons() { $("undoBtn").disabled = !(S.doc && S.doc._undo.length); $("redoBtn").disabled = !(S.doc && S.doc._redo.length); }
+      function enableActions(on) { for (const id of ["copyBtn", "saveBtn", "shareBtn", "pinBtn"]) $(id).disabled = !on; }
+
+      // ── actions ──────────────────────────────────────────────────────────────────────
+      async function doAction(id) {
+        if (id === "undo") return (H.undo(S.doc) && (repaint(), afterEdit()));
+        if (id === "redo") return (H.redo(S.doc) && (repaint(), afterEdit()));
+        if (id === "invert") return toggleFill();
+        if (id === "copy") return copyToClipboard();
+        if (id === "save") return saveCapture();
+        if (id === "upload") return shareCapture();
+        if (id === "pin") return pinCapture();
+        if (id === "openapp") return openInApp();
+      }
+      // Law-L5: independently re-derive the flattened bytes and stamp ✓ only on a true match
+      async function settleKappa(res) {
+        S.kappa = res.kappa; showK(res.kappa); if (window.HoloTeleport) HoloTeleport.stamp(res.kappa);
+        const got = await H.kappa(res.bytes); S.verified = got === res.kappa;
+        $("ver").textContent = S.verified ? "✓ κ verified" : "✗ κ mismatch"; $("ver").className = "ver " + (S.verified ? "ok" : "bad");
+        postStatus("ready"); return S.verified;
+      }
+      async function copyToClipboard() {
+        try { const res = await flatten("png"); await settleKappa(res);
+          if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({ "image/png": res.blob })]); toast("copied · " + short(res.kappa)); }
+          else { downloadBlob(res.blob, "capture.png"); toast("clipboard unavailable downloaded instead"); }
+        } catch (e) { toast("copy failed: " + e.message); }
+      }
+      async function saveCapture() {
+        try { const res = await flatten("png"); await settleKappa(res);
+          await putInStore(res.kappa, res.bytes); downloadBlob(res.blob, "holo-capture-" + res.kappa.split(":")[1].slice(0, 12) + ".png");
+          toast("saved · κ-store + download · " + short(res.kappa));
+        } catch (e) { toast("save failed: " + e.message); }
+      }
+      async function shareCapture() {
+        try { const res = await flatten("png"); await settleKappa(res); await putInStore(res.kappa, res.bytes);
+          // content-addressed networking: publish bytes by κ over the content-blind channel,
+          // then hand the OS share sheet a teleport link carrying #k=κ (serverless, Law 1).
+          publish(res.kappa, res.bytes);
+          const url = HoloTeleport ? await HoloTeleport.share({ kappa: res.kappa, search: "?k=" + encodeURIComponent(res.kappa) }) : location.href;
+          toast("shared · holo://" + short(res.kappa));
+        } catch (e) { toast("share failed: " + e.message); }
+      }
+      async function pinCapture() {
+        try { const res = await flatten("png"); await settleKappa(res); const url = URL.createObjectURL(res.blob);
+          spawnPin(url, res.width, res.height, res.kappa);
+          // nestable: a host OS frame can mount the pin itself
+          try { parent !== window && parent.postMessage({ type: "holo-capture-pin", kappa: res.kappa, width: res.width, height: res.height, dataUrl: await blobToDataUrl(res.blob) }, "*"); } catch {}
+        } catch (e) { toast("pin failed: " + e.message); }
+      }
+      async function openInApp() {
+        try { const res = await flatten("png"); await settleKappa(res); const dataUrl = await blobToDataUrl(res.blob);
+          const msg = { type: "holo-open", kind: "image", mime: "image/png", kappa: res.kappa, dataUrl, name: "capture.png" };
+          let sent = false; try { if (parent !== window) { parent.postMessage(msg, "*"); sent = true; } } catch {}
+          toast(sent ? "handed to host holospace" : "no host frame saved to κ-store"); if (!sent) await putInStore(res.kappa, res.bytes);
+        } catch (e) { toast("open failed: " + e.message); }
+      }
+      const short = (k) => { const [a, h] = String(k).split(":"); return h ? a + ":" + h.slice(0, 10) + "…" : k; };
+      function downloadBlob(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+      const blobToDataUrl = (blob) => new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+
+      // ── UOR storage: the content-addressed κ-store in OPFS (Law 3/5) ──────────────────
+      async function storeDir() { const root = await navigator.storage.getDirectory(); return root.getDirectoryHandle("holo-capture", { create: true }); }
+      async function putInStore(kappa, bytes, ext = "png") {
+        try { const dir = await storeDir(); const name = kappa.replace(":", "_") + "." + ext;
+          const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close();
+          // library.json — the manifest of stored captures + recordings (deduplicated by κ)
+          const lib = await readLib(dir); if (!lib.some((e) => e.kappa === kappa)) { lib.unshift({ kappa, name, size: bytes.length, at: Date.now() }); await writeLib(dir, lib); }
+        } catch (e) { /* OPFS may be unavailable (private mode) — non-fatal */ }
+      }
+      async function readLib(dir) { try { const fh = await dir.getFileHandle("library.json"); const f = await fh.getFile(); return JSON.parse(await f.text()); } catch { return []; } }
+      async function writeLib(dir, lib) { try { const fh = await dir.getFileHandle("library.json", { create: true }); const w = await fh.createWritable(); await w.write(JSON.stringify(lib)); await w.close(); } catch {} }
+      // re-derivation on read (Law 5): a stored capture must re-derive to its filename κ
+      async function verifyStore(kappa) { try { const dir = await storeDir(); const fh = await dir.getFileHandle(kappa.replace(":", "_") + ".png"); const f = await fh.getFile(); return (await H.kappa(new Uint8Array(await f.arrayBuffer()))) === kappa; } catch { return null; } }
+
+      // ── UOR networking: publish/subscribe captures by κ over a content-blind channel ──
+      const bus = ("BroadcastChannel" in window) ? new BroadcastChannel("holo-capture") : null;
+      function publish(kappa, bytes) { if (!bus) return; try { bus.postMessage({ type: "have", kappa, bytes: bytes.buffer.slice(0) }); } catch {} }
+      if (bus) bus.onmessage = (e) => { const m = e.data; if (m && m.type === "want" && m.kappa === S.kappa && S.kappa) flatten("png").then((r) => bus.postMessage({ type: "have", kappa: r.kappa, bytes: r.bytes.buffer.slice(0) })); };
+
+      // ── pinned overlays ──────────────────────────────────────────────────────────────
+      function spawnPin(url, w, h, kappa) {
+        const scale = Math.min(1, 360 / w); const el = document.createElement("div"); el.className = "pin";
+        el.style.width = (w * scale) + "px"; el.style.height = (h * scale) + "px"; el.style.left = "40px"; el.style.top = "60px";
+        el.innerHTML = `<img src="${url}" alt="pinned capture ${short(kappa)}"><button class="x" title="unpin">×</button>`;
+        el.querySelector(".x").onclick = () => { el.remove(); URL.revokeObjectURL(url); };
+        let drag = null; el.addEventListener("pointerdown", (e) => { if (e.target.classList.contains("x")) return; drag = { x: e.clientX - el.offsetLeft, y: e.clientY - el.offsetTop }; el.setPointerCapture(e.pointerId); el.style.cursor = "grabbing"; });
+        el.addEventListener("pointermove", (e) => { if (!drag) return; el.style.left = (e.clientX - drag.x) + "px"; el.style.top = (e.clientY - drag.y) + "px"; });
+        el.addEventListener("pointerup", () => { drag = null; el.style.cursor = "grab"; });
+        $("stage").appendChild(el); toast("pinned · " + short(kappa));
+      }
+
+      // ── keyboard (Flameshot bindings) ─────────────────────────────────────────────────
+      addEventListener("keydown", (e) => {
+        if (/^(INPUT|TEXTAREA)$/.test((e.target || {}).tagName)) return;
+        const k = e.key.toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); return doAction(e.shiftKey ? "redo" : "undo"); }
+        if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); return doAction("redo"); }
+        if ((e.ctrlKey || e.metaKey) && k === "c") { e.preventDefault(); return doAction("copy"); }
+        if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); return doAction("save"); }
+        if ((e.ctrlKey || e.metaKey) && k === "u") { e.preventDefault(); return doAction("upload"); }
+        if ((e.ctrlKey || e.metaKey) && k === "o") { e.preventDefault(); return doAction("openapp"); }
+        if ((e.ctrlKey || e.metaKey) && k === "n") { e.preventDefault(); return captureScreen(false); }
+        if (e.ctrlKey || e.metaKey) return;
+        if (k === " ") { e.preventDefault(); return toggleSide(); }
+        if (k === "escape") { if ($("side").classList.contains("on")) { toggleSide(); return; } if (S.sel && !(S.sel.x === 0 && S.sel.y === 0 && S.sel.w === S.doc.w && S.sel.h === S.doc.h)) { S.sel = { x: 0, y: 0, w: S.doc.w, h: S.doc.h }; repaint(); return; } return; }
+        if (k === "enter") { e.preventDefault(); return doAction("copy"); }
+        if (!S.bitmap) return;
+        if (S.tool === "selection" && S.sel) { const step = e.shiftKey ? 0 : 1; const rs = e.shiftKey ? 1 : 0;
+          if (["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(k)) { e.preventDefault();
+            if (e.shiftKey) { if (k === "arrowright") S.sel.w += 1; if (k === "arrowleft") S.sel.w = Math.max(4, S.sel.w - 1); if (k === "arrowdown") S.sel.h += 1; if (k === "arrowup") S.sel.h = Math.max(4, S.sel.h - 1); }
+            else { if (k === "arrowright") S.sel.x = clampX(S.sel.x + 1); if (k === "arrowleft") S.sel.x = clampX(S.sel.x - 1); if (k === "arrowdown") S.sel.y = clampY(S.sel.y + 1); if (k === "arrowup") S.sel.y = clampY(S.sel.y - 1); }
+            repaint(); return; } }
+        const t = H.toolForKey(k); if (t) { setTool(t.id); toast(t.label); }
+      });
+      // thickness on wheel (Flameshot mouse-wheel)
+      $("stage").addEventListener("wheel", (e) => { if (!S.bitmap) return; e.preventDefault(); S.thickness = H.clampThick(S.thickness + (e.deltaY < 0 ? 1 : -1));
+        const tv = document.querySelector("#side #thick"); if (tv) { tv.value = S.thickness; document.querySelector("#side #tval").textContent = S.thickness; } setStat("thickness " + S.thickness); }, { passive: false });
+
+      // ── chrome buttons ────────────────────────────────────────────────────────────────
+      $("newBtn").onclick = () => captureScreen(false);
+      $("undoBtn").onclick = () => doAction("undo"); $("redoBtn").onclick = () => doAction("redo");
+      $("copyBtn").onclick = () => doAction("copy"); $("saveBtn").onclick = () => doAction("save");
+      $("shareBtn").onclick = () => doAction("upload"); $("pinBtn").onclick = () => doAction("pin");
+      $("fsBtn").onclick = () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); };
+      $("capScreen").onclick = () => captureScreen(false); $("capTab").onclick = () => captureScreen(true);
+      $("openFile").onclick = () => $("fileInput").click(); $("demoBtn").onclick = () => loadFromUrl("capture/sample.png");
+      $("pasteBtn").onclick = pasteImage;
+      $("fileInput").onchange = (e) => { const f = e.target.files[0]; if (f) loadFromBlob(f); };
+
+      async function pasteImage() {
+        try { const items = await navigator.clipboard.read(); for (const it of items) { const t = it.types.find((x) => x.startsWith("image/")); if (t) return loadFromBlob(await it.getType(t)); } toast("no image in clipboard"); }
+        catch { toast("paste needs clipboard permission try Open image"); }
+      }
+      addEventListener("paste", (e) => { const it = [...(e.clipboardData || {}).items || []].find((x) => x.type.startsWith("image/")); if (it) loadFromBlob(it.getAsFile()); });
+      // drag-drop
+      addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("drag"); });
+      addEventListener("dragleave", (e) => { if (e.relatedTarget === null) document.body.classList.remove("drag"); });
+      addEventListener("drop", (e) => { e.preventDefault(); document.body.classList.remove("drag"); const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/")); if (f) loadFromBlob(f); });
+      addEventListener("resize", () => { if (S.bitmap) { layout(); repaint(); } });
+
+      // ── nestability: a parent holospace can hand us an image, we answer status ────────
+      // { type:"holo-capture", src|dataUrl|bitmap } → load it. We post "holo-capture-ready"
+      // on boot and "holo-capture-status" on change, so Holo Capture composes into any frame.
+      addEventListener("message", (e) => {
+        const m = e.data; if (!m || typeof m !== "object") return;
+        if (m.type === "holo-capture") { if (m.bitmap) loadBitmap(m.bitmap); else if (m.dataUrl) loadFromUrl(m.dataUrl); else if (m.src) loadFromUrl(m.src); }
+      });
+      function postStatus(state) {
+        const msg = { type: "holo-capture-status", state, kappa: S.kappa.replace(/^.*?:/, S.kappa ? S.kappa.split(":")[0] + ":" : ""), verified: S.verified === true,
+          width: S.doc ? S.doc.w : 0, height: S.doc ? S.doc.h : 0, items: S.doc ? S.doc.items.length : 0 };
+        msg.kappa = S.kappa; try { parent !== window && parent.postMessage(msg, "*"); } catch {} window.holoCapture.last = msg;
+      }
+
+      // ── public handle (witnesses / parents in the same context) ──────────────────────
+      window.holoCapture = {
+        engine: H, get state() { return S; }, get doc() { return S.doc; }, get bitmap() { return S.bitmap; },
+        get tool() { return S.tool; }, setTool, setColor, get kappa() { return S.kappa; }, get verified() { return S.verified; },
+        loadBitmap, loadFromUrl, loadFromBlob, captureScreen, flatten, repaint,
+        addItem: (tool, props) => { const it = H.makeItem(tool, Object.assign({ color: S.color, thickness: S.thickness }, props)); H.commit(S.doc, it); if (it.kind === "counter") it.number = it.number || H.nextCounter(S.doc); repaint(); afterEdit(); return it; },
+        action: doAction, verifyStore, putInStore, toast, last: null, ready: false,
+      };
+
+      // ── boot ──────────────────────────────────────────────────────────────────────────
+      (async () => {
+        buildSide();
+        if (params.get("demo") === "1" || params.has("demo")) await loadFromUrl("capture/sample.png");
+        else if (params.get("src")) await loadFromUrl(params.get("src"));
+        window.holoCapture.ready = true;
+        try { parent !== window && parent.postMessage({ type: "holo-capture-ready", tools: H.TOOLS.length }, "*"); } catch {}
+      })();
+    </script>
+    <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+    <script src="/.holo/sha256/92dcac0de44530fe7a198607bd3daf734e02119a3c9c1ba15b871f8fc3c0782f.js" data-holo-shared="holo-manage.js" defer></script>
+  </body>
+</html>

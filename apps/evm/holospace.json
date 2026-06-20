@@ -1,0 +1,88 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HoloEVM",
+  "name": "Holo EVM",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A spec-faithful Ethereum Virtual Machine that runs in your browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "evm"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloEVM"
+    ]
+  },
+  "shared": [
+    "holo-evm/PROVENANCE.txt",
+    "holo-evm/bctests/",
+    "holo-evm/bctests/index.json",
+    "holo-evm/holo-evm.bundle.mjs",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-theme.css",
+    "holo-theme.js",
+    "teleport.js"
+  ],
+  "engines": [],
+  "loader": "evm.html",
+  "description": [
+    {
+      "p": "Running and testing EVM bytecode shouldn't require a node or a server."
+    },
+    {
+      "p": "A reference EVM engine that passes the official Ethereum consensus tests executes real bytecode and signed transactions, entirely in the browser."
+    },
+    {
+      "ul": [
+        "Real EVM bytecode execution",
+        "Passes the official Ethereum test suite",
+        "No node, no server",
+        "Content-addressed and reproducible"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "Network",
+    "Education"
+  ],
+  "keywords": [
+    "ethereum",
+    "evm",
+    "virtual machine",
+    "smart contract",
+    "solidity",
+    "bytecode",
+    "opcode",
+    "gas",
+    "blockchain",
+    "web3",
+    "ethereumjs",
+    "keccak",
+    "rlp",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MPL-2.0",
+  "homepage": "https://hologram.os/apps/evm",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Real in-browser EVM (EthereumJS reference) execute bytecode & signed txs with an opcode trace; content-addressed Merkle-Patricia κ-store; live mainnet view with RLP→keccak κ-verification of every block (Law L5)."
+    }
+  ],
+  "accent": "#627eea"
+}

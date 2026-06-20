@@ -1,0 +1,25 @@
+{
+  "head": "did:holo:sha256:44392e7500f267e27d85011b0fda3f67551003f79a91b6258bc6a039997e2fe7",
+  "@context": {
+    "schema": "https://schema.org/",
+    "prov": "http://www.w3.org/ns/prov#",
+    "hostrade": "https://hologram.os/ns/trade#"
+  },
+  "@type": [
+    "prov:Entity",
+    "hostrade:SDK",
+    "schema:SoftwareSourceCode"
+  ],
+  "schema:name": "Hyperliquid SDK (vendored)",
+  "schema:codeRepository": "https://github.com/nktkas/hyperliquid",
+  "schema:license": "https://opensource.org/licenses/MIT",
+  "hostrade:sealedBody": {
+    "name": "@nktkas/hyperliquid",
+    "version": "0.32.2",
+    "license": "MIT",
+    "bundler": "esbuild --format=esm --platform=browser --minify",
+    "signer": "viem privateKeyToAccount",
+    "bundleSha256": "3e8ca4107096783f9b5de82d6f928924eb187f57be629bdbbce94204dfccb4f2",
+    "note": "The official Hyperliquid TypeScript SDK, bundled verbatim to one browser ESM. ALL msgpack + phantom-agent EIP-712 signing is the SDK's, never hand-rolled (the docs' own rule)."
+  }
+}

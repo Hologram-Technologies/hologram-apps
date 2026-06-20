@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holo Code the terminal agent, sovereign</title>
+<meta name="description" content="An agentic coding partner that runs on your machine. The brain is local verifiable inference (Holo Q); the tools work over the content-addressed substrate; every tool call is judged by the OS conscience and every session seals to a re-derivable receipt (Law L5)." />
+<link rel="icon" href="icon.svg" />
+<!-- rich preview when the link is shared -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Holo Code" />
+<meta property="og:title" content="Holo Code the terminal agent, sovereign" />
+<meta property="og:description" content="Claude Code's sovereign twin: local brain, substrate-native tools, conscience-gated, every session a re-derivable receipt." />
+<meta property="og:image" content="icon.svg" />
+<meta name="twitter:card" content="summary_large_image" />
+<!-- Holo UI (theme/look engine) + Holo UX (device-tier + host-native feel) — the one design system,
+     inherited, not re-decided (Law L2). No framework, no CDN (Law L4). -->
+<link rel="stylesheet" href="_shared/holo-theme.css" />
+<link rel="stylesheet" href="_shared/holo-mobile.css" />
+<link rel="stylesheet" href="_shared/holo-phi.css" />
+<script src="_shared/holo-ui-kernel.js"></script>
+<script type="module" src="_shared/holo-ux.js"></script>
+<script type="module" src="_shared/holo-object.js"></script>
+<script src="_shared/holo-icons.js"></script>
+<!-- the fail-closed conscience gate (ADR-033): self-verifies on boot; judges every tool call. -->
+<script type="module" src="_shared/holo-conscience.js"></script>
+<!-- the SDK is imported by the QVAC-style specifier; gen-imports pins this map to holo-sdk.js's κ. -->
+<script type="importmap">{ "imports": { "@hologram/sdk": "_shared/holo-sdk.js", "@hologram/app": "_shared/holo-app.mjs" } }</script>
+<!-- W3C semantic-web: the app describes itself + declares its conformance as JSON-LD. -->
+<script type="application/ld+json">{"@context":{"schema":"https://schema.org/","dcterms":"http://purl.org/dc/terms/"},"@type":["schema:SoftwareApplication","schema:WebApplication"],"schema:name":"Holo Code","schema:applicationCategory":"DeveloperApplication","schema:description":"A substrate-native, sovereign reproduction of the Claude Code terminal agent: a local brain, content-addressed tools, conscience-gated permission, and a re-derivable PROV-O session receipt.","schema:operatingSystem":"Hologram OS UOR content-addressable substrate (serverless)","schema:isAccessibleForFree":true,"dcterms:conformsTo":[{"@id":"https://www.w3.org/TR/json-ld11/"},{"@id":"https://www.w3.org/TR/did-core/"},{"@id":"https://www.w3.org/TR/SRI/"},{"@id":"https://www.w3.org/TR/prov-o/"},{"@id":"https://www.w3.org/TR/WCAG22/"},{"@id":"https://github.com/Hologram-Technologies/holospaces"}]}</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --accent: var(--holo-accent, coral);
+    --mono: var(--holo-font-mono, ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace);
+    --sans: var(--holo-font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    --r: var(--holo-radius, 12px);
+    --r-s: var(--holo-radius-sm, 8px);
+    --pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--holo-bg); color: var(--holo-ink);
+    font: var(--holo-text-sm, 1rem)/1.55 var(--sans);
+    display: grid; grid-template-rows: auto 1fr auto; height: 100vh; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* top bar */
+  .bar { display: flex; align-items: center; gap: .7rem; padding: .55rem .9rem;
+    background: var(--holo-surface); border-bottom: 1px solid var(--holo-border); }
+  .bar .brand { display: flex; align-items: center; gap: .55rem; font-weight: 650; letter-spacing: -.01em; }
+  .bar .brand .logo { color: var(--accent); display: inline-flex; }
+  .bar .tag { color: var(--holo-ink-dim); font-size: 1rem; }
+  .bar .spacer { flex: 1; }
+  .bar select, .bar button { font: inherit; color: var(--holo-ink); background: var(--holo-surface-2);
+    border: 1px solid var(--holo-border); border-radius: var(--r); min-height: 44px; padding: 0 .8rem; cursor: pointer; }
+  .bar button.primary { background: color-mix(in srgb, var(--accent) 18%, var(--holo-surface-2));
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); display: inline-flex; align-items: center; gap: .4rem; }
+  .bar button:hover, .bar select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+
+  /* stage: repl | viewer */
+  .stage { display: grid; grid-template-columns: 1fr 0; min-height: 0; transition: grid-template-columns .18s ease; }
+  body.has-viewer .stage { grid-template-columns: 1fr minmax(20rem, 42%); }
+  .repl { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+  .transcript { flex: 1; overflow-y: auto; padding: 1.1rem 1.1rem 1.4rem; display: flex; flex-direction: column; gap: .7rem;
+    font-family: var(--mono); }
+  .transcript > * { max-width: 64rem; width: 100%; align-self: center; }
+
+  .msg { display: grid; grid-template-columns: 6.5rem 1fr; gap: .8rem; }
+  .msg .role { color: var(--holo-ink-dim); text-transform: lowercase; font-size: 1rem; padding-top: .1rem; display: flex; align-items: center; gap: .5rem; }
+  .msg.assistant .role { color: var(--accent); }
+  /* live tokens/sec while the on-device model decodes — a faithful braille pulse (Holo FX). */
+  .msg .role .tps { display: inline-flex; align-items: center; gap: .4rem; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .msg .role .tps .bar { color: var(--accent); letter-spacing: .5px; line-height: 1; }
+  .msg .role .tps .n { color: var(--holo-ink-dim); font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .msg .body { color: var(--holo-ink); white-space: normal; word-break: break-word; }
+  .msg .body code { background: var(--holo-surface-2); padding: .05em .35em; border-radius: var(--r-s); }
+  .msg .body pre.code { background: var(--holo-surface); border: 1px solid var(--holo-border); border-radius: var(--r);
+    padding: .7rem .85rem; overflow-x: auto; margin: .5rem 0; }
+  .msg .body h3, .msg .body h4 { margin: .4rem 0 .2rem; }
+
+  details.thinking { color: var(--holo-ink-dim); border-left: 2px solid var(--holo-border); padding: 0 0 0 .7rem; max-width: 64rem; width:100%; align-self:center; }
+  details.thinking summary { cursor: pointer; font-size: 1rem; }
+  details.thinking pre { margin: .35rem 0 0; white-space: pre-wrap; opacity: .8; }
+
+  .note { color: var(--holo-ink-dim); }
+  .note .dim, .dim { color: var(--holo-ink-dim); }
+
+  /* tool-call block */
+  .tool { border: 1px solid var(--holo-border); border-radius: var(--r); overflow: hidden; background: var(--holo-surface); }
+  .tool .thead { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; background: var(--holo-surface-2);
+    border-bottom: 1px solid var(--holo-border); flex-wrap: wrap; }
+  .tool .tdot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--holo-ink-dim); flex: 0 0 auto; }
+  .tool.pending .tdot { background: var(--holo-warn); animation: pulse 1s ease-in-out infinite; }
+  /* Holo FX: a sharp braille spinner replaces the pulsing dot while a tool runs (faithful
+     unicode-animations). Falls back to the pulse above when window.HoloFX is absent. */
+  .tool .tdot.fx { width: auto; height: auto; border-radius: 0; background: none !important;
+    color: var(--holo-warn); font: 650 1rem/1 ui-monospace, Menlo, Consolas, monospace; min-width: 1ch; text-align: center; animation: none; }
+  .tool .tdot { transition: none; }
+  .tool.done .tdot { background: var(--holo-ok); }
+  .tool.err .tdot, .tool.denied .tdot { background: var(--holo-danger); }
+  .tool.planned .tdot { background: var(--accent); }
+  .tool .tname { font-weight: 650; }
+  .tool .targs { color: var(--holo-ink-dim); }
+  .tool .tcat { margin-left: auto; color: var(--holo-ink-dim); font-size: 1rem; }
+  .tool .tverdict { font-size: 1rem; padding: .1rem .45rem; border-radius: var(--pill); border: 1px solid var(--holo-border); }
+  .tool .tverdict.ok { color: var(--holo-ok); } .tool .tverdict.bad { color: var(--holo-danger); } .tool .tverdict.warn { color: var(--holo-warn); }
+  .tool .tbody { padding: .55rem .75rem; }
+  .tool .tout { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 18rem; overflow: auto; }
+  .tool.err .tout { color: var(--holo-danger); }
+  .tool .tk { margin-top: .4rem; color: var(--holo-ink-dim); font-size: 1rem; }
+  .tool .topen { margin-top: .5rem; font: inherit; color: var(--accent); background: none; border: 1px solid var(--holo-border);
+    border-radius: var(--pill); padding: .15rem .6rem; cursor: pointer; }
+
+  .receipt { display: flex; align-items: center; gap: .45rem; color: var(--holo-ink-dim); font-size: 1rem;
+    border-top: 1px dashed var(--holo-border); padding-top: .5rem; }
+  .receipt .rseal { width: .55rem; height: .55rem; border-radius: 50%; background: var(--holo-ink-dim); }
+  .receipt .rseal.ok { background: var(--holo-ok); } .receipt .rseal.warn { background: var(--holo-warn); }
+  .receipt code, .note code, .tk { font-family: var(--mono); }
+  .ok { color: var(--holo-ok); } .bad { color: var(--holo-danger); } .warn { color: var(--holo-warn); }
+
+  /* composer */
+  .composer-wrap { border-top: 1px solid var(--holo-border); padding: .6rem .9rem .7rem; position: relative; background: var(--holo-surface); }
+  .suggest { position: absolute; bottom: 100%; left: .9rem; right: .9rem; background: var(--holo-surface-2);
+    border: 1px solid var(--holo-border); border-radius: var(--r); margin-bottom: .35rem; overflow: hidden; }
+  .suggest .sg { display: flex; gap: .8rem; padding: .4rem .7rem; cursor: pointer; }
+  .suggest .sg:hover { background: var(--holo-hover); }
+  .suggest .sg .cmd { color: var(--accent); font-family: var(--mono); }
+  .suggest .sg .d { color: var(--holo-ink-dim); }
+  .composer-row { display: flex; gap: .55rem; align-items: flex-end; }
+  #composer { flex: 1; resize: none; min-height: 44px; max-height: 30vh; font: var(--holo-text-sm, 1rem)/1.5 var(--mono);
+    color: var(--holo-ink); background: var(--holo-bg); border: 1px solid var(--holo-border); border-radius: var(--r); padding: .6rem .7rem; }
+  #composer:focus { outline: var(--holo-focus-width, 3px) solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; }
+  #send { font: inherit; font-weight: 650; min-height: 44px; padding: 0 1.1rem; cursor: pointer; color: var(--holo-accent-ink, white);
+    background: var(--accent); border: 1px solid transparent; border-radius: var(--r); }
+  .hint { color: var(--holo-ink-dim); font-size: 1rem; margin-top: .4rem; }
+
+  /* viewer */
+  .viewer { border-left: 1px solid var(--holo-border); background: var(--holo-surface); display: flex; flex-direction: column; min-width: 0; }
+  .viewer[hidden] { display: none; }
+  .vhead { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; border-bottom: 1px solid var(--holo-border); background: var(--holo-surface-2); }
+  .vhead #viewer-title { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vhead .vk { margin-left: auto; color: var(--holo-ink-dim); font-family: var(--mono); font-size: 1rem; }
+  .vhead button { font: inherit; color: var(--holo-ink-dim); background: none; border: none; cursor: pointer; min-height: 44px; min-width: 32px; }
+  .vbody { flex: 1; overflow: auto; padding: .6rem .75rem; }
+  .vbody pre { margin: 0; font-family: var(--mono); white-space: pre; }
+  .vbody .filebody { white-space: pre-wrap; word-break: break-word; }
+  .diff .dl { display: block; }
+  .diff .dl.add { color: var(--holo-ok); background: color-mix(in srgb, var(--holo-ok) 12%, transparent); }
+  .diff .dl.del { color: var(--holo-danger); background: color-mix(in srgb, var(--holo-danger) 12%, transparent); }
+  .diff .dl.ctx { color: var(--holo-ink-dim); }
+
+  /* status line */
+  .status { display: flex; align-items: center; gap: .5rem; padding: .35rem .9rem; background: var(--holo-surface);
+    border-top: 1px solid var(--holo-border); color: var(--holo-ink-dim); font-family: var(--mono); font-size: 1rem; }
+  .status .seal { width: .55rem; height: .55rem; border-radius: 50%; background: var(--holo-ink-dim); }
+  .status .seal.ok { background: var(--holo-ok); }
+  .status .spacer { flex: 1; }
+  .status .did { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 18rem; }
+
+  /* permission modal */
+  .permission { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--holo-bg) 70%, transparent);
+    backdrop-filter: blur(3px); z-index: 50; }
+  .permission[hidden] { display: none; }
+  .permission .pm { width: min(34rem, 92vw); background: var(--holo-surface); border: 1px solid var(--holo-border); border-radius: var(--r); overflow: hidden; }
+  .permission .pm-h { padding: .7rem .9rem; border-bottom: 1px solid var(--holo-border); font-weight: 650; display: flex; align-items: center; gap: .5rem; }
+  .permission .pm-h .logo { color: var(--accent); display: inline-flex; }
+  .permission .pm-c { padding: .9rem; display: flex; flex-direction: column; gap: .5rem; }
+  .permission .pm-tool { font-family: var(--mono); background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--holo-radius-sm, 8px); padding: .5rem .6rem; word-break: break-word; }
+  .permission .pm-verdict { font-size: 1rem; color: var(--holo-ink-dim); }
+  .permission .pm-detail { font-size: 1rem; color: var(--holo-ink-dim); }
+  .permission .pm-actions { display: flex; gap: .5rem; flex-wrap: wrap; padding: 0 .9rem .9rem; }
+  .permission .pm-actions button { font: inherit; font-weight: 600; min-height: 44px; padding: 0 1rem; cursor: pointer;
+    color: var(--holo-ink); background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r); }
+  .permission .pm-actions button.primary { background: color-mix(in srgb, var(--accent) 18%, var(--holo-surface-2)); border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+  .permission .pm-actions button:focus-visible { outline: var(--holo-focus-width, 3px) solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+  @media (prefers-reduced-motion: reduce) { .stage { transition: none; } .tool.pending .tdot { animation: none; } }
+  @media (max-width: 720px) { .msg { grid-template-columns: 1fr; gap: .15rem; } body.has-viewer .stage { grid-template-columns: 1fr; } .viewer { position: fixed; inset: auto 0 3rem 0; height: 55vh; } }
+</style>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Code"></holo-splash>
+
+  <header class="bar">
+    <span class="brand"><span class="logo"><holo-icon name="terminal" size="22" aria-hidden="true"></holo-icon></span> Holo Code</span>
+    <span class="tag">the terminal agent, sovereign</span>
+    <span class="spacer"></span>
+    <label class="sr-only" for="provider">brain</label>
+    <select id="provider" title="the inference brain">
+      <option value="local">local agent</option>
+      <option value="holo-q">holo q</option>
+    </select>
+    <label class="sr-only" for="hq-model">Holo Q model</label>
+    <select id="hq-model" title="Holo Q model bigger is smarter, slower to load"><option value="">Holo Q model…</option></select>
+    <button id="connect" class="primary"><holo-icon name="bolt" size="16" aria-hidden="true"></holo-icon> Connect Holo Q</button>
+  </header>
+
+  <main class="stage">
+    <section class="repl">
+      <div class="transcript" id="transcript" role="log" aria-live="polite"></div>
+      <div class="composer-wrap">
+        <div class="suggest" id="suggest" hidden></div>
+        <div class="composer-row">
+          <textarea id="composer" rows="1" placeholder="Ask Holo Code…  (try: read src/greet.js  ·  /help)" autofocus></textarea>
+          <button id="send">Send</button>
+        </div>
+        <div class="hint">⏎ send · ⇧⏎ newline · <span data-holo-shortcut="shift+Tab">⇧⇥</span> permission mode · <code>/</code> commands</div>
+      </div>
+    </section>
+    <aside class="viewer" id="viewer" hidden aria-label="content-addressed file viewer">
+      <div class="vhead"><span id="viewer-title"></span><span id="viewer-kappa" class="vk"></span><button id="viewer-close" title="close">✕</button></div>
+      <div class="vbody" id="viewer-body"></div>
+    </aside>
+  </main>
+
+  <footer class="status">
+    <span class="seal" id="st-seal"></span>
+    <span id="st-provider">local agent</span> ·
+    <span id="st-mode">default</span> ·
+    <span id="st-ctx">0% ctx</span> ·
+    <span id="st-cost">$0.00</span> ·
+    <span id="st-kappa">no receipt</span>
+    <span class="spacer"></span>
+    <span class="did" id="app-did" title="">verifying…</span>
+  </footer>
+
+  <div class="permission" id="permission" hidden role="alertdialog" aria-modal="true" aria-label="permission required">
+    <div class="pm">
+      <div class="pm-h"><span class="logo"><holo-icon name="shield" size="18" aria-hidden="true"></holo-icon></span> Permission required</div>
+      <div class="pm-c">
+        <div class="pm-tool"></div>
+        <div class="pm-verdict"></div>
+        <div class="pm-detail"></div>
+      </div>
+      <div class="pm-actions">
+        <button class="primary" data-act="allow">Allow <span class="dim">Y</span></button>
+        <button data-act="deny">Deny <span class="dim">N</span></button>
+        <button data-act="always">Always <span class="dim">A</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import HoloCodeAgent from "./holo-code-agent.mjs";
+    import { REPL, ACCENT } from "./holo-code-repl.js";
+    import { PROVIDERS } from "./holo-code-providers.mjs";
+    import { seedWorkspace } from "./holo-code-tools.mjs";
+
+    // the conscience gate self-verifies on boot (re-derives the eight principles to their pinned κ);
+    // fail-soft if absent (outside the OS frame), fail-CLOSED if present-but-tampered (ADR-033).
+    let verifyConstitution = async () => ({ ok: false });
+    try { const c = await import("./_shared/holo-conscience.js"); verifyConstitution = c.verifyConstitution; } catch {}
+    let SDK = {}; try { SDK = await import("@hologram/sdk"); } catch {}
+
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      transcript: $("transcript"), composer: $("composer"), send: $("send"), suggest: $("suggest"),
+      viewer: $("viewer"), viewerTitle: $("viewer-title"), viewerKappa: $("viewer-kappa"), viewerBody: $("viewer-body"), viewerClose: $("viewer-close"),
+      permission: $("permission"), provider: $("provider"), connect: $("connect"),
+      stProvider: $("st-provider"), stMode: $("st-mode"), stCtx: $("st-ctx"), stCost: $("st-cost"), stKappa: $("st-kappa"),
+    };
+
+    try { await (SDK.ready ? SDK.ready() : Promise.resolve()); } catch {}
+    try { if (window.HoloUI && HoloUI.setAccent) HoloUI.setAccent(ACCENT); } catch {}
+    try { await verifyConstitution(); } catch {}
+    try { await seedWorkspace(); } catch {}
+
+    const agent = new HoloCodeAgent({ providerId: "local", mode: "default" });
+    const repl = new REPL({
+      agent, els,
+      providers: Object.keys(PROVIDERS),
+      modes: ["default", "plan", "auto", "acceptEdits", "bypass"],
+      onConnectHoloQ: connectHoloQ,
+    });
+    agent.onEvent = (ev) => repl.handle(ev);
+    agent.requestPermission = (tu) => repl.requestPermission(tu);
+    repl.banner();
+    repl.setStatus();
+    // mark the conscience seal in the status line
+    try { if (SDK.sealed && SDK.sealed()) $("st-seal").classList.add("ok"); } catch {}
+
+    // self-verify the app's own identity (footer), like every holospace (Law L5).
+    try {
+      const obj = { "@type": "schema:SoftwareApplication", "schema:name": "Holo Code" };
+      const did = SDK.address ? await SDK.address(obj) : "";
+      const ok = (did && SDK.verify) ? await SDK.verify({ id: did, ...obj }) : null;
+      const f = $("app-did");
+      if (did) { f.textContent = did.split(":").pop().slice(0, 10) + "… " + (ok ? "✓ self-verifying" : ""); f.title = did; }
+      else { f.textContent = "self-contained"; }
+    } catch { $("app-did").textContent = "self-contained"; }
+
+    // the model picker — lazily list Holo Q's loadable models on first interaction (no boot cost).
+    const hqModel = $("hq-model");
+    let _modelsLoaded = false;
+    async function ensureModels() {
+      if (_modelsLoaded) return; _modelsLoaded = true;
+      try {
+        const list = await PROVIDERS["holo-q"].models();
+        hqModel.innerHTML = list.map((m) => '<option value="' + m.i + '"' + (m.def ? " selected" : "") + '>' + m.name + ' · ' + m.size + '</option>').join("");
+      } catch (e) { _modelsLoaded = false; }
+    }
+    hqModel.addEventListener("pointerdown", ensureModels);
+    hqModel.addEventListener("focus", ensureModels);
+
+    async function connectHoloQ() {
+      const p = PROVIDERS["holo-q"];
+      if (p.status && p.status() === "connecting") return;
+      await ensureModels();
+      const modelIndex = hqModel.value !== "" ? parseInt(hqModel.value, 10) : undefined;
+      els.connect.disabled = true;
+      const update = repl.progressLine('<span class="dim">connecting Holo Q…</span>');
+      const r = await p.connect({
+        modelIndex,
+        onStatus: (s) => { if (s) update('<span class="dim">Holo Q · ' + (s + "").replace(/</g, "&lt;") + '</span>'); },
+        onProgress: (done, total, label) => { if (total) update('<span class="dim">Holo Q · ' + (label || "loading") + ' ' + Math.round((done / total) * 100) + '%</span>'); },
+      });
+      els.connect.disabled = false;
+      if (r.ok) {
+        els.provider.value = "holo-q"; agent.setProvider("holo-q"); repl.setModel(r.model);
+        els.connect.innerHTML = '<holo-icon name="bolt" size="16" aria-hidden="true"></holo-icon> ' + r.model;
+        update('<span class="ok">Holo Q connected</span> <strong>' + r.model + '</strong> runs on your GPU. Ask it to read or change your code in plain words it drives the tools itself, each call conscience-gated, the whole turn a re-derivable receipt.');
+      } else {
+        update('Holo Q: <strong>' + (r.status || "unavailable") + '</strong> ' + (r.reason || ""));
+      }
+    }
+  </script>
+</body>
+</html>

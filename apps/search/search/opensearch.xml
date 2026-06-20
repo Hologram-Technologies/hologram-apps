@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A9 OpenSearch description document (OpenSearch 1.1) — the open, universal autodiscovery
+     standard. Any browser or client that reads this can add Holo Search as a search provider:
+     "universal" in the literal, standards sense. The {searchTerms} template points at the
+     hologram-native search UI; results are ranked by HoloRank and re-derivable to their
+     did:holo (Law L5). Linked from search.html via <link rel="search" type="application/
+     opensearchdescription+xml">. -->
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"
+                       xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+  <ShortName>Holo Search</ShortName>
+  <LongName>Holo Search — search the entire Hologram OS</LongName>
+  <Description>Google for the entire Hologram OS, hologram-native: one bar over every holospace, spec, doc and UOR object. OpenSearch-faithful (BM25 + Query DSL + kNN), ranked by HoloRank (a verifiable PageRank), every result re-derivable to its did:holo (Law L5).</Description>
+  <Tags>hologram holospace uor opensearch holorank content-addressed semantic search</Tags>
+  <Contact>https://github.com/Hologram-Technologies/holospaces/issues</Contact>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Language>en-us</Language>
+  <Image width="16" height="16" type="image/svg+xml">data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%234f9cff%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%3E%3Ccircle%20cx%3D%2211%22%20cy%3D%2211%22%20r%3D%227%22%2F%3E%3Cpath%20d%3D%22M21%2021l-4.3-4.3%22%2F%3E%3C%2Fsvg%3E</Image>
+  <!-- HTML result page (relative to this document's URL, resolved by the client). -->
+  <Url type="text/html" method="get" template="../search.html?q={searchTerms}"/>
+  <!-- JSON result feed: holo-serve serves /search/api?q={searchTerms} (OpenSearch _search shape). -->
+  <Url type="application/json" method="get" template="../search/api?q={searchTerms}&amp;format=json"/>
+  <!-- self link -->
+  <Url type="application/opensearchdescription+xml" rel="self" template="../search/opensearch.xml"/>
+  <Query role="example" searchTerms="ethereum"/>
+  <Query role="example" searchTerms="bitcoin mining"/>
+  <SearchForm>../search.html</SearchForm>
+  <moz:SearchForm>../search.html</moz:SearchForm>
+  <AdultContent>false</AdultContent>
+  <SyndicationRight>open</SyndicationRight>
+</OpenSearchDescription>

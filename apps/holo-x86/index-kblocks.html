@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" data-holo-kappa-auto="off" data-holo-boot="off">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo x86 · κ-block disk</title>
+    <script src="/_shared/holo-fx.js"></script>
+    <link rel="stylesheet" href="./vendor/xterm/xterm.css" />
+    <style>
+      :root { color-scheme: dark; --bg:#0a0a0a; --dim:#8b949e; --line:#1b2128; --acc:#58a6ff; --ok:#3fb950; --bad:#f85149; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column;
+        font: 14px/1.4 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem;
+        padding: 0.3rem 0.8rem; background: #0d1117; border-bottom: 1px solid var(--line); user-select: none; }
+      #bar .name { color: #e6edf3; font-weight: 600; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); }
+      #bar .sp { margin-left: auto; }
+      #bar .dot { color: #d29922; } #bar .dot.on { color: var(--ok); } #bar .dot.off { color: var(--bad); }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid var(--line);
+        border-radius: 5px; padding: 0.15rem 0.55rem; cursor: pointer; }
+      #bar button:hover { color: #e6edf3; border-color: #30363d; }
+      #kappa { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 0.35rem 1.3rem; align-items: center;
+        padding: 0.35rem 0.85rem; background: #0b0e13; border-bottom: 1px solid var(--line); font-size: 12px; }
+      #kappa .lbl { color: var(--dim); }
+      .pin { display: flex; align-items: center; gap: 0.4rem; }
+      .pin .v { color: #d29922; font-weight: 600; } .pin.ok .v { color: var(--ok); } .pin.bad .v { color: var(--bad); }
+      .pin .k { color: var(--acc); }
+      #stage { position: relative; flex: 1 1 auto; min-height: 0; background:#000; }
+      #serial { position: absolute; inset: 0; padding: 0.3rem 0 0 0.4rem; }
+      #serial[hidden] { display: none; }
+      #screen { position: absolute; inset: 0; display: none; place-items: center; color:#fff; }
+      #screen.on { display: grid; }
+      #screen > div { white-space: pre; font: 14px/1.06 "Cascadia Mono", Menlo, Consolas, monospace; }
+      #screen > canvas { background:#000; }
+      #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: var(--bg); transition: opacity 0.25s; z-index: 5; }
+      #overlay.hidden { opacity: 0; pointer-events: none; }
+      #panel { max-width: 46rem; padding: 1.5rem 1.75rem; }
+      #panel .ttl { color: #e6edf3; font-size: 1.05rem; font-weight: 600; margin-bottom: 0.2rem; }
+      #panel .sub { color: var(--dim); margin-bottom: 1.1rem; }
+      #panel .status { display: flex; align-items: center; gap: 0.6rem; color: #c9d1d9; }
+      #panel .spin { color: var(--acc); font: 700 13px/1 ui-monospace, Menlo, Consolas, monospace; min-width: 1.1em; display: inline-block; }
+      #panel.err .status { color: var(--bad); } #panel.err .spin { display: none; }
+      #panel .hint { margin-top: 0.8rem; color: var(--dim); white-space: pre-wrap; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo x86 · κ-block"></holo-splash>
+
+    <div id="bar">
+      <span class="name">Holo&nbsp;x86</span>
+      <span class="tag">· κ-block disk (lazy, per-block L5)</span>
+      <span class="sp"></span>
+      <span class="tag" id="diskstat">disk: —</span>
+      <span class="dot" id="dot">●</span>
+      <span class="tag" id="state">starting</span>
+      <button id="rebootBtn" title="re-verify κ and cold-boot">⟳ reboot</button>
+    </div>
+
+    <div id="kappa">
+      <span class="lbl">κ-anchored:</span>
+      <span class="pin" id="pin-engine"><span class="v">…</span><span>v86 engine</span> <span class="k">—</span></span>
+      <span class="pin" id="pin-bios"><span class="v">…</span><span>BIOS</span> <span class="k">—</span></span>
+      <span class="pin" id="pin-image"><span class="v">…</span><span>disk (κ-block DAG)</span> <span class="k">—</span></span>
+    </div>
+
+    <div id="stage">
+      <div id="serial"></div>
+      <div id="screen"><div></div><canvas></canvas></div>
+      <div id="overlay">
+        <div id="panel">
+          <div class="ttl">Holo x86 · κ-block disk <span class="tag" style="font-weight:400">— a real x86 Linux whose disk is a content-addressed κ-DAG</span></div>
+          <div class="sub">The disk is NOT one blob. It is an ordered set of κ-blocks; v86 reads it lazily and a service worker resolves each block by its content address and re-derives it before the guest sees a byte (Law L5). Only blocks the guest touches are ever fetched.</div>
+          <div class="status"><span class="spin" data-holo-spin="cascade"></span><span id="pstatus">loading…</span></div>
+          <div class="hint" id="phint"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./vendor/xterm/xterm.js"></script>
+    <script src="./vendor/xterm/addon-fit.js"></script>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const SCOPE = new URL("./", location.href).pathname;          // /apps/holo-x86/
+      const IMAGE_URL = "./images/linux4.iso";
+      // The disk's κ-block closure root is pinned in kappa.json (image.kblocks.root); the boot
+      // re-derives it from the manifest's block list and refuses on mismatch (Law L5).
+      let DISK_ROOT_PIN = null, MANIFEST_URL = "./images/linux4.iso.kblocks.json";
+
+      const term = new Terminal({
+        fontFamily: 'ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace', fontSize: 14,
+        cursorBlink: true, scrollback: 5000, convertEol: true,
+        theme: { background: "#0a0a0a", foreground: "#d4d4d4", cursor: "#e6edf3" },
+      });
+      const fit = new FitAddon.FitAddon();
+      term.loadAddon(fit); term.open($("serial"));
+      const refit = () => { try { fit.fit(); } catch (_) {} };
+      refit(); new ResizeObserver(refit).observe($("stage"));
+      const setState = (t, cls) => { $("state").textContent = t; $("dot").className = "dot" + (cls ? " " + cls : ""); };
+      const setStatus = (t) => ($("pstatus").textContent = t);
+      const hideOverlay = () => $("overlay").classList.add("hidden");
+      const fail = (t, hint) => { $("overlay").classList.remove("hidden"); $("panel").classList.add("err"); setStatus(t); $("phint").textContent = hint || ""; setState("error", "off"); };
+
+      const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const sha256hex = async (buf) => toHex(await crypto.subtle.digest("SHA-256", buf));
+      const shortK = (hex) => "did:holo:sha256:" + hex.slice(0, 10) + "…" + hex.slice(-6);
+      const hexOf = (did) => String(did).split(":").pop();
+
+      async function fetchVerified(pin, label) {
+        setStatus("fetching + κ-verifying " + label + "…");
+        const resp = await fetch(pin.url, { cache: "force-cache" });
+        if (!resp.ok) throw Object.assign(new Error("HTTP " + resp.status + " for " + pin.url), { soft: true });
+        const buf = await resp.arrayBuffer();
+        const actual = await sha256hex(buf);
+        if (actual !== pin.sha256) throw Object.assign(new Error("κ mismatch on " + label), { gate: true, label, expected: pin.sha256, actual });
+        return buf;
+      }
+      function renderPin(which, ok, hex, extra) {
+        const el = $("pin-" + which); el.className = "pin " + (ok ? "ok" : "bad");
+        el.innerHTML = `<span class="v">${ok ? "✓" : "✗"}</span><span>${el.querySelector("span:nth-child(2)")?.textContent || which}</span> <span class="k">${ok ? shortK(hex) : "REFUSED"}</span>` + (extra ? ` <span class="tag">${extra}</span>` : "");
+      }
+
+      // Re-derive the κ-block DAG's closure root from its block list alone (disk analog of
+      // mediaGraphClosureKappa): sorted unique hexes → canonical JSON → sha256. Must equal the pin.
+      async function verifyManifest(m) {
+        const uniqueSorted = [...new Set(m.blocks.map(hexOf))].sort();
+        const root = "did:holo:sha256:" + await sha256hex(new TextEncoder().encode(JSON.stringify(uniqueSorted)));
+        if (root !== m.root || root !== DISK_ROOT_PIN)
+          throw Object.assign(new Error("disk κ-block root mismatch"), { gate: true, label: "disk", expected: DISK_ROOT_PIN, actual: root });
+        return root;
+      }
+
+      async function registerSW() {
+        if (!("serviceWorker" in navigator)) throw new Error("service worker unavailable — κ-block seam needs one");
+        setStatus("installing the κ-block disk worker…");
+        await navigator.serviceWorker.register("./holo-x86-kblocks-sw.js", { scope: SCOPE });
+        await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller) { // first install: take control without a manual reload
+          await new Promise((res) => navigator.serviceWorker.addEventListener("controllerchange", res, { once: true }));
+        }
+      }
+
+      let emulator = null, statTimer = null;
+      function pollStats() {
+        clearInterval(statTimer);
+        statTimer = setInterval(() => {
+          const sw = navigator.serviceWorker.controller; if (!sw) return;
+          const ch = new MessageChannel();
+          ch.port1.onmessage = (e) => {
+            const s = e.data || {};
+            $("diskstat").textContent = `disk: ${s.blockFetches||0} blocks · ${(((s.bytes||0)/1048576)).toFixed(2)} MB · avg ${s.avgStallMs||0}ms · max ${(s.maxStallMs||0).toFixed?.(0)||0}ms`;
+          };
+          sw.postMessage({ type: "kblocks-stats" }, [ch.port2]);
+        }, 1000);
+      }
+
+      async function boot() {
+        $("overlay").classList.remove("hidden"); $("panel").classList.remove("err"); $("phint").textContent = "";
+        setState("verifying", "");
+        for (const w of ["engine", "bios", "image"]) $("pin-" + w).className = "pin";
+        try {
+          await registerSW();
+          const kappa = await (await fetch("./kappa.json", { cache: "no-store" })).json();
+          DISK_ROOT_PIN = kappa.image?.kblocks?.root || null;
+          MANIFEST_URL = kappa.image?.kblocks?.manifest || MANIFEST_URL;
+          if (!DISK_ROOT_PIN) throw new Error("kappa.json is missing image.kblocks.root — re-run holo-disk-encode.mjs");
+
+          const libv86 = await fetchVerified(kappa.engine.libv86, "v86 engine");
+          const wasm    = await fetchVerified(kappa.engine.wasm, "v86 wasm core");
+          renderPin("engine", true, kappa.engine.wasm.sha256, "2 blobs");
+          const seabios = await fetchVerified(kappa.engine.seabios, "SeaBIOS");
+          const vgabios = await fetchVerified(kappa.engine.vgabios, "VGA BIOS");
+          renderPin("bios", true, kappa.engine.seabios.sha256, "2 blobs");
+
+          // The disk: verify the κ-block DAG ROOT now; each block is re-derived lazily at read (L5).
+          setStatus("κ-verifying the disk's block-DAG root…");
+          const manifest = await (await fetch(MANIFEST_URL, { cache: "no-store" })).json();
+          const root = await verifyManifest(manifest);
+          renderPin("image", true, hexOf(root), `${manifest.blockCount} blocks · lazy`);
+
+          setStatus("loading the verified v86 engine…");
+          if (!window.V86) await new Promise((res, rej) => {
+            const s = document.createElement("script");
+            s.src = URL.createObjectURL(new Blob([libv86], { type: "text/javascript" }));
+            s.onload = res; s.onerror = () => rej(new Error("libv86.js failed to load"));
+            document.head.appendChild(s);
+          });
+          const V86 = window.V86 || window.V86Starter;
+          if (!V86) throw new Error("V86 global not found");
+
+          const wasmUrl = URL.createObjectURL(new Blob([wasm], { type: "application/wasm" }));
+          setStatus("powering on — disk streams lazily by κ-block…"); setState("booting", "");
+          emulator = new V86({
+            wasm_path: wasmUrl,
+            screen_container: $("screen"),
+            bios: { buffer: seabios },
+            vga_bios: { buffer: vgabios },
+            // ASYNC disk: v86 issues chunk-aligned Range reads; the SW answers each from κ-blocks.
+            cdrom: { url: IMAGE_URL, async: true, size: manifest.image.bytes, fixed_chunk_size: manifest.blockSize },
+            memory_size: 128 * 1024 * 1024,
+            vga_memory_size: 8 * 1024 * 1024,
+            autostart: true,
+          });
+          pollStats();
+
+          let booted = false;
+          const reveal = () => { if (!booted) { booted = true; hideOverlay(); setState("running", "on"); term.focus(); refit(); } };
+          emulator.add_listener("serial0-output-byte", (b) => { term.write(String.fromCharCode(b)); reveal(); });
+          term.onData((d) => { try { emulator.serial0_send(d); } catch (_) {} });
+          emulator.add_listener("emulator-started", () => setStatus("emulator started — booting the guest from κ-blocks…"));
+          emulator.add_listener("screen-set-mode", (graphical) => { if (graphical) { $("serial").hidden = true; $("screen").classList.add("on"); } reveal(); });
+        } catch (err) {
+          if (err.gate) return fail("κ mismatch on the " + err.label + " — boot refused.",
+            "Holo x86 runs only bytes that match their content address (Law L5).\nexpected " + err.expected + "\nactual   " + err.actual);
+          fail(String(err && err.message || err), err.soft ? "The κ-pinned engine/BIOS and the .kblocks store + manifest must sit beside this app." : "");
+        }
+      }
+
+      $("rebootBtn").addEventListener("click", () => { try { emulator && emulator.destroy && emulator.destroy(); } catch (_) {} emulator = null; window.V86 = null; boot(); });
+      window.holoX86k = { boot, get emulator() { return emulator; } };
+      boot();
+    </script>
+  </body>
+</html>

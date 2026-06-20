@@ -1,0 +1,50 @@
+{
+  "$comment": "κ-pins for Holo 3D — KolibriOS (graphical) on v86, framebuffer rendered as a live Three.js texture. Engine + BIOS + image content-addressed; loader re-derives sha256 and refuses on mismatch (Law L5).",
+  "algo": "sha256",
+  "platform": {
+    "id": "kolibrios",
+    "name": "KolibriOS",
+    "emulator": "v86",
+    "boot": "fda",
+    "graphical": true
+  },
+  "engine": {
+    "libv86": {
+      "url": "./vendor/libv86.js",
+      "name": "v86 engine (BSD-2-Clause)",
+      "sha256": "65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "did": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "bytes": 352483
+    },
+    "wasm": {
+      "url": "./vendor/v86.wasm",
+      "name": "v86 JIT core",
+      "sha256": "3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "did": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "bytes": 2066716
+    },
+    "seabios": {
+      "url": "./vendor/seabios.bin",
+      "name": "SeaBIOS",
+      "sha256": "43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "did": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "bytes": 131072
+    },
+    "vgabios": {
+      "url": "./vendor/bochs-vgabios.bin",
+      "name": "Bochs VGA BIOS (VBE-capable)",
+      "sha256": "8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "did": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "bytes": 43008
+    }
+  },
+  "image": {
+    "fda": {
+      "url": "./images/kolibri.img",
+      "name": "KolibriOS 1.44MB floppy (graphical GUI OS)",
+      "sha256": "98eba957ea7a36e6784a171c5f1cb3f977dfecd615edbb0e28c4411cc1392481",
+      "did": "did:holo:sha256:98eba957ea7a36e6784a171c5f1cb3f977dfecd615edbb0e28c4411cc1392481",
+      "bytes": 1474560
+    }
+  }
+}

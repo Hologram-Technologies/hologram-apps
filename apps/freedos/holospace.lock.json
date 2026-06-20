@@ -1,0 +1,202 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:6cc69e155b259ff53663ff5fa2cbfecc72572287bf36d3154208ddabbeb08429",
+  "identifier": "org.hologram.V86FreeDOS",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 5161,
+    "page": 20,
+    "byte": 41,
+    "r96": 41,
+    "phi": 5161
+  },
+  "files": 20,
+  "closure": {
+    "apps/freedos/holo-splash.js": {
+      "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
+      "sri": "sha256-N2WiDrzduDzUINnqala/Q/u+4qBKA1BZH1Bfpku/cxc=",
+      "multibase": "uEiA3ZaIOvN24PNQg2epqVr9D-77ioEoDUFkfUF-mS79zFw",
+      "bytes": 24111,
+      "alsoKnownAs": [
+        "did:holo:blake3:69e9bfc55ac61137f83090028126b4484b19bd3075a74e9cd0c77aaf1e489bc3"
+      ]
+    },
+    "apps/freedos/holospace.json": {
+      "kappa": "did:holo:sha256:8007418f80c1a9aa0045285fbd9e774fccdb545c1fa2584aaebbced4c8b97a15",
+      "sri": "sha256-gAdBj4DBqaoARShfvZ53T8zbVFwfolhKrrvO1Mi5ehU=",
+      "multibase": "uEiCAB0GPgMGpqgBFKF-9nndPzNtUXB-iWEquu87UyLl6FQ",
+      "bytes": 876,
+      "alsoKnownAs": [
+        "did:holo:blake3:608f7704c32934cfc70e4ee24f58f66e7ddc75c07fc180fb2665df327db06971"
+      ]
+    },
+    "apps/freedos/icon.svg": {
+      "kappa": "did:holo:sha256:485078d375606bfb705d3b2d389e389ebf0a2b89ac6cda6fd37a5c39c29d9a58",
+      "sri": "sha256-SFB403Vga/twXTstOJ44nr8KK4msbNpv03pcOcKdmlg=",
+      "multibase": "uEiBIUHjTdWBr-3BdOy04njievworiaxs2m_Telw5wp2aWA",
+      "bytes": 403,
+      "alsoKnownAs": [
+        "did:holo:blake3:a9ee3cea0c3b613b69f9fb0a5829c7491721dd75b4ab92e3a224366192f435cf"
+      ]
+    },
+    "apps/freedos/images/freedos722.img": {
+      "kappa": "did:holo:sha256:6c7b3c62823d538e20797fecae6dc55d2572455791a573a7de2cdba0b583f6be",
+      "sri": "sha256-bHs8YoI9U44geX/srm3FXSVyRVeRpXOn3izboLWD9r4=",
+      "multibase": "uEiBsezxigj1TjiB5f-yubcVdJXJFV5Glc6feLNugtYP2vg",
+      "bytes": 737280,
+      "alsoKnownAs": [
+        "did:holo:blake3:d538c4b5842a5469db9e012944bf3d460bd5848e94724bd9fcdd6608ffc82aef"
+      ]
+    },
+    "apps/freedos/images/freedos722.img.kblocks/.holo/sha256/2a812e61d55348039d8e9fcf389f2f400824f092caf2280b79d903306c38ed57": {
+      "kappa": "did:holo:sha256:2a812e61d55348039d8e9fcf389f2f400824f092caf2280b79d903306c38ed57",
+      "sri": "sha256-KoEuYdVTSAOdjp/POJ8vQAgk8JLK8igLedkDMGw47Vc=",
+      "multibase": "uEiAqgS5h1VNIA52On884ny9ACCTwksryKAt52QMwbDjtVw",
+      "bytes": 212992,
+      "alsoKnownAs": [
+        "did:holo:blake3:36d967081fe8740233ed639cfd45a4bf4970177903ee8597ce384462b83ebba5"
+      ]
+    },
+    "apps/freedos/images/freedos722.img.kblocks/.holo/sha256/a3fb11651b6f49baaef9900c0f015c0bcdf2b83886f25647ca8e115ea885440d": {
+      "kappa": "did:holo:sha256:a3fb11651b6f49baaef9900c0f015c0bcdf2b83886f25647ca8e115ea885440d",
+      "sri": "sha256-o/sRZRtvSbqu+ZAMDwFcC83yuDiG8lZHyo4RXqiFRA0=",
+      "multibase": "uEiCj-xFlG29Juq75kAwPAVwLzfK4OIbyVkfKjhFeqIVEDQ",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:93d5b037e7b2be8ec23d30bbc4627c4f597b8a97eb30df938e48abb0e797fcdc"
+      ]
+    },
+    "apps/freedos/images/freedos722.img.kblocks/.holo/sha256/a9185f3ce8d95875a8e116bd60a0efe3f3f0cf3e58cef64b4f9f591e65cf3a6f": {
+      "kappa": "did:holo:sha256:a9185f3ce8d95875a8e116bd60a0efe3f3f0cf3e58cef64b4f9f591e65cf3a6f",
+      "sri": "sha256-qRhfPOjZWHWo4Ra9YKDv4/Pwzz5YzvZLT59ZHmXPOm8=",
+      "multibase": "uEiCpGF886NlYdajhFr1goO_j8_DPPljO9ktPn1keZc86bw",
+      "bytes": 262144,
+      "alsoKnownAs": [
+        "did:holo:blake3:3dde37bec734103db191905935357c5472138a64f7c3f5640a97fb1d22aaad7a"
+      ]
+    },
+    "apps/freedos/images/freedos722.img.kblocks.json": {
+      "kappa": "did:holo:sha256:ded0d9a671b893b68d574e4af8f0cb80978a6d496b328006375e681cbf79da53",
+      "sri": "sha256-3tDZpnG4k7aNV05K+PDLgJeKbUlrMoAGN15oHL952lM=",
+      "multibase": "uEiDe0NmmcbiTto1XTkr48MuAl4ptSWsygAY3Xmgcv3naUw",
+      "bytes": 907,
+      "alsoKnownAs": [
+        "did:holo:blake3:e87233732e626dd8d1c58ed643cee277a95c7dae781040e004047a5697954c4b"
+      ]
+    },
+    "apps/freedos/index.html": {
+      "kappa": "did:holo:sha256:f265338cda746edf9d4650b1f9d9a753a98b2e9e9750dd456fcb8448a20f79a7",
+      "sri": "sha256-8mUzjNp0bt+dRlCx+dmnU6mLLp6XUN1Fb8uESKIPeac=",
+      "multibase": "uEiDyZTOM2nRu351GULH52adTqYsunpdQ3UVvy4RIog95pw",
+      "bytes": 24436,
+      "alsoKnownAs": [
+        "did:holo:blake3:e180951130245eb7d3d7e03a003cb5ca74768f9b97f9182e62afd0dff60c9acc"
+      ]
+    },
+    "apps/freedos/kappa.json": {
+      "kappa": "did:holo:sha256:dad6a75727ef176453f6419e7e6f089116dc63c28a17528853607d5d248ee50a",
+      "sri": "sha256-2tanVyfvF2RT9kGefm8IkRbcY8KKF1KIU2B9XSSO5Qo=",
+      "multibase": "uEiDa1qdXJ-8XZFP2QZ5-bwiRFtxjwooXUohTYH1dJI7lCg",
+      "bytes": 1935,
+      "alsoKnownAs": [
+        "did:holo:blake3:8811d37e2abfe77ab340d39b86d1f835c9d4d070414dabf8bf17f96344186d90"
+      ]
+    },
+    "apps/freedos/sw.js": {
+      "kappa": "did:holo:sha256:4d99c498c66cdbb0719f56ba096eaad6b5196724111887bc763f942b965aa485",
+      "sri": "sha256-TZnEmMZs27Bxn1a6CW6q1rUZZyQRGIe8dj+UK5ZapIU=",
+      "multibase": "uEiBNmcSYxmzbsHGfVroJbqrWtRlnJBEYh7x2P5QrllqkhQ",
+      "bytes": 5023,
+      "alsoKnownAs": [
+        "did:holo:blake3:b048d3d91fa64ae5a27a1929ef280093388f8525aae3b40cebf5bc7d3853f3b8"
+      ]
+    },
+    "apps/freedos/vendor/v86/bochs-vgabios.bin": {
+      "kappa": "did:holo:sha256:8a1caca6760b2997f399403844e2a22b651ec48715f88f709d094f7ae46dd004",
+      "sri": "sha256-ihyspnYLKZfzmUA4ROKiK2UexIcV+I9wnQlPeuRt0AQ=",
+      "multibase": "uEiCKHKymdgspl_OZQDhE4qIrZR7EhxX4j3CdCU965G3QBA",
+      "bytes": 43008,
+      "alsoKnownAs": [
+        "did:holo:blake3:ecabed6acc26453e6b3fc15ee2081d156d4907a1ebca719b606c50b19ce5b508"
+      ]
+    },
+    "apps/freedos/vendor/v86/libv86.js": {
+      "kappa": "did:holo:sha256:65d9799137946fe1115190f69309ef43b418729b6f4bac671b0190ee0aae2db7",
+      "sri": "sha256-Zdl5kTeUb+ERUZD2kwnvQ7QYcptvS6xnGwGQ7gquLbc=",
+      "multibase": "uEiBl2XmRN5Rv4RFRkPaTCe9DtBhym29LrGcbAZDuCq4ttw",
+      "bytes": 352483,
+      "alsoKnownAs": [
+        "did:holo:blake3:9a31abfc927041a9d2826bed16ba27e5f8641bfab601461e46b9863814e79216"
+      ]
+    },
+    "apps/freedos/vendor/v86/seabios.bin": {
+      "kappa": "did:holo:sha256:43d7f8e0dc6da4856038731116afd9fef899c7aa814f8006a0bf42901db6e8ce",
+      "sri": "sha256-Q9f44NxtpIVgOHMRFq/Z/viZx6qBT4AGoL9CkB226M4=",
+      "multibase": "uEiBD1_jg3G2khWA4cxEWr9n--JnHqoFPgAagv0KQHbbozg",
+      "bytes": 131072,
+      "alsoKnownAs": [
+        "did:holo:blake3:0e66018574af8ad62d92fcbdc9de11551a35a22011b72825af15cbfb5ab4c885"
+      ]
+    },
+    "apps/freedos/vendor/v86/v86.wasm": {
+      "kappa": "did:holo:sha256:3aea6f02754eeb343bc2a6ef4e2ef76e3fd9e7214eae43d93e416f059b97d678",
+      "sri": "sha256-OupvAnVO6zQ7wqbvTi73bj/Z5yFOrkPZPkFvBZuX1ng=",
+      "multibase": "uEiA66m8CdU7rNDvCpu9OLvduP9nnIU6uQ9k-QW8Fm5fWeA",
+      "bytes": 2066716,
+      "alsoKnownAs": [
+        "did:holo:blake3:6400cb505a82c74734fc291033a6c8f648ff2a754040dae0a3bb58d66282a5a2"
+      ]
+    },
+    "apps/freedos/vendor/v86/vgabios.bin": {
+      "kappa": "did:holo:sha256:eb7478fccbf0ea414d30bd150e74ecd089dbc97c44e1b330efbb324ac8e37ae3",
+      "sri": "sha256-63R4/Mvw6kFNML0VDnTs0InbyXxE4bMw77sySsjjeuM=",
+      "multibase": "uEiDrdHj8y_DqQU0wvRUOdOzQidvJfEThszDvuzJKyON64w",
+      "bytes": 34816,
+      "alsoKnownAs": [
+        "did:holo:blake3:200e3dcdc4039be63157cc8f1d88770bba8af3a8710209bc42a2ec32bb292e13"
+      ]
+    },
+    "apps/freedos/vendor/xterm/addon-fit.js": {
+      "kappa": "did:holo:sha256:bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
+      "sri": "sha256-va76Nwsb/ELuiNRv5gckAJAqTUstRc2TQ43amyPJcIk=",
+      "multibase": "uEiC9rvo3Cxv8Qu6I1G_mByQAkCpNSy1FzZNDjdqbI8lwiQ",
+      "bytes": 1497,
+      "alsoKnownAs": [
+        "did:holo:blake3:0be65ad91c9fc0c898229b532748d569154398412d8737ff5e9d13f5d6b92a99"
+      ]
+    },
+    "apps/freedos/vendor/xterm/xterm.css": {
+      "kappa": "did:holo:sha256:ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
+      "sri": "sha256-uo5phWaUiJgcz0DAzv46uoByLLbJLeetYosL1xf68rY=",
+      "multibase": "uEiC6jmmFZpSImBzPQMDO_jq6gHIstskt561iiwvXF_rytg",
+      "bytes": 5559,
+      "alsoKnownAs": [
+        "did:holo:blake3:c2fbf3e19ed81c6b5ad45c60b95289e5b483789861f7bd277ca99bd85897047f"
+      ]
+    },
+    "apps/freedos/vendor/xterm/xterm.js": {
+      "kappa": "did:holo:sha256:1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
+      "sri": "sha256-H5kaw7Syg+v5bmCuI6AKUnZd06Lkb6b92p8aqwMvdJU=",
+      "multibase": "uEiAfmRrDtLKD6_luYK4joApSdl3TouRvpv3anxqrAy90lQ",
+      "bytes": 289441,
+      "alsoKnownAs": [
+        "did:holo:blake3:481ecdef6a6186997d3771adbe807393ed61d8af62e4897f5cf9314abc447c50"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

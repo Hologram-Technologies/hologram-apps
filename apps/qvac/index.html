@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>QVAC Playground build AI apps, watch them run</title>
+    <meta name="description" content="Build, run and share on-device AI apps with the QVAC SDK describe it, let an agent help, or write code. It runs live as you type, on your device, with no server. Native to Hologram OS (ADR-0067)." />
+    <meta name="theme-color" content="#0b0c0e" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="QVAC Playground" />
+    <meta property="og:title" content="QVAC Playground build AI apps, watch them run" />
+    <meta property="og:description" content="Describe it, or write code. It runs live on your device with no server. Share it as a link that arrives running." />
+    <meta property="og:image" content="icon.svg" />
+    <style>
+      :root { color-scheme: dark; --qv: var(--holo-accent, #8b7cff); --bg: var(--holo-bg, #0b0c0e); --panel: var(--holo-surface, #141518);
+        --panel2: var(--holo-surface-2, #1a1c20); --bd: var(--holo-border, #26282d); --ink: var(--holo-ink, #eceef1); --dim: var(--holo-ink-dim, #969ba3); --ok: var(--holo-ok, #3fb950); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        font: 15px/1.5 var(--holo-font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif); -webkit-font-smoothing: antialiased; }
+      a { color: var(--qv); }
+      button { font: inherit; cursor: pointer; color: var(--ink); background: var(--panel2); border: 1px solid var(--bd); border-radius: 10px; padding: .5rem .8rem; min-height: 40px; display: inline-flex; align-items: center; gap: .4rem; font-weight: 500; }
+      button:hover { border-color: color-mix(in srgb, var(--qv) 45%, var(--bd)); }
+      button.primary { background: var(--qv); border-color: var(--qv); color: #fff; font-weight: 600; }
+      button:focus-visible { outline: 2px solid var(--qv); outline-offset: 1px; }
+      textarea, input { font: inherit; color: var(--ink); background: var(--panel2); border: 1px solid var(--bd); border-radius: 12px; padding: .7rem .85rem; width: 100%; resize: none; }
+      textarea:focus, input:focus { outline: none; border-color: color-mix(in srgb, var(--qv) 55%, var(--bd)); }
+      .grow { flex: 1; }
+      .dim { color: var(--dim); }
+
+      /* header */
+      header { display: flex; align-items: center; gap: .8rem; padding: .7rem clamp(.8rem, 3vw, 1.4rem); flex: 0 0 auto; }
+      header .brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; letter-spacing: -0.02em; font-size: 1.15rem; }
+      header .brand .logo { color: var(--qv); display: inline-flex; }
+      .seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--bd); border-radius: 11px; padding: 3px; gap: 2px; }
+      .seg button { min-height: 34px; padding: .3rem .8rem; border: 0; background: transparent; border-radius: 8px; color: var(--dim); font-weight: 600; }
+      .seg button[aria-pressed=true] { background: color-mix(in srgb, var(--qv) 20%, var(--panel)); color: #fff; }
+      .rt { display: inline-flex; align-items: center; gap: .4rem; color: var(--dim); font-size: .8rem; }
+      .rt .dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--ok); }
+
+      /* layout */
+      main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(.7rem, 2vw, 1.1rem); padding: 0 clamp(.8rem, 3vw, 1.4rem) clamp(.7rem, 2vw, 1.1rem); min-height: 0; }
+      @media (max-width: 820px) { main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } }
+      .card { background: var(--panel); border: 1px solid var(--bd); border-radius: 18px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+      .card > .top { display: flex; align-items: center; gap: .5rem; padding: .8rem 1rem; border-bottom: 1px solid var(--bd); flex: 0 0 auto; }
+      .card > .top .t { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); font-weight: 700; }
+      .card > .body { flex: 1; min-height: 0; overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: .8rem; }
+
+      /* compose · describe */
+      .lede { font-size: 1.05rem; color: var(--ink); margin: 0; }
+      .examples { display: flex; flex-wrap: wrap; gap: .45rem; }
+      .ex { padding: .35rem .7rem; border-radius: 999px; background: var(--panel2); border: 1px solid var(--bd); color: var(--dim); font-size: .85rem; cursor: pointer; }
+      .ex:hover { color: #fff; border-color: color-mix(in srgb, var(--qv) 40%, var(--bd)); }
+      #desc { min-height: 5.5rem; font-size: 1.02rem; }
+      .built { display: inline-flex; align-items: center; gap: .45rem; align-self: flex-start; padding: .35rem .7rem; border-radius: 999px;
+        background: color-mix(in srgb, var(--qv) 14%, transparent); border: 1px solid color-mix(in srgb, var(--qv) 35%, transparent); color: var(--qv); font-weight: 600; font-size: .85rem; }
+      .cfg { display: flex; flex-direction: column; gap: .5rem; }
+      .cfg label { font-size: .82rem; color: var(--dim); }
+      .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+      .chip { padding: .25rem .6rem; border-radius: 8px; background: var(--panel2); border: 1px solid var(--bd); font-size: .82rem; display: inline-flex; align-items: center; gap: .35rem; }
+      .chip b { color: var(--qv); }
+
+      /* compose · assist */
+      #assistlog { display: flex; flex-direction: column; gap: .6rem; }
+      .a-msg { display: flex; gap: .55rem; }
+      .a-msg .who { width: 1.8rem; height: 1.8rem; border-radius: 8px; flex: 0 0 auto; display: grid; place-items: center; font-size: .65rem; font-weight: 700; text-transform: uppercase; }
+      .a-msg.you .who { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--dim); }
+      .a-msg.bot .who { background: color-mix(in srgb, var(--qv) 20%, transparent); color: var(--qv); }
+      .a-msg .txt { padding-top: .15rem; }
+
+      /* compose · code */
+      #editor { flex: 1; min-height: 14rem; border-radius: 12px; overflow: hidden; border: 1px solid var(--bd); }
+
+      /* the live stage (right) */
+      .stage-hint { color: var(--dim); font-size: .82rem; }
+      .chatlog { display: flex; flex-direction: column; gap: .65rem; }
+      .bubble { max-width: 88%; padding: .6rem .8rem; border-radius: 14px; white-space: pre-wrap; word-break: break-word; }
+      .bubble.you { align-self: flex-end; background: color-mix(in srgb, var(--qv) 22%, var(--panel2)); border-bottom-right-radius: 5px; }
+      .bubble.ai { align-self: flex-start; background: var(--panel2); border: 1px solid var(--bd); border-bottom-left-radius: 5px; }
+      .composer { display: flex; gap: .5rem; flex: 0 0 auto; }
+      .out { white-space: pre-wrap; word-break: break-word; min-height: 2.5rem; }
+      .bars { display: flex; flex-direction: column; gap: .45rem; }
+      .bar { display: grid; grid-template-columns: 7rem 1fr auto; gap: .55rem; align-items: center; font-size: .9rem; }
+      .bar .track { height: .55rem; border-radius: 999px; background: var(--panel2); overflow: hidden; }
+      .bar .fill { height: 100%; background: var(--qv); border-radius: 999px; }
+      .bar.top .name { color: var(--qv); font-weight: 700; }
+      .hits { display: flex; flex-direction: column; gap: .5rem; }
+      .hit { padding: .55rem .7rem; border: 1px solid var(--bd); border-radius: 10px; background: var(--panel2); }
+      .hit .s { color: var(--qv); font: .78rem ui-monospace, monospace; }
+      .receipt { display: inline-flex; align-items: center; gap: .35rem; color: var(--ok); font: .76rem ui-monospace, monospace; align-self: flex-start; }
+      .receipt.bad { color: var(--holo-danger, #f85149); }
+      .receipt .k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22rem; }
+
+      /* footer status */
+      footer { display: flex; align-items: center; gap: .9rem; padding: .45rem clamp(.8rem, 3vw, 1.4rem); border-top: 1px solid var(--bd); color: var(--dim); font: .76rem ui-monospace, monospace; flex: 0 0 auto; }
+      footer .seg2 { display: inline-flex; align-items: center; gap: .35rem; min-width: 0; }
+      footer .seg2.build { color: var(--qv); }
+      footer .k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 18rem; }
+      footer .right { margin-left: auto; }
+      .toast { position: fixed; left: 50%; bottom: 2.5rem; transform: translateX(-50%) translateY(1rem); opacity: 0; pointer-events: none; z-index: 9;
+        background: var(--panel); border: 1px solid color-mix(in srgb, var(--qv) 45%, var(--bd)); color: #fff; padding: .6rem .9rem; border-radius: 10px; font-size: .85rem; transition: .18s; }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .hidden { display: none !important; }
+      @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+    </style>
+  </head>
+  <body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="QVAC Playground"></holo-splash>
+
+    <header>
+      <span class="brand"><span class="logo"><holo-icon name="auto_awesome" size="22" aria-hidden="true"></holo-icon></span> QVAC</span>
+      <div class="seg" role="tablist" aria-label="How to build">
+        <button id="m-describe" aria-pressed="true"><holo-icon name="bolt" size="15" aria-hidden="true"></holo-icon> Describe</button>
+        <button id="m-assist"><holo-icon name="smart_toy" size="15" aria-hidden="true"></holo-icon> Assist</button>
+        <button id="m-code"><holo-icon name="code" size="15" aria-hidden="true"></holo-icon> Code</button>
+      </div>
+      <span class="grow"></span>
+      <span class="rt"><span class="dot"></span> running in Holo Runtime</span>
+      <button id="save"><holo-icon name="bookmark" size="15" aria-hidden="true"></holo-icon> Save</button>
+      <button class="primary" id="share"><holo-icon name="ios_share" size="15" aria-hidden="true"></holo-icon> Share</button>
+    </header>
+
+    <main>
+      <section class="card" id="compose">
+        <div class="top"><span class="t" id="compose-title">Describe your app</span><span class="grow"></span><select id="saved" class="hidden"></select></div>
+        <div class="body">
+          <!-- describe -->
+          <div id="pane-describe">
+            <p class="lede dim">Tell it what you want in plain words. It builds and runs as you type.</p>
+            <div class="examples" id="examples"></div>
+            <textarea id="desc" placeholder="e.g. a friendly tutor that explains things simply"></textarea>
+            <span class="built" id="built"><holo-icon name="check_circle" size="15" aria-hidden="true"></holo-icon> <span id="built-t">a chat app</span></span>
+            <div class="cfg" id="cfg"></div>
+          </div>
+          <!-- assist -->
+          <div id="pane-assist" class="hidden" style="flex:1; display:flex; flex-direction:column; gap:.7rem; min-height:0">
+            <div id="assistlog" class="grow" style="overflow:auto"></div>
+            <div class="composer"><input id="assist-in" placeholder="Tell the agent what to build or change…" /><button class="primary" id="assist-send"><holo-icon name="send" size="16" aria-hidden="true"></holo-icon></button></div>
+          </div>
+          <!-- code -->
+          <div id="pane-code" class="hidden" style="flex:1; display:flex; flex-direction:column; gap:.6rem; min-height:0">
+            <div id="editor"></div>
+            <div><button class="primary" id="code-run"><holo-icon name="play_arrow" size="16" aria-hidden="true"></holo-icon> Run <span class="dim" style="font-weight:400">⌃↵</span></button> <button id="code-export"><holo-icon name="download" size="15" aria-hidden="true"></holo-icon> Export app</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="top"><span class="t">Live</span><span class="stage-hint" id="stage-hint"></span></div>
+        <div class="body" id="stage"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span class="seg2"><holo-icon name="bolt" size="12" aria-hidden="true"></holo-icon> <span id="f-prov">reference</span></span>
+      <span class="seg2 build"><holo-icon name="tag" size="12" aria-hidden="true"></holo-icon> <span class="k" id="f-build">build </span></span>
+      <span class="seg2"><holo-icon name="verified" size="12" aria-hidden="true"></holo-icon> <span class="k" id="f-rcpt">no answer yet</span></span>
+      <span class="right">QVAC SDK · encoded native · ADR-0067 · everything re-derives (Law L5)</span>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- the Holo Runtime — loaded ONCE, in this page (no iframe): lowest latency, every call in-process -->
+    <script src="/_shared/holo-theme.js"></script>
+    <script src="/_shared/holo-icons.js"></script>
+    <script type="module" src="/_shared/holo-conscience.js"></script>
+    <script type="module" src="/_shared/holo-object.js"></script>
+    <script type="module">
+      import { ready, qvac, address } from "/_shared/holo-sdk.js";
+      const $ = (s) => document.querySelector(s);
+      const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      const toast = (m) => { const t = $("#toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); };
+      const b64e = (s) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const b64d = (s) => decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
+      const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+      // Low-latency boot: load the AI runtime FIRST (the conscience gate self-seals in parallel, the
+      // theme is plain CSS tokens) — don't block on optional UI globals. Constitution verify runs async.
+      const Q = await qvac();
+      ready().catch(() => {});
+      try { $("#f-prov").textContent = Q ? Q.provider().id : "reference"; } catch (e) {}
+
+      // ── the app is a tiny spec — { capability, instruction, labels, lang } — content-addressed ─────
+      const PARAMS = { model: "QWEN_2_5_0_5B_INST_Q4_0", temperature: 0, maxTokens: 64 };
+      const state = { mode: "describe", cap: "chat", cfg: { instruction: "You are a helpful assistant." }, code: "" };
+
+      const CAPS = {
+        chat: { label: "chat app", hint: "Talk to it it replies live." },
+        classify: { label: "classifier", hint: "Type text it sorts it into your labels live." },
+        translate: { label: "translator", hint: "Type text it translates live." },
+        search: { label: "search app", hint: "Ask it finds the closest passages live." },
+        summarize: { label: "summarizer", hint: "Paste text it shortens it live." },
+      };
+      const EXAMPLES = [
+        "a friendly tutor that explains simply",
+        "sort feedback into bug, feature, praise",
+        "translate anything to Spanish",
+        "search my notes",
+        "summarize long text",
+      ];
+
+      // map plain words → a capability + its config (the prompt-driven brain; no code for the user)
+      function detect(text) {
+        const t = text.toLowerCase();
+        if (/translat|in spanish|in french|in german|to spanish|to french|to german|language/.test(t)) {
+          const lang = (t.match(/(?:to|in|into)\s+(spanish|french|german|italian|japanese|portuguese|chinese|english|hindi|arabic)/) || [])[1] || "spanish";
+          return { cap: "translate", cfg: { lang } };
+        }
+        if (/classif|categor|sort|label|tag|triage|bucket/.test(t)) {
+          let labels = ["positive", "neutral", "negative"];
+          const m = t.match(/(?:into|as|by|:)\s+([a-z0-9 ,/]+)/);
+          if (m) { const p = m[1].split(/,|\/|\band\b/).map((s) => s.trim()).filter(Boolean); if (p.length >= 2) labels = p.slice(0, 6); }
+          return { cap: "classify", cfg: { labels } };
+        }
+        if (/search|find|retriev|look ?up|similar|knowledge|notes?|docs?/.test(t)) return { cap: "search", cfg: {} };
+        if (/summar|tl;?dr|shorten|brief|condense/.test(t)) return { cap: "summarize", cfg: {} };
+        const persona = text.trim() ? "You are " + text.trim().replace(/^(a|an)\s+/i, "") + "." : "You are a helpful assistant.";
+        return { cap: "chat", cfg: { instruction: persona } };
+      }
+
+      // ── content address of the app (Law L5) ───────────────────────────────────────────────────────
+      const appUOR = () => ({ "@context": { hosqvac: "https://hologram.os/ns/qvac#" }, "@type": "hosqvac:App", "hosqvac:capability": state.cap, "hosqvac:config": state.cfg, "hosqvac:code": state.mode === "code" ? state.code : undefined });
+      const buildKappa = async () => { try { return await address(appUOR()); } catch (e) { return null; } };
+      async function refreshKappa() { const k = await buildKappa(); const hex = k ? k.split(":").pop() : ""; const el = $("#f-build"); el.textContent = hex ? "holo://" + hex.slice(0, 12) + "…" : "build "; el.title = hex ? "holo://" + hex : ""; return k; }
+      function showReceipt(r, ok) { const el = $("#f-rcpt"); el.textContent = r ? r.id : "no answer yet"; el.title = r ? r.id : ""; el.parentElement.classList.toggle("bad", r && ok === false); }
+      async function sealAndShow(r) { if (!r || !r.id) return; let ok = true; try { ok = await Q.verify(r); } catch (e) {} showReceipt(r, ok); }
+
+      // ════ THE LIVE STAGE — runs in-page on the Holo Runtime, re-rendered as you go ════════════════
+      function mountStage() {
+        const cap = state.cap, st = $("#stage"); st.innerHTML = ""; $("#stage-hint").textContent = CAPS[cap].hint;
+        if (cap === "chat") return mountChat(st);
+        if (cap === "search") return mountSearch(st);
+        return mountTextIO(st);   // classify · translate · summarize
+      }
+
+      function mountChat(st) {
+        st.innerHTML = '<div class="chatlog grow" id="chatlog" style="overflow:auto"></div><div class="composer"><input id="chatin" placeholder="Say something…" /><button class="primary" id="chatsend"><holo-icon name="send" size="16" aria-hidden="true"></holo-icon></button></div>';
+        const log = $("#chatlog");
+        const add = (who, html) => { const d = document.createElement("div"); d.className = "bubble " + who; d.innerHTML = html; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; };
+        async function send() { const inp = $("#chatin"); const text = inp.value.trim(); if (!text) return; inp.value = ""; add("you", esc(text));
+          const b = add("ai", '<span class="dim">…</span>');
+          const run = Q.completion({ modelId: PARAMS.model, history: [{ role: "system", content: state.cfg.instruction || "You are a helpful assistant." }, { role: "user", content: text }], maxTokens: PARAMS.maxTokens, stream: true });
+          let acc = ""; for await (const t of run.tokenStream) { acc += t; b.textContent = acc; log.scrollTop = log.scrollHeight; }
+          sealAndShow((await run.final).receipt);
+        }
+        $("#chatsend").addEventListener("click", send);
+        $("#chatin").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } });
+        add("ai", esc(greeting()));
+      }
+      const greeting = () => { const i = state.cfg.instruction || ""; return /tutor/i.test(i) ? "Hi! Ask me anything and I'll explain it simply." : "Hi I'm ready. Ask me anything."; };
+
+      function mountTextIO(st) {
+        const cap = state.cap;
+        const ph = cap === "classify" ? "Type text to sort…" : cap === "translate" ? "Type text to translate…" : "Paste text to summarize…";
+        st.innerHTML = '<textarea id="sin" placeholder="' + ph + '" style="min-height:5rem"></textarea><div id="sout" class="out dim">…</div><span class="receipt hidden" id="srcpt"></span>';
+        const run = debounce(async () => {
+          const text = $("#sin").value.trim(); const out = $("#sout"); if (!text) { out.className = "out dim"; out.textContent = "…"; return; }
+          out.className = "out dim"; out.textContent = "running…";
+          try {
+            if (cap === "classify") {
+              const r = await Q.classify({ text, labels: state.cfg.labels || ["positive", "neutral", "negative"] });
+              out.className = "out"; out.innerHTML = '<div class="bars">' + r.scores.map((s, i) => bar(s.label, s.score, i === 0)).join("") + "</div>"; sealAndShow(r.receipt);
+            } else if (cap === "translate") {
+              const r = await Q.translate({ modelId: PARAMS.model, text, to: state.cfg.lang || "spanish" });
+              out.className = "out"; out.textContent = r.translation; sealAndShow(r.receipt);
+            } else {
+              const rn = Q.completion({ modelId: PARAMS.model, history: [{ role: "system", content: "Summarize the text in one or two clear sentences." }, { role: "user", content: text }], maxTokens: 80, stream: true });
+              out.className = "out"; out.textContent = ""; for await (const t of rn.tokenStream) out.textContent += t; sealAndShow((await rn.final).receipt);
+            }
+          } catch (e) { out.className = "out"; out.textContent = "⚠ " + (e.message || e); }
+        }, 450);
+        $("#sin").addEventListener("input", run);
+      }
+      const bar = (name, score, top) => { const pct = Math.max(4, Math.round((Math.max(0, score)) / 1 * 100)); return '<div class="bar' + (top ? " top" : "") + '"><span class="name">' + esc(name) + '</span><span class="track"><span class="fill" style="width:' + Math.min(100, pct) + '%"></span></span><span class="dim">' + score.toFixed(2) + "</span></div>"; };
+
+      const SAMPLE_DOCS = "A holospace is a content-addressed app. It runs serverless on the substrate. Every answer is a re-derivable receipt. The model runs on your device with no server. Sharing is a link that arrives running.";
+      function mountSearch(st) {
+        st.innerHTML = '<input id="q" placeholder="Ask a question…" /><div class="dim" style="font-size:.8rem">searching your notes (edit them in Describe)</div><div class="hits" id="hits"></div><span class="receipt hidden" id="srcpt"></span>';
+        Q.ragDeleteWorkspace({ workspace: "app" }).catch(() => {}); Q.ragIngest({ workspace: "app", text: state.cfg.docs || SAMPLE_DOCS });
+        const run = debounce(async () => { const q = $("#q").value.trim(); const hits = $("#hits"); if (!q) { hits.innerHTML = ""; return; }
+          const r = await Q.ragSearch({ workspace: "app", query: q, k: 3 });
+          hits.innerHTML = r.hits.map((h) => '<div class="hit"><span class="s">' + h.score.toFixed(3) + "</span> " + esc(h.chunk) + "</div>").join("") || '<div class="dim">no matches</div>';
+          sealAndShow(r.receipt);
+        }, 400);
+        $("#q").addEventListener("input", run);
+      }
+
+      // ════ COMPOSE PANES ══════════════════════════════════════════════════════════════════════════
+      // describe
+      $("#examples").innerHTML = EXAMPLES.map((e) => '<span class="ex">' + esc(e) + "</span>").join("");
+      $("#examples").querySelectorAll(".ex").forEach((el) => el.addEventListener("click", () => { $("#desc").value = el.textContent; onDescribe(); }));
+      function renderCfg() {
+        const cfg = $("#cfg"); const cap = state.cap;
+        if (cap === "classify") cfg.innerHTML = '<label>Labels (comma-separated)</label><input id="c-labels" value="' + esc((state.cfg.labels || []).join(", ")) + '" />';
+        else if (cap === "translate") cfg.innerHTML = '<label>Translate to</label><input id="c-lang" value="' + esc(state.cfg.lang || "spanish") + '" />';
+        else if (cap === "search") cfg.innerHTML = '<label>Your notes (what it searches)</label><textarea id="c-docs" style="min-height:4.5rem">' + esc(state.cfg.docs || SAMPLE_DOCS) + "</textarea>";
+        else if (cap === "chat") cfg.innerHTML = '<label>Personality / instructions</label><input id="c-inst" value="' + esc(state.cfg.instruction || "") + '" />';
+        else cfg.innerHTML = "";
+        const reflow = () => { applyCfgInputs(); mountStage(); refreshKappa(); };
+        cfg.querySelectorAll("input,textarea").forEach((el) => el.addEventListener("input", debounce(reflow, 350)));
+      }
+      function applyCfgInputs() {
+        if ($("#c-labels")) state.cfg.labels = $("#c-labels").value.split(",").map((s) => s.trim()).filter(Boolean);
+        if ($("#c-lang")) state.cfg.lang = $("#c-lang").value.trim() || "spanish";
+        if ($("#c-docs")) state.cfg.docs = $("#c-docs").value;
+        if ($("#c-inst")) state.cfg.instruction = $("#c-inst").value;
+      }
+      const onDescribe = debounce(() => {
+        const d = detect($("#desc").value); state.cap = d.cap; state.cfg = { ...d.cfg };
+        $("#built-t").textContent = CAPS[state.cap].label; renderCfg(); mountStage(); refreshKappa();
+      }, 350);
+      $("#desc").addEventListener("input", onDescribe);
+
+      // assist — a deterministic planner over the QVAC capabilities (honest: a real model writes it when Holo Q is bound)
+      const alog = $("#assistlog");
+      const aadd = (who, txt) => { const d = document.createElement("div"); d.className = "a-msg " + who; d.innerHTML = '<span class="who">' + (who === "you" ? "you" : "qvac") + '</span><span class="txt">' + esc(txt) + "</span>"; alog.appendChild(d); alog.scrollTop = alog.scrollHeight; };
+      function assistSend() {
+        const inp = $("#assist-in"); const text = inp.value.trim(); if (!text) return; inp.value = ""; aadd("you", text);
+        const d = detect(text); state.cap = d.cap; state.cfg = { ...state.cfg, ...d.cfg };
+        const note = state.cap === "classify" ? "sorting into " + (state.cfg.labels || []).join(", ")
+          : state.cap === "translate" ? "translating to " + state.cfg.lang
+          : state.cap === "search" ? "searching your notes" : state.cap === "summarize" ? "summarizing text" : "a chat assistant";
+        aadd("bot", "Done built a " + CAPS[state.cap].label + " (" + note + "). It's live on the right; try it.");
+        mountStage(); refreshKappa();
+      }
+      $("#assist-send").addEventListener("click", assistSend);
+      $("#assist-in").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); assistSend(); } });
+
+      // code — generate from the spec, edit freely, run in-page (Monaco loads lazily on first open)
+      function genCode() {
+        if (state.cap === "classify") return 'const r = await Q.classify({\n  text: "this is great work",\n  labels: ' + JSON.stringify(state.cfg.labels || ["positive", "negative"]) + ',\n});\nprint("→ " + r.label);\nreceipt(r.receipt);';
+        if (state.cap === "translate") return 'const r = await Q.translate({ text: "Hello, world", to: "' + (state.cfg.lang || "spanish") + '" });\nprint(r.translation);\nreceipt(r.receipt);';
+        if (state.cap === "search") return 'await Q.ragIngest({ workspace: "w", text: ' + JSON.stringify(state.cfg.docs || SAMPLE_DOCS) + ' });\nconst { hits, receipt: r } = await Q.ragSearch({ workspace: "w", query: "what runs with no server" });\nhits.forEach(h => print(h.score.toFixed(3) + "  " + h.chunk));\nreceipt(r);';
+        if (state.cap === "summarize") return 'const run = Q.completion({ history: [{ role:"system", content:"Summarize briefly." }, { role:"user", content:"...your text..." }], stream:true });\nfor await (const t of run.tokenStream) print(t, { inline:true });\nreceipt((await run.final).receipt);';
+        return 'const run = Q.completion({\n  history: [\n    { role: "system", content: ' + JSON.stringify(state.cfg.instruction || "You are a helpful assistant.") + ' },\n    { role: "user", content: "Hi!" },\n  ],\n  stream: true,\n});\nfor await (const tok of run.tokenStream) print(tok, { inline: true });\nreceipt((await run.final).receipt);  // re-derivable (Law L5)';
+      }
+      let editor = null, monacoReady = null;
+      async function ensureMonaco() {
+        if (monacoReady) return monacoReady;
+        monacoReady = (async () => {
+          const blobUrl = (b, t) => URL.createObjectURL(new Blob([b], { type: t }));
+          const noop = () => blobUrl(new TextEncoder().encode("self.onmessage=function(){};"), "text/javascript");
+          const mb = new URL("vendor/monaco/", location.href).href;
+          const tsw = () => blobUrl(new TextEncoder().encode("self.MonacoEnvironment={baseUrl:'" + mb + "'};importScripts('" + mb + "base/worker/workerMain.js');try{self.require.config({paths:{vs:'" + mb.replace(/\/$/, "") + "'}})}catch(e){}"), "text/javascript");
+          self.MonacoEnvironment = { getWorker: (_i, l) => new Worker((l === "typescript" || l === "javascript") ? tsw() : noop()) };
+          const inj = (src) => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(); document.head.appendChild(s); });
+          { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "vendor/monaco/editor/editor.main.css"; document.head.appendChild(l); }
+          await inj("vendor/monaco/loader.js"); window.require.config({ paths: { vs: "vendor/monaco" } });
+          await new Promise((r) => window.require(["vs/editor/editor.main"], r)); const M = window.monaco;
+          M.editor.defineTheme("holo-modern", { base: "vs-dark", inherit: true, rules: [], colors: { "editor.background": "#141518", "editor.foreground": "#CCCCCC", "editorLineNumber.foreground": "#6E7681" } });
+          try { M.languages.typescript.javascriptDefaults.addExtraLib("declare const Q:any;declare const params:any;declare const openai:any;declare function print(t:any,o?:any):void;declare function receipt(r:any):Promise<void>;", "g.d.ts"); M.languages.typescript.javascriptDefaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false }); } catch (e) {}
+          editor = M.editor.create($("#editor"), { value: state.code || genCode(), language: "javascript", theme: "holo-modern", automaticLayout: true, minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, tabSize: 2, padding: { top: 10 } });
+          editor.addCommand(M.KeyMod.CtrlCmd | M.KeyCode.Enter, runCode);
+          editor.onDidChangeModelContent(debounce(() => { state.code = editor.getValue(); refreshKappa(); }, 400));
+          return M;
+        })();
+        return monacoReady;
+      }
+      async function runCode() {
+        const st = $("#stage"); st.innerHTML = '<div id="cout" class="out"></div><span class="receipt hidden" id="srcpt"></span>'; const out = $("#cout"); out.innerHTML = "";
+        let line = null; const print = (t, o) => { o = o || {}; if (o.inline && line) line.textContent += t; else { line = document.createElement("div"); line.textContent = t; out.appendChild(line); } };
+        print.error = (m) => { const e = document.createElement("div"); e.style.color = "var(--holo-danger,#f85149)"; e.textContent = "⚠ " + m; out.appendChild(e); };
+        const receipt = (r) => sealAndShow(r);
+        try { const AF = Object.getPrototypeOf(async function () {}).constructor; await new AF("Q", "params", "print", "receipt", "openai", state.code || genCode())(Q, PARAMS, print, receipt, Q.openai); }
+        catch (e) { print.error(e && e.message ? e.message : String(e)); }
+      }
+      $("#code-run").addEventListener("click", runCode);
+      $("#code-export").addEventListener("click", () => exportApp());
+
+      // ════ MODE SWITCH ════════════════════════════════════════════════════════════════════════════
+      const PANES = { describe: "#pane-describe", assist: "#pane-assist", code: "#pane-code" };
+      const TITLES = { describe: "Describe your app", assist: "Build with an agent", code: "Write the code" };
+      async function setMode(mode) {
+        state.mode = mode;
+        for (const k in PANES) $(PANES[k]).classList.toggle("hidden", k !== mode);
+        ["describe", "assist", "code"].forEach((k) => $("#m-" + k).setAttribute("aria-pressed", String(k === mode)));
+        $("#compose-title").textContent = TITLES[mode];
+        if (mode === "code") { await ensureMonaco(); if (editor && !state.code) editor.setValue(genCode()); runCode(); }
+        else { mountStage(); }
+        refreshKappa();
+      }
+      $("#m-describe").addEventListener("click", () => setMode("describe"));
+      $("#m-assist").addEventListener("click", () => setMode("assist"));
+      $("#m-code").addEventListener("click", () => setMode("code"));
+
+      // ════ SHARE · SAVE · EXPORT — all anchored by content address ════════════════════════════════
+      const snapshot = () => ({ mode: state.mode, cap: state.cap, cfg: state.cfg, code: state.code });
+      const restore = (s) => { state.cap = s.cap || "chat"; state.cfg = s.cfg || {}; state.code = s.code || ""; if (s.cap === "chat" && state.cfg.instruction && $("#desc")) $("#desc").value = state.cfg.instruction.replace(/^You are\s*/i, "").replace(/\.$/, ""); };
+      $("#share").addEventListener("click", async () => {
+        const k = await buildKappa(); const hex = k ? k.split(":").pop() : "";
+        const frag = "#b=" + b64e(JSON.stringify(snapshot())) + (hex ? "&k=" + hex : "");
+        const url = location.origin + location.pathname + frag; history.replaceState(null, "", frag);
+        if (navigator.share) navigator.share({ title: "My QVAC app", text: "Open my on-device AI app holo://" + hex.slice(0, 12), url }).catch(() => {});
+        navigator.clipboard && navigator.clipboard.writeText(url).then(() => toast("Copied holo://" + hex.slice(0, 10) + "… it opens running and self-verifies"), () => toast("Share link is in the address bar"));
+      });
+      const SKEY = "qvac.apps";
+      const loadSaved = () => { try { return JSON.parse(localStorage.getItem(SKEY) || "[]"); } catch (e) { return []; } };
+      function renderSaved() { const list = loadSaved(); const sel = $("#saved"); sel.classList.toggle("hidden", list.length === 0);
+        sel.innerHTML = '<option value="">Saved (' + list.length + ")</option>" + list.map((b, i) => '<option value="' + i + '">' + esc(b.name) + "</option>").join(""); }
+      $("#save").addEventListener("click", async () => { const k = await buildKappa(); const hex = k ? k.split(":").pop() : "";
+        const name = (CAPS[state.cap].label) + (state.cfg.lang ? " · " + state.cfg.lang : "");
+        const list = loadSaved().filter((b) => b.kappa !== hex); list.unshift({ kappa: hex, name, snap: b64e(JSON.stringify(snapshot())) });
+        localStorage.setItem(SKEY, JSON.stringify(list.slice(0, 30))); renderSaved(); toast("Saved holo://" + hex.slice(0, 10) + "…"); });
+      $("#saved").addEventListener("change", async (e) => { const i = e.target.value; e.target.value = ""; if (i === "") return; const b = loadSaved()[+i]; if (!b) return; restore(JSON.parse(b64d(b.snap))); await setMode(state.mode || "describe"); });
+      renderSaved();
+
+      function exportApp() {
+        const code = state.code || genCode();
+        const safe = code.replace(/<\/(script)/gi, "<\\/$1");
+        const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>My QVAC app</title>'
+          + '<link rel="stylesheet" href="/_shared/holo-mobile.css"/><style>body{margin:0;background:#0b0c0e;color:#eceef1;font:15px/1.55 system-ui;padding:1.1rem}#o{white-space:pre-wrap;font:.86rem ui-monospace,monospace}</style></head><body><pre id="o"></pre>'
+          + '<script src="/_shared/holo-theme.js"><\/script><script type="module" src="/_shared/holo-conscience.js"><\/script><script type="module" src="/_shared/holo-object.js"><\/script>'
+          + '<script type="module">import { ready, qvac } from "/_shared/holo-sdk.js";await ready();const Q=await qvac();const params=' + JSON.stringify(PARAMS) + ';const el=document.getElementById("o");let line=null;const print=(t,o)=>{o=o||{};el.textContent+=(o.inline?"":"\\n")+t;};const receipt=async r=>{if(r&&r.id){const ok=await Q.verify(r);print("\\n["+(ok?"receipt \\u2713":"receipt \\u2717")+"] "+r.id);}};const openai=Q.openai;try{await (async()=>{\n' + safe + '\n})();}catch(e){print("\\n\\u26A0 "+(e.message||e));}<\/script></body></html>';
+        const dl = (n, t, ty) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], { type: ty })); a.download = n; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
+        dl("index.html", html, "text/html"); toast("Exported a serverless holospace drop it in apps/");
+      }
+
+      // ════ ARRIVE-RUNNING — open a shared app, verify it, run it ══════════════════════════════════
+      const mb = location.hash.match(/[#&]b=([^&]+)/), mk = location.hash.match(/[#&]k=([0-9a-f]{64})/i);
+      if (mb) {
+        try { restore(JSON.parse(b64d(mb[1]))); const k = await buildKappa(); const hex = k ? k.split(":").pop() : "";
+          if (mk && hex !== mk[1].toLowerCase()) toast("⚠ this app was altered in transit running, unverified");
+          else toast("opened a verified app holo://" + hex.slice(0, 10) + "…");
+          await setMode(state.mode || "describe");
+        } catch (e) { await setMode("describe"); }
+      } else { onDescribe(); await setMode("describe"); }
+    </script>
+  </body>
+</html>

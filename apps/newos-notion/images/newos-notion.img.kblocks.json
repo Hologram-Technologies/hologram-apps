@@ -1,0 +1,32 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "newos-notion.img",
+    "bytes": 4128768,
+    "did": "did:holo:sha256:83ac6dc639fad6f6dd8e876bcda15dbdf9739a2ad508c0f0c5218d8d935e08da"
+  },
+  "blockSize": 262144,
+  "blockCount": 16,
+  "uniqueBlocks": 16,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:1aa46c065708daaef8fd8dc9e9629868cb172423907c1f1f5304c05596599580",
+  "blocks": [
+    "did:holo:sha256:b35cf6474eb7c063ad3b1b8a92ff696207843046a84abc6f3aa77c1fbc7b5f35",
+    "did:holo:sha256:15bf1e4386e0add0c650fd500fe4051a7c82731f4450f6192d46da0bea45b37c",
+    "did:holo:sha256:d517a701647f3fe55a19576fe05381e6a94bfc8d0fff99a5e2cbf3491e3506ff",
+    "did:holo:sha256:31e134ad718c8c03fbf8e91482806e142fb462a599f9bcc483a2900613b23631",
+    "did:holo:sha256:0aa4ad2068207229ce7af7d2213e7ea3e48df47420582b02dac525a55ebd8290",
+    "did:holo:sha256:1ded5af6a99530e7146f07cd22cf56e4d335d9afa6aad7e7ab195d71821d7739",
+    "did:holo:sha256:8763e631021198e883b3c5850cc92e1617f3bf5440fe616abef2b0864d54e9d0",
+    "did:holo:sha256:33a555970cf9e78cc760eeefbb1bd3dcf8028e73d9aa11a11933ef990583c0f7",
+    "did:holo:sha256:d79fd088abdc082dbf95becba03c500fb1116de30103f4986db3756d1d415266",
+    "did:holo:sha256:806826db0dd4e0394c0967381a03a6938501cb3219d3ffa36ce6dd8037dbf02a",
+    "did:holo:sha256:da0b27068c1515d0582fac7735466380c73582a64e064bbf800b7f612ea154cf",
+    "did:holo:sha256:1ed6a56e0ad867364715590de433b035b799147d2338cde5e88903f07b280f14",
+    "did:holo:sha256:d89ae06f0c4c13439c573920390826e161217b055da13a9fd6caf352fe0a09e0",
+    "did:holo:sha256:a40d96f843ab7b05b3a1ddecb7a43710911952449a3ecf37f4a671d576b0206b",
+    "did:holo:sha256:710606415dd7d76f08cc680383998e14bbac88cf7c985e82f49c2f085685f8c3",
+    "did:holo:sha256:3381de4ca9f3a477f25989dfc8b744e7916046b7aa369f61a9a2f7dc0963ec9e"
+  ]
+}

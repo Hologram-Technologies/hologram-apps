@@ -1,0 +1,18 @@
+{
+  "$comment": "κ-block DAG for a v86 disk image. Each block is a content-addressed object at .holo/sha256/<hex>; the runtime resolves blocks by κ on demand and re-derives each before it reaches the guest (Law L5). blockSize MUST equal v86's fixed_chunk_size.",
+  "algo": "sha256",
+  "image": {
+    "name": "forthos20.img.zst",
+    "bytes": 359461,
+    "did": "did:holo:sha256:1e0fa9c350a98f7da501d04979a54456a7268eaa9e72885a99d3aed856c13934"
+  },
+  "blockSize": 262144,
+  "blockCount": 2,
+  "uniqueBlocks": 2,
+  "dedup": "0.0%",
+  "root": "did:holo:sha256:04a91b9692e2d14e496f6f5bfc20640d3095ed4ba71ad5f9818dd6965c972efe",
+  "blocks": [
+    "did:holo:sha256:e320fe21234d8a9832edc5aefbea3a354e8d6023af61dc38d2c10a656a5aebb0",
+    "did:holo:sha256:0d9f65cf1a2895e2ed784f6bd21bf529246095db096aea6141253418a34af40f"
+  ]
+}

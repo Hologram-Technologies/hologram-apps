@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Holo Docs needs no SharedArrayBuffer/threads, so it deliberately omits the COI
+         service-worker shim: it stays a pure static page (WebCrypto + WebSocket only),
+         which keeps it lean and avoids a caching service worker between edits. -->
+    <title>Holo Docs</title>
+    <meta name="description" content="Holo Docs a completely serverless, end-to-end-encrypted, content-addressed office suite (Writer · Calc · Impress) with Google-Docs-style real-time multi-user collaboration. Runs entirely in the tab; a saved document IS its content address (holo://κ)." />
+    <link rel="stylesheet" href="/.holo/sha256/b2bfa104b9ee8e3bb631dcd0ec0e6f7017b8898c4304666f5b3dfeeebc926eb9.css" data-holo-shared="holo-mobile.css" />
+    <style>
+      :root { color-scheme: dark; --bg:var(--holo-bg); --panel:var(--holo-surface); --line:var(--holo-border); --dim:var(--holo-ink-dim); --ink:var(--holo-ink);
+        --accent:var(--holo-accent); --pull:#d2a8ff; --blue:var(--holo-accent); --ok:var(--holo-ok); --warn:var(--holo-warn); --bad:var(--holo-danger); --paper:var(--holo-surface); }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: #d4d4d4; display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* ── top chrome ──────────────────────────────────────────────────────────── */
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        padding: 0.3rem 0.7rem; background: var(--panel); border-bottom: 1px solid var(--line);
+        font: var(--holo-text-sm, 1rem) ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; user-select: none; }
+      #bar .name { color: var(--ink); font-weight: 700; letter-spacing: 0.02em; }
+      #bar .tag { color: var(--dim); } #bar .kind { color: var(--pull); text-transform: capitalize; }
+      #bar .k { color: var(--blue); max-width: 24vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #bar .ver { color: var(--dim); } #bar .ver.ok { color: var(--ok); }
+      #bar .sec { color: var(--accent); }
+      #bar .shared { color: var(--pull); } #bar .shared .lock { color: var(--warn); display: none; } body.locked #bar .shared .lock { display: inline; }
+      #bar .sp { margin-left: auto; }
+      #bar .peers { display: inline-flex; gap: 3px; align-items: center; }
+      #bar .av { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        font: 700 var(--holo-text-sm, 1rem) ui-sans-serif; color: #04130f; flex: 0 0 auto; }
+      #bar button { font: inherit; color: var(--dim); background: transparent; border: 1px solid var(--line);
+        border-radius: 5px; padding: 0.15rem 0.5rem; cursor: pointer; min-height: 28px; }
+      #bar button:hover { color: var(--ink); border-color: #30363d; }
+      #bar button.cta { color: #99f6e4; border-color: #155e58; }
+
+      /* ── app toolbar (the editor fills this) ─────────────────────────────────── */
+      #apptoolbar { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+        padding: 4px 8px; background: #0e141b; border-bottom: 1px solid var(--line); min-height: 38px; }
+      .tb { display: inline-flex; align-items: center; gap: 2px; }
+      .tb .sepd { width: 1px; align-self: stretch; background: var(--line); margin: 2px 5px; }
+      .tbtn { font: var(--holo-text-sm, 1rem) ui-sans-serif; min-width: 30px; min-height: 30px; padding: 0 7px; border-radius: 6px;
+        border: 1px solid var(--line); background: #161b22; color: #c9d1d9; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+      .tbtn:hover { border-color: #30363d; color: var(--ink); } .tbtn.on { color: var(--accent); border-color: #155e58; background: #0f3b38; }
+      .tbtn b { font-weight: 800; } .tbtn i { font-style: italic; } .tbtn u { text-decoration: underline; }
+      select.tbtn, input.tbtn { padding: 0 6px; } input.tbtn[type=color] { padding: 2px; width: 34px; }
+
+      /* ── stage ───────────────────────────────────────────────────────────────── */
+      #wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+      #editorhost { flex: 1 1 auto; min-width: 0; position: relative; overflow: auto; background: #11151b; }
+      #statusbar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.8rem; padding: 0.2rem 0.7rem;
+        background: var(--panel); border-top: 1px solid var(--line); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; color: var(--dim); }
+      #statusbar .doca { color: var(--blue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
+      #statusbar .save { color: var(--dim); } #statusbar .save.dirty { color: var(--warn); } #statusbar .save.saved { color: var(--ok); }
+      #statusbar .sp { margin-left: auto; }
+
+      /* ── overlays ────────────────────────────────────────────────────────────── */
+      .overlay { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: #0b0e13ee; }
+      .overlay.hidden { display: none; }
+      .card { width: min(94vw, 30rem); padding: 1.4rem; border: 1px solid var(--line); border-radius: var(--holo-radius-lg, 16px); background: var(--panel); }
+      .card h2 { margin: 0 0 0.2rem; color: var(--ink); font-size: 1.15rem; }
+      .card .sub { color: var(--dim); margin: 0 0 1rem; font-size: 0.92em; }
+      .kinds { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+      .kindbtn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0.9rem 0.4rem; border-radius: var(--holo-radius, 12px);
+        border: 1px solid var(--line); background: #161b22; color: #c9d1d9; cursor: pointer; }
+      .kindbtn:hover { border-color: var(--accent); color: var(--ink); }
+      .kindbtn .ic { font-size: 26px; } .kindbtn .lb { font-size: var(--holo-text-sm, 1rem); }
+      .field { margin-bottom: 0.8rem; } .field label { display: block; color: var(--dim); font-size: var(--holo-text-sm, 1rem); margin-bottom: 4px; }
+      .field input, .field select { width: 100%; min-height: 44px; background: #161b22; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); padding: 0 12px; font-size: 16px; }
+      .row2 { display: flex; gap: 10px; align-items: end; }
+      .row2 .field { flex: 1; margin-bottom: 0; } .row2 input[type=color] { width: 52px; min-height: 44px; padding: 3px; }
+      .btn { width: 100%; min-height: 48px; border-radius: var(--holo-radius, 12px); border: 1px solid var(--accent); background: #0f3b38; color: #99f6e4; font: 800 var(--holo-text-sm, 1rem) system-ui; cursor: pointer; margin-top: 0.4rem; }
+      .btn:hover { background: #155e58; } .btn.ghost { border-color: var(--line); background: #161b22; color: #c9d1d9; }
+      .dlgrow { display: flex; gap: 8px; } .dlgrow .btn { margin-top: 0; }
+      .mut { color: var(--dim); font-size: var(--holo-text-sm, 1rem); }
+      pre.k { color: var(--blue); background: #010409; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0.5rem; overflow: auto; font-size: var(--holo-text-sm, 1rem); white-space: pre-wrap; word-break: break-all; margin: 0.4rem 0; }
+
+      /* conflict (LibreOffice "Resolve Conflicts") dialog */
+      #conflictDlg .card { width: min(94vw, 34rem); }
+      .cflist { max-height: 40vh; overflow: auto; }
+      .cfrow { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.7rem; margin-bottom: 0.5rem; }
+      .cfrow .cf-key { color: var(--pull); font: var(--holo-text-sm, 1rem) ui-monospace, monospace; }
+      .cfrow .cf-vals { display: flex; gap: 8px; margin: 0.4rem 0; flex-wrap: wrap; }
+      .cfrow .cf-v { flex: 1; min-width: 8rem; background: #161b22; border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px); padding: 0.4rem 0.5rem; }
+      .cfrow .cf-v .who { color: var(--dim); font-size: var(--holo-text-sm, 1rem); } .cfrow .cf-v .vv { color: var(--ink); word-break: break-word; }
+      .cfrow .cf-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+      .cfrow .cf-btns button { flex: 1; min-height: 34px; }
+
+      #toast { position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%); background: #161b22; border: 1px solid #30363d;
+        border-radius: var(--holo-radius-sm, 8px); padding: 0.45rem 0.8rem; font-size: var(--holo-text-sm, 1rem); opacity: 0; transition: opacity 0.2s; z-index: 60; pointer-events: none; max-width: 90vw; }
+      #toast.show { opacity: 1; }
+
+      /* locked-document banner — LibreOffice "open read-only / open a copy / cancel" */
+      #robanner { display: none; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.3rem 0.8rem; background: #3a2a12; border-bottom: 1px solid #6b4a1f; color: #f2cc60; font-size: var(--holo-text-sm, 1rem); }
+      body.show-ro #robanner { display: flex; }
+      #robanner button { font: inherit; border: 1px solid #6b4a1f; background: #161b22; color: #c9d1d9; border-radius: 5px; padding: 0.15rem 0.55rem; cursor: pointer; min-height: 26px; }
+      #robanner button.cta { color: #99f6e4; border-color: #155e58; }
+
+      /* remote-collaborator caret + label (editors draw into their own surface; shared styles here) */
+      .holo-caret { position: absolute; width: 2px; pointer-events: none; z-index: 5; }
+      .holo-caret .flag { position: absolute; top: -1.05em; left: -1px; font: var(--holo-text-sm, 1rem) ui-sans-serif; color: #04130f; padding: 0 4px; border-radius: 4px 4px 4px 0; white-space: nowrap; }
+      @media (max-width: 760px) { #bar .k, #bar .ver { display: none; } }
+    </style>
+  </head>
+  <body data-no-teleport>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Docs"></holo-splash>
+
+    <div id="bar">
+      <span class="name">Holo Docs</span>
+      <span class="tag">· holospace</span>
+      <span class="kind" id="kindLabel"></span>
+      <span class="k" id="kaddr" title="this holospace's own content address (Law L5: the served bytes re-derive to it)">holo://office</span>
+      <span class="ver" id="ver" title="the served page re-derives to its content hash"></span>
+      <span class="sec" id="sec" title="all edits are end-to-end encrypted (AES-GCM, room key from the link secret) + content-addressed on a content-blind relay no document server">🔒 serverless · E2E</span>
+      <span class="shared" id="shared" title="shared mode multiple authors edit live (LibreOffice 'Share Document'); shown on the title bar exactly as LibreOffice marks a shared document">👥 <span id="pcount">1</span> · <span class="smode">(shared)</span><span class="ro" id="roBadge" style="display:none" title="this document is locked by another author opened read-only (LibreOffice file-lock model)"> · (read-only)</span><span class="lock" title="single-writer file lock held"> · 🔒 locked</span></span>
+      <span class="sp"></span>
+      <span class="peers" id="peers" title="collaborators in this document"></span>
+      <button id="newBtn" title="new document">＋ New</button>
+      <button id="openBtn" title="open a document by its content address (holo://κ)">📂 Open</button>
+      <button id="importBtn" title="import a Word/Excel/PowerPoint (.docx/.xlsx/.pptx) or OpenDocument (.odt/.ods/.odp) file">⇪ Import</button>
+      <input id="importFile" type="file" accept=".docx,.xlsx,.pptx,.odt,.ods,.odp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation" style="display:none" />
+      <button id="saveBtn" class="cta" title="save mints the document's content address (holo://κ)">💾 Save</button>
+      <button id="exportBtn" title="export">⤓ Export</button>
+      <button id="inviteBtn" title="copy the invite link (carries the room secret in the URL fragment never sent to any server)">⤴ Invite</button>
+      <button id="settingsBtn" title="identity &amp; sharing settings">⚙</button>
+    </div>
+
+    <div id="apptoolbar"></div>
+    <div id="robanner"><span>🔒 <b id="roby">Another author</b> holds the single-writer lock this document is open <b>read-only</b>.</span><button id="roCopy" class="cta" title="open a copy for editing (a new document)">✎ Edit a copy</button><button id="roDismiss" title="keep read-only">Dismiss</button></div>
+    <div id="wrap"><div id="editorhost"></div></div>
+    <div id="statusbar">
+      <span class="doca" id="doca" title="this document's content address (its hologram-native URL)">unsaved</span>
+      <span class="save" id="savestate">●</span>
+      <span class="sp"></span>
+      <span id="collabinfo"></span>
+    </div>
+
+    <!-- setup: choose a new document or open one; set identity (LibreOffice User Data) -->
+    <div class="overlay" id="setup">
+      <div class="card">
+        <h2>Holo Docs</h2>
+        <p class="sub">Serverless · end-to-end encrypted · real-time co-editing. A saved document <em>is</em> its content address.</p>
+        <div class="kinds">
+          <button class="kindbtn" data-kind="writer"><span class="ic">📝</span><span class="lb">Document</span></button>
+          <button class="kindbtn" data-kind="calc"><span class="ic">📊</span><span class="lb">Spreadsheet</span></button>
+          <button class="kindbtn" data-kind="impress"><span class="ic">🖼️</span><span class="lb">Presentation</span></button>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Your name (User Data)</label><input id="nameInput" type="text" maxlength="40" placeholder="Your name" /></div>
+          <div class="field" style="flex:0 0 auto"><label for="colorInput">Color</label><input id="colorInput" type="color" value="#2dd4bf" /></div>
+        </div>
+        <button class="btn ghost" id="openInstead">📂 Open an existing document by κ…</button>
+        <button class="btn ghost" id="importInstead" style="margin-top:6px">⇪ Import a .docx / .xlsx / .pptx / .odt / .ods / .odp file…</button>
+      </div>
+    </div>
+
+    <!-- open by content address -->
+    <div class="overlay hidden" id="openDlg">
+      <div class="card">
+        <h2>Open document</h2>
+        <p class="sub">Paste a document content address (<code>holo://sha256:…</code> or a κ). Locally saved documents open instantly; a shared link reconstructs the document live from the room and verifies it re-derives to its κ.</p>
+        <div class="field"><label>Content address</label><input id="openKappa" type="text" placeholder="holo://sha256:… or sha256:…" /></div>
+        <div id="recent"></div>
+        <div class="dlgrow"><button class="btn ghost" id="openCancel">Cancel</button><button class="btn" id="openGo">Open</button></div>
+      </div>
+    </div>
+
+    <!-- export -->
+    <div class="overlay hidden" id="exportDlg">
+      <div class="card">
+        <h2>Export</h2>
+        <p class="sub">Portable, in-browser exports. The sealed <code>.holo</code> snapshot is the content-addressed source of truth.</p>
+        <div id="exportList"></div>
+        <button class="btn ghost" id="exportCancel" style="margin-top:0.6rem">Close</button>
+      </div>
+    </div>
+
+    <!-- settings: identity + sharing mode (User Data, Share/file-lock) -->
+    <div class="overlay hidden" id="settingsDlg">
+      <div class="card">
+        <h2>Settings</h2>
+        <p class="sub">User Data (Tools ▸ Options ▸ User Data) and sharing mode (LibreOffice “Share Document”).</p>
+        <div class="row2">
+          <div class="field"><label>Display name</label><input id="nameEdit" type="text" maxlength="40" /></div>
+          <div class="field" style="flex:0 0 auto"><label for="colorInput">Color</label><input id="colorEdit" type="color" /></div>
+        </div>
+        <div class="field"><label><input type="checkbox" id="lockChk" /> Single-writer file lock (Writer/Impress model others read-only)</label>
+          <p class="mut" id="lockInfo">Off shared mode: everyone edits live (Calc multi-user model). The lock is advisory, like LibreOffice’s file lock.</p></div>
+        <div class="field"><label><input type="checkbox" id="trackChk" /> Record changes (Track Changes)</label></div>
+        <button class="btn ghost" id="settingsClose">Done</button>
+      </div>
+    </div>
+
+    <!-- resolve conflicts (LibreOffice Calc multi-user) -->
+    <div class="overlay hidden" id="conflictDlg">
+      <div class="card">
+        <h2>Resolve Conflicts</h2>
+        <p class="sub">The same content was changed concurrently. Choose which edit to keep (LibreOffice Calc shared-mode resolution).</p>
+        <div class="cflist" id="cflist"></div>
+        <div class="dlgrow">
+          <button class="btn ghost" id="keepAllMine">Keep All Mine</button>
+          <button class="btn ghost" id="keepAllOther">Keep All Others</button>
+          <button class="btn" id="conflictDone">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="/.holo/sha256/95525119b3406504eb9fde1503174f73519977810b9f1c523794b35c96ea0bef.js" data-holo-shared="holo-collab.js"></script>
+    <script type="module">
+      import { WsKappaSync } from "./holo-kappa-sync.mjs";
+      import { BrokerKappaSync } from "./holo-broker-sync.mjs";
+
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const bool = (v, d) => (v == null ? d : v !== "0" && v !== "false");
+      const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+      const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
+      const PALETTE = ["#2dd4bf", "#d2a8ff", "#58a6ff", "#f2cc60", "#7ee787", "#ff7b72", "#ffa657", "#a5d6ff"];
+
+      let toastT; const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2400); };
+      const ui = { $, esc, toast, palette: PALETTE };
+
+      // ── room secret + relay in the URL fragment (never sent to a server) ────────
+      const readHash = () => new URLSearchParams((location.hash || "").replace(/^#/, ""));
+      let h = readHash();
+      let secret = h.get("k") || params.get("k") || "";
+      if (!secret) {
+        secret = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const keep = h.get("r") || params.get("r"); const doc = h.get("doc") || params.get("doc");
+        location.hash = "k=" + secret + (keep ? "&r=" + encodeURIComponent(keep) : "") + (doc ? "&doc=" + encodeURIComponent(doc) : ""); h = readHash();
+      }
+      const relayUrl = h.get("r") || params.get("r") || "";
+      let openDocCA = h.get("doc") || params.get("doc") || "";
+
+      // ── this holospace's own κ (Law L5 self-verification) ──────────────────────
+      (async () => { try {
+        const buf = new Uint8Array(await (await fetch(location.pathname, { cache: "no-store" })).arrayBuffer());
+        const hx = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)), (b) => b.toString(16).padStart(2, "0")).join("");
+        $("kaddr").textContent = "holo://sha256:" + hx.slice(0, 12) + "…"; $("ver").textContent = "✓ κ"; $("ver").className = "ver ok";
+      } catch {} })();
+
+      // ── identity (LibreOffice User Data), persisted locally ────────────────────
+      const USER_KEY = "holo-docs-user";
+      function loadUser() { try { return JSON.parse(localStorage.getItem(USER_KEY)) || {}; } catch { return {}; } }
+      function saveUser(u) { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} }
+      let user = loadUser();
+      if (!user.name) user.name = params.get("name") || "";
+      if (!user.color) user.color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+      $("colorInput").value = user.color; if (user.name) $("nameInput").value = user.name;
+
+      // ── local content-addressed document store (UOR: keyed by the doc's κ) ──────
+      const DOC_PREFIX = "holo-docs-doc:";
+      const RECENT_KEY = "holo-docs-recent";
+      const normCA = (s) => String(s || "").replace(/^holo:\/\//, "").trim();
+      function storeDoc(ca, snapshot, kind, title) {
+        try { localStorage.setItem(DOC_PREFIX + normCA(ca), JSON.stringify(snapshot)); } catch {}
+        try {
+          let r = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); r = r.filter((x) => x.ca !== ca);
+          r.unshift({ ca, kind, title: title || "(untitled)", ts: Date.now() }); localStorage.setItem(RECENT_KEY, JSON.stringify(r.slice(0, 12)));
+        } catch {}
+      }
+      const loadStoredDoc = (ca) => { try { return JSON.parse(localStorage.getItem(DOC_PREFIX + normCA(ca))); } catch { return null; } };
+      const recentDocs = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { return []; } };
+
+      // ── state ──────────────────────────────────────────────────────────────────
+      let session = null, editor = null, mountedKind = null, kind = params.get("kind") || h.get("kind") || "writer";
+      let lastSaved = null, dirty = false, trackChanges = false;
+      let rafPending = false;
+
+      function scheduleRender() { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; editor && editor.render(); }); }
+      function markDirty() { dirty = true; $("savestate").textContent = "● unsaved"; $("savestate").className = "save dirty"; }
+
+      // Offline fallback: same KappaSync interface, no network — so single-user
+      // editing + content-addressed save always work even with no relay/broker.
+      class OfflineSync { constructor() { this.ready = Promise.resolve(this); this.cache = new Map(); } async subscribe() {} onAnnounce() { return () => {}; }
+        async announce(t, k, b) { this.cache.set(k, b); } async fetch(k, { verify } = {}) { const b = this.cache.get(k); if (b && verify && !(await verify(k, b))) return null; return b || null; } close() {} }
+      async function makeSync() {
+        const sync = relayUrl.startsWith("ws") ? new WsKappaSync(relayUrl) : new BrokerKappaSync(DEFAULT_BROKER);
+        const ok = await Promise.race([sync.ready.then(() => true).catch(() => false), new Promise((r) => setTimeout(() => r(false), 3500))]);
+        if (!ok) { try { sync.close && sync.close(); } catch {} toast("offline editing locally; saves are content-addressed (holo://κ)"); return new OfflineSync(); }
+        return sync;
+      }
+
+      async function mountEditor() {
+        const k = session.doc.kind || kind;
+        if (editor && mountedKind === k) return;
+        if (editor && editor.destroy) editor.destroy();
+        $("apptoolbar").innerHTML = ""; $("editorhost").innerHTML = "";
+        mountedKind = k; kind = k; $("kindLabel").textContent = "· " + ({ writer: "Document", calc: "Spreadsheet", impress: "Presentation" }[k] || k);
+        try {
+          const mod = await import(`./docs-${k}.js`);
+          editor = mod.createEditor({ session, host: $("editorhost"), toolbar: $("apptoolbar"), ui, isReadOnly: () => isReadOnly() });
+          editor.render(); editor.presence && editor.presence(session.roster());
+        } catch (e) { $("editorhost").innerHTML = `<div style="padding:2rem;color:#f85149">Failed to load the ${esc(k)} editor: ${esc(e.message || e)}</div>`; }
+      }
+
+      // single-writer file lock (advisory, LibreOffice Writer/Impress model)
+      function lockHolder() { return session ? session.val("props", "lock") : null; }
+      function isReadOnly() {
+        const L = lockHolder(); if (!L) return false;
+        const present = L.id === session.myId || session.roster().some((r) => r.id === L.id);
+        return present && L.id !== session.myId;
+      }
+      let roDismissed = false;
+      function refreshLockUI() {
+        const L = lockHolder(); document.body.classList.toggle("locked", !!L);
+        $("lockChk").checked = !!L; const ro = isReadOnly();
+        $("lockInfo").textContent = !L ? "Off shared mode: everyone edits live (Calc multi-user model). The lock is advisory."
+          : (ro ? "Read-only " + (L.name || "another author") + " holds the lock." : "You hold the single-writer lock.");
+        $("roBadge").style.display = ro ? "" : "none";
+        if (ro && L) $("roby").textContent = L.name || "Another author";
+        document.body.classList.toggle("show-ro", ro && !roDismissed);
+        if (!ro) roDismissed = false;
+        if (editor && editor.setReadOnly) editor.setReadOnly(ro);
+      }
+      // LibreOffice locked-document "open a copy for editing": fork into a fresh room.
+      async function editCopy() {
+        if (!session) return; const snap = session.doc.snapshot(); const id = Math.random().toString(16).slice(2, 10);
+        try { localStorage.setItem("holo-docs-copy:" + id, JSON.stringify(snap)); } catch {}
+        const u = new URL(location.href); u.hash = ""; u.search = "copy=" + id; window.open(u.toString(), "_blank"); toast("opening a copy for editing (a new document)");
+      }
+      $("roCopy").addEventListener("click", editCopy);
+      $("roDismiss").addEventListener("click", () => { roDismissed = true; document.body.classList.remove("show-ro"); });
+
+      async function startSession(seedSnapshot) {
+        const sync = await makeSync();
+        session = await HoloCollab.open({
+          secret, sync, name: user.name || ("Guest-" + Math.random().toString(16).slice(2, 6)), color: user.color, kind,
+          snapshot: seedSnapshot || null,
+          onchange: () => { if (!session) return; markDirty(); refreshLockUI(); mountEditor().then(scheduleRender); },
+          onpresence: (roster) => { if (!session) return; renderPeers(roster); editor && editor.presence && editor.presence(roster); refreshLockUI(); },
+          onpeer: (id, p) => toast((p.name || "A collaborator") + " joined"),
+          onleave: () => {},
+          onsaved: (ca, snap) => { lastSaved = ca; dirty = false; const title = (editor && editor.title && editor.title()) || ""; storeDoc(ca, snap, session.doc.kind, title);
+            $("doca").textContent = "holo://" + ca; $("savestate").textContent = "✓ saved"; $("savestate").className = "save saved"; },
+          onconflict: (c) => queueConflict(c),
+          onerror: (e) => console.warn("[holo-collab]", (e && e.message) || e),
+        });
+        await mountEditor();
+        renderPeers(session.roster()); refreshLockUI();
+        $("collabinfo").textContent = (relayUrl ? "relay " + relayUrl : "public broker") + " · room derived from link";
+        exposeWitness();
+        try { parent !== window && parent.postMessage({ type: "holo-docs-ready", room: secret, kind: session.doc.kind }, "*"); } catch {}
+      }
+
+      // ── chrome rendering ─────────────────────────────────────────────────────────
+      function renderPeers(roster) {
+        $("peers").innerHTML = roster.slice(0, 8).map((r) =>
+          `<span class="av" title="${esc(r.name)}${r.you ? " (you)" : ""}" style="background:${esc(r.color || "#888")}">${esc((r.name || "?").slice(0, 1).toUpperCase())}</span>`).join("")
+          + (roster.length > 8 ? `<span class="mut">+${roster.length - 8}</span>` : "");
+        $("pcount").textContent = roster.length;
+      }
+
+      // ── conflict queue (LibreOffice Resolve Conflicts) ───────────────────────────
+      const conflicts = [];
+      function queueConflict(c) { if (conflicts.find((x) => x.map === c.map && x.key === c.key)) return; conflicts.push(c); renderConflicts(); $("conflictDlg").classList.remove("hidden"); }
+      function renderConflicts() {
+        $("cflist").innerHTML = conflicts.map((c, i) => {
+          const loser = c.losers[c.losers.length - 1];
+          return `<div class="cfrow" data-i="${i}"><div class="cf-key">${esc(c.map)} · ${esc(c.key)}</div>
+            <div class="cf-vals">
+              <div class="cf-v"><div class="who">Kept (winning edit)</div><div class="vv">${esc(JSON.stringify(c.value))}</div></div>
+              <div class="cf-v"><div class="who">Other (concurrent edit)</div><div class="vv">${esc(JSON.stringify(loser && loser.val))}</div></div>
+            </div>
+            <div class="cf-btns"><button class="tbtn" data-act="mine" data-i="${i}">Keep Mine</button><button class="tbtn" data-act="other" data-i="${i}">Keep Other</button></div></div>`;
+        }).join("") || `<p class="mut">No conflicts.</p>`;
+      }
+      $("cflist").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-act]"); if (!b) return; const i = +b.dataset.i; const c = conflicts[i]; if (!c) return;
+        if (b.dataset.act === "other") { const loser = c.losers[c.losers.length - 1]; if (loser) session.set(c.map, c.key, loser.val); } // re-assert other → newest ts wins
+        conflicts.splice(i, 1); renderConflicts(); if (!conflicts.length) $("conflictDlg").classList.add("hidden");
+      });
+      $("keepAllMine").addEventListener("click", () => { conflicts.forEach((c) => session.set(c.map, c.key, c.value)); conflicts.length = 0; renderConflicts(); $("conflictDlg").classList.add("hidden"); });
+      $("keepAllOther").addEventListener("click", () => { conflicts.forEach((c) => { const l = c.losers[c.losers.length - 1]; if (l) session.set(c.map, c.key, l.val); }); conflicts.length = 0; renderConflicts(); $("conflictDlg").classList.add("hidden"); });
+      $("conflictDone").addEventListener("click", () => { conflicts.length = 0; renderConflicts(); $("conflictDlg").classList.add("hidden"); });
+
+      // ── top-bar actions ──────────────────────────────────────────────────────────
+      $("saveBtn").addEventListener("click", async () => { if (!session) return; const ca = await session.save(); toast("saved · holo://" + ca.slice(0, 22) + "…"); try { const u = readHash(); u.set("doc", ca); location.hash = u.toString(); } catch {} });
+      $("inviteBtn").addEventListener("click", invite);
+      $("newBtn").addEventListener("click", () => { const u = new URL(location.href); u.hash = ""; u.search = ""; window.open(u.toString(), "_blank"); });
+      $("openBtn").addEventListener("click", () => { $("openKappa").value = ""; renderRecent(); $("openDlg").classList.remove("hidden"); });
+      // ── import existing standards (.docx/.xlsx/.pptx · .odt/.ods/.odp) → CvRDT doc ──
+      $("importBtn").addEventListener("click", () => $("importFile").click());
+      $("importFile").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) handleImport(f); });
+      async function handleImport(f) {
+        try {
+          toast("importing " + f.name + "…");
+          const buf = new Uint8Array(await f.arrayBuffer());
+          const interop = await import("./docs-interop.js");
+          const { kind: k, snapshot } = await interop.importFile(buf, f.name, { Doc: HoloCollab.Doc });
+          if (session) { // already editing → open the import as its own new document (new room) in a tab
+            const id = Math.random().toString(16).slice(2, 10); try { localStorage.setItem("holo-docs-copy:" + id, JSON.stringify(snapshot)); } catch {}
+            const u = new URL(location.href); u.search = "?copy=" + id; u.hash = ""; const w = window.open(u.toString(), "_blank");
+            toast(w ? "imported " + f.name + " opened in a new tab" : "imported allow pop-ups to open it"); return;
+          }
+          if (!user.name) user.name = "Guest-" + Math.random().toString(16).slice(2, 6);
+          kind = k; $("setup").classList.add("hidden"); await startSession(snapshot); markDirty();
+          toast("imported " + f.name + " co-edit live; Save mints its holo://κ");
+        } catch (err) { console.warn(err); toast("import failed: " + (err.message || err)); }
+      }
+      $("openCancel").addEventListener("click", () => $("openDlg").classList.add("hidden"));
+      $("openGo").addEventListener("click", () => doOpen($("openKappa").value));
+      $("exportBtn").addEventListener("click", openExport);
+      $("exportCancel").addEventListener("click", () => $("exportDlg").classList.add("hidden"));
+      $("settingsBtn").addEventListener("click", openSettings);
+      $("settingsClose").addEventListener("click", () => { $("settingsDlg").classList.add("hidden"); });
+
+      async function invite() {
+        if (session && !lastSaved) await session.save();
+        const url = location.href;
+        try { if (navigator.share) { await navigator.share({ title: "Holo Docs edit with me", url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+        try { await navigator.clipboard.writeText(url); toast("invite link copied anyone who opens it co-edits live"); } catch { window.prompt && window.prompt("Invite link:", url); }
+      }
+
+      function renderRecent() {
+        const r = recentDocs();
+        $("recent").innerHTML = r.length ? `<p class="mut" style="margin:0.6rem 0 0.3rem">Recent (this device)</p>` + r.map((d) =>
+          `<button class="btn ghost" data-ca="${esc(d.ca)}" style="text-align:left;margin-top:4px">${({ writer: "📝", calc: "📊", impress: "🖼️" }[d.kind] || "📄")} ${esc(d.title || "(untitled)")} <span class="mut">· ${esc(d.ca.slice(0, 18))}…</span></button>`).join("") : "";
+        $("recent").querySelectorAll("button[data-ca]").forEach((b) => b.addEventListener("click", () => doOpen(b.dataset.ca)));
+      }
+      function doOpen(caRaw) {
+        const ca = normCA(caRaw); if (!ca) return toast("paste a content address");
+        const snap = loadStoredDoc(ca);
+        const u = new URL(location.href); const hh = new URLSearchParams(); hh.set("k", secret); if (relayUrl) hh.set("r", relayUrl); hh.set("doc", ca);
+        u.hash = hh.toString();
+        if (snap) { window.location.href = u.toString(); window.location.reload(); } // open locally-stored doc
+        else { navigator.clipboard && navigator.clipboard.writeText(u.toString()).catch(() => {}); window.location.href = u.toString(); window.location.reload(); }
+      }
+
+      const NATIVE_FORMATS = { writer: [["docx", "Word (.docx OOXML, ISO/IEC 29500)"], ["odt", "OpenDocument Text (.odt ODF, ISO/IEC 26300)"]],
+        calc: [["xlsx", "Excel (.xlsx OOXML)"], ["ods", "OpenDocument Spreadsheet (.ods ODF)"]],
+        impress: [["pptx", "PowerPoint (.pptx OOXML)"], ["odp", "OpenDocument Presentation (.odp ODF)"]] };
+      const INTEROP_FMTS = new Set(["docx", "odt", "xlsx", "ods", "pptx", "odp"]);
+      function openExport() {
+        const k = session ? session.doc.kind : kind;
+        const native = (NATIVE_FORMATS[k] || []).map(([fmt, label]) => ({ fmt, label }));
+        const exps = (editor && editor.exports && editor.exports()) || [];
+        const all = [...native, ...exps, { fmt: "holo", label: "Sealed snapshot (.holo, content-addressed)" }];
+        $("exportList").innerHTML = all.map((e) => `<button class="btn ghost" data-fmt="${esc(e.fmt)}" style="text-align:left;margin-top:4px">⤓ ${esc(e.label)}</button>`).join("");
+        $("exportList").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => doExport(b.dataset.fmt)));
+        $("exportDlg").classList.remove("hidden");
+      }
+      async function doExport(fmt) {
+        let out;
+        if (fmt === "holo") { const ca = await session.save(); out = { name: "document-" + ca.slice(7, 19) + ".holo", mime: "application/json", text: JSON.stringify(session.doc.snapshot()) }; }
+        else if (INTEROP_FMTS.has(fmt)) { toast("converting to " + fmt.toUpperCase() + "…"); const interop = await import("./docs-interop.js"); out = await interop.exportInterop(session.doc.kind, session, fmt); }
+        else out = editor && editor.export && (await editor.export(fmt));
+        if (!out) return toast("nothing to export");
+        const blob = out.blob || new Blob([out.text], { type: out.mime || "text/plain" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = out.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        $("exportDlg").classList.add("hidden"); toast("exported " + out.name);
+      }
+
+      function openSettings() {
+        $("nameEdit").value = session ? session.name : user.name; $("colorEdit").value = user.color;
+        $("trackChk").checked = trackChanges; refreshLockUI(); $("settingsDlg").classList.remove("hidden");
+      }
+      $("nameEdit").addEventListener("change", (e) => { user.name = e.target.value.slice(0, 40); saveUser(user); session && session.setName(user.name); renderPeers(session.roster()); });
+      $("colorEdit").addEventListener("input", (e) => { user.color = e.target.value; saveUser(user); session && session.setColor(user.color); renderPeers(session.roster()); });
+      $("lockChk").addEventListener("change", (e) => {
+        if (!session) return;
+        if (e.target.checked) session.set("props", "lock", { id: session.myId, name: session.name, ts: Date.now() });
+        else session.set("props", "lock", null);
+        refreshLockUI();
+      });
+      $("trackChk").addEventListener("change", (e) => { trackChanges = e.target.checked; editor && editor.setTrackChanges && editor.setTrackChanges(trackChanges); toast(trackChanges ? "recording changes" : "stopped recording changes"); });
+
+      // ── setup overlay ────────────────────────────────────────────────────────────
+      $("setup").querySelectorAll(".kindbtn").forEach((b) => b.addEventListener("click", () => beginNew(b.dataset.kind)));
+      $("openInstead").addEventListener("click", () => { $("setup").classList.add("hidden"); renderRecent(); $("openDlg").classList.remove("hidden"); });
+      $("importInstead").addEventListener("click", () => { readSetupIdentity(); $("importFile").click(); });
+      function readSetupIdentity() { user.name = ($("nameInput").value || "").trim() || ("Guest-" + Math.random().toString(16).slice(2, 6)); user.color = $("colorInput").value || user.color; saveUser(user); }
+      async function beginNew(k) { readSetupIdentity(); kind = k; $("setup").classList.add("hidden"); await startSession(null); markDirty(); }
+
+      // ── boot ─────────────────────────────────────────────────────────────────────
+      (async function boot() {
+        // "Edit a copy" handoff (LibreOffice locked-document option): seed a fresh room
+        const copyId = params.get("copy");
+        if (copyId) {
+          let snap = null; try { snap = JSON.parse(localStorage.getItem("holo-docs-copy:" + copyId)); } catch {}
+          if (snap) { kind = snap.kind || kind; if (!user.name) user.name = "Guest-" + Math.random().toString(16).slice(2, 6);
+            $("setup").classList.add("hidden"); await startSession(snap); markDirty(); toast("editing a copy a new, independent document");
+            try { localStorage.removeItem("holo-docs-copy:" + copyId); } catch {} return; }
+        }
+        if (openDocCA) {
+          const snap = loadStoredDoc(openDocCA);
+          if (snap) { kind = snap.kind || kind; $("setup").classList.add("hidden"); await startSession(snap); $("doca").textContent = "holo://" + normCA(openDocCA);
+            // verify the loaded document re-derives to the requested κ (Law L5, document level)
+            const ca = await session.contentAddress(); if ("sha256:" + normCA(openDocCA).replace(/^sha256:/, "") === ca) { $("savestate").textContent = "✓ κ verified"; $("savestate").className = "save saved"; }
+            return; }
+          // not stored locally — join the room and reconstruct live from peers
+          if (!user.name) user.name = "Guest-" + Math.random().toString(16).slice(2, 6);
+          $("setup").classList.add("hidden"); await startSession(null); toast("reconstructing document from the room…"); return;
+        }
+        if (params.get("autostart") || h.get("autostart")) { readSetupIdentity(); $("setup").classList.add("hidden"); await startSession(null); return; }
+        // fresh: show setup chooser
+        $("setup").classList.remove("hidden");
+      })();
+
+      // ── witness / automation handle (mirrors window.__holoMeet) ──────────────────
+      function exposeWitness() {
+        window.holoDocs = window.__holoDocs = {
+          session, secret, relayUrl,
+          kind: () => session.doc.kind,
+          ready: () => !!(session && session.started),
+          myId: () => session.myId, myName: () => session.name,
+          peerCount: () => session.peerCount(), roster: () => session.roster(),
+          text: (name) => session.text(name || "text"),
+          val: (name, key) => session.val(name, key),
+          insert: (name, i, s) => session.insert(name, i, [...String(s)]),
+          del: (name, i, n) => session.delete(name, i, n),
+          set: (name, key, v) => session.set(name, key, v),
+          save: () => session.save(), contentAddress: () => session.contentAddress(),
+          snapshot: () => session.doc.snapshot(),
+          crdtSelftest: () => HoloCollab.crdtSelftest(),
+        };
+      }
+      window.__holoDocsBoot = { crdtSelftest: () => HoloCollab.crdtSelftest() };
+
+      // nestability: a parent holospace can hand us a room/doc over postMessage
+      addEventListener("message", (e) => { const m = e.data; if (!m || typeof m !== "object" || m.type !== "holo-docs") return;
+        const hh = new URLSearchParams(); hh.set("k", m.room || secret); if (m.relay) hh.set("r", m.relay); if (m.doc) hh.set("doc", m.doc); if (m.kind) hh.set("kind", m.kind);
+        location.hash = hh.toString(); location.reload(); });
+    </script>
+      <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>
+</body>
+</html>

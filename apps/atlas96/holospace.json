@@ -1,0 +1,112 @@
+{
+  "id": "org.hologram.HoloAtlas96",
+  "name": "Holo Atlas 96",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "The Φ-Atlas-12288 structure (48×256 → 96), encoded as a verified object — a discrete torus the upstream math is sealed into.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "EducationalApplication",
+  "conforms": {
+    "specs": [
+      "atlas-12288",
+      "uor-prime-structure",
+      "did-core",
+      "w3c-owl",
+      "w3c-skos",
+      "w3c-prov-o",
+      "rfc-8785-jcs",
+      "w3c-subresource-integrity",
+      "holo-forge",
+      "wasm-core-2.0"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloAtlas96"
+    ]
+  },
+  "shared": [],
+  "engines": [],
+  "description": [
+    {
+      "p": "The Universal Object Reference Prime Structure is a 12,288-element boundary (48 pages × 256 bytes = 2¹² × 3), compressed by the R96 classifier into exactly 96 resonance classes (a 3/8 ratio), formally verified in Lean 4."
+    },
+    {
+      "p": "Holo Atlas 96 does not re-implement that mathematics. It vendors the upstream UOR-Foundation/atlas-12288 source verbatim (MIT), content-addresses every byte (Law L1), and projects the documented invariants into one W3C semantic object OWL classes, a SKOS scheme of the 96 classes, PROV-O provenance sealed as a re-derivable did:holo (Law L5)."
+    },
+    {
+      "ul": [
+        "The 48×256 boundary as a discrete torus T² = ℤ₄₈ × ℤ₂₅₆ with 12,288 lattice points",
+        "The 96 resonance classes as a SKOS concept scheme over R96 = byte mod 96",
+        "Every vendored source file pinned by its content address (did:holo + SRI + multibase)",
+        "A live in-tab Law-L5 badge: the sealed object re-derives its own identity",
+        "Working thesis: the 96-vertex / 12,288 torus as a coordinate for LLM latent topology"
+      ]
+    }
+  ],
+  "categories": [
+    "Education",
+    "Development"
+  ],
+  "keywords": [
+    "atlas",
+    "atlas-12288",
+    "uor",
+    "prime-structure",
+    "r96",
+    "resonance",
+    "12288",
+    "torus",
+    "holographic",
+    "lean4",
+    "owl",
+    "skos",
+    "prov-o",
+    "content-addressed",
+    "self-verifying",
+    "law-l5",
+    "resonator",
+    "physics",
+    "sonification",
+    "96-edo",
+    "clifford-torus"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Hologram-Technologies/holospaces",
+  "upstream": {
+    "name": "UOR-Foundation/atlas-12288",
+    "url": "https://github.com/UOR-Foundation/atlas-12288",
+    "commit": "aef42a6fd5c323373222b6362050b439690136a1",
+    "license": "MIT (© 2025 Alex Flom)"
+  },
+  "releases": [
+    {
+      "version": "0.4",
+      "date": "2026-06-11",
+      "description": "The Resonator goes 100% browser-native and hardware-maximal: the atlas engine (R96 · Φ · truth) is COMPILED IN THE TAB by Holo Forge from the verbatim upstream C and verified against its sealed build receipt (the proof is now 5/5 live re-derivations); the structure DNA is derived once, content-addressed, and REBOUND O(1) by κ from OPFS on every later visit with a full background re-derivation so the proof stays absolute; physics + rendering move onto the GPU (a WebGPU compute tier Jacobi PBD over all 12,288 cells and ~46k constraints in WGSL, storage-buffer instanced fibers, zero per-frame CPU geometry with the WebGL2 tier as verified fallback); resolution adapts to the hardware's real headroom and supersamples to 8K on demand (witnessed at 7680×4800 on RDNA3); the chrome melts away while you play (zen mode + fullscreen). Witnessed end-to-end: 21 checks across both tiers."
+    },
+    {
+      "version": "0.3",
+      "date": "2026-06-11",
+      "description": "The Resonator: the whole 12,288-cell boundary as an interactive physical instrument (pull · field-grab · squeeze · pluck) with verified-real fiber physics, morphable through 1D cycle → 2D sheet → 3D torus → 4D Clifford torus in S³, sonified as 96-EDO partials over the R96 classes (220·2^(c/96) Hz). Every irregular artifact of the weave is a byte of SHA-256(κ ‖ Φ(p,b)) over the sealed atlas object derived, sealed in a PROV-O receipt, re-derived live in-tab, refused on tamper (witnessed: 12,288/12,288 cells re-derive differently after a one-codepoint tamper). The decidable answer to 'did the mesh capture specific irregular artifacts, or is it shape-classification + a formula?'"
+    },
+    {
+      "version": "0.2",
+      "date": "2026-06-10",
+      "description": "Live engine: the Φ-Atlas-12288 primitives, transliterated verbatim from the upstream minimal_wrapper.c into Holo-C (Holo Forge 1.1.0 gained the << >> | & and ?: operators so the upstream operators are preserved), are compiled by Holo Forge IN THE TAB to a 422-byte WebAssembly κ-object and run natively R96 classify, Φ encode/decode, truth predicates with a sealed PROV-O build receipt and a witnessed equivalence (R96 over all 256 bytes · Φ round-trip over the full 12,288 boundary). The in-tab artifact content-addresses to exactly what Node built (deterministic κ-transform)."
+    },
+    {
+      "version": "0.1",
+      "date": "2026-06-10",
+      "description": "Substrate-encode first: the verbatim UOR-Foundation/atlas-12288 source vendored and byte-pinned, the 48×256→96 Prime Structure projected into a sealed W3C semantic object (OWL/SKOS/PROV-O over DID-Core + JCS + SRI), a discrete-torus visualization, and a live Law-L5 re-derivation badge. No upstream mathematics re-implemented."
+    }
+  ],
+  "accent": "#46d3c5"
+}

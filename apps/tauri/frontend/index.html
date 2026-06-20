@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Splash only. Tauri requires a static frontendDist, but the real window is built in Rust and
+     loads holo://os/apps/browser/index.html directly — this page is shown for at most one frame. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hologram</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; background: #07041a; }
+      .stage {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        font: 600 1rem/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: #e8e6ff;
+      }
+      .mark { width: 4rem; height: 4rem; opacity: .92; animation: pulse 1.6s ease-in-out infinite; }
+      @keyframes pulse { 0%, 100% { opacity: .55; transform: scale(.98); } 50% { opacity: 1; transform: scale(1.02); } }
+      @media (prefers-reduced-motion: reduce) { .mark { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <svg class="mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Hologram">
+        <circle cx="32" cy="32" r="22" stroke="#8a7cff" stroke-width="3" />
+        <circle cx="32" cy="32" r="13" stroke="#5ad0ff" stroke-width="3" />
+        <circle cx="32" cy="32" r="4" fill="#e8e6ff" />
+      </svg>
+    </div>
+  </body>
+</html>

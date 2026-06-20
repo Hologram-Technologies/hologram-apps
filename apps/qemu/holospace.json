@@ -1,0 +1,83 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.qemu.QEMU",
+  "name": "QEMU",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "A full machine emulator boot other architectures in your browser.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "conforms": {
+    "specs": [
+      "web-platform"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.qemu.QEMU"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-theme.js",
+    "xterm/addon-clipboard.js",
+    "xterm/addon-fit.js",
+    "xterm/addon-search.js",
+    "xterm/addon-unicode11.js",
+    "xterm/addon-web-links.js",
+    "xterm/addon-webgl.js",
+    "xterm/xterm.css",
+    "xterm/xterm.js"
+  ],
+  "engines": [],
+  "loader": "qemu.html",
+  "description": [
+    {
+      "p": "Emulating real hardware shouldn't need a local install or a server."
+    },
+    {
+      "p": "QEMU runs as a content-addressed module over the host ABI, emulating whole machines instruction by instruction."
+    },
+    {
+      "ul": [
+        "Full-system emulation of multiple architectures (arm, riscv, x86)",
+        "Runs as a content-addressed module",
+        "Watch a machine boot, instruction by instruction",
+        "No install, no server"
+      ]
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator",
+    "Education",
+    "Development"
+  ],
+  "keywords": [
+    "emulator",
+    "virtualization",
+    "vm",
+    "arm",
+    "riscv",
+    "x86",
+    "qemu"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0-only",
+  "homepage": "https://hologram.os/apps/qemu",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "9.0",
+      "date": "2026-06-08",
+      "description": "QEMU as a CC-6 κ-module over the host ABI, with an interactive userland workspace."
+    }
+  ],
+  "accent": "#cc4444"
+}

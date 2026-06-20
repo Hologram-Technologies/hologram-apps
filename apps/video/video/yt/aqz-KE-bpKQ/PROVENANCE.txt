@@ -1,0 +1,13 @@
+Ingested Holo Video — content-addressed from YouTube (Law L5).
+
+Source : https://www.youtube.com/watch?v=aqz-KE-bpKQ
+  aqz-KE-bpKQ · Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film
+  license: Creative Commons Attribution license (reuse allowed)
+Tooling: yt-dlp 2026.03.17 + ffmpeg (deterministic, bit-exact CMAF)
+Section: first 30s · renditions 854×480 + 570×320 + AAC
+
+One CMAF fMP4 segment set, two standards: cmaf/master.m3u8 (HLS) + cmaf/stream.mpd (DASH).
+Every .m4s/.m3u8/.mpd is pinned in video-manifest.json; re-ingesting this source re-derives the same κ.
+
+holospace κ : sha256:769c525e296f4fed798f5952a99d25100c741b354c44fbf46fb1feb3e96a82bf
+master κ    : sha256:1be9448f02ce0b4b91393eeefbb0b9b63c1e652fcfbd2a7d1ac75496ac492a1e

@@ -1,0 +1,24 @@
+:root { --bg: #070b12; --panel: #0e1622; --line: #1d2a3a; --ink: #e6edf3; --dim: #93a1b3; --acc: #4dd0e1; --acc2: #7c9cff; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(130% 90% at 50% 0%, #11203a 0%, var(--bg) 55%); color: var(--ink);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+header { display: flex; align-items: center; gap: 1rem; padding: 1.1rem 2rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #070b12cc; backdrop-filter: blur(8px); }
+header nav { margin-left: auto; display: flex; gap: 0.4rem; }
+header nav a { color: var(--dim); text-decoration: none; padding: 0.4rem 0.8rem; border-radius: 8px; }
+header nav a:hover { color: var(--ink); background: #ffffff10; }
+header nav a.on { color: #06121a; background: var(--acc); font-weight: 700; }
+main { max-width: 880px; margin: 0 auto; padding: 3rem 2rem; }
+.badge { display: inline-block; font-size: 0.78rem; color: var(--acc); border: 1px solid #1c4a52; background: #0a1f24; padding: 0.25rem 0.7rem; border-radius: 999px; }
+h1 { font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.05; margin: 1rem 0 0.6rem; letter-spacing: -0.02em;
+  background: linear-gradient(100deg, var(--ink), var(--acc)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lede { font-size: 1.18rem; color: #c4d0dd; max-width: 60ch; }
+.lede b { color: var(--acc); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 2.4rem 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.2rem 1.3rem; }
+.card h3 { margin: 0 0 0.4rem; color: var(--acc2); font-size: 1.02rem; }
+.card p { margin: 0; color: var(--dim); font-size: 0.95rem; }
+.card code { color: var(--acc); font-family: ui-monospace, monospace; font-size: 0.85em; }
+.cta { display: inline-block; margin-top: 0.5rem; color: #06121a; background: var(--acc); font-weight: 700; text-decoration: none;
+  padding: 0.7rem 1.3rem; border-radius: 10px; }
+.cta:hover { background: #74e0ee; }
+footer { border-top: 1px solid var(--line); color: var(--dim); font-size: 0.85rem; padding: 1.4rem 2rem; text-align: center; }

@@ -1,0 +1,97 @@
+{
+  "id": "org.hologram.HoloBootPrompt",
+  "name": "Holo Boot Prompt",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication",
+    "schema:CreativeWork"
+  ],
+  "summary": "A single concise prompt that boots any LLM into the Hologram verified substrate — a pinned Constitution root, strict integrity enforcement, and a sealed receipt that proves itself genuine on every response. The prompt is itself a sealed, verified object.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "holospaces",
+      "content-addressing",
+      "law-l1",
+      "law-l2",
+      "law-l3",
+      "law-l4",
+      "law-l5",
+      "did-core",
+      "constitution-adr-033"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloBootPrompt"
+    ]
+  },
+  "shared": [
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-ux.js",
+    "holo-ui-kernel.js",
+    "holo-fx.js"
+  ],
+  "engines": [],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "Paste one block into any LLM and it roots itself in the Hologram κ-addressable substrate: it boots from a single self-verifying link (INDEX/#CID), re-derives the pinned Constitution κ before trusting anything, and adopts the holospaces Laws L1-L5 as binding for the whole session."
+    },
+    {
+      "p": "Robust by construction. The Constitution root is pinned INLINE (did:holo:sha256:3ff288d0...f00c) so an LLM with no network can still detect a swapped root and fail closed. The pin is the live root the OS conscience itself verifies (holo-conscience.js PINNED.root)."
+    },
+    {
+      "p": "Every response the LLM emits carries a sealed receipt — the κ of the exact bytes between markers — that anyone can re-derive with one sha256 call, no server and no third party. Fabricating a digest is forbidden: a κ that does not re-derive is a Law-L5 violation and is refused."
+    },
+    {
+      "ul": [
+        "Pinned Constitution root — swap-detectable offline",
+        "Strict holospaces L1-L5 enforcement, fail-closed",
+        "Sealed, server-free receipt on every response",
+        "Self-referential boot: the CID is this holospace's own root κ",
+        "The prompt is itself a κ-object with a live Law-L5 badge"
+      ]
+    }
+  ],
+  "categories": [
+    "Development",
+    "Utility"
+  ],
+  "keywords": [
+    "prompt",
+    "boot",
+    "llm",
+    "agent",
+    "holospaces",
+    "content-addressing",
+    "uor",
+    "kappa",
+    "self-verifying",
+    "constitution",
+    "law-l1",
+    "law-l5",
+    "receipt",
+    "serverless",
+    "cid"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "LicenseRef-proprietary",
+  "homepage": "https://github.com/Hologram-Technologies/holospaces",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-18",
+      "description": "The boot prompt, sealed as a holospace: a single pasteable block that roots any LLM in the κ-substrate. Pins the Constitution root inline for offline swap-detection, enforces holospaces L1-L5 fail-closed, and requires a sealed self-verifying receipt on every response. Ships with a live in-tab Law-L5 badge that re-derives the prompt to its own sealed κ."
+    }
+  ],
+  "accent": "#8b5cf6"
+}

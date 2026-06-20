@@ -1,0 +1,83 @@
+{
+  "$comment": "Generated from the hub catalog by tools/gen-app-defs.mjs edit the catalog, not here.",
+  "id": "org.hologram.HologramMeet",
+  "name": "Hologram Meet",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Serverless, end-to-end-encrypted video conferencing.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "CommunicationApplication",
+  "conforms": {
+    "specs": [
+      "webrtc",
+      "mediacapture",
+      "meet-holospace"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HologramMeet"
+    ],
+    "permissions": [
+      "camera",
+      "microphone",
+      "display-capture"
+    ]
+  },
+  "shared": [
+    "holo-gpu.js",
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-rtc.js",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "loader": "meet.html",
+  "description": [
+    {
+      "p": "A video call shouldn't route your face and voice through someone else's server."
+    },
+    {
+      "p": "A full WebRTC mesh connects peers directly, with an adaptive quality ladder and on-device super-resolution."
+    },
+    {
+      "ul": [
+        "Serverless, end-to-end-encrypted WebRTC mesh",
+        "Adaptive quality up to 4K",
+        "Screen share, chat, raise hand, recording",
+        "On-device super-resolution"
+      ]
+    }
+  ],
+  "categories": [
+    "Network",
+    "VideoConference",
+    "AudioVideo"
+  ],
+  "keywords": [
+    "video",
+    "call",
+    "conference",
+    "webrtc",
+    "meeting",
+    "jitsi"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://hologram.os/apps/meet",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-08",
+      "description": "Serverless mesh conferencing with adaptive quality and GPU super-resolution."
+    }
+  ],
+  "accent": "#246fe0"
+}

@@ -1,0 +1,474 @@
+{
+  "@context": {
+    "holo": "https://hologram.os/ns#",
+    "schema": "http://schema.org/"
+  },
+  "@type": "holo:MediaGraph",
+  "kind": "playlist",
+  "schema:name": "YouTube radio — https://www.youtube.com/watch?v=a0gZqHX8TVc&list=RDa0gZqHX8TVc&start_radio=1",
+  "live": false,
+  "videos": [
+    {
+      "id": "a0gZqHX8TVc",
+      "schema:name": "R�F�S DU SOL � Fred Again... | Magic Island Sunset Deep House  | Hawaii Windy Ocean DJ Set",
+      "schema:duration": "PT90S",
+      "representations": [
+        {
+          "mime": "video/mp4; codecs=\"avc1.4d401f, mp4a.40.2\"",
+          "bitrate": null,
+          "width": 1280,
+          "height": 720,
+          "initSegment": "did:holo:sha256:7cfa2dc3625472b78bccd3f8e01859cbd6e0fa7d51305e33751e8391bce3bf44",
+          "initPath": "media/a0gZqHX8TVc/init.mp4",
+          "segments": [
+            {
+              "kappa": "did:holo:sha256:4c08ec22ebc6db6d659b63aca279daa7cd8e31fc00b7571c44481d77ce304858",
+              "dur": 4,
+              "bytes": 1778009,
+              "path": "media/a0gZqHX8TVc/seg0.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:cf14e735d3b79d7e6e007b846adb839d42b4c59e05dcab666831babdd2bd698b",
+              "dur": 4,
+              "bytes": 900436,
+              "path": "media/a0gZqHX8TVc/seg1.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:e9b1e16ba8bb0ff2463729ef16e48150436c82dae7106e136e428df2f3e4560a",
+              "dur": 4,
+              "bytes": 1627112,
+              "path": "media/a0gZqHX8TVc/seg2.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:89c879d75fd39750e52c6314130c9c764b066dbac86e6cb478ae23e9b61bdbb8",
+              "dur": 4,
+              "bytes": 1156643,
+              "path": "media/a0gZqHX8TVc/seg3.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:0a4e1ae25b6e3e14f7ebd4158dd7868535f1178b7630a0a7c925fbc5b8e8db59",
+              "dur": 4,
+              "bytes": 1376365,
+              "path": "media/a0gZqHX8TVc/seg4.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:88ccf948d6ef90a5bcab7123fb6149cbb6509d833d1c1b218c036480c183cdb9",
+              "dur": 4,
+              "bytes": 726612,
+              "path": "media/a0gZqHX8TVc/seg5.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:4de5fdf42d1f1c710b45bb26995cfd00e4e35c4dc296cc6b94cc36819eebe7e8",
+              "dur": 4,
+              "bytes": 909706,
+              "path": "media/a0gZqHX8TVc/seg6.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:623fcb912cb5ce44cf142ea775919152817b4ac0176e844a4151f3321dfddc3b",
+              "dur": 4,
+              "bytes": 1229545,
+              "path": "media/a0gZqHX8TVc/seg7.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:484735e1a842cbe7f779079d520331836e7b5f7518eb47a2a843654cd27eea6d",
+              "dur": 4,
+              "bytes": 1300481,
+              "path": "media/a0gZqHX8TVc/seg8.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:ca4a0e3e89e571133fa337ac69095e96fd4318e244c4fbec7d52648bb28d825e",
+              "dur": 4,
+              "bytes": 1288920,
+              "path": "media/a0gZqHX8TVc/seg9.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:9c2bea01a73adfea45be57a77477bb40787922894fc588a8716ae8555389a16c",
+              "dur": 4,
+              "bytes": 1246487,
+              "path": "media/a0gZqHX8TVc/seg10.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:6aa1f654fc7934d40a500afa2b0895f44028c2e12d68b24d8a07595f561357a7",
+              "dur": 4,
+              "bytes": 1576568,
+              "path": "media/a0gZqHX8TVc/seg11.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:f775f22589fed780e9ef5b72da48acd6f4c27cd490134586a4bc74a32acc4310",
+              "dur": 4,
+              "bytes": 752338,
+              "path": "media/a0gZqHX8TVc/seg12.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:0a34b21ac21b4c5cbf01c21672c5c132ed77723733079fcb6545a71b803e7a36",
+              "dur": 4,
+              "bytes": 1198879,
+              "path": "media/a0gZqHX8TVc/seg13.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:d9c7887aab79208dc4b5a51aedd197f88572f1a2f4962fe60bf80ac66ba07d1b",
+              "dur": 4,
+              "bytes": 953799,
+              "path": "media/a0gZqHX8TVc/seg14.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:0a6380763e9a5a5d8a656f09969a4d7e88bef448c259901c8aedae9b3285ae9e",
+              "dur": 4,
+              "bytes": 1099453,
+              "path": "media/a0gZqHX8TVc/seg15.m4s"
+            }
+          ]
+        }
+      ],
+      "next": "CSigjEr_Elc"
+    },
+    {
+      "id": "CSigjEr_Elc",
+      "schema:name": "R�F�S DU SOL � Fred again.. � Lost Frequencies | Mountain Deep House Mix ",
+      "schema:duration": "PT90S",
+      "representations": [
+        {
+          "mime": "video/mp4; codecs=\"avc1.64001f, mp4a.40.2\"",
+          "bitrate": null,
+          "width": 1280,
+          "height": 720,
+          "initSegment": "did:holo:sha256:31846ac5e76e2f0f1481816b1ce83821d3798e75f30c2cdae1a4cb11917eb3b4",
+          "initPath": "media/CSigjEr_Elc/init.mp4",
+          "segments": [
+            {
+              "kappa": "did:holo:sha256:3cbd2bc818d720f235651d262c02a1ff4bf008b2532989db329a0922a848a9ac",
+              "dur": 4,
+              "bytes": 753939,
+              "path": "media/CSigjEr_Elc/seg0.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:c49f4fc7a129892e271272bf848e81b5a21738452647a56abdea721b19eeccf8",
+              "dur": 4,
+              "bytes": 735205,
+              "path": "media/CSigjEr_Elc/seg1.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:2f5ccbfb81a38ceffd8d142f3bf2ccd2e3fbe9397c8dd02b2dfdeac5e841dc7d",
+              "dur": 4,
+              "bytes": 678028,
+              "path": "media/CSigjEr_Elc/seg2.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:37b68e3b4b12b5e6418e108c6b8d5c2ab77c156e96cd08d615179bfe77f431ec",
+              "dur": 4,
+              "bytes": 681555,
+              "path": "media/CSigjEr_Elc/seg3.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:e39dc803db94e7c209529b361fcd775d677e77dfecc0b675ee4f7d89b739cdf9",
+              "dur": 4,
+              "bytes": 674366,
+              "path": "media/CSigjEr_Elc/seg4.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:ecb34bf4520a63e14d861a6c90d7dfda18634e07c18ee1cda220a169a10bacd9",
+              "dur": 4,
+              "bytes": 775871,
+              "path": "media/CSigjEr_Elc/seg5.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:d3804036aa31b83505f830aa4c2c0ccf4cf99b5d9d7fcd2336b4ff9a67276bed",
+              "dur": 4,
+              "bytes": 811497,
+              "path": "media/CSigjEr_Elc/seg6.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:9f1b21722dea2d6147c2c8b3bdc2edd25849af4bf270cc3fb02087092ab8af31",
+              "dur": 4,
+              "bytes": 698471,
+              "path": "media/CSigjEr_Elc/seg7.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:0933409d305331c80a6a0d5c6754b57d16f1c1d81ac3b97e6f5342322643568e",
+              "dur": 4,
+              "bytes": 717413,
+              "path": "media/CSigjEr_Elc/seg8.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:dfc44a7f0158f74aff88988716f5559bfeb9feef7c4d9dcfb8e6be771e054b84",
+              "dur": 4,
+              "bytes": 713005,
+              "path": "media/CSigjEr_Elc/seg9.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:1a99057ac74e4d27c3e719f731cf46c0e8922f8fa56015cb4a3d750d286541d5",
+              "dur": 4,
+              "bytes": 720672,
+              "path": "media/CSigjEr_Elc/seg10.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:e7eb7ab1a544ac15ef06767a08d2a10de8e0bf4f6839205fb5a1da690a5849fe",
+              "dur": 4,
+              "bytes": 709805,
+              "path": "media/CSigjEr_Elc/seg11.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:7e2803c6eb2b3dbaf63e97613ac09031b25fcfe30ded68232bd848b13c51eb0c",
+              "dur": 4,
+              "bytes": 730076,
+              "path": "media/CSigjEr_Elc/seg12.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:804d4abba41f368f2867410ec636fb5b8ac8e065340c262200a6899fc960ea31",
+              "dur": 4,
+              "bytes": 679729,
+              "path": "media/CSigjEr_Elc/seg13.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:135e9d349a9b9aa554f878a644b9a1d2e62344ed046df9f5e691c51ac59715da",
+              "dur": 4,
+              "bytes": 697443,
+              "path": "media/CSigjEr_Elc/seg14.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:6283f23415a2900751a3257b97527cf390d96c0ecfff9b198664b7a57d7bba94",
+              "dur": 4,
+              "bytes": 421727,
+              "path": "media/CSigjEr_Elc/seg15.m4s"
+            }
+          ]
+        }
+      ],
+      "next": "nIExLlfO-k0"
+    },
+    {
+      "id": "nIExLlfO-k0",
+      "schema:name": "DJ Set in Kyoto  (Cherry Blossom Vibes) | R�F�S DU SOL x Fred again",
+      "schema:duration": "PT90S",
+      "representations": [
+        {
+          "mime": "video/mp4; codecs=\"avc1.4d401f, mp4a.40.2\"",
+          "bitrate": null,
+          "width": 1280,
+          "height": 720,
+          "initSegment": "did:holo:sha256:0c68ba85313b0622a11e1075516886e922ae6b9729a8f034e88e85a03454ef47",
+          "initPath": "media/nIExLlfO-k0/init.mp4",
+          "segments": [
+            {
+              "kappa": "did:holo:sha256:7092b9fc2c9920702c211260f696a715b5f00485a4fb94d298ff9cb3e36065a9",
+              "dur": 4,
+              "bytes": 1009212,
+              "path": "media/nIExLlfO-k0/seg0.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:9c1b984bb36c77a16f80829067250a546745f3294ba947d65e262fc18634b569",
+              "dur": 4,
+              "bytes": 460049,
+              "path": "media/nIExLlfO-k0/seg1.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:0e44d30b55447a7215cc65970bd6c523d8e3f983bbc478fca88a2ca166c39cf6",
+              "dur": 4,
+              "bytes": 762986,
+              "path": "media/nIExLlfO-k0/seg2.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:fc9e939d203cdf6f2c6ab812256a4e90e9de4a9891768c11686814628d595b55",
+              "dur": 4,
+              "bytes": 609773,
+              "path": "media/nIExLlfO-k0/seg3.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:83c24983d42ab7816cb3d7818a2a0ea21307a2240d430da76c111a32a62d4fb0",
+              "dur": 4,
+              "bytes": 931788,
+              "path": "media/nIExLlfO-k0/seg4.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:99b3ac13044a56781e1d67432dc054b4106cd29f3dd1eaddd20f1b783ed524e2",
+              "dur": 4,
+              "bytes": 279492,
+              "path": "media/nIExLlfO-k0/seg5.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:b7dfa1898e5f84887cc98a537c99fc464c0771b0feea5172f6057e48a5da3e9c",
+              "dur": 4,
+              "bytes": 264122,
+              "path": "media/nIExLlfO-k0/seg6.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:61e4cad5e0cc7947682384fc1f01713d7130063900ad21542e121ec47045b547",
+              "dur": 4,
+              "bytes": 383907,
+              "path": "media/nIExLlfO-k0/seg7.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:c925f69152b199e5e0f7749de05e81068c8f60a2e3aafff2dea68c1c1f13cc05",
+              "dur": 4,
+              "bytes": 276963,
+              "path": "media/nIExLlfO-k0/seg8.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:69901bf7b56bc87c49cdefe12eef7d561a757ddca96068992116d907be6d43ee",
+              "dur": 4,
+              "bytes": 265562,
+              "path": "media/nIExLlfO-k0/seg9.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:e4733fa3048543640551afb933a767d81f6662dd085d480f3f86dd45ce497968",
+              "dur": 4,
+              "bytes": 343199,
+              "path": "media/nIExLlfO-k0/seg10.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:7213cd4243979717d3e6c31930d919901245ca064b1456b4d6fdd29ced64283a",
+              "dur": 4,
+              "bytes": 384525,
+              "path": "media/nIExLlfO-k0/seg11.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:f515339b5c2a03493a2fde950d572b000352e7b4ec9e476bb420938b6b2d3552",
+              "dur": 4,
+              "bytes": 366205,
+              "path": "media/nIExLlfO-k0/seg12.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:43a650a3d2de857727e6c26032f42545179f81de5ca124b5f8b9be67f2c04391",
+              "dur": 4,
+              "bytes": 215497,
+              "path": "media/nIExLlfO-k0/seg13.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:1763aa5fbd06c1b9b29f58ca37b9c09e8dd7ea05173c24aa57725950dd88398d",
+              "dur": 4,
+              "bytes": 343447,
+              "path": "media/nIExLlfO-k0/seg14.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:73900f59be453dde526d9089e3d6e362a9cd74d9e11de42f020ce48cde809f08",
+              "dur": 4,
+              "bytes": 299773,
+              "path": "media/nIExLlfO-k0/seg15.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:8e6a102b74fd0fde285eb60d8230957f9cdd5c33fbd920b93f7bd7eec32abd3b",
+              "dur": 4,
+              "bytes": 208171,
+              "path": "media/nIExLlfO-k0/seg16.m4s"
+            }
+          ]
+        }
+      ],
+      "next": "HS4roK5kAkA"
+    },
+    {
+      "id": "HS4roK5kAkA",
+      "schema:name": "DJ Set Above the Clouds  | Maui Haleakal Volcano (R�F�S DU SOL, Fred again.. vibes)",
+      "schema:duration": "PT90S",
+      "representations": [
+        {
+          "mime": "video/mp4; codecs=\"avc1.64001f, mp4a.40.2\"",
+          "bitrate": null,
+          "width": 1280,
+          "height": 720,
+          "initSegment": "did:holo:sha256:6346523552a8648053158712600c2852e885e673ee8e8ac69667d48f6e1d75d3",
+          "initPath": "media/HS4roK5kAkA/init.mp4",
+          "segments": [
+            {
+              "kappa": "did:holo:sha256:0ad4c8a2d53c12e5824f6489dc1a1c8c71c57983c164618d8bd26579bc02288d",
+              "dur": 4,
+              "bytes": 715658,
+              "path": "media/HS4roK5kAkA/seg0.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:cabcb14c3388b0e54725849e62d000e1f54bc94cdcbbba25caa1b4f252d24221",
+              "dur": 4,
+              "bytes": 1037311,
+              "path": "media/HS4roK5kAkA/seg1.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:f9502dc6a6a1aa8e1a9dc7241bc3049cddda2bfe20134344b46ae32e28d0b98d",
+              "dur": 4,
+              "bytes": 1107236,
+              "path": "media/HS4roK5kAkA/seg2.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:9aad4f18400dead6ba51f147b8e67805b8e0c777a0a5918c86dd25adad792f06",
+              "dur": 4,
+              "bytes": 678114,
+              "path": "media/HS4roK5kAkA/seg3.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:710a376ed23219c7aa6db2db5dffa3f589e60fc246794b09268f4afbd3a553b8",
+              "dur": 4,
+              "bytes": 678231,
+              "path": "media/HS4roK5kAkA/seg4.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:a895b34c3609e12f5705ea925bd617f832c29278235d90d984a0d07dbbdb892c",
+              "dur": 4,
+              "bytes": 695295,
+              "path": "media/HS4roK5kAkA/seg5.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:1e920e3bd983379a1239317985502a922a5e2952f39c346e9d93ca200e1042ca",
+              "dur": 4,
+              "bytes": 691596,
+              "path": "media/HS4roK5kAkA/seg6.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:d26a12fb342f0a1cea26ff6117d2f6665caad6f4c41eab389dc73d682e4859bf",
+              "dur": 4,
+              "bytes": 666233,
+              "path": "media/HS4roK5kAkA/seg7.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:d8103a858d0dfad77aaba34826a262be41d434a5750ed1ecb0971d0b35d3eb4e",
+              "dur": 4,
+              "bytes": 715397,
+              "path": "media/HS4roK5kAkA/seg8.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:40262aa60b45ec8e444eec7181681489aa972281719e52330d6180256534ab24",
+              "dur": 4,
+              "bytes": 680301,
+              "path": "media/HS4roK5kAkA/seg9.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:e7a90e52e56338700b5c18b76f2a646e788258ecc661321a535e6b90b3717b3a",
+              "dur": 4,
+              "bytes": 625317,
+              "path": "media/HS4roK5kAkA/seg10.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:b2e250bf5e8b29640abe3247d699a81e0f275ee84383a8c0ca6da303a0fd5062",
+              "dur": 4,
+              "bytes": 701183,
+              "path": "media/HS4roK5kAkA/seg11.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:d5acf0b71316806759a40d4f443f86d9508f568640aee5ef4af278cda05bccd1",
+              "dur": 4,
+              "bytes": 712033,
+              "path": "media/HS4roK5kAkA/seg12.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:deb32dd2a05aa8cc4f7a622c1716b6413b2cd4cbf0106456f1e0e34a5c737fd7",
+              "dur": 4,
+              "bytes": 655848,
+              "path": "media/HS4roK5kAkA/seg13.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:4ff78b308cccd305b5353d09f30b8f37a4abb23fbef41fc76667c85acca76491",
+              "dur": 4,
+              "bytes": 692505,
+              "path": "media/HS4roK5kAkA/seg14.m4s"
+            },
+            {
+              "kappa": "did:holo:sha256:9e71ddbf312be03fdac0ea5c1241849f56e05acc89fbb1aadfba0e8c951ac5ca",
+              "dur": 4,
+              "bytes": 388002,
+              "path": "media/HS4roK5kAkA/seg15.m4s"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "holo:segmentClosure": "did:holo:sha256:60ab61d1f8fb29901d948e4ae63936800bfa8b727779c4358f3aa5b61825a7cf"
+}

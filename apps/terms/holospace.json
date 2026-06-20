@@ -1,0 +1,110 @@
+{
+  "$comment": "Holo Terms MyTerms (IEEE 7012-2025) natively encoded for Hologram OS: the user is the first party and proposes machine-readable personal terms; each app is the second party and is granted only what was agreed, enforced at the capability seam (holo-launch.mount). Hand-authored (like apps/liberty) NOT generated from the hub catalog, so tools/gen-app-defs.mjs never touches it. Built by tools/build-app.mjs.",
+  "id": "org.hologram.HoloTerms",
+  "name": "Holo Terms",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication",
+    "prov:Entity"
+  ],
+  "summary": "Your machine-readable personal terms (MyTerms / IEEE 7012): you propose, each app agrees, the OS enforces.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "SecurityApplication",
+  "conforms": {
+    "specs": [
+      "holo-terms",
+      "myterms",
+      "ieee-7012",
+      "permissions-policy",
+      "did-core",
+      "vc-data-integrity"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloTerms"
+    ]
+  },
+  "shared": [
+    "holo-manage.js",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-terms.js",
+    "holo-theme.css",
+    "holo-theme.js"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "You should set the terms of your own data and have the OS enforce them, not merely display them."
+    },
+    {
+      "p": "You pick a standing term from a standard roster; each app must agree before the OS grants it any capability, and you can see and revoke every grant."
+    },
+    {
+      "ul": [
+        "Propose your terms (MyTerms / IEEE 7012-2025)",
+        "Apps must agree before they are granted anything",
+        "See and revoke what each app holds",
+        "Enforced by the OS, not advisory"
+      ]
+    }
+  ],
+  "categories": [
+    "System",
+    "Settings",
+    "Security"
+  ],
+  "keywords": [
+    "myterms",
+    "ieee 7012",
+    "privacy",
+    "consent",
+    "permissions",
+    "terms",
+    "agreement",
+    "customer commons"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://hologram.os/apps/terms",
+  "accent": "#b07cc6",
+  "resources": [
+    {
+      "uri": "terms/roster.json",
+      "name": "Holo Terms roster (UOR)",
+      "type": "hos:Roster",
+      "description": "The five IEEE 7012-2025 agreements (Customer Commons roster) as content-addressed UOR objects: SD-BASE, SD-BASE-DP, PDC-AI, PDC-GOOD, PDC-INTENT. Each carries its plain-language statement + machine-readable policy and re-derives to its did:holo (Law L5).",
+      "mimeType": "application/json"
+    }
+  ],
+  "tools": [
+    {
+      "name": "standing_term",
+      "description": "Return the user's current standing term (the relationship agreement they propose to every app) as a content-addressed roster object.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "agreement_for",
+      "description": "Return the signed agreement record for an app (the granted capabilities under the user's terms), or null. Args: appId.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "appId"
+        ]
+      }
+    }
+  ]
+}

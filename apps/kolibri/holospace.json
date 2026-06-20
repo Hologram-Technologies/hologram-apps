@@ -1,0 +1,35 @@
+{
+  "id": "org.hologram.V86KolibriOS",
+  "name": "KolibriOS",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "KolibriOS graphical desktop on v86 — disk = a content-addressed κ-DAG.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "UtilitiesApplication",
+  "description": [
+    {
+      "p": "KolibriOS boots on the v86 x86-to-wasm JIT. Its disk is not a blob — it is an ordered set of content-addressed κ-blocks, streamed lazily and re-derived per block before the guest sees a byte (Law L5)."
+    }
+  ],
+  "categories": [
+    "System",
+    "Emulator"
+  ],
+  "keywords": [
+    "v86",
+    "emulator",
+    "kappa",
+    "content-addressed",
+    "kolibri",
+    "graphical"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0",
+  "homepage": "https://hologram.os/apps/kolibri"
+}

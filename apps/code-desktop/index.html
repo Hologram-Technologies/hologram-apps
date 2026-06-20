@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holo Code</title>
+<meta name="description" content="A sovereign, browser-first coding desktop: Chat, Cowork and Code surfaces orchestrated by Q on-device, over the content-addressed substrate. Every session is a re-derivable receipt (Law L5)." />
+<link rel="icon" href="icon.svg" />
+<link rel="stylesheet" href="_shared/holo-theme.css" />
+<link rel="stylesheet" href="_shared/holo-mobile.css" />
+<link rel="stylesheet" href="_shared/holo-phi.css" />
+<script src="_shared/holo-ui-kernel.js"></script>
+<script type="module" src="_shared/holo-ux.js"></script>
+<script type="module" src="_shared/holo-object.js"></script>
+<script src="_shared/holo-icons.js"></script>
+<script type="module" src="_shared/holo-conscience.js"></script>
+<script type="importmap">{ "imports": { "@hologram/sdk": "_shared/holo-sdk.js", "@hologram/app": "_shared/holo-app.mjs", "simplex-noise": "/_shared/voice/lib/simplex-noise.js" } }</script>
+<script type="application/ld+json">{"@context":{"schema":"https://schema.org/"},"@type":["schema:SoftwareApplication","schema:WebApplication"],"schema:name":"Holo Code","schema:applicationCategory":"DeveloperApplication","schema:operatingSystem":"Hologram OS","schema:isAccessibleForFree":true}</script>
+<style>
+  /* ── golden-ratio system (built from the reused --holo-phi + --holo-space scale) ───────────────── */
+  :root {
+    color-scheme: dark;
+    --phi: var(--holo-phi, 1.618);
+    --accent: var(--holo-accent, #5b8cff); /* Hologram OS brand blue (not the engine's coral) */
+    --accent-soft: var(--holo-accent-soft, color-mix(in srgb, var(--accent) 16%, transparent));
+    --mono: var(--holo-font-mono, ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace);
+    --sans: var(--holo-font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    /* type scale on φ — base stays readable (16px); nothing below 0.9375rem is used */
+    --fs: 1rem; --fs-sm: .9375rem; --fs-md: 1.0625rem;
+    --fs-lg: calc(1rem * var(--phi)); --fs-hero: calc(1.25rem * var(--phi) * var(--phi));
+    /* spacing on φ */
+    --s1: var(--holo-space-2, .5rem); --s2: var(--holo-space-3, .75rem); --s3: var(--holo-space-4, 1rem);
+    --s4: var(--holo-space-6, 1.5rem); --s5: var(--holo-space-10, 2.5rem); --s6: var(--holo-space-16, 4rem);
+    /* φ proportions: sidebar, and the hero/composer measure = sidebar · φ² */
+    --side: 16.18rem; --measure: min(54rem, 62vw); /* golden: ~1/φ of the viewport, capped for readability */
+    --r: var(--holo-radius, 14px); --r-s: var(--holo-radius-sm, 9px); --pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--holo-bg); color: var(--holo-ink);
+    font: var(--fs)/1.6 var(--sans); display: grid; grid-template-rows: auto 1fr; height: 100vh; overflow: hidden;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  button, select, textarea, input { font: inherit; color: inherit; }
+
+  /* ── top tab bar ───────────────────────────────────────────────────────────────────────────────── */
+  .topbar { display: flex; align-items: center; padding: var(--s1) var(--s2); }
+  .tabs { display: flex; gap: .25rem; }
+  .tabs button { font-size: var(--fs-sm); color: var(--holo-ink-dim); background: none; border: 1px solid transparent;
+    border-radius: var(--r-s); height: 2rem; padding: 0 .8rem; cursor: pointer; display: inline-flex; align-items: center; gap: .4rem; }
+  .tabs button[aria-selected="true"] { color: var(--holo-ink); background: var(--holo-surface-2); }
+  .tabs button:hover { color: var(--holo-ink); }
+  .topbar .spacer { flex: 1; }
+  /* subtle, small theme toggle — recedes until hovered */
+  /* tiny, near-invisible theme toggle — plain icons, no container chrome; brightens on hover */
+  .theme-seg { display: flex; gap: 3px; opacity: .4; transition: opacity .15s; }
+  .theme-seg:hover { opacity: .95; }
+  .theme-seg button { width: 1.25rem; height: 1.25rem; border: none; background: none; color: var(--holo-ink-dim); border-radius: var(--r-s); cursor: pointer; display: grid; place-items: center; transition: color .15s; }
+  .theme-seg button[aria-pressed="true"] { color: var(--accent); }
+  .theme-seg button:hover { color: var(--holo-ink); }
+
+  /* ── shell: sidebar | content ───────────────────────────────────────────────────────────────────── */
+  .shell { display: grid; grid-template-columns: var(--side) 1fr; min-height: 0; }
+  .sidebar { display: flex; flex-direction: column; padding: var(--s2); border-right: 1px solid var(--holo-border); min-height: 0; overflow: hidden; }
+  .newbtn { font-weight: 600; color: var(--holo-ink); background: var(--holo-surface-2); border: 1px solid var(--holo-border);
+    border-radius: var(--r-s); height: 2.4rem; padding: 0 .7rem; cursor: pointer; display: flex; align-items: center; gap: .55rem; text-align: left; margin-bottom: .35rem; }
+  .newbtn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+  .navlist { display: flex; flex-direction: column; }
+  .navlist button { color: var(--holo-ink-dim); background: none; border: none; border-radius: var(--r-s); height: 2rem; padding: 0 .7rem;
+    cursor: pointer; display: flex; align-items: center; gap: .6rem; text-align: left; font-size: var(--fs-sm); }
+  .navlist button:hover { background: var(--holo-hover); color: var(--holo-ink); }
+  .recents-h { color: var(--holo-ink-dim); font-size: var(--fs-sm); padding: var(--s4) .7rem .35rem; }
+  .recents { flex: 1; overflow: auto; display: flex; flex-direction: column; }
+  .recent { display: flex; align-items: center; gap: .55rem; color: var(--holo-ink-dim); padding: .28rem .7rem; border-radius: var(--r-s); cursor: pointer; font-size: var(--fs-sm); }
+  .recent:hover { background: var(--holo-hover); color: var(--holo-ink); }
+  .recent .dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--holo-ink-dim); flex: 0 0 auto; }
+  .recent.live .dot { background: var(--accent); }
+  .userchip { display: flex; align-items: center; gap: .55rem; padding: .55rem .7rem; border-top: 1px solid var(--holo-border); margin-top: .35rem; font-size: var(--fs-sm); }
+  .userchip .av { width: 1.6rem; height: 1.6rem; border-radius: 50%; background: color-mix(in srgb, var(--accent) 30%, var(--holo-surface-2)); display: grid; place-items: center; color: var(--holo-ink); font-weight: 650; }
+
+  /* ── content: a stack of surfaces ──────────────────────────────────────────────────────────────── */
+  .content { position: relative; min-width: 0; min-height: 0; }
+  .surface { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+  .surface[hidden] { display: none; }
+  .scroll { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+  /* HOME state centers the hero; ACTIVE state grows the thread and docks the composer */
+  .surface.home .scroll { justify-content: center; align-items: center; }
+  .surface.home .thread, .surface.active .hero, .surface.active .extras { display: none; }
+
+  .hero { display: flex; flex-direction: column; align-items: center; gap: var(--s4); width: 100%; max-width: var(--measure); padding: var(--s4); margin: 0 auto; }
+  .greet { display: flex; align-items: center; gap: .7rem; font-size: var(--fs-hero); font-weight: 600; letter-spacing: -.015em; line-height: 1.1; }
+  .greet .mark { width: 1.7rem; height: 1.7rem; }
+  .extras { width: 100%; max-width: var(--measure); margin: var(--s3) auto 0; display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+  .chip-action { font-size: var(--fs-sm); color: var(--holo-ink); background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--pill); height: 2.2rem; padding: 0 .9rem; cursor: pointer; display: inline-flex; align-items: center; gap: .45rem; }
+  .chip-action:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+
+  .thread { flex: 1; width: 100%; max-width: var(--measure); margin: 0 auto; padding: var(--s4) var(--s3); display: flex; flex-direction: column; gap: var(--s3); }
+  .section-h { width: 100%; max-width: var(--measure); margin: var(--s5) auto 0; padding: 0 var(--s3); color: var(--holo-ink-dim); font-size: var(--fs-sm); }
+
+  /* messages */
+  .msg { display: flex; flex-direction: column; gap: .3rem; }
+  .msg.user { align-items: flex-end; }
+  .msg.user .body { background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r); padding: .55rem .8rem; max-width: 80%; }
+  .msg.assistant .role { color: var(--accent); font-size: var(--fs-sm); }
+  .msg .role { color: var(--holo-ink-dim); font-size: var(--fs-sm); }
+  .msg .role .tps { display: inline-flex; gap: .35rem; margin-left: .4rem; } .msg .role .tps .n { color: var(--holo-ink-dim); font-variant-numeric: tabular-nums; }
+  .msg .body { font-size: var(--fs-md); line-height: 1.6; }
+  .msg .body code { background: var(--holo-surface-2); padding: .05em .35em; border-radius: var(--r-s); font-family: var(--mono); }
+  .msg .body pre.code { background: var(--holo-surface); border: 1px solid var(--holo-border); border-radius: var(--r); padding: .7rem .85rem; overflow-x: auto; font-family: var(--mono); }
+  details.thinking { color: var(--holo-ink-dim); border-left: 2px solid var(--holo-border); padding-left: .7rem; }
+  .note { color: var(--holo-ink-dim); } .dim { color: var(--holo-ink-dim); } .ok { color: var(--holo-ok); } .bad { color: var(--holo-danger); } .warn { color: var(--holo-warn); }
+  .tool { border: 1px solid var(--holo-border); border-radius: var(--r); overflow: hidden; background: var(--holo-surface); }
+  .tool .thead { display: flex; align-items: center; gap: .5rem; padding: .45rem .65rem; background: var(--holo-surface-2); border-bottom: 1px solid var(--holo-border); flex-wrap: wrap; font-size: var(--fs-sm); }
+  .tool .tdot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--holo-ink-dim); }
+  .tool.pending .tdot { background: var(--holo-warn); animation: pulse 1s ease-in-out infinite; } .tool.done .tdot { background: var(--holo-ok); } .tool.err .tdot, .tool.denied .tdot { background: var(--holo-danger); } .tool.planned .tdot { background: var(--accent); }
+  .tool .tname { font-weight: 650; } .tool .targs, .tool .tcat { color: var(--holo-ink-dim); } .tool .tcat { margin-left: auto; }
+  .tool .tverdict { padding: .05rem .45rem; border-radius: var(--pill); border: 1px solid var(--holo-border); }
+  .tool .tbody { padding: .5rem .65rem; } .tool .tout { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow: auto; font-family: var(--mono); font-size: var(--fs-sm); } .tool .tk { margin-top: .35rem; color: var(--holo-ink-dim); font-size: var(--fs-sm); }
+  .receipt { display: flex; gap: .45rem; color: var(--holo-ink-dim); font-size: var(--fs-sm); border-top: 1px dashed var(--holo-border); padding-top: .5rem; } .receipt .rseal { width: .5rem; height: .5rem; border-radius: 50%; background: var(--holo-ink-dim); } .receipt .rseal.ok { background: var(--holo-ok); } .receipt .rseal.warn { background: var(--holo-warn); }
+
+  /* session / task rows (Code home · Cowork suggestions) */
+  .rows { width: 100%; max-width: var(--measure); margin: .5rem auto 0; padding: 0 var(--s3); display: flex; flex-direction: column; gap: .5rem; }
+  .row { display: flex; align-items: center; gap: .7rem; padding: .65rem .8rem; background: var(--holo-surface); border: 1px solid var(--holo-border); border-radius: var(--r); cursor: pointer; }
+  .row:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--holo-border)); }
+  .row .st { display: inline-flex; align-items: center; gap: .4rem; color: var(--holo-warn); font-size: var(--fs-sm); }
+  .row .st .dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--holo-warn); }
+  .row .rname { font-weight: 600; } .row .rdesc { color: var(--holo-ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; } .row .rmeta { color: var(--holo-ink-dim); font-size: var(--fs-sm); font-family: var(--mono); }
+  .row .ricon { width: 2rem; height: 2rem; border-radius: var(--r-s); background: var(--holo-surface-2); border: 1px solid var(--holo-border); display: grid; place-items: center; color: var(--holo-ink-dim); }
+  .empty { color: var(--holo-ink-dim); width: 100%; max-width: var(--measure); margin: 0 auto; padding: .6rem var(--s3); }
+
+  /* ── composer (rounded card; centered on home, docked when active) ─────────────────────────────── */
+  .composer { width: 100%; max-width: var(--measure); margin: 0 auto; padding: var(--s2) var(--s3) var(--s3); }
+  .surface.active .composer, .surface.docked .composer { border-top: 1px solid var(--holo-border); }
+  .cbox { border: 1px solid var(--holo-border); border-radius: var(--r); background: var(--holo-surface); position: relative; }
+  .cbox:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+  .suggest { position: absolute; bottom: 100%; left: 0; right: 0; background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r); margin-bottom: .35rem; overflow: hidden; }
+  .suggest .sg { display: flex; gap: .7rem; padding: .4rem .65rem; cursor: pointer; } .suggest .sg:hover { background: var(--holo-hover); } .suggest .sg .cmd { color: var(--accent); font-family: var(--mono); } .suggest .sg .d { color: var(--holo-ink-dim); }
+  .cbox textarea { width: 100%; resize: none; min-height: 3.2rem; max-height: 30vh; font-size: var(--fs-md); line-height: 1.55; background: transparent; border: none; padding: .8rem .9rem; }
+  .cbox textarea:focus { outline: none; }
+  .cfoot { display: flex; align-items: center; gap: .5rem; padding: .35rem .6rem .5rem; }
+  .cfoot .ctrl { color: var(--holo-ink-dim); background: none; border: 1px solid transparent; border-radius: var(--r-s); height: 2rem; padding: 0 .5rem; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; font-size: var(--fs-sm); }
+  .cfoot .ctrl:hover { background: var(--holo-hover); color: var(--holo-ink); }
+  .cfoot .spacer { flex: 1; }
+  .cfoot select { background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r-s); height: 2rem; padding: 0 .5rem; cursor: pointer; font-size: var(--fs-sm); }
+  .cfoot .effort { color: var(--holo-ink-dim); font-size: var(--fs-sm); font-family: var(--mono); }
+  .cfoot .send { width: 2.1rem; height: 2.1rem; display: grid; place-items: center; border-radius: var(--r-s); border: 1px solid transparent; background: var(--accent); color: #fff; cursor: pointer; }
+  .cfoot .send:disabled { opacity: .45; cursor: default; }
+  .cchips { display: flex; gap: .45rem; margin-bottom: .4rem; }
+  .cchip { display: inline-flex; align-items: center; gap: .35rem; color: var(--holo-ink-dim); background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r-s); padding: .18rem .55rem; font-size: var(--fs-sm); }
+  .seal { width: .5rem; height: .5rem; border-radius: 50%; background: var(--holo-ink-dim); display: inline-block; } .seal.ok { background: var(--holo-ok); }
+
+  /* ── CODE working view (IDE panes) ─────────────────────────────────────────────────────────────── */
+  .ide { flex: 1; min-height: 0; }
+  .code-grid { display: grid; grid-template-columns: 13rem 1fr 24rem; grid-template-rows: 1fr 11rem; grid-template-areas: "tree editor dock" "tree term dock"; height: 100%; min-height: 0; }
+  .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--holo-border); }
+  .pane > .phead { display: flex; align-items: center; gap: .5rem; padding: .35rem .6rem; background: var(--holo-surface-2); border-bottom: 1px solid var(--holo-border); color: var(--holo-ink-dim); font-size: var(--fs-sm); font-family: var(--mono); }
+  .pane.tree { grid-area: tree; } .pane.editor { grid-area: editor; } .pane.term { grid-area: term; border-top: 1px solid var(--holo-border); } .pane.dock { grid-area: dock; border-right: none; border-left: 1px solid var(--holo-border); }
+  #tree-body { flex: 1; overflow: auto; padding: .3rem; font-family: var(--mono); font-size: var(--fs-sm); } #tree-body .f { padding: .14rem .4rem; border-radius: var(--r-s); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #tree-body .f:hover { background: var(--holo-hover); }
+  #editor-host { flex: 1; min-height: 0; } #editor-fallback { flex: 1; overflow: auto; padding: .6rem; font-family: var(--mono); white-space: pre-wrap; color: var(--holo-ink-dim); }
+  #term-host { flex: 1; min-height: 0; background: #1e1e1e; }
+  .dock .thread { padding: var(--s2); max-width: none; }
+
+  /* diff card (Accept / Reject = the conscience gate) */
+  .diffcard { margin: .5rem .65rem; border: 1px solid var(--holo-border); border-radius: var(--r); overflow: hidden; }
+  .diffcard[hidden] { display: none; }
+  .diffcard .dh { display: flex; align-items: center; gap: .5rem; padding: .4rem .6rem; background: var(--holo-surface-2); border-bottom: 1px solid var(--holo-border); font-family: var(--mono); font-size: var(--fs-sm); } .diffcard .dh .vk { margin-left: auto; color: var(--holo-ink-dim); }
+  .diffcard .db { max-height: 34vh; overflow: auto; margin: 0; font-family: var(--mono); font-size: var(--fs-sm); } .diffcard .dl { display: block; padding: 0 .6rem; white-space: pre-wrap; word-break: break-word; }
+  .diffcard .dl.add { color: var(--holo-ok); background: color-mix(in srgb, var(--holo-ok) 12%, transparent); } .diffcard .dl.del { color: var(--holo-danger); background: color-mix(in srgb, var(--holo-danger) 12%, transparent); } .diffcard .dl.ctx { color: var(--holo-ink-dim); }
+  .diffcard .da { display: flex; gap: .5rem; padding: .5rem .6rem; border-top: 1px solid var(--holo-border); background: var(--holo-surface); }
+  .diffcard .da button { font-weight: 600; height: 2.2rem; padding: 0 .9rem; cursor: pointer; border-radius: var(--r-s); border: 1px solid var(--holo-border); background: var(--holo-surface-2); }
+  .diffcard .da .accept { background: color-mix(in srgb, var(--holo-ok) 22%, var(--holo-surface-2)); border-color: color-mix(in srgb, var(--holo-ok) 45%, var(--holo-border)); }
+  .diffcard .da .reject { background: color-mix(in srgb, var(--holo-danger) 16%, var(--holo-surface-2)); border-color: color-mix(in srgb, var(--holo-danger) 40%, var(--holo-border)); }
+  .diffcard .da .gate { margin-left: auto; align-self: center; color: var(--holo-ink-dim); font-size: var(--fs-sm); font-family: var(--mono); }
+
+  /* permission modal (fallback for non-edit tools) */
+  .permission { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--holo-bg) 70%, transparent); backdrop-filter: blur(3px); z-index: 50; }
+  .permission[hidden] { display: none; }
+  .permission .pm { width: min(34rem, 92vw); background: var(--holo-surface); border: 1px solid var(--holo-border); border-radius: var(--r); overflow: hidden; }
+  .permission .pm-h { padding: .65rem .85rem; border-bottom: 1px solid var(--holo-border); font-weight: 650; display: flex; gap: .5rem; }
+  .permission .pm-c { padding: .85rem; display: flex; flex-direction: column; gap: .5rem; }
+  .permission .pm-tool { font-family: var(--mono); background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r-s); padding: .55rem .65rem; word-break: break-word; }
+  .permission .pm-verdict, .permission .pm-detail { color: var(--holo-ink-dim); font-size: var(--fs-sm); }
+  .permission .pm-actions { display: flex; gap: .5rem; flex-wrap: wrap; padding: 0 .85rem .85rem; }
+  .permission .pm-actions button { font-weight: 600; height: 2.5rem; padding: 0 1rem; cursor: pointer; background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r); }
+  .permission .pm-actions .primary { background: color-mix(in srgb, var(--accent) 18%, var(--holo-surface-2)); border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+
+  /* ── Hologram-native brand glyph + the Q orb (the orchestrator's presence) ─────────────────────── */
+  .q-mark { width: 1.7rem; height: 1.7rem; border-radius: 50%; display: inline-block; flex: 0 0 auto;
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 92%, white), var(--accent) 55%, color-mix(in srgb, var(--accent) 55%, #0a0a14));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 0 6px color-mix(in srgb, #fff 30%, transparent); }
+  .q-orb { position: fixed; right: 1.6rem; bottom: 1.6rem; width: 3.5rem; height: 3.5rem; z-index: 80; cursor: pointer; border: none; padding: 0; background: none; }
+  .q-orb .core { position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 92%, white), var(--accent) 48%, color-mix(in srgb, var(--accent) 55%, #0a0a14) 100%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 8px 28px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 0 14px color-mix(in srgb, #fff 22%, transparent);
+    animation: qbreath 4.2s ease-in-out infinite; }
+  .q-orb .ring { position: absolute; inset: -5px; border-radius: 50%; filter: blur(5px); opacity: .55;
+    background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--accent) 75%, transparent), transparent 62%); animation: qspin 7s linear infinite; }
+  .q-orb .glyph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 1.15rem; letter-spacing: -.02em; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+  .q-orb:hover .core { transform: scale(1.06); }
+  .q-orb.thinking .core { animation: qpulse 1s ease-in-out infinite; }
+  .q-orb.thinking .ring { animation: qspin 1.5s linear infinite; opacity: .95; }
+  @keyframes qbreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  @keyframes qpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.13); } }
+  @keyframes qspin { to { transform: rotate(360deg); } }
+  .q-status { position: fixed; right: 5.7rem; bottom: 2.45rem; max-width: 19rem; background: var(--holo-surface-2); border: 1px solid var(--holo-border);
+    border-radius: var(--pill); padding: .38rem .85rem; font-size: var(--fs-sm); color: var(--holo-ink); z-index: 80; opacity: 0; transform: translateX(8px); transition: .22s ease; pointer-events: none; white-space: nowrap; }
+  .q-status.show { opacity: 1; transform: none; }
+  .q-panel { position: fixed; right: 1.6rem; bottom: 5.7rem; width: 20rem; background: var(--holo-surface); border: 1px solid var(--holo-border);
+    border-radius: var(--r); z-index: 81; box-shadow: 0 16px 48px rgba(0,0,0,.5); overflow: hidden; }
+  .q-panel[hidden] { display: none; }
+  .q-panel .qh { display: flex; align-items: center; gap: .6rem; padding: .75rem .9rem; border-bottom: 1px solid var(--holo-border); font-weight: 600; }
+  .q-panel .qbody { padding: .8rem .9rem; display: flex; flex-direction: column; gap: .6rem; }
+  .q-panel .qstat { color: var(--holo-ink-dim); font-size: var(--fs-sm); }
+  .q-panel .qact { text-align: left; background: var(--holo-surface-2); border: 1px solid var(--holo-border); border-radius: var(--r-s); padding: .55rem .7rem; cursor: pointer; display: flex; gap: .5rem; align-items: center; color: var(--holo-ink); }
+  .q-panel .qact:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--holo-border)); }
+  /* the living WebGL orb fills the button; the CSS core/glyph are the fallback when WebGL is absent */
+  .q-orb { border-radius: 50%; background: none; border: none; box-shadow: none; }   /* no frame — the orb floats free */
+  .q-orb #q-orb-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: transparent;
+    filter: drop-shadow(0 0 16px color-mix(in srgb, var(--accent) 45%, transparent)); }   /* glow follows the orb's alpha, not a box */
+  .q-orb.live .core.fallback, .q-orb.live .glyph { display: none; }
+
+  /* ── theme modes: Dark (default) · Light (token flip) · Immersive (translucent glass) ──────────── */
+  /* Immersive = LIGHT, delightful translucent glass: a soft bright aurora behind a frosted frame */
+  body.immersive {
+    background:
+      radial-gradient(1100px 760px at 16% 6%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 62%),
+      radial-gradient(960px 680px at 88% 94%, color-mix(in srgb, #c77bff 22%, transparent), transparent 62%),
+      radial-gradient(880px 600px at 64% 34%, color-mix(in srgb, #2bd4ff 20%, transparent), transparent 58%),
+      linear-gradient(180deg, #f7f9ff, #eef1fa);
+    background-attachment: fixed;
+  }
+  /* realistic frosted glass: heavy frost, low-opacity tint (more translucent), faint top sheen + crisp bevel */
+  body.immersive .topbar, body.immersive .sidebar, body.immersive .cbox, body.immersive .q-panel,
+  body.immersive .row, body.immersive .tool, body.immersive .diffcard, body.immersive .chip-action,
+  body.immersive .cchip, body.immersive .permission .pm, body.immersive .pane > .phead {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.04) 46%, rgba(255,255,255,0)),
+      color-mix(in srgb, var(--holo-glass-tint) 46%, transparent);
+    -webkit-backdrop-filter: blur(34px) saturate(1.8) brightness(1.02);
+    backdrop-filter: blur(34px) saturate(1.8) brightness(1.02);
+    border: 1px solid var(--holo-glass-border);
+    box-shadow: inset 0 1px 0 var(--holo-glass-edge), inset 0 0 0 1px rgba(255,255,255,.04), 0 6px 26px rgba(20,30,50,.14);
+  }
+  body.immersive .shell, body.immersive .content, body.immersive .surface, body.immersive .scroll, body.immersive .pane { background: transparent; }
+  /* high-definition crispness: text never blurs, hairline borders stay sharp at any DPR */
+  body.immersive { text-rendering: geometricPrecision; }
+  body.immersive .cbox, body.immersive .sidebar, body.immersive .q-panel { box-shadow: var(--holo-glass-shadow); border-width: 1px; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+  @media (prefers-reduced-motion: reduce) { .tool.pending .tdot { animation: none; } }
+  @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .sidebar { display: none; } .code-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr 9rem; grid-template-areas: "tree" "editor" "term"; } .pane.dock { position: fixed; inset: auto 0 9rem 0; height: 45vh; z-index: 10; } }
+</style>
+</head>
+<body>
+    <!-- Entry splash: the shared Hologram "streaming" boot screen. ONE source of truth
+         for every Holo app — only the app="…" name differs. Self-contained, offline,
+         Shadow DOM; the bar auto-tracks this app's real boot time. -->
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Code"></holo-splash>
+
+  <header class="topbar">
+    <nav class="tabs" role="tablist" aria-label="surfaces">
+      <button data-tab="chat" role="tab" aria-selected="true"><holo-icon name="message" size="15"></holo-icon> Chat</button>
+      <button data-tab="cowork" role="tab" aria-selected="false"><holo-icon name="sparkles" size="15"></holo-icon> Cowork</button>
+      <button data-tab="code" role="tab" aria-selected="false"><holo-icon name="code" size="15"></holo-icon> Code</button>
+    </nav>
+    <span class="spacer"></span>
+    <div class="theme-seg" id="theme-seg" role="group" aria-label="Theme">
+      <button data-theme-set="dark" title="Dark" aria-pressed="true"><holo-icon name="moon" size="12"></holo-icon></button>
+      <button data-theme-set="light" title="Light" aria-pressed="false"><holo-icon name="sun" size="12"></holo-icon></button>
+      <button data-theme-set="immersive" title="Immersive glass" aria-pressed="false"><holo-icon name="sparkles" size="12"></holo-icon></button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar" aria-label="navigation">
+      <button class="newbtn" id="newbtn"><holo-icon name="plus" size="15"></holo-icon> <span id="newbtn-label">New chat</span></button>
+      <div class="navlist" id="navlist"></div>
+      <div class="recents-h">Recents</div>
+      <div class="recents" id="recents"></div>
+      <div class="userchip"><span class="av" id="user-av">I</span> <span id="user-name">Ilya</span></div>
+    </aside>
+
+    <main class="content">
+      <!-- ── CHAT ──────────────────────────────────────────────────────────────────────────────── -->
+      <section class="surface home" data-panel="chat" role="tabpanel" aria-label="Chat">
+        <div class="scroll">
+          <div class="hero"><div class="greet"><span class="q-mark" aria-hidden="true"></span> <span id="chat-greet">How can I help?</span></div></div>
+          <div class="thread" id="chat-transcript" role="log" aria-live="polite"></div>
+          <div class="composer">
+            <div class="cbox">
+              <div class="suggest" id="chat-suggest" hidden></div>
+              <textarea id="chat-composer" rows="1" placeholder="Message Q…"></textarea>
+              <div class="cfoot">
+                <button class="ctrl" data-mode-for="chat" title="permission mode"><holo-icon name="check" size="13"></holo-icon> <span class="modelabel">default</span></button>
+                <span class="spacer"></span>
+                <select class="brain" data-brain title="Q orchestrator brain"><option value="local">Q · reference</option><option value="holo-q">Q · on-device</option></select>
+                <button class="send" data-send-for="chat" title="send"><holo-icon name="arrow-up" size="15"></holo-icon></button>
+              </div>
+            </div>
+          </div>
+          <div class="extras" id="chat-chips"></div>
+        </div>
+      </section>
+
+      <!-- ── COWORK (local autonomous tasks, Q-orchestrated; not a cloud VM) ───────────────────────── -->
+      <section class="surface home" data-panel="cowork" role="tabpanel" aria-label="Cowork" hidden>
+        <div class="scroll">
+          <div class="hero"><div class="greet"><span class="q-mark" aria-hidden="true"></span> <span>Let's get to work</span></div></div>
+          <div class="thread" id="cw-transcript" role="log" aria-live="polite"></div>
+          <div class="composer">
+            <div class="cbox">
+              <div class="suggest" id="cw-suggest" hidden></div>
+              <textarea id="cw-composer" rows="1" placeholder="What should we tackle?"></textarea>
+              <div class="cfoot">
+                <button class="ctrl" data-mode-for="cowork" title="autonomy"><holo-icon name="hand" size="13"></holo-icon> <span class="modelabel">auto</span></button>
+                <span class="spacer"></span>
+                <select class="brain" data-brain title="Q orchestrator brain"><option value="local">Q · reference</option><option value="holo-q">Q · on-device</option></select>
+                <button class="send" data-send-for="cowork" title="run"><holo-icon name="arrow-up" size="15"></holo-icon></button>
+              </div>
+            </div>
+          </div>
+          <div class="extras"><div class="rows" id="cw-tasks" style="margin-top:0"></div></div>
+        </div>
+      </section>
+
+      <!-- ── CODE (agentic coding session + IDE) ──────────────────────────────────────────────────── -->
+      <section class="surface home docked" data-panel="code" role="tabpanel" aria-label="Code" hidden>
+        <div class="scroll" id="code-scroll">
+          <div class="hero" id="code-home" style="align-items:stretch;justify-content:flex-start">
+            <div class="greet" style="justify-content:flex-start"><span class="q-mark" aria-hidden="true"></span> <span>Welcome back</span></div>
+            <div class="section-h" style="margin-top:var(--s4)">Sessions</div>
+            <div class="rows" id="sessions"><div class="empty">No sessions yet. Start one below, or click New session.</div></div>
+          </div>
+          <div class="ide" id="work" hidden>
+            <div class="code-grid">
+              <div class="pane tree"><div class="phead"><holo-icon name="folder" size="12"></holo-icon> workspace</div><div id="tree-body"></div></div>
+              <div class="pane editor"><div class="phead"><span id="editor-path">no file open</span></div><div id="editor-host"></div><pre id="editor-fallback" hidden></pre></div>
+              <div class="pane term"><div class="phead"><holo-icon name="terminal" size="12"></holo-icon> terminal <span class="dim" id="term-note"></span></div><div id="term-host"></div></div>
+              <div class="pane dock">
+                <div class="phead"><holo-icon name="sparkles" size="12"></holo-icon> agent <span class="dim" style="margin-left:auto" id="dock-session"></span></div>
+                <div class="thread" id="code-transcript" role="log" aria-live="polite"></div>
+                <div class="diffcard" id="diffcard" hidden>
+                  <div class="dh"><span id="diff-path"></span><span class="vk" id="diff-kappa"></span></div>
+                  <pre class="db" id="diff-body"></pre>
+                  <div class="da"><button class="accept" id="diff-accept">Accept edit</button><button class="reject" id="diff-reject">Reject</button><span class="gate" id="diff-gate"></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="cbox">
+            <div class="cchips"><span class="cchip"><holo-icon name="monitor" size="12"></holo-icon> Local</span><span class="cchip"><holo-icon name="folder" size="12"></holo-icon> HOLOGRAM</span><span class="cchip"><span class="seal" id="st-seal"></span> <span id="st-kappa">no receipt</span></span></div>
+            <div class="suggest" id="code-suggest" hidden></div>
+            <textarea id="code-composer" rows="1" placeholder="Describe a task or ask a question"></textarea>
+            <div class="cfoot">
+              <button class="ctrl" data-mode-for="code" title="permission mode"><holo-icon name="check" size="13"></holo-icon> <span class="modelabel">default</span></button>
+              <span class="spacer"></span>
+              <select class="brain" data-brain title="Q orchestrator brain"><option value="local">Q · reference</option><option value="holo-q">Q · on-device</option></select>
+              <button class="send" data-send-for="code" title="send"><holo-icon name="arrow-up" size="15"></holo-icon></button>
+            </div>
+          </div>
+          <div class="dim" style="font-size:var(--fs-sm);margin-top:.4rem"><span id="st-provider">Q · reference</span> · <span class="did" id="app-did">verifying…</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="permission" id="permission" hidden role="alertdialog" aria-modal="true" aria-label="permission required">
+    <div class="pm">
+      <div class="pm-h"><holo-icon name="shield" size="16"></holo-icon> Permission required</div>
+      <div class="pm-c"><div class="pm-tool"></div><div class="pm-verdict"></div><div class="pm-detail"></div></div>
+      <div class="pm-actions"><button class="primary" data-act="allow">Allow <span class="dim">Y</span></button><button data-act="deny">Deny <span class="dim">N</span></button><button data-act="always">Always <span class="dim">A</span></button></div>
+    </div>
+  </div>
+
+  <!-- Q orb the orchestrator's presence, always on, bottom-right -->
+  <button class="q-orb" id="q-orb" title="Q your orchestrator" aria-label="Q orchestrator"><canvas id="q-orb-canvas"></canvas><span class="core fallback"></span><span class="glyph">Q</span></button>
+  <div class="q-status" id="q-status" role="status" aria-live="polite"></div>
+  <div class="q-panel" id="q-panel" hidden>
+    <div class="qh"><span class="q-mark" style="width:1.3rem;height:1.3rem" aria-hidden="true"></span> Q · orchestrator</div>
+    <div class="qbody">
+      <div class="qstat" id="q-stat">Ready to orchestrate.</div>
+      <button class="qact" id="q-act-primary"><holo-icon name="bolt" size="14"></holo-icon> <span id="q-act-label">Connect on-device brain</span></button>
+      <div class="qstat" id="q-guide"></div>
+    </div>
+  </div>
+
+  <script type="module" src="./holo-code-desktop.js"></script>
+</body>
+</html>
