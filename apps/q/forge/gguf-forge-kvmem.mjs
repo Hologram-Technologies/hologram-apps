@@ -12,7 +12,8 @@
 
 import { quantizeRow } from "./gguf-forge-quantize.mjs";
 import { dequantizeExact } from "./gguf-forge-dequant.mjs";
-import { isTqType, tqEncodeKV, tqDecodeKV } from "./gguf-forge-turboquant.mjs";
+import { isTqType, tqEncodeKV, tqDecodeKV, TQ_TYPES, qjlDotCorrection } from "./gguf-forge-turboquant.mjs";
+import { f16ToF32 } from "../qvac-ingest.mjs";
 import { sha256hex, kappa } from "../../../../holo-os/system/os/usr/lib/holo/holo-uor.mjs";
 
 const F32 = 0;
@@ -52,6 +53,19 @@ export class KvMemory {
   }
   // dequant dispatch: TQ types reverse the rotation; everything else is the weight oracle.
   _deq(type, blob, n) { return isTqType(type) ? tqDecodeKV(type, blob, n) : dequantizeExact(type, blob, n); }
+
+  // QJL Stage-2 score correction (TBQ K cache only). The decoded K loses the stage-1
+  // residual; this adds back the estimate <q, residual> = qjl_dot_correction(qjl, d_r, R·q)
+  // for the kvh-th head-block of the K at (il,pos). `qHeadRot` = the head's query already
+  // forward-rotated (tqRotate). Default ON for TBQ; this.qjl=false disables (A/B witness).
+  qjlActive() { const t = TQ_TYPES[this.tk]; return this.qjl !== false && !!t && t.qjl > 0; }
+  qjlBlockElems() { return TQ_TYPES[this.tk]?.d; }
+  kCorrection(il, pos, kvh, qHeadRot) {
+    const t = TQ_TYPES[this.tk]; const raw = this.load(this._seq(this.cur).K[il][pos]);
+    const b0 = kvh * t.total, drOff = b0 + t.idx + 2 + t.qjl;
+    const d_r = f16ToF32(raw[drOff] | (raw[drOff + 1] << 8));
+    return qjlDotCorrection(raw, b0 + t.idx + 2, d_r, qHeadRot, t.d);
+  }
   // executor calls (write to the current sequence) — K1 interface unchanged
   storeK(il, pos, vec) { const s = this._seq(this.cur), r = this._put(this.tk, vec); s.K[il][pos] = r.ref; if (pos > s.posMax) s.posMax = pos; this._evict(s, il, pos); return r.val; }
   storeV(il, pos, vec) { const s = this._seq(this.cur), r = this._put(this.tv, vec); s.V[il][pos] = r.ref; return r.val; }

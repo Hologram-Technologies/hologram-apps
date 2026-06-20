@@ -13,6 +13,7 @@ import { loadByKappa, GGML_TYPE_NAME } from "./gguf-forge.mjs";
 import { dequantizeExact, GGML } from "./gguf-forge-dequant.mjs";
 import { quantizeRowQ8K, vecDotQ4K, vecDotQ6K, quantizeRowQ8_0, vecDotQ8_0, vecDotQ5_0, vecDotQ4_0 } from "./gguf-forge-matmul.mjs";
 import { rmsNorm, layerNorm, swiglu, geglu, softmax, ropeNeox, sigmoid, silu, ssmConv1d, selectiveScan, selectiveScan2, wkv7, moeRoute, moeCombine } from "./gguf-forge-kernels.mjs";
+import { tqRotate } from "./gguf-forge-turboquant.mjs";
 
 const fr = Math.fround;
 const QK_K = 256;
@@ -207,12 +208,18 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           // positions are visible. Equivalent to full causal when pos < swa, so
           // short-prompt witnesses are unaffected. (llama-hparams is_swa / n_swa)
           const swa = op.attrs.swa || 0, lo = swa ? Math.max(0, pos - swa + 1) : 0;
+          // TBQ KV: add the QJL stage-2 score correction (decoded K dropped the residual).
+          const qjlOn = kvmem && kvmem.qjlActive();
           for (let hh = 0; hh < n_head; hh++) {
             const kvh = Math.floor(hh / grp);
+            // forward-rotate this head's query ONCE (shared across positions) for the correction
+            const qhr = qjlOn ? tqRotate(q.subarray(hh * head_dim, (hh + 1) * head_dim), head_dim) : null;
             const scores = new Float32Array(pos + 1);
             for (let tp = 0; tp <= pos; tp++) {
               if (tp < lo) { scores[tp] = -Infinity; continue; }
-              let s = 0.0; for (let d = 0; d < head_dim; d++) s += fr(q[hh * head_dim + d] * Kc[il][tp][kvh * head_dim + d]); scores[tp] = fr(s);
+              let s = 0.0; for (let d = 0; d < head_dim; d++) s += fr(q[hh * head_dim + d] * Kc[il][tp][kvh * head_dim + d]);
+              if (qjlOn) s = fr(s + kvmem.kCorrection(il, tp, kvh, qhr));
+              scores[tp] = fr(s);
             }
             const p = softmax(scores, op.attrs.scale);
             // window only (p[tp<lo]=0 exactly) → identical result, and never reads evicted V
