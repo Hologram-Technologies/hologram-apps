@@ -94,6 +94,7 @@
     <script src="./vendor/xterm/xterm.js"></script>
     <script src="./vendor/xterm/addon-fit.js"></script>
     <script type="module">
+      import { assertEngineArch } from "/_shared/holo-arch.mjs";   // CC-10 arch guard (explicit error, never silently-wrong arch)
       const $ = (id) => document.getElementById(id);
 
       // The serial console (this Buildroot image's stdout/stdin is ttyS0).
@@ -139,6 +140,11 @@
         for (const w of ["engine", "bios", "image"]) { const el = $("pin-" + w); el.className = "pin"; }
         try {
           const kappa = await (await fetch("./kappa.json", { cache: "no-store" })).json();
+
+          // CC-10 — refuse a mismatched architecture BEFORE fetching any engine/image bytes: an explicit
+          // error, never a silently-wrong arch. v86 is an x86 machine; the image declares its target arch.
+          setStatus("checking architecture…");
+          assertEngineArch(kappa.image?.cdrom?.arch, kappa.engine?.arch, { what: kappa.image?.cdrom?.name || "this disk image", engine: "the v86 x86 emulator" });
 
           // κ-GATE every artifact before anything executes (Law L5).
           const libv86 = await fetchVerified(kappa.engine.libv86, "v86 engine");
@@ -191,6 +197,8 @@
             reveal();
           });
         } catch (err) {
+          if (err.name === "ArchMismatchError") return fail(err.message,
+            "This emulator runs the " + (err.engineArch || "host") + " architecture; the image targets " + (err.imageArch ?? "(undeclared)") + ". Boot a matching image, or open this image in its own engine (CC-10).");
           if (err.gate) return fail("κ mismatch on the " + err.label + " — boot refused.",
             "Holo x86 runs only bytes that match their content address (Law L5).\nexpected did:holo:sha256:" + err.expected + "\nactual   did:holo:sha256:" + err.actual);
           fail(String(err && err.message || err), err.soft ? "All five κ-pinned artifacts must sit beside this app (vendor/v86/* and images/*)." : "");

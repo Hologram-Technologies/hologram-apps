@@ -2,6 +2,7 @@
   "$comment": "κ-pins for the Holo x86 (v86) holo app. Every artifact — the v86 engine, its wasm, the BIOSes, and the OS image — is content-addressed; the loader re-derives sha256 and refuses to run on mismatch (Law L5). v86 is fed only κ-verified ArrayBuffers.",
   "algo": "sha256",
   "engine": {
+    "arch": "x86",
     "libv86": {
       "url": "./vendor/v86/libv86.js",
       "name": "v86 — x86 emulator (libv86.js, BSD-2-Clause)",
@@ -33,6 +34,7 @@
   },
   "image": {
     "cdrom": {
+      "arch": "x86",
       "url": "./images/linux4.iso",
       "name": "Buildroot Linux (v86 linux4.iso)",
       "sha256": "cb403835be0d857191cdeb86efc8d559b94a787d6fcb57e0a04667296405c223",
