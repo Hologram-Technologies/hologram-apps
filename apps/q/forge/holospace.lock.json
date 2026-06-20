@@ -1,6 +1,6 @@
 {
   "@context": "https://hologram.os/ns/holospace.jsonld",
-  "root": "did:holo:sha256:8351b861e6f080f594e33c82c33231664d7b1fd16d00ab5a6a75fc288da6c779",
+  "root": "did:holo:sha256:45f0c37b39705ba63aa68dacc3ac032492142e7a36c718f8e6d0ba5b6361298e",
   "identifier": "org.hologram.GgufForge",
   "algo": "sha256",
   "files": 29,
@@ -12,10 +12,10 @@
       "bytes": 15268
     },
     "gguf-forge-exec.mjs": {
-      "kappa": "did:holo:sha256:a5f98b062e567b28f2c21cd53328f2cc6502f04f747789166c3a974faef9ec9b",
-      "sri": "sha256-pfmLBi5WeyjywhzVMyjyzGUC8E90d4kWbDqXT6757Js=",
-      "multibase": "uEiCl-YsGLlZ7KPLCHNUzKPLMZQLwT3R3iRZsOpdPrvnsmw",
-      "bytes": 27045
+      "kappa": "did:holo:sha256:b78a168676fb4eb57e77a904bbb0adb6f874e8211cb86c98707e68f01a43667e",
+      "sri": "sha256-t4oWhnb7TrV+d6kEu7Cttvh06CEcuGyYcH5o8BpDZn4=",
+      "multibase": "uEiC3ihaGdvtOtX53qQS7sK22-HToIRy4bJhwfmjwGkNmfg",
+      "bytes": 27538
     },
     "gguf-forge-gpupack.mjs": {
       "kappa": "did:holo:sha256:a984489da10886b1e2ed91492be51c6601530c2c96ed79bb935ce56ba4df6e31",
@@ -54,10 +54,10 @@
       "bytes": 6832
     },
     "gguf-forge-kvmem.mjs": {
-      "kappa": "did:holo:sha256:0d4e14a9311d2b1f6d1b356794f524dca6c5194cdf84cf5e6900772d00838bfa",
-      "sri": "sha256-DU4UqTEdKx9tGzVnlPUk3KbFGUzfhM9eaQB3LQCDi/o=",
-      "multibase": "uEiANThSpMR0rH20bNWeU9STcpsUZTN-Ez15pAHctAIOL-g",
-      "bytes": 7547
+      "kappa": "did:holo:sha256:33692a6d73fd6483f5bad5cbea42ceb24b4252d16387d396bd4177caaa21d1d8",
+      "sri": "sha256-M2kqbXP9ZIP1utXL6kLOsktCUtFjh9OWvUF3yqoh0dg=",
+      "multibase": "uEiAzaSptc_1kg_W61cvqQs6yS0JS0WOH05a9QXfKqiHR2A",
+      "bytes": 8457
     },
     "gguf-forge-lora-graph.mjs": {
       "kappa": "did:holo:sha256:056a96b38776bcd238f15d9ead9fa22945ade4319f2691063120388ace054cc9",
