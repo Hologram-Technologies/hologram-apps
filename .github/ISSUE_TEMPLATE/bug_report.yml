@@ -1,0 +1,45 @@
+name: Bug report
+description: An app does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a suspected **security vulnerability**, do not file here — see
+        [SECURITY.md](../SECURITY.md).
+  - type: input
+    id: app
+    attributes:
+      label: Which app
+      placeholder: "apps/<id> — e.g. atlas, code, browser"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - Browser peer (the OS)
+        - Native host (Tauri)
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include any Safety-Stop / κ-mismatch (409) or console errors.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+    validations:
+      required: true

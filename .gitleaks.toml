@@ -1,0 +1,24 @@
+# gitleaks configuration for Hologram apps.
+#
+# Secrets are never committed. This extends gitleaks' default rules and allowlists
+# the apps' content-addressed artifacts — per-app holospace.lock.json seals, sealed
+# .holo bytes, κ-labels — which are hashes, not secrets, and would otherwise trip
+# the generic high-entropy detectors.
+
+title = "hologram-apps"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Content-addressed artifacts (κ-labels / app seals) are not secrets."
+paths = [
+  '''.*holospace\.lock\.json$''',
+  '''.*\.holo$''',
+  '''.*\.kappa$''',
+  '''.*release\.json$''',
+  '''.*/vendor/.*''',
+  '''.*\.lock$''',
+  '''package-lock\.json$''',
+  '''Cargo\.lock$''',
+]
