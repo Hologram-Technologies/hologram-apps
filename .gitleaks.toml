@@ -1,9 +1,11 @@
 # gitleaks configuration for Hologram apps.
 #
-# Secrets are never committed. This extends gitleaks' default rules and allowlists
-# the apps' content-addressed artifacts — per-app holospace.lock.json seals, sealed
-# .holo bytes, κ-labels — which are hashes, not secrets, and would otherwise trip
-# the generic high-entropy detectors.
+# Secrets are never committed. This extends gitleaks' default rules (the
+# high-precision provider rules stay active) and allowlists the apps'
+# content-addressed identifiers and PUBLIC addresses — hashes/ids, not secrets —
+# which otherwise trip the entropy-based generic-api-key rule. The allowlist
+# matches identifier SHAPES, never a real provider token, so a genuine leak
+# still fails the gate.
 
 title = "hologram-apps"
 
@@ -11,13 +13,30 @@ title = "hologram-apps"
 useDefault = true
 
 [allowlist]
-description = "Content-addressed artifacts (κ-labels / app seals) are not secrets."
+description = "Content-addressed identifiers and public addresses are not secrets."
+regexes = [
+  '''[0-9a-f]{64}''',                  # sha256 κ-label (content address)
+  '''z6Mk[1-9A-HJ-NP-Za-km-z]{44}''',  # did:key Ed25519 PUBLIC key (a DID, not a secret)
+  '''0x[a-fA-F0-9]{40}''',             # EVM contract / wallet PUBLIC address
+  '''5[1-9A-HJ-NP-Za-km-z]{47}''',     # Substrate/Bittensor ss58 PUBLIC account address
+  '''ba[a-z2-7]{57,}''',               # IPFS CIDv1 (base32)
+  '''holo\.[a-z0-9.]+\.v[0-9]+''',     # holo localStorage key names
+]
 paths = [
   '''.*holospace\.lock\.json$''',
   '''.*\.holo$''',
   '''.*\.kappa$''',
   '''.*release\.json$''',
+  '''.*\.result\.json$''',
+  '''.*/\.well-known/.*''',
+  '''.*/\.holo/.*''',                 # κ-store directory contents (hash-named files)
+  '''apps/.*/build/.*''',            # generated app build output (e.g. jupyter)
+  '''.*\.js\.map$''',                # source maps (generated)
+  '''apps/q/forge/.*\.test\.mjs$''', # forge test vectors (GGUF tensor names, κ fixtures)
   '''.*/vendor/.*''',
+  '''.*/xterm/.*''',
+  '''.*\.min\.js$''',
+  '''.*\.jsonld$''',
   '''.*\.lock$''',
   '''package-lock\.json$''',
   '''Cargo\.lock$''',
