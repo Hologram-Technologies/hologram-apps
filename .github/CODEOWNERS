@@ -1,0 +1,11 @@
+# Code owners — required reviewers.
+#
+# Default owner is @humuhumu33 (the repository's author). Replace with an org team
+# (e.g. @Hologram-Technologies/maintainers) once one exists; CODEOWNERS entries
+# must name a user or team with write access or GitHub ignores them.
+
+* @humuhumu33
+
+# Release + CI surfaces always need an owner's review.
+/.github/                @humuhumu33
+/apps/tauri/             @humuhumu33

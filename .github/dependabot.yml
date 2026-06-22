@@ -1,0 +1,30 @@
+version: 2
+
+# Keep dependencies and pinned actions current as reviewable PRs. Actions are
+# pinned by SHA (supply-chain authority is pinned, not floating on a tag);
+# Dependabot proposes the bump for review.
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: npm
+    directory: "/apps/tauri"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: cargo
+    directory: "/apps/tauri/src-tauri"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
