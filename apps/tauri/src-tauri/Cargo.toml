@@ -37,4 +37,4 @@ serde_json = "1"
 # Law L5 — re-derive every byte to its content address before serving it. sha256 is the OS object
 # identity (did:holo:sha256:…). The substrate σ-axis (blake3, holospaces ADR-052) is a follow-up; add
 # the `blake3` crate when the host emits the σ-address too.
-sha2 = "0.10"
+sha2 = "0.11"
