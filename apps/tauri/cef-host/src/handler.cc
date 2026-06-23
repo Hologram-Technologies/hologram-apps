@@ -808,22 +808,18 @@ void SimpleHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
 // tab, every element, every byte — by construction. The front-end's own asset loads route through
 // the holo:// κ scheme (sealed, verified) so the DevTools surface is itself substrate-native.
 //
-// DOCKED RIGHT, like Chrome — but NOT via CefBrowserHost::ShowDevTools. That API, in a host with custom
-// chrome, opens a DETACHED inspector window that cannot dock (and a second OS window lands on its own DPI
-// surface, which is what made it look soft). Instead F12 toggles the IN-PAGE right-slide dock: the same
-// vendored Chrome devtools-frontend, κ-served (holo://), mounted over the κ-CDP backend, sliding in from
-// the right at a golden-ratio width. Consequences the operator asked for: it ALWAYS slides from the right,
-// the width is golden-ratio, it shares this window's exact device-scale (pixel-crisp / high-DPI), and the
-// backend is in-process (low latency). 100% κ-native: the dock + frontend are κ-served, handles alias κ.
+// F12 opens the standard Chromium DevTools window (the original, detached inspector) against the live
+// renderer — the complete, feature-complete real inspector, reflecting the entire tab. (We tried an
+// in-page right-slide dock; reverted by request — this is the plain native window.)
 void SimpleHandler::ShowHoloDevTools(CefRefPtr<CefBrowser> browser, const CefPoint& inspect_at) {
   CEF_REQUIRE_UI_THREAD();
   if (!browser) return;
-  CefRefPtr<CefFrame> frame = browser->GetMainFrame();  // the OS shell frame owns window.HoloDevDock
-  if (!frame) return;
-  // Toggle the dock in the shell. Harmless no-op if the dock isn't installed (non-shell main frame).
-  frame->ExecuteJavaScript(
-      "window.HoloDevDock&&window.HoloDevDock.toggle&&window.HoloDevDock.toggle();",
-      "holo://devtools/toggle", 0);
+  CefWindowInfo window_info;
+#if defined(OS_WIN)
+  window_info.SetAsPopup(nullptr, "DevTools");
+#endif
+  CefBrowserSettings settings;
+  browser->GetHost()->ShowDevTools(window_info, this, settings, inspect_at);
 }
 
 bool SimpleHandler::OnKeyEvent(CefRefPtr<CefBrowser> browser,
@@ -840,17 +836,12 @@ bool SimpleHandler::OnKeyEvent(CefRefPtr<CefBrowser> browser,
       (code == VK_F12_) || (ctrl && shift && (code == VK_I_ || code == VK_J_ || code == VK_C_));
   if (!is_devtools_chord) return false;
 
-  // Toggle the IN-PAGE right-docked Holo DevTools (the κ-served real Chrome frontend over the κ-CDP
-  // backend, injected into every tab by holo-devtools-dock-boot.js). We CONSUME the chord (return true)
-  // so Chrome's own F12 never opens its detached window — the whole reason it kept "opening as a new
-  // window." The inspector docks right at a golden-ratio width and reflects this tab's live κ-holospace.
-  CefRefPtr<CefFrame> frame = browser->GetMainFrame();
-  if (frame) {
-    frame->ExecuteJavaScript(
-        "window.HoloDevDock&&window.HoloDevDock.toggle&&window.HoloDevDock.toggle();",
-        "holo://devtools/toggle", 0);
-  }
-  return true;  // consume — do NOT let Chrome open its detached DevTools window
+  // Toggle the standard Chromium DevTools window against the live renderer (the original detached
+  // inspector). Consume the chord so we don't also trigger Chrome's own accelerator (double-open).
+  CefRefPtr<CefBrowserHost> host = browser->GetHost();
+  if (host->HasDevTools()) host->CloseDevTools();
+  else ShowHoloDevTools(browser, CefPoint());
+  return true;  // consume
 }
 
 namespace {

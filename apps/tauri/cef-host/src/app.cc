@@ -585,9 +585,8 @@ void SimpleApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
     // parent) gets the right-docked inspector by injecting the boot MODULE. Skip the shell (it installs its
     // own dock). Our own holo:// pages have no hostile CSP, so a holo://os module <script> loads fine
     // (cross-origin, host-granted ACAO for the devtools graph). F12 in the host routes to HoloDevDock.toggle.
-    if (frame->IsMain() && !is_shell) {
-      frame->ExecuteJavaScript(kHoloDevToolsBundle, frame->GetURL(), 0);
-    }
+    // (Holo DevTools in-page dock injection removed by request — F12 opens the standard detached
+    // Chromium DevTools window via OnKeyEvent/ShowHoloDevTools instead of an in-page slide-out box.)
   } else {
     // Web page: collapse leftover ad placeholders so the page re-flows ad-free (cosmetic complement to
     // the network block in handler.cc). The bridge/service are never injected here (origin tier holds).
