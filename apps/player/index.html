@@ -473,6 +473,12 @@
           if (it.kappa) q.set("k", it.kappa);
           if (it.type) q.set("type", it.type);
           if (it.live) q.set("live", "1");
+          // A κ-addressed single object (not a live embed, not an HLS/DASH manifest) streams through the
+          // holo-pull swarm: per-block L5-verified κ-pieces, reassembled, then played. The video engine
+          // re-checks this guard and falls back to direct play if the swarm bridge is unavailable, so
+          // this is safe + non-breaking. Manifests already verify per-segment via the holo:// engine.
+          const playSrc = it.playSrc || it.src || "";
+          if (it.kappa && !it.live && !/\.(m3u8|mpd)(\?|#|$)/i.test(playSrc)) q.set("swarm", "1");
           f.src = "../video/index.html?" + q.toString();
         }
         $("player").appendChild(f);

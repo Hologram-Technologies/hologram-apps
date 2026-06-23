@@ -1,0 +1,28 @@
+# chrome/browser/holo/BUILD.gn — links the prebuilt `kappa-route` verifier and the κ factory into chrome.
+# The overlay copies this dir into the source tree and adds //chrome/browser/holo:holo to the
+# chrome_browser sources (see holo_kappa_overlay.py, which edits chrome/browser/BUILD.gn).
+#
+# The closure anchor (sha256 of the shipped os-closure.json = the trust root) is written into
+# holo_closure_anchor.h by the build script (HOLO_CLOSURE_ANCHOR), exactly as build.ps1 does for the
+# CEF host. Same audited verifier, same trust root, now inside the full ungoogled-chromium browser.
+
+# The κ verifier (libkappa_route.so) is loaded at RUNTIME via dlopen — NOT linked — so its self-contained
+# Rust runtime and glibc stay fully decoupled from Chromium's hermetic toolchain (no duplicate Rust std,
+# no glibc-version clash). The orchestrator builds the cdylib and ships libkappa_route.so beside chrome;
+# the factory dlopen's it from DIR_EXE. So this target links no Rust lib — only libdl for dlopen.
+source_set("holo") {
+  sources = [
+    "holo_url_loader_factory.cc",
+    "holo_url_loader_factory.h",
+  ]
+  libs = [ "dl" ]  # dlopen/dlsym
+  deps = [
+    "//base",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//net",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+    "//url",
+  ]
+}

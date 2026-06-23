@@ -90,6 +90,9 @@
   .hud button{margin-left:auto;padding:7px 12px;font-size: var(--holo-text-sm, 1rem)}
   .hud .dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--ok)}
   .hud .dot.off{background:var(--bad)}
+  .ltabs{display:flex;gap:6px;margin:0 0 12px}
+  .ltab{padding:6px 12px;font:600 var(--holo-text-sm,1rem)/1 system-ui;background:#20242d;color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .ltab.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0f08;border-color:transparent}
 </style>
 </head>
 <body>
@@ -125,7 +128,12 @@
   <div class="grid">
     <!-- SOURCE -->
     <section class="card">
-      <h2>Source · Holo-C</h2>
+      <h2 id="srcH">Source · Holo-C</h2>
+      <div class="ltabs" id="ltabs">
+        <button class="ltab on" data-lang="holo-c">Holo-C</button>
+        <button class="ltab" data-lang="zig">Zig</button>
+        <button class="ltab" data-lang="c">C / C++</button>
+      </div>
       <textarea id="src" spellcheck="false"></textarea>
       <div class="row" style="margin-top:12px">
         <button id="go">Compile &amp; Verify</button>
@@ -196,6 +204,7 @@
 import { compile, forgeReceipt, jcs, VERSION, LANG } from "./_shared/holo-forge/holo-forge.mjs";
 import { resolveClosure, linkedSource, linkReceipt } from "./_shared/holo-forge/holo-forge-resolve.mjs";
 import { kput, kget } from "./_shared/holo-forge/holo-kstore.mjs";
+import { FRONTENDS } from "./forge-frontends.js";   // prebuilt, κ-pinned Zig + C/C++ artifacts (run + re-derive live)
 
 // the compiler's own content address — the "compiler on the substrate" (pinned, ADR-0051 witness)
 const COMPILER_PIN = "did:holo:sha256:756f278f8a456b2965f70ed4e5398fec249ecc7cec2f8d7bcab9dff20da8ab53";
@@ -334,6 +343,17 @@ function runExport(i){
 // VERIFY: treat the current receipt as a claim a peer received; re-derive and refuse a mismatch.
 async function verifyReceived(){
   if(!build) return;
+  if (build.frontend){   // prebuilt artifact: re-derive the wasm κ and refuse a mismatch (Law L5) — no recompile path in-browser
+    const tampered = $("tamper").checked;
+    let bytes = build.wasm;
+    if (tampered){ bytes = bytes.slice(); bytes[(bytes.length/2)|0] ^= 0xff; }   // flip a real byte
+    const reK = await kappaOf(bytes); const ok = reK === build.kappas.artifact && !tampered;
+    const ev = $("extv"); ev.className = "verdict show " + (ok ? "ok":"bad");
+    ev.innerHTML = ok
+      ? `✓ VERIFIED artifact re-derived<small>the ${FRONTENDS[build.frontend].label} wasm re-derives to its pinned address (${short(build.kappas.artifact)}) no server (Law L5).</small>`
+      : `✗ REFUSED κ mismatch<small>${tampered ? "a byte was tampered: " : ""}re-derived ${short(reK)} ≠ pinned ${short(build.kappas.artifact)}. A forged artifact cannot wear an honest address.</small>`;
+    return;
+  }
   const claimedArtifact = build.kappas.artifact;
   const tampered = $("tamper").checked;
   let source = build.source;
@@ -367,6 +387,48 @@ $("reset").onclick = () => { $("src").value = SAMPLE; location.hash=""; };
 $("verify").onclick = verifyReceived;
 $("tamper").onchange = verifyReceived;
 $("share").onclick = shareLink;
+
+// ── language frontends: Holo-C compiles LIVE in-tab; Zig and C/C++ are prebuilt, κ-pinned artifacts
+//    (no Zig/clang in the browser) that still RUN for real and re-derive to their pinned address (Law L5).
+let LANG_SEL = "holo-c";
+function selectLang(lang){
+  LANG_SEL = lang;
+  document.querySelectorAll("#ltabs .ltab").forEach((b)=> b.classList.toggle("on", b.dataset.lang===lang));
+  $("err").textContent = ""; $("status").textContent = "ready";
+  if (lang === "holo-c"){
+    $("srcH").textContent = "Source · Holo-C";
+    $("src").readOnly = false; $("src").value = SAMPLE; location.hash = "";
+    $("go").textContent = "Compile & Verify"; $("go").onclick = compileAndVerify;
+  } else {
+    const f = FRONTENDS[lang]; if (!f) return;
+    $("srcH").textContent = "Source · " + f.label + " · prebuilt + verified";
+    $("src").value = f.source; $("src").readOnly = true;
+    $("go").textContent = "Load & Verify"; $("go").onclick = ()=> loadFrontend(lang);
+  }
+}
+async function loadFrontend(lang){
+  const f = FRONTENDS[lang]; if (!f) return;
+  $("err").textContent = ""; $("status").textContent = "loading " + f.label + "…";
+  let wasm; try { wasm = b64u.dec(f.wasmB64); } catch(e){ $("err").textContent = "decode error"; return; }
+  const reK = await kappaOf(wasm), ok = reK === f.kappa;
+  const sk = await kappaOf(enc.encode(f.source)), fk = await kappaOf(enc.encode(jcs(f.flags)));
+  build = { source:f.source, wasm, exports:f.exports, kappas:{ source:sk, compiler:f.compilerKappa, flags:fk, artifact:f.kappa }, receiptObj:null, receiptId:null, frontend:lang };
+  instance = null;
+  $("receipt").innerHTML =
+    kappaRow("source", sk) +
+    kappaRow("compiler · " + (f.flags.frontend || lang), f.compilerKappa, "✓ pinned") +
+    kappaRow("flags", fk) +
+    kappaRow("→ artifact · wasm", f.kappa, ok ? "✓ re-derived" : "✗ mismatch");
+  bindCopy($("receipt"));
+  const sv = $("selfv"); sv.className = "verdict show " + (ok ? "ok":"bad");
+  sv.innerHTML = ok
+    ? `✓ artifact re-derived byte-for-byte (Law L5)<small>${f.label} · ${wasm.length} bytes · the pinned address matches the bytes, no server trusted</small>`
+    : `✗ artifact κ mismatch<small>the bytes do not re-derive to the pinned address</small>`;
+  renderRun();
+  $("verify").disabled = false; $("share").disabled = true;   // share remixes editable source; a prebuilt artifact has no live recompile
+  $("status").textContent = ok ? ("loaded · " + f.exports.length + " exports · " + wasm.length + " bytes · verified ✓") : "verification failed";
+}
+document.querySelectorAll("#ltabs .ltab").forEach((b)=> b.onclick = ()=> selectLang(b.dataset.lang));
 
 (function loadShared(){
   const m = /[#&]b=([^&]+)/.exec(location.hash);

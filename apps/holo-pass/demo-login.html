@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Demo login (autofill target)</title></head>
+<body>
+<h2>Sign in</h2>
+<form id="loginForm">
+  <input id="u" name="email" type="email" autocomplete="username" placeholder="Email" />
+  <input id="p" name="password" type="password" autocomplete="current-password" placeholder="Password" />
+  <button type="submit">Sign in</button>
+</form>
+<script type="module">
+import { installAutofill } from "/_shared/holo-autofill.mjs";
+window.__demo = { filled: null, captured: null };
+// the host would supply this channel; here a mock store keyed by EXACT origin (anti-phishing).
+const STORE = { [location.origin]: { username: "ilya@demo.site", secret: "Tr0ub4dour&3" } };
+const getCredential = async (origin) => STORE[origin] || null;        // unknown/look-alike origin → null
+window.__probe = (origin) => getCredential(origin);                   // for the witness to test anti-phishing
+installAutofill({ doc: document, origin: location.origin, getCredential, onSave: (c) => { window.__demo.captured = c; } });
+// record what got filled shortly after load
+setTimeout(() => { window.__demo.filled = { u: document.getElementById("u").value, p: document.getElementById("p").value }; }, 400);
+</script>
+</body></html>

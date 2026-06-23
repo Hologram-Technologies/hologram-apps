@@ -1,0 +1,68 @@
+# build.yml — CI template for the Google-free, κ-native Hologram browser (ungoogled-chromium overlay).
+#
+# This is a BUILD-FARM job, not a normal CI check: a Chromium build needs ≈120–150 GB disk, 16–32 GB+ RAM,
+# and 1–4 h on many cores. Run it on a LARGE self-hosted runner (or a cloud VM with those specs) — the
+# GitHub-hosted runners are too small. Copy this to .github/workflows/ on the build infra and set the
+# runner label. It runs ungoogled-chromium's own pipeline, then the Hologram overlay (build-kappa-ungoogled.sh).
+#
+# Reproducibility: pin UC_TAG (= a specific Chromium); same UC_TAG + same OS image → byte-identical chrome
+# and the same baked HOLO_CLOSURE_ANCHOR. Bump UC_TAG in step with the CEF host's Chromium for parity.
+
+name: hologram-browser
+on:
+  workflow_dispatch:
+    inputs:
+      uc_tag:
+        description: "ungoogled-chromium release tag (= {chromium_version}-{revision})"
+        default: "149.0.7827.155-1"
+
+env:
+  UC_TAG: ${{ github.event.inputs.uc_tag || '149.0.7827.155-1' }}
+
+jobs:
+  build:
+    # A big builder. Label your self-hosted runner accordingly, or use a large cloud VM.
+    runs-on: [self-hosted, chromium-builder]   # needs ~150GB disk, 16–32GB RAM, many cores, VS2022 (Win)
+    timeout-minutes: 480
+    steps:
+      - name: Checkout Hologram repo (overlay + verifier + OS image source)
+        uses: actions/checkout@v4
+
+      - name: Toolchain (Python 3, Rust, gn/ninja via depot_tools)
+        shell: bash
+        run: |
+          python3 --version
+          rustup target add x86_64-pc-windows-msvc || true
+          # depot_tools provides gn + ninja; ensure it is on PATH on the runner image.
+          command -v gn || echo "::warning::gn not found — install depot_tools on the runner"
+
+      - name: Seal the OS image (make-dist) if not already produced
+        shell: bash
+        run: |
+          test -d holo-apps/apps/tauri/dist || node holo-apps/apps/tauri/make-dist.mjs
+
+      - name: Build (ungoogled pipeline + Hologram κ overlay + ninja chrome)
+        shell: bash
+        env:
+          OS_IMAGE: ${{ github.workspace }}/holo-apps/apps/tauri/dist
+        run: |
+          cd holo-apps/apps/tauri/chromium-kappa/ungoogled
+          ./build-kappa-ungoogled.sh
+
+      - name: Smoke — confirm the κ store + branding baked
+        shell: bash
+        run: |
+          cd holo-apps/apps/tauri/chromium-kappa/ungoogled/uc-build/ungoogled-chromium/build/src
+          test -d out/Default/holo-os && echo "OS image packaged beside chrome"
+          grep -q 'Hologram OS' chrome/app/theme/chromium/BRANDING && echo "branding applied"
+          # full functional gate (open holo://os/, verify a tampered byte is refused) runs on a runner
+          # with a display or via headless CDP — see prove-boot.ps1 for the CDP proof pattern.
+
+      - name: Upload chrome build
+        uses: actions/upload-artifact@v4
+        with:
+          name: hologram-chrome-${{ env.UC_TAG }}
+          path: |
+            holo-apps/apps/tauri/chromium-kappa/ungoogled/uc-build/ungoogled-chromium/build/src/out/Default/chrome*
+            holo-apps/apps/tauri/chromium-kappa/ungoogled/uc-build/ungoogled-chromium/build/src/out/Default/holo-os
+          retention-days: 14

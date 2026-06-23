@@ -512,7 +512,7 @@
       $("home").onclick = () => { const t = browser.activeTab || browser.newTab(); t.nav.navigate("chrome://newtab", { transition: "auto" }); setOmni("chrome://newtab"); renderTabs(); syncNav(); showNTP(true); $("verify").className = ""; $("verify").textContent = "κ"; };
       $("newtab").onclick = () => newTab();
       $("star").onclick = () => { const t = browser.activeTab; if (!t) return; browser.toggleBookmark(t.url, t.title); syncNav(); };
-      $("native").onclick = () => { const t = browser.activeTab; const u = t ? t.url : ""; toast("Native Chromium host: run ./run-browser.sh run " + (u || "")); };
+      $("native").onclick = async () => { try { await navigator.clipboard.writeText(nativeCmd()); toast("Copied paste in your terminal to launch the native host"); } catch (e) { toast(nativeCmd()); } };
 
       // ── Open in Hologram — hand off to the native host via the hologram:// deep link (exactly how
       //    Slack/Zoom/VS Code "open in app" works). If a registered host catches it, the OS opens the

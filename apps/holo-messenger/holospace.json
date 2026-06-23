@@ -1,0 +1,79 @@
+{
+  "id": "org.hologram.HoloMessenger",
+  "name": "Holo Messenger",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Every messenger, one inbox. Real messages from WhatsApp, Telegram, Discord, Slack and more stream into a single, instantly-familiar chat surface — each message lifted into a self-verifying κ, each conversation a signed source chain. No homeserver, no protocol bridges: the message you already see, made yours and verifiable.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "SocialNetworkingApplication",
+  "conforms": {
+    "specs": [
+      "holo-ui",
+      "holo-ux"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloMessenger"
+    ],
+    "channels": [
+      "share",
+      "holo-messenger"
+    ],
+    "permissions": [
+      "clipboard-write"
+    ]
+  },
+  "shared": [],
+  "engines": [],
+  "description": [
+    {
+      "p": "Beeper unifies messengers by running a re-implemented protocol bridge per service into a Matrix homeserver. Holo Messenger needs neither: every platform is already rendered in an authenticated tab in the native browser, so a 'bridge' is just a per-platform selector map (data) feeding the pluck spine. Each message becomes a content-addressed κ; capture it twice — or on two platforms with the same words — and it is one κ (dedup)."
+    },
+    {
+      "p": "A conversation is a holo-apps Collection: a genesis κ that names it, with each message an immutable, operator-signed, hash-linked event on a per-conversation source chain (holo-strand). The head κ attests the whole ordered history — drop, reorder, or tamper any message and it refuses (Law L5). Messages stream tab-to-inbox over the κ pub/sub codec in the same tick; a content-blind relay never sees inside, and every surface re-derives a message before it paints (verify-before-trust, SEC-1)."
+    },
+    {
+      "ul": [
+        "One familiar inbox — chat list, thread, composer — across every platform",
+        "Real-time: a message rendered in a platform tab appears here in the same tick, no server",
+        "Self-verifying: every bubble re-derives to its κ before it shows; tampered → refused, not shown",
+        "Serverless and sovereign: conversations are signed chains under your own key, encrypted at rest"
+      ]
+    }
+  ],
+  "categories": [
+    "Social",
+    "Communication"
+  ],
+  "keywords": [
+    "messenger",
+    "chat",
+    "unified inbox",
+    "whatsapp",
+    "telegram",
+    "discord",
+    "slack",
+    "beeper",
+    "content-addressed",
+    "holospace",
+    "uor"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Hologram-Technologies/hologram-os",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-23",
+      "description": "The unified inbox surface. A WhatsApp-familiar chat list + thread + composer projected from per-conversation signed source chains; messages captured from any platform by a selector-map adapter, minted to self-verifying κ, streamed in real time over the κ pub/sub codec, and re-derived verify-before-trust before they paint. Send-to-platform (TEE step-up gate) and post-quantum epoch keys land next."
+    }
+  ],
+  "accent": "#00a884"
+}

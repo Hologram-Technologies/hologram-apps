@@ -1,0 +1,1 @@
+C:\Users\pavel\Desktop\HOLOGRAM\holo-apps\apps\tauri\src-tauri\kappa-route\target\release\kappa_route.dll: C:\Users\pavel\Desktop\HOLOGRAM\holo-apps\apps\tauri\src-tauri\kappa-route\src\ffi.rs C:\Users\pavel\Desktop\HOLOGRAM\holo-apps\apps\tauri\src-tauri\kappa-route\src\lib.rs

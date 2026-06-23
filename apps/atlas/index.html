@@ -356,7 +356,9 @@
       $("#scrim").onclick = closeDetail;
       async function openDetail(rec) {
         const d = $("#detail"); const slug = slugOf(rec.id, rec.name);
-        const launch = "../" + rec.dir + "/index.html";
+        // Launch by the content κ Atlas just re-derived in-tab (Law L1 identity-is-content), through the
+        // ONE projection every app boots through (holospace.html, Law L5) — not by directory path.
+        const launch = "/holospace.html?app=" + encodeURIComponent(rec.root) + "&bare=1";
         const doorRow = (nm, on, href, extra) => `<div class="doorrow"><span class="nm">${nm}</span><span class="st ${on ? "on" : "off"}">${on ? "● present" : "○ "}</span>${on && href ? ` <a href="${href}" target="_blank" rel="noopener" style="margin-left:auto">${extra || "open"}</a>` : `<span style="margin-left:auto;color:var(--dim)">${extra || ""}</span>`}</div>`;
         d.innerHTML =
           `<div class="dh"><span class="dot" style="background:${esc(rec.accent || "var(--accent)")}"></span>` +

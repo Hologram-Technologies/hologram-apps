@@ -47,12 +47,16 @@ const TYPE_BLOCK = {
   23: [QK_K, 136],     // IQ4_XS
   29: [QK_K, 56],      // IQ1_M
   30: [1, 2],          // BF16
+  35: [QK_K, 66],      // TQ2_0 (BitNet ternary, 2.0625 bpw)
 };
 export const GGML_TYPE_NAME = {
   0: "F32", 1: "F16", 2: "Q4_0", 3: "Q4_1", 6: "Q5_0", 7: "Q5_1", 8: "Q8_0", 9: "Q8_1",
   10: "Q2_K", 11: "Q3_K", 12: "Q4_K", 13: "Q5_K", 14: "Q6_K", 15: "Q8_K",
   16: "IQ2_XXS", 17: "IQ2_XS", 18: "IQ3_XXS", 19: "IQ1_S", 20: "IQ4_NL",
-  21: "IQ3_S", 22: "IQ2_S", 23: "IQ4_XS", 29: "IQ1_M", 30: "BF16",
+  21: "IQ3_S", 22: "IQ2_S", 23: "IQ4_XS", 29: "IQ1_M", 30: "BF16", 35: "TQ2_0",
+  // TurboQuant / PolarQuant KV-cache quant (not weight types — KvMemory plane)
+  42: "TBQ3_0", 43: "TBQ4_0", 44: "TBQ3_0_64", 45: "TBQ4_0_64",
+  46: "PQ3_0", 47: "PQ3_0_64", 48: "PQ4_0", 49: "PQ4_0_64",
 };
 
 // ggml_nbytes for a contiguous tensor of `numElements` of `ggmlType` (the exact

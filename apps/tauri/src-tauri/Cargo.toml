@@ -34,7 +34,7 @@ tauri-plugin-http = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Law L5 — re-derive every byte to its content address before serving it. sha256 is the OS object
-# identity (did:holo:sha256:…). The substrate σ-axis (blake3, holospaces ADR-052) is a follow-up; add
-# the `blake3` crate when the host emits the σ-address too.
-sha2 = "0.10"
+# Law L5 / SEC-1 / SEC-6 — the κ-route verifier (re-derive sha256 ⊕ blake3 σ-axis, refuse a mismatch
+# or an unpinned byte). Kept ENGINE-AGNOSTIC in its own crate so the SAME audited code serves this
+# Tauri host and the CEF host to come, and its witness runs without a webview.
+kappa-route = { path = "kappa-route" }

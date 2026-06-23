@@ -25,13 +25,25 @@ export const SEALED = [
   "gguf-forge-tokenizer.mjs",
   "gguf-forge-gpupack.mjs",
   "gguf-forge-kvcache.mjs",
+  "gguf-forge-kstream.mjs",
+  "gguf-forge-turboquant.mjs",
+  "gguf-forge-lora-train.mjs",
+  "gguf-forge-lora-graph.mjs",
   "gguf-forge-whisper.mjs",
+  // persistent content-addressed κ-store (OPFS warm-cache shared across all .holo models)
+  "gpu/holo-kappa-store.mjs",
+  // LoRA adapter as a κ-object (adapter-inference in the forward; open base+adapter by link)
+  "gpu/holo-lora.mjs",
   // GPU witness pages
   "gpu/index.html",
   "gpu/kernels.html",
+  // ONE shared WGSL kernel runtime (run-native + Q's brain consume the same kernels)
+  "gpu/holo-gguf-gpu.mjs",
   // κ-native browser runtime (forges GGUF in-browser, no server compute)
   "gpu/run-native.html",
   "gpu/chat.html",
+  // share-a-chat surface: a conversation is a content κ, shared as a URL #fragment link, resumed by re-prefill
+  "gpu/chat-share.html",
   // κ-native Whisper "ear": κ-streamed weights + GPU encoder-decoder forward + ASR provider (W-6)
   "gpu/holo-whisper-stream.mjs",
   "gpu/holo-whisper-gpu.mjs",

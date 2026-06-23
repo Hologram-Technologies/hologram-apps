@@ -14,7 +14,7 @@ DIR="$(cd "$(dirname "$0")/.models" && pwd)"
 # — no big binaries in git). The brain weights MUST be here (>100MB Pages limit); the small ones ride along.
 # Set LEAN=0 to release only the big brain weights (commit the small ones to the repo instead).
 FILES=(qwen2.5-0.5b-instruct.holo qwen2.5-1.5b-instruct.holo qwen2.5-coder-3b-instruct.holo)
-[ "${LEAN:-1}" = "1" ] && FILES+=(moonshine-tiny-int8.holo moonshine-tiny-f16.holo kokoro-82m.holo)
+[ "${LEAN:-1}" = "1" ] && FILES+=(moonshine-tiny-int8.holo moonshine-tiny-f16.holo kokoro-82m.holo qwen2.5-0.5b-onnx.holo whisper-tiny-onnx.holo)
 
 command -v gh >/dev/null || { echo "ERROR: GitHub CLI (gh) not found — install + 'gh auth login'"; exit 1; }
 gh release view "$TAG" -R "$REPO" >/dev/null 2>&1 \

@@ -662,12 +662,23 @@
       function download(bytes, name, mime) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type: mime || "application/octet-stream" })); a.download = name || "file"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
       const copy = (t) => { if (!t) return; navigator.clipboard?.writeText(t).then(() => toast("copied · " + short(t, 12))).catch(() => toast(t)); };
       function shareLink(res) { const url = (window.HoloTeleport ? location.origin + location.pathname : location.href) + "?cid=" + enc(res.cid); if (window.HoloTeleport) HoloTeleport.stamp(res.holo); navigator.clipboard?.writeText(url); toast("share link copied · " + short(res.holo, 14)); }
-      function openInApp(cid, bytes, name, mime) {
-        const dataUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
-        const kind = mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : mime.startsWith("image/") ? "image" : "file";
-        const msg = { type: "holo-open", kind, mime, name, cid, holo: IPFS.holoUri(cid), src: dataUrl };
-        let sent = false; try { if (parent !== window) { parent.postMessage(msg, "*"); sent = true; } } catch {}
-        toast(sent ? "handed to host holospace" : "no host frame use Download");
+      // Hand the content to the host holospace BY ITS κ (Law L1/L5) — never a transient blob: URL (which the
+      // host's holo-open handler ignores anyway). Two existing shell seams: (1) holo-files `save` puts the
+      // bytes into the content-addressed store and returns their sha256 κ; (2) holo-open `object:{hex}` opens
+      // that verified object by κ-route. Re-derivable, no copy-as-identity. Falls back to Download with no host.
+      async function openInApp(cid, bytes, name, mime) {
+        if (parent === window) { toast("no host frame use Download"); return; }
+        const ext = name && name.lastIndexOf(".") > 0 ? name.slice(name.lastIndexOf(".")) : "";
+        const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        const reqId = "ipfs-open-" + (cid || "") + "-" + u8.length;
+        const hex = await new Promise((resolve) => {
+          const onMsg = (e) => { const d = e.data; if (!d || d.type !== "holo-files-result" || d.id !== reqId) return; window.removeEventListener("message", onMsg); resolve(d.ok && d.result ? d.result.hex : null); };
+          window.addEventListener("message", onMsg);
+          try { parent.postMessage({ type: "holo-files", op: "save", id: reqId, bytes: u8, name: name || (cid || "file") }, "*"); } catch { window.removeEventListener("message", onMsg); resolve(null); }
+          setTimeout(() => { window.removeEventListener("message", onMsg); resolve(null); }, 8000);
+        });
+        if (hex) { try { parent.postMessage({ type: "holo-open", object: { hex, ext, name: name || (hex.slice(0, 10) + ext) } }, "*"); toast("opened by κ holo://" + hex.slice(0, 10) + "…"); return; } catch {} }
+        toast("could not hand off use Download");
       }
       function showError(msg) { const v = $("view"); v.innerHTML = `<div class="card" style="border-color:#4a1d1d"><h3 style="color:var(--bad)">could not open</h3><div style="color:var(--dim)">${escapeHtml(msg)}</div><p style="color:var(--dim);font-size: var(--holo-text-sm, 1rem)">Trustless gateways may be busy or the CID may be unprovided. Try another CID, or check the Providers panel.</p></div>`; }
       const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

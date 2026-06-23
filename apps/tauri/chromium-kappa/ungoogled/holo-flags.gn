@@ -1,0 +1,37 @@
+# holo-flags.gn — Hologram κ-native + Google-free belt, APPENDED to ungoogled-chromium's flags.gn.
+#
+# ungoogled-chromium already does the heavy de-Googling at the source level (domain_substitution.py
+# rewrites every Google domain to the unreachable `qjz9zk` sink, prune_binaries.py strips the
+# proprietary blobs, and its patch set removes account/sync/field-trial/telemetry hooks). These GN
+# args are ADDITIVE — they (a) pin a release, from-source build and (b) ASSERT the Google-free knobs
+# explicitly so a milestone rebase can never silently re-enable a Google component.
+#
+# Usage (the overlay appends this to build/src/out/Default/args.gn after copying ungoogled's flags.gn):
+#   cat ungoogled-chromium/flags.gn  holo-flags.gn  >  build/src/out/Default/args.gn
+
+# ── release, fully from source, no proprietary Google components ──────────────────────────────────
+is_official_build = true
+is_debug = false
+symbol_level = 0
+blink_symbol_level = 0
+optimize_webui = true
+# (enable_nacl removed — NaCl was deleted from Chromium by 149, so the arg no longer exists.)
+
+# Feature-complete open media (codecs are not Google; this keeps mp4/h264/aac so the web "just works").
+proprietary_codecs = true
+ffmpeg_branding = "Chrome"
+
+# ── Google-free belt (ungoogled sets most of these; restate them so they cannot regress) ──────────
+use_official_google_api_keys = false   # no baked Google API keys
+safe_browsing_mode = 0                 # no Google Safe Browsing lookups (Hologram conscience gates instead)
+enable_hangout_services_extension = false
+enable_mdns = false                    # no implicit local-network discovery chatter
+enable_reporting = false               # no reporting/NEL beacons
+enable_remoting = false                # no Chrome Remote Desktop / Google host
+enable_widevine = false                # no Google-distributed proprietary DRM CDM (see GOOGLE-FREE.md trade-off)
+google_api_key = ""
+google_default_client_id = ""
+google_default_client_secret = ""
+
+# ── the κ scheme + URLLoaderFactory are wired by patch (holo_kappa_overlay.py), not by a GN flag.
+#    The closure trust root is baked into the factory at build via HOLO_CLOSURE_ANCHOR (see BUILD-RUNBOOK).

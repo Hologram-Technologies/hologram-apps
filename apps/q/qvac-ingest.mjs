@@ -26,12 +26,31 @@ const QK = 32, QK_K = 256;
 export const GGML = {
   F32: 0, F16: 1, Q4_0: 2, Q4_1: 3, Q8_0: 8, Q2_K: 10, Q3_K: 11, Q4_K: 12, Q5_K: 13, Q6_K: 14,
   IQ2_XXS: 16, IQ2_XS: 17, IQ3_XXS: 18, IQ1_S: 19, IQ4_NL: 20, IQ3_S: 21, IQ2_S: 22, IQ4_XS: 23, IQ1_M: 29,
+  TQ2_0: 35,
 };
 // IQ-quant byte layouts: [block elements, block bytes]. (ggml-common.h:485-563)
 const IQ_BLOCK = {
   16: [QK_K, 66], 17: [QK_K, 74], 18: [QK_K, 98], 19: [QK_K, 50], 20: [32, 18],
   21: [QK_K, 110], 22: [QK_K, 82], 23: [QK_K, 136], 29: [QK_K, 56],
 };
+// BitNet ternary TQ2_0 (ggml-common.h:273): qs[64] + f16 d = 66 B / 256. Runtime
+// dequant is float64 (the Tier-A oracle gguf-forge-dequant.mjs is the bit-exact ref).
+const TQ_BLOCK = { 35: [QK_K, 66] };
+function dequantTq2_0Rt(raw, elements) {
+  const out = new Float32Array(elements);
+  const nb = elements / QK_K;
+  const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+  let o = 0, base = 0;
+  for (let i = 0; i < nb; ++i) {
+    const d = f16ToF32(dv.getUint16(base + 64, true));
+    for (let j = 0; j < 64; j += 32)
+      for (let l = 0; l < 4; ++l)
+        for (let m = 0; m < 32; ++m) out[o++] = (((raw[base + j + m] >> (l * 2)) & 3) - 1) * d;
+    base += 66;
+  }
+  return out;
+}
+const TQ_RT = { 35: dequantTq2_0Rt };
 // Runtime IQ dequant (float64; the Tier-A oracle is the bit-exact reference).
 const _iq = makeIQ((x) => x, f16ToF32);
 const IQ_RT = {
@@ -54,6 +73,7 @@ export function typeByteLen(t, elements) {
     case GGML.Q6_K: return (elements / QK_K) * 210;
     default:
       if (t in IQ_BLOCK) { const [be, bb] = IQ_BLOCK[t]; return (elements / be) * bb; }
+      if (t in TQ_BLOCK) { const [be, bb] = TQ_BLOCK[t]; return (elements / be) * bb; }
       throw new Error("unsupported ggml type " + t);
   }
 }
@@ -72,6 +92,7 @@ function blockShape(t) {
     case GGML.Q6_K: return [QK_K, 210];
     default:
       if (t in IQ_BLOCK) return IQ_BLOCK[t];
+      if (t in TQ_BLOCK) return TQ_BLOCK[t];
       throw new Error("unsupported ggml type " + t);
   }
 }
@@ -203,6 +224,8 @@ export function dequantizeRaw(t, raw, elements) {
     }
   } else if (t in IQ_RT) {
     return IQ_RT[t](raw, elements); // IQ-quants (float64 runtime; oracle is the bit-exact ref)
+  } else if (t in TQ_RT) {
+    return TQ_RT[t](raw, elements); // BitNet TQ2_0 (float64 runtime; oracle is the bit-exact ref)
   } else throw new Error("unsupported ggml type " + t);
   return out;
 }

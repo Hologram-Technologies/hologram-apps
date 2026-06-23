@@ -1,0 +1,27 @@
+// kappa_scheme.h — the κ-route scheme handler factory. Every holo://os/* load is created here and
+// served by a CefResourceHandler that delegates to the Rust verifier (kappa_route.h). Documented CEF
+// embedder API only — no engine code.
+#ifndef HOLO_CEF_KAPPA_SCHEME_H
+#define HOLO_CEF_KAPPA_SCHEME_H
+
+#include "include/cef_resource_handler.h"
+#include "include/cef_scheme.h"
+
+#include "kappa_route.h"
+
+class KappaSchemeHandlerFactory : public CefSchemeHandlerFactory {
+ public:
+  explicit KappaSchemeHandlerFactory(KStore* store) : store_(store) {}
+
+  CefRefPtr<CefResourceHandler> Create(CefRefPtr<CefBrowser> browser,
+                                       CefRefPtr<CefFrame> frame,
+                                       const CefString& scheme_name,
+                                       CefRefPtr<CefRequest> request) override;
+
+ private:
+  KStore* store_;
+  IMPLEMENT_REFCOUNTING(KappaSchemeHandlerFactory);
+  DISALLOW_COPY_AND_ASSIGN(KappaSchemeHandlerFactory);
+};
+
+#endif  // HOLO_CEF_KAPPA_SCHEME_H

@@ -263,7 +263,8 @@
     try {
       const { BrokerKappaSync } = await import("./holo-broker-sync.mjs");
       const sync = new BrokerKappaSync(DEFAULT_BROKER); try { await sync.ready; } catch {}
-      const secret = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)) + Math.random().toString(36).slice(2);
+      const _sb = new Uint8Array(24); crypto.getRandomValues(_sb);   // CSPRNG room secret — never Math.random (unforgeable capability)
+      const secret = Array.from(_sb, (b) => b.toString(16).padStart(2, "0")).join("");
       await studio.goLiveMesh({ secret, sync, name: "Holo Stream", quality: "auto" });
       btn.classList.add("on"); btn.textContent = "■ Stop Live"; setBadge("live");
       const link = location.origin + location.pathname + "?watch=1#k=" + secret + "&r=" + encodeURIComponent(DEFAULT_BROKER);

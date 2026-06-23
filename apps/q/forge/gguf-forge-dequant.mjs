@@ -34,7 +34,29 @@ export const GGML = {
   F32: 0, F16: 1, Q4_0: 2, Q4_1: 3, Q5_0: 6, Q5_1: 7, Q8_0: 8,
   Q2_K: 10, Q3_K: 11, Q4_K: 12, Q5_K: 13, Q6_K: 14,
   IQ2_XXS: 16, IQ2_XS: 17, IQ3_XXS: 18, IQ1_S: 19, IQ4_NL: 20, IQ3_S: 21, IQ2_S: 22, IQ4_XS: 23, IQ1_M: 29,
+  TQ2_0: 35,
 };
+
+// BitNet ternary. block_tq2_0 (ggml-common.h:273): uint8_t qs[QK_K/4]=64, ggml_half d.
+// 66 B / 256 elems = 2.0625 bpw. dequantize_row_tq2_0 (ggml-quants.c:3056): each weight
+// is {-1,0,1}: q = (qs[j+m] >> (l*2)) & 3 over j∈{0,32} l∈0..3 m∈0..31, y = (q-1)·d.
+export function dequantTq2_0(raw, elements) {
+  const out = new Float32Array(elements);
+  const nb = elements / QK_K;
+  const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+  let o = 0, base = 0;
+  for (let i = 0; i < nb; ++i) {
+    const d = f16ToF32(dv.getUint16(base + 64, true)); // qs[0..63] then d
+    for (let j = 0; j < 64; j += 32)
+      for (let l = 0; l < 4; ++l)
+        for (let m = 0; m < 32; ++m) {
+          const q = (raw[base + j + m] >> (l * 2)) & 3;
+          out[o++] = fr((q - 1) * d);
+        }
+    base += 66;
+  }
+  return out;
+}
 
 // On-disk bytes per `elements` of a ggml type (mirror of type_byte_len / ggml.c block table).
 export function typeByteLen(t, elements) {
@@ -60,6 +82,7 @@ export function typeByteLen(t, elements) {
     case GGML.IQ1_M:   return (elements / QK_K) * 56;
     case GGML.IQ4_NL:  return (elements / 32) * 18;
     case GGML.IQ4_XS:  return (elements / QK_K) * 136;
+    case GGML.TQ2_0:   return (elements / QK_K) * 66;
     default: throw new Error("oracle: unsupported ggml type " + t);
   }
 }
@@ -325,6 +348,7 @@ export function dequantizeExact(t, raw, elements) {
     case GGML.IQ1_M:   return dequantIQ1M(raw, elements);
     case GGML.IQ4_NL:  return dequantIQ4NL(raw, elements);
     case GGML.IQ4_XS:  return dequantIQ4XS(raw, elements);
+    case GGML.TQ2_0:   return dequantTq2_0(raw, elements);
     default: throw new Error("oracle: unsupported ggml type " + t);
   }
 }

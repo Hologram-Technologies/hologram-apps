@@ -11,8 +11,9 @@
 
 import { loadByKappa, GGML_TYPE_NAME } from "./gguf-forge.mjs";
 import { dequantizeExact, GGML } from "./gguf-forge-dequant.mjs";
-import { quantizeRowQ8K, vecDotQ4K, vecDotQ6K, quantizeRowQ8_0, vecDotQ8_0, vecDotQ5_0, vecDotQ4_0 } from "./gguf-forge-matmul.mjs";
+import { quantizeRowQ8K, vecDotQ4K, vecDotQ6K, vecDotTq2_0, vecDotF16, f16Row, quantizeRowQ8_0, vecDotQ8_0, vecDotQ5_0, vecDotQ4_0 } from "./gguf-forge-matmul.mjs";
 import { rmsNorm, layerNorm, swiglu, geglu, softmax, ropeNeox, sigmoid, silu, ssmConv1d, selectiveScan, selectiveScan2, wkv7, moeRoute, moeCombine } from "./gguf-forge-kernels.mjs";
+import { tqRotate } from "./gguf-forge-turboquant.mjs";
 
 const fr = Math.fround;
 const QK_K = 256;
@@ -25,6 +26,10 @@ function blockOf(type) {
     case GGML.Q4_0: return [32, 18];
     case GGML.Q5_0: return [32, 22];
     case GGML.Q5_1: return [32, 24];
+    case GGML.Q2_K: return [QK_K, 84];
+    case GGML.Q3_K: return [QK_K, 110];
+    case GGML.Q5_K: return [QK_K, 176];
+    case GGML.TQ2_0: return [QK_K, 66];   // BitNet ternary (integer-dot matvec)
     default: throw new Error("exec: no block size for type " + (GGML_TYPE_NAME[type] || type));
   }
 }
@@ -37,6 +42,7 @@ function getRow(store, w, rowIdx, load = loadByKappa) {
   const K = w.dims[0];
   const raw = load(store, w.kappa);
   if (w.type === GGML.F32) return dequantizeExact(GGML.F32, raw.subarray(rowIdx * K * 4, (rowIdx + 1) * K * 4), K);
+  if (w.type === GGML.F16) return dequantizeExact(GGML.F16, raw.subarray(rowIdx * K * 2, (rowIdx + 1) * K * 2), K); // F16 weight (e.g. BitNet)
   const [bElems, bBytes] = blockOf(w.type);
   const nb = K / bElems, off = rowIdx * nb * bBytes;
   return dequantizeExact(w.type, raw.subarray(off, off + nb * bBytes), K);
@@ -55,6 +61,16 @@ function matvecBytes(raw, type, K, N, x, base = 0) {
   if (type === GGML.Q4_K || type === GGML.Q6_K) {
     const q8k = quantizeRowQ8K(x, K), nb = K / QK_K, bBytes = type === GGML.Q4_K ? 144 : 210;
     for (let n = 0; n < N; n++) y[n] = type === GGML.Q4_K ? vecDotQ4K(nb, raw, q8k, base + n * nb * bBytes) : vecDotQ6K(nb, raw, q8k, base + n * nb * bBytes);
+    return y;
+  }
+  if (type === GGML.TQ2_0) {                 // BitNet ternary: Q8_K-activation integer dot
+    const q8k = quantizeRowQ8K(x, K), nb = K / QK_K;
+    for (let n = 0; n < N; n++) y[n] = vecDotTq2_0(nb, raw, q8k, base + n * nb * 66);
+    return y;
+  }
+  if (type === GGML.F16) {                    // ggml f16·f16 dot, bit-exact to forge-ref (SSE3)
+    const dv = dvOf(raw), xh = f16Row(x, K);  // activation → f16 grid ONCE, shared across rows
+    for (let n = 0; n < N; n++) y[n] = vecDotF16(dv, K, xh, base + n * K * 2);
     return y;
   }
   if (type === GGML.Q8_0 || type === GGML.Q5_0 || type === GGML.Q4_0) {
@@ -119,6 +135,10 @@ function ropeHeads(vec, pos, nRot, freqBase, headDim) {
   return out;
 }
 
+// BitNet ternary weight-scale: the {1} scalar from build_lora_mm's scale arg.
+function scalarOf(store, w, load) { return getRow(store, w, 0, load)[0]; }
+function scaleVec(vec, s) { for (let i = 0; i < vec.length; i++) vec[i] = fr(vec[i] * s); return vec; }
+
 // Per-head RMSNorm over each head_dim slice with a shared weight (QK-norm).
 function normHeads(vec, weight, eps, headDim) {
   const nHeads = vec.length / headDim, out = new Float32Array(vec.length);
@@ -157,6 +177,9 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
   // κ -> weight descriptor (graph.weights keyed by name)
   const byK = {}; for (const nm in graph.weights) byK[graph.weights[nm].kappa] = graph.weights[nm];
   const W = (kappa) => kappa ? byK[kappa] : null;
+  // LoRA adapter inference: y += scale·B·(A·x) on a target linear. opts.adapter[weightκ] = {A,B,scale,inn,out,r}.
+  const loraDelta = (ad, x) => { const h = new Float32Array(ad.r); for (let k = 0; k < ad.r; k++) { let s = 0; for (let i = 0; i < ad.inn; i++) s = fr(s + fr(ad.A[k * ad.inn + i] * x[i])); h[k] = s; } const d = new Float32Array(ad.out); for (let o = 0; o < ad.out; o++) { let bh = 0; for (let k = 0; k < ad.r; k++) bh = fr(bh + fr(ad.B[o * ad.r + k] * h[k])); d[o] = fr(ad.scale * bh); } return d; };
+  const adapterAdd = (y, x, ww) => { const ad = ww && opts.adapter ? opts.adapter[ww.kappa] : null; if (ad) { const d = loraDelta(ad, x); for (let i = 0; i < y.length; i++) y[i] = fr(y[i] + d[i]); } return y; };
 
   let logits = null;
   for (let pos = startPos; pos < T; pos++) {
@@ -174,9 +197,12 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           break;
         case "qkv": {
           const x = env.get(op.in);
-          let q = addBias(matvec(store, W(op.w.wq), x, load), W(op.w.bq), store, load);
+          const wqW = W(op.w.wq);
+          let q = addBias(adapterAdd(matvec(store, wqW, x, load), x, wqW), W(op.w.bq), store, load);
           let k = addBias(matvec(store, W(op.w.wk), x, load), W(op.w.bk), store, load);
           const v = addBias(matvec(store, W(op.w.wv), x, load), W(op.w.bv), store, load);
+          // BitNet ternary weight-scales (build_lora_mm scale arg): scalar per linear.
+          if (op.w.wq_s) { scaleVec(q, scalarOf(store, W(op.w.wq_s), load)); scaleVec(k, scalarOf(store, W(op.w.wk_s), load)); scaleVec(v, scalarOf(store, W(op.w.wv_s), load)); }
           // optional per-head QK-norm (qwen3 / Gemma3): RMSNorm over each head's
           // head_dim slice with a shared weight. (gemma3.cpp:53,61)
           if (op.w.q_norm) {
@@ -201,12 +227,18 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           // positions are visible. Equivalent to full causal when pos < swa, so
           // short-prompt witnesses are unaffected. (llama-hparams is_swa / n_swa)
           const swa = op.attrs.swa || 0, lo = swa ? Math.max(0, pos - swa + 1) : 0;
+          // TBQ KV: add the QJL stage-2 score correction (decoded K dropped the residual).
+          const qjlOn = kvmem && kvmem.qjlActive();
           for (let hh = 0; hh < n_head; hh++) {
             const kvh = Math.floor(hh / grp);
+            // forward-rotate this head's query ONCE (shared across positions) for the correction
+            const qhr = qjlOn ? tqRotate(q.subarray(hh * head_dim, (hh + 1) * head_dim), head_dim) : null;
             const scores = new Float32Array(pos + 1);
             for (let tp = 0; tp <= pos; tp++) {
               if (tp < lo) { scores[tp] = -Infinity; continue; }
-              let s = 0.0; for (let d = 0; d < head_dim; d++) s += fr(q[hh * head_dim + d] * Kc[il][tp][kvh * head_dim + d]); scores[tp] = fr(s);
+              let s = 0.0; for (let d = 0; d < head_dim; d++) s += fr(q[hh * head_dim + d] * Kc[il][tp][kvh * head_dim + d]);
+              if (qjlOn) s = fr(s + kvmem.kCorrection(il, tp, kvh, qhr));
+              scores[tp] = fr(s);
             }
             const p = softmax(scores, op.attrs.scale);
             // window only (p[tp<lo]=0 exactly) → identical result, and never reads evicted V
@@ -215,7 +247,12 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           // K4 SWA eviction: drop the K/V that just fell out of the window (pos−swa) — it
           // is masked for every future query, so memory stays O(n_swa) with no output change.
           if (swa && pos - swa >= 0) { Kc[il][pos - swa] = null; Vc[il][pos - swa] = null; }
-          env.set(op.out, addBias(matvec(store, W(op.w.wo), ctx, load), W(op.w.bo), store, load));
+          // BitNet attn_sub_norm: RMSNorm on the attention output BEFORE wo (bitnet.cpp:54).
+          let attnCtx = ctx;
+          if (op.w.attn_sub_norm) attnCtx = rmsNorm(ctx, getRow(store, W(op.w.attn_sub_norm), 0, load), op.attrs.subEps ?? eps);
+          let attnOut = addBias(matvec(store, W(op.w.wo), attnCtx, load), W(op.w.bo), store, load);
+          if (op.w.wo_s) scaleVec(attnOut, scalarOf(store, W(op.w.wo_s), load));
+          env.set(op.out, attnOut);
           break;
         }
         case "add":
@@ -224,8 +261,13 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
         case "ffn_swiglu": {
           const x = env.get(op.in);
           const g = matvec(store, W(op.w.gate), x, load), u = matvec(store, W(op.w.up), x, load);
-          const act = op.attrs?.act === "gelu" ? geglu(g, u) : swiglu(g, u); // Gemma: GeGLU
-          env.set(op.out, matvec(store, W(op.w.down), act, load));
+          if (op.w.gate_s) { scaleVec(g, scalarOf(store, W(op.w.gate_s), load)); scaleVec(u, scalarOf(store, W(op.w.up_s), load)); }
+          let act = op.attrs?.act === "gelu" ? geglu(g, u) : swiglu(g, u); // Gemma: GeGLU
+          // BitNet ffn_sub_norm: RMSNorm on the activation BEFORE ffn_down (bitnet.cpp:88).
+          if (op.w.ffn_sub_norm) act = rmsNorm(act, getRow(store, W(op.w.ffn_sub_norm), 0, load), op.attrs.subEps ?? eps);
+          let ffnOut = matvec(store, W(op.w.down), act, load);
+          if (op.w.down_s) scaleVec(ffnOut, scalarOf(store, W(op.w.down_s), load));
+          env.set(op.out, ffnOut);
           break;
         }
         case "ffn_moe": {

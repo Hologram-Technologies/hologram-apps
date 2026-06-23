@@ -1,0 +1,20 @@
+# kappa-route — the engine-agnostic κ-route verification core.
+# Pure Rust, NO webview/Tauri linkage: resolve a flat OS path against a dual-axis sealed closure and
+# return verified bytes, or refuse (Law L5 / SEC-1 / SEC-6). The native host (Tauri today, CEF next)
+# wraps this in its scheme handler — so the same audited verifier serves every engine, and its witness
+# runs without a GUI.
+[package]
+name = "kappa-route"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+# rlib   → the Tauri host depends on it as a normal Rust crate
+# staticlib/cdylib → the CEF host (C++) links the C ABI (ffi.rs / kappa_route.h)
+[lib]
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+sha2 = "0.10"
+blake3 = "1"
+serde_json = "1"

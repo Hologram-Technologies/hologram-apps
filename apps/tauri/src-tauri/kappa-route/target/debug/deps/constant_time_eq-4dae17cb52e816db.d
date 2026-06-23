@@ -1,0 +1,10 @@
+C:\Users\pavel\Desktop\HOLOGRAM\holo-apps\apps\tauri\src-tauri\kappa-route\target\debug\deps\constant_time_eq-4dae17cb52e816db.d: C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\lib.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\classic.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\generic.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\sse2.rs
+
+C:\Users\pavel\Desktop\HOLOGRAM\holo-apps\apps\tauri\src-tauri\kappa-route\target\debug\deps\libconstant_time_eq-4dae17cb52e816db.rlib: C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\lib.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\classic.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\generic.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\sse2.rs
+
+C:\Users\pavel\Desktop\HOLOGRAM\holo-apps\apps\tauri\src-tauri\kappa-route\target\debug\deps\libconstant_time_eq-4dae17cb52e816db.rmeta: C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\lib.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\classic.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\generic.rs C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\sse2.rs
+
+C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\lib.rs:
+C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\classic.rs:
+C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\generic.rs:
+C:\Users\pavel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\constant_time_eq-0.4.2\src\sse2.rs:

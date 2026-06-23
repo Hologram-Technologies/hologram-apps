@@ -12,6 +12,8 @@
 
 import { quantizeRow } from "./gguf-forge-quantize.mjs";
 import { dequantizeExact } from "./gguf-forge-dequant.mjs";
+import { isTqType, tqEncodeKV, tqDecodeKV, TQ_TYPES, qjlDotCorrection } from "./gguf-forge-turboquant.mjs";
+import { f16ToF32 } from "../qvac-ingest.mjs";
 import { sha256hex, kappa } from "../../../../holo-os/system/os/usr/lib/holo/holo-uor.mjs";
 
 const F32 = 0;
@@ -37,13 +39,32 @@ export class KvMemory {
   setSeq(id) { this.cur = id; this._seq(id); }
 
   // quantize (or pass through) a vector → content-addressed κ-block; return {ref, val}.
+  // TurboQuant/PolarQuant KV types (42-49) route through the rotation-aware KV codec;
+  // weight-quant types use quantizeRow; F32 passes through. (val = the lossy round-trip
+  // the executor actually attends over.)
   _put(type, vec) {
     const blob = type === F32
       ? new Uint8Array(vec.buffer, vec.byteOffset, vec.byteLength).slice()
+      : isTqType(type) ? tqEncodeKV(type, vec)
       : quantizeRow[type](vec, vec.length);
     const hex = sha256hex(blob);
     if (!this.blocks.has(hex)) { this.blocks.set(hex, blob); this.bytes += blob.length; } // L2 dedup
-    return { ref: kappa("sha256", hex), val: type === F32 ? vec : dequantizeExact(type, blob, vec.length) };
+    return { ref: kappa("sha256", hex), val: type === F32 ? vec : this._deq(type, blob, vec.length) };
+  }
+  // dequant dispatch: TQ types reverse the rotation; everything else is the weight oracle.
+  _deq(type, blob, n) { return isTqType(type) ? tqDecodeKV(type, blob, n) : dequantizeExact(type, blob, n); }
+
+  // QJL Stage-2 score correction (TBQ K cache only). The decoded K loses the stage-1
+  // residual; this adds back the estimate <q, residual> = qjl_dot_correction(qjl, d_r, R·q)
+  // for the kvh-th head-block of the K at (il,pos). `qHeadRot` = the head's query already
+  // forward-rotated (tqRotate). Default ON for TBQ; this.qjl=false disables (A/B witness).
+  qjlActive() { const t = TQ_TYPES[this.tk]; return this.qjl !== false && !!t && t.qjl > 0; }
+  qjlBlockElems() { return TQ_TYPES[this.tk]?.d; }
+  kCorrection(il, pos, kvh, qHeadRot) {
+    const t = TQ_TYPES[this.tk]; const raw = this.load(this._seq(this.cur).K[il][pos]);
+    const b0 = kvh * t.total, drOff = b0 + t.idx + 2 + t.qjl;
+    const d_r = f16ToF32(raw[drOff] | (raw[drOff + 1] << 8));
+    return qjlDotCorrection(raw, b0 + t.idx + 2, d_r, qHeadRot, t.d);
   }
   // executor calls (write to the current sequence) — K1 interface unchanged
   storeK(il, pos, vec) { const s = this._seq(this.cur), r = this._put(this.tk, vec); s.K[il][pos] = r.ref; if (pos > s.posMax) s.posMax = pos; this._evict(s, il, pos); return r.val; }
@@ -54,7 +75,7 @@ export class KvMemory {
   // (Jamba/Granite) populates K/V on attention layers and R on recurrent layers, all in
   // ONE κ-store (the qvac llama_memory_hybrid analogue; recurrent IFF n_head_kv[il]==0).
   storeRecurrent(il, name, vec) { const r = this._put(this.tr, vec); this._seq(this.cur).R[il][name] = r.ref; return r.val; }
-  getRecurrent(seq, il, name, n) { const ref = this._seq(seq).R[il][name]; return ref === undefined ? null : dequantizeExact(this.tr, this.load(ref), n); }
+  getRecurrent(seq, il, name, n) { const ref = this._seq(seq).R[il][name]; return ref === undefined ? null : this._deq(this.tr, this.load(ref), n); }
   isRecurrentLayer(seq, il) { const s = this._seq(seq); return Object.keys(s.R[il]).length > 0 && s.K[il].length === 0; }
 
   // ── llama_memory_* (content-addressed) ──
@@ -73,7 +94,7 @@ export class KvMemory {
     const s = this._seq(seq), hi = p1 < 0 ? s.posMax + 1 : p1;
     for (let il = 0; il < this.nLayer; il++) for (let p = p0; p < hi; p++) {
       if (s.K[il][p] === undefined) continue;
-      const k = dequantizeExact(this.tk, this.load(s.K[il][p]), kvDim);
+      const k = this._deq(this.tk, this.load(s.K[il][p]), kvDim);
       s.K[il][p] = this._put(this.tk, ropeShift(k, il, delta)).ref;
     }
   }
@@ -87,8 +108,8 @@ export class KvMemory {
     const s = this._seq(seq), nPos = s.posMax + 1;
     const Kc = Array.from({ length: this.nLayer }, () => []), Vc = Array.from({ length: this.nLayer }, () => []);
     for (let il = 0; il < this.nLayer; il++) for (let p = 0; p < nPos; p++) {
-      Kc[il].push(dequantizeExact(this.tk, this.load(s.K[il][p]), kvDim));
-      Vc[il].push(dequantizeExact(this.tv, this.load(s.V[il][p]), kvDim));
+      Kc[il].push(this._deq(this.tk, this.load(s.K[il][p]), kvDim));
+      Vc[il].push(this._deq(this.tv, this.load(s.V[il][p]), kvDim));
     }
     return { nLayer: this.nLayer, nPos, kvDim, Kc, Vc };
   }
