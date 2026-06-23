@@ -465,7 +465,12 @@
         toast(ok ? `✓ proven in your ${dk} memory (Merkle inclusion, nothing else revealed)` : "could not prove");
       }
       async function shareEntry(k) {
-        try { const pres = await mem.share(k, { recipient: "did:holo:demo-recipient", purpose: "dpv:ServiceProvision", reveal: ["kind", "app", "when"] });
+        // Disclose to a REAL recipient the user names — never a fixed demo DID (that would leak to nobody
+        // real / mislead). Minimum-disclosure to a chosen party (Holo Privacy model); cancel if none given.
+        const recipient = (prompt("Share this memory to recipient DID (did:holo:…):", "") || "").trim();
+        if (!recipient) { toast("share cancelled — no recipient"); return; }
+        if (!/^did:/.test(recipient)) { toast("not a DID — share cancelled"); return; }
+        try { const pres = await mem.share(k, { recipient, purpose: "dpv:ServiceProvision", reveal: ["kind", "app", "when"] });
           const txt = JSON.stringify(pres); try { await navigator.clipboard.writeText(txt); } catch {}
           toast(`shared a minimal disclosure (${pres.via}) only kind·app·time revealed; copied`);
         } catch (e) { toast("share refused: " + (e.message || e)); }

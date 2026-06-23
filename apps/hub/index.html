@@ -556,7 +556,7 @@ async function renderActionRowK(p){
   const actions={
     like:    ()=>{ setVote(p.id, myVote(p.id)===1?0:1); syncVote(p); renderActionRowK(p); },
     dislike: ()=>{ setVote(p.id, myVote(p.id)===-1?0:-1); syncVote(p); renderActionRowK(p); },
-    share:   async()=>{ const url=location.origin+location.pathname+"#watch/"+(p.ident||p.id);
+    share:   async()=>{ const url=shareUrl(p);
       try{ if(navigator.share){ await navigator.share({title:p.name,url}); } else { await navigator.clipboard.writeText(url); toast("Link copied anyone can open it in one tap"); } }catch{} },
     save:    ()=>{ const s=toggleSaved(p.id); $("#wSave").classList.toggle("act",s); $("#wSave").innerHTML=s?"✓ Saved":"🔖 Save"; toast(s?"Saved to my library":"Removed from library"); renderActionRowK(p); },
   };
@@ -569,16 +569,19 @@ async function renderComposerK(p){
   const host=$("#cmComposeK"); if(!host||!p) return;
   const acc=[0.26,0.52,1,1];
   const field=()=>host.querySelector('.holo-input-proxy, [data-holo-surface="input"]');
+  const replying = (cmReplyTo && cmReplyTo.app===p.k) ? cmReplyTo : (cmReplyTo=null);   // a stale reply-target from another product is dropped
   const post=async()=>{ if(!WATCH)return; const f=field(); const v=(f&&f.value||"").trim(); if(!v){ toast("Write something first"); return; }
-    await cmAdd(WATCH,v); if(f) f.value=""; renderComments(WATCH); toast("Comment posted · synced to your other tabs"); };
-  const scene={ "@type":"holo:Surface", kind:"container", w:560, layout:"stack", gap:10, pad:0, fill:[0,0,0,0], children:[
-    { kind:"input", action:"draft", submit:"send", value:"", placeholder:"Add a comment…", w:560, h:42, aria:"Add a comment" },
-    { "@type":"holo:Surface", kind:"container", w:560, layout:"grid", cols:2, gap:10, pad:0, fill:[0,0,0,0], children:[
-      { kind:"button", action:"clear",  label:"Cancel",  h:38, radius:999 },
-      { kind:"button", action:"send",    label:"Comment", h:38, radius:999, accent:acc, toggled:true },
-    ] },
-  ] };
-  const actions={ draft:()=>{}, send:post, clear:()=>{ const f=field(); if(f) f.value=""; f&&f.focus&&f.focus(); } };
+    const pid=cmReplyTo&&cmReplyTo.id; await cmAdd(WATCH,v,pid); cmReplyTo=null; if(f) f.value=""; renderComments(WATCH); renderComposerK(WATCH); toast(pid?"Reply posted · synced to your other tabs":"Comment posted · synced to your other tabs"); };
+  const cancel=()=>{ cmReplyTo=null; const f=field(); if(f) f.value=""; renderComposerK(WATCH); };
+  const children=[];
+  if(replying) children.push({ kind:"text", text:`↳ Replying to ${replying.name||"comment"}  ·  Cancel to post at top level`, textSize:12, h:18, textColor:[0.50,0.62,0.95,1] });
+  children.push({ kind:"input", action:"draft", submit:"send", value:"", placeholder: replying?("Reply to "+(replying.name||"…")):"Add a comment…", w:560, h:42, aria:"Add a comment" });
+  children.push({ "@type":"holo:Surface", kind:"container", w:560, layout:"grid", cols:2, gap:10, pad:0, fill:[0,0,0,0], children:[
+    { kind:"button", action:"clear",  label:"Cancel",  h:38, radius:999 },
+    { kind:"button", action:"send",    label: replying?"Reply":"Comment", h:38, radius:999, accent:acc, toggled:true },
+  ] });
+  const scene={ "@type":"holo:Surface", kind:"container", w:560, layout:"stack", gap:10, pad:0, fill:[0,0,0,0], children };
+  const actions={ draft:()=>{}, send:post, clear:cancel };
   await renderKSceneActions(host, scene, actions);
 }
 // the CHANNEL HEADER (avatar + name/sub + Get/Buy) as a κ-surface row; Get/Buy re-render on ownership change.
@@ -722,11 +725,12 @@ function typeOf(p){
   return "Apps";
 }
 
+// REAL local signals only. A serverless store keeps no global tally, so we never invent one
+// (no fabricated "streams"/"likes" — that would be simulation). likes = your own vote; comments = the
+// real local thread length. Cross-device aggregation, if it ever exists, must arrive over the substrate.
 function counts(p){
-  const a=hint(p.k), b=hint(p.k+"·s");
-  const streams = 1800 + (a % 880000);
-  const likes = Math.round(streams * (0.028 + (b%55)/1000));
-  return { streams, likes };
+  let comments=0; try{ comments=cmLoad(p.k).length; }catch{}
+  return { likes:0, comments };
 }
 
 function hexToHsl(hex){
@@ -870,7 +874,7 @@ function rankFor(current, all, history){
   const histKw=new Set(); (history||[]).map(id=>all.find(p=>p.id===id)).filter(Boolean).forEach(p=>kwOf(p).forEach(k=>histKw.add(k)));
   const score=(p)=>{
     if(current&&p.id===current.id) return -1;
-    let s = counts(p).streams/1e6 * 0.4;
+    let s = (p.isNew?0.4:0) + (p.isUpdated?0.3:0) + (isOwned(p.id)?0.3:0) + (isSaved(p.id)?0.2:0) + counts(p).comments*0.05;   // real local signals, not a fabricated popularity count
     let overlap=0; for(const k of kwOf(p)) if(curKw.has(k)) overlap++;
     let hov=0;     for(const k of kwOf(p)) if(histKw.has(k)) hov++;
     s += overlap*1.0 + hov*0.5;
@@ -904,8 +908,9 @@ const cmLoad=(k)=>{try{ const l=JSON.parse(localStorage.getItem(CM_NS(k))||"[]")
   return Array.isArray(l)?l.filter(c=>c&&!String(c.uh||"").startsWith("seed:")&&!String(c.id||"").startsWith("seed:")):[]; }catch{return[];}};
 const cmSave=(k,list)=>localStorage.setItem(CM_NS(k),JSON.stringify(list));
 let cmBus=null; try{ cmBus=new BroadcastChannel("holo-hub:comments"); }catch{}
-async function cmAdd(p,text){
+async function cmAdd(p,text,parentId){
   const body={app:p.k,uh:cmId.uh,name:cmId.name||"You",color:"#8a7bff",text:String(text).slice(0,500),at:new Date().toISOString()};
+  if(parentId) body.parentId=parentId;   // a reply's identity (κ) includes the parent it answers — threading is content, not a side table
   body.id=await kappa(body); body.likes=0; body.mine=true;
   const list=cmLoad(p.k); list.unshift(body); cmSave(p.k,list);
   try{ cmBus&&cmBus.postMessage({app:p.k,comment:body}); }catch{}
@@ -921,6 +926,15 @@ if(cmBus) cmBus.onmessage=(e)=>{ const d=e.data; if(!d||!d.comment) return;
 
 let PRODUCTS=[]; const byRef={};
 const findByRef=(ref)=>PRODUCTS.find(p=>p.id===ref||p.ident===ref||slug(p.name)===slug(ref)||(ref&&String(p.id).endsWith(ref)));
+// ── κ-NATIVE OPEN (Law L1 identity-is-content · SEC-5 perceive-by-κ) ────────────────────────────────
+// An app IS its content root κ (p.id == did:holo:sha256:…). Open it through holospace.html — the ONE
+// projection every app boots through — which re-derives the bytes before it renders (Law L5, the same
+// seam Spaces/Search use). No location stands in for identity. Media keeps its player + selector query
+// (the legitimate query-bearing launch the projection cannot carry).
+const appKappa=(p)=> (p && !p.isMedia && p.id) ? p.id : null;
+function mountUrl(p){ const k=appKappa(p); return k ? ("/holospace.html?app="+encodeURIComponent(k)+"&bare=1") : (p?p.landing:"about:blank"); }
+function watchRef(p){ const k=appKappa(p); return k ? ("k="+k) : ("watch/"+(p.ident||p.id)); }
+function shareUrl(p){ return location.origin+location.pathname+"#"+watchRef(p); }
 function productContent(e){
   return { "@type":["schema:Product","medusa:StoreProduct"],
     name:e["schema:name"]||null, description:e["schema:description"]||null, image:e["schema:image"]||null,
@@ -1027,6 +1041,10 @@ function mountPreview(card,p){
   ifr.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock");
   ifr.style.cssText=`width:${LW}px;height:${Math.round(LW*ratio)}px;transform:scale(${(w/LW).toFixed(4)});transform-origin:top left;border:0`;
   ifr.onload=()=>card.classList.add("previewing");
+  // Hover preview is an ephemeral, pointer-events:none live thumbnail — it must NOT go through the
+  // gated projection (a Terms consent card would freeze it, un-clickable). It mounts the live app
+  // directly; the Service Worker still re-derives every served byte to its κ at delivery (Law L5).
+  // The κ-native, consent-gated run happens on explicit open (openWatch → mountUrl).
   pv.appendChild(ifr); card.appendChild(pv); ifr.src=p.landing;
 }
 function gridOf(list){ const g=el("div","grid"); list.forEach(p=>g.appendChild(card(p))); return g; }
@@ -1195,14 +1213,15 @@ $("#menuBtn").onclick=()=>{ if(railMq.matches) document.body.classList.toggle("r
 $("#scrim").onclick=closeDrawer;
 function route(){
   const h=decodeURIComponent(location.hash.replace(/^#/,""));
+  if(h.startsWith("k=")){ const p=PRODUCTS.find(x=>x.id===h.slice(2)); if(p){ openWatch(p,true); return; } }
   if(h.startsWith("watch/")){ const p=findByRef(h.slice(6)); if(p){ openWatch(p,true); return; } }
   setView("home"); WATCH=null; $("#pFrame").src="about:blank"; document.title="Holo Hub stream everything you can run";
 }
 addEventListener("hashchange",route);
 
-let WATCH=null;
+let WATCH=null, cmReplyTo=null;   // cmReplyTo = the comment being replied to (threaded), or null for a top-level comment
 function openWatch(p, fromRoute){
-  if(!fromRoute && location.hash!=="#watch/"+(p.ident||p.id)){ location.hash="watch/"+(p.ident||p.id); return; }
+  if(!fromRoute){ const ref=watchRef(p); if(location.hash!=="#"+ref){ location.hash=ref; return; } }
   WATCH=p; noteWatched(p.id);
   setView("watch"); window.scrollTo({top:0});
   document.title=p.name+" · Holo Hub";
@@ -1211,7 +1230,7 @@ function openWatch(p, fromRoute){
   const t0=performance.now();
   frame.onload=()=>{ const ms=Math.max(1,Math.round(performance.now()-t0)); player.classList.add("ready");
     $("#pLive").textContent="✓ Verified"; };
-  frame.src=p.landing;
+  frame.src=mountUrl(p);
   buildPlayerControls(p);
 
   const cc=counts(p);
@@ -1226,7 +1245,7 @@ function openWatch(p, fromRoute){
 
   syncOwn(p);
 
-  $("#wStat").innerHTML=`<span>${fmt(cc.streams)} streams</span><span>·</span><span>Updated ${esc(ago(p.date))}</span><span>·</span><span class="v">✓ verified</span>`;
+  $("#wStat").innerHTML=`${cc.comments?`<span>${fmt(cc.comments)} ${cc.comments===1?"comment":"comments"}</span><span>·</span>`:""}<span>Updated ${esc(ago(p.date))}</span><span>·</span><span class="v">✓ verified</span>`;
   $("#wBody").innerHTML=
     `<p>${esc(p.desc||"A little something to enjoy.")}</p>`+
     `<p><span class="lbl">How it works</span> ${esc(p.name)} opens instantly and plays right here nothing to install, nothing to wait for, and it's genuinely yours.</p>`+
@@ -1243,7 +1262,7 @@ function openWatch(p, fromRoute){
   $("#wDesc").classList.add("clamp"); $("#wMore").textContent="…more";
   if(KSURF){ $("#wDesc").classList.remove("clamp");
     renderKScene($("#wTitle"), { "@type":"holo:Surface", kind:"container", w:760, pad:0, fill:[0,0,0,0], layout:"stack", children:[{ kind:"text", text:String(p.name||""), textSize:25, h:36, textColor:[0.98,0.99,1,1] }] }, {stretch:true});
-    renderKScene($("#wStat"), { "@type":"holo:Surface", kind:"container", w:560, h:24, pad:0, fill:[0,0,0,0], layout:"stack", children:[{ kind:"text", text:`${fmt(cc.streams)} streams · Updated ${ago(p.date)} · ✓ verified`, textSize:13, h:20, textColor:[0.62,0.65,0.76,1] }] }, {stretch:true});
+    renderKScene($("#wStat"), { "@type":"holo:Surface", kind:"container", w:560, h:24, pad:0, fill:[0,0,0,0], layout:"stack", children:[{ kind:"text", text:`${cc.comments?fmt(cc.comments)+" comments · ":""}Updated ${ago(p.date)} · ✓ verified`, textSize:13, h:20, textColor:[0.62,0.65,0.76,1] }] }, {stretch:true});
     renderHeaderK(p); renderWatchKappa(p); renderActionRowK(p); renderComposerK(p); }   // title + stat + header + panels + action row + composer via the κ-substrate
 
   renderComments(p);
@@ -1263,8 +1282,8 @@ function buildPlayerControls(p){
   const restart={ic:"restart",label:"Restart stream",act:()=>{ player.classList.remove("ready"); const s=frame.src; frame.src="about:blank"; requestAnimationFrame(()=>{frame.src=s;}); }};
   const theater={ic:"theater",label:"Theater mode",act:(b)=>{ const on=document.body.classList.toggle("theater"); b.classList.toggle("on",on); window.scrollTo({top:0}); }};
   const full={ic:"full",label:"Full screen",act:()=>{ (player.requestFullscreen||frame.requestFullscreen).call(player.requestFullscreen?player:frame); }};
-  const tab={ic:"tab",label:"Open in new tab",act:()=>window.open(p.landing,"_blank")};
-  const pop={ic:"pip",label:"Pop-out player",act:()=>window.open(p.landing,"holo-pop","width=1000,height=640")};
+  const tab={ic:"tab",label:"Open in new tab",act:()=>window.open(mountUrl(p),"_blank")};
+  const pop={ic:"pip",label:"Pop-out player",act:()=>window.open(mountUrl(p),"holo-pop","width=1000,height=640")};
   let set,kind;
   if(t==="Music"||t==="Video"){ set=[restart,pop,theater,full,tab]; kind="Streaming"; }
   else if(t==="Worlds"||t==="Games"){ set=[restart,theater,full,tab]; kind="Immersive"; }
@@ -1292,7 +1311,7 @@ $("#wMore").onclick=()=>{ const d=$("#wDesc"); const c=d.classList.toggle("clamp
 $("#wLike").onclick=()=>{ if(!WATCH)return; setVote(WATCH.id, myVote(WATCH.id)===1?0:1); syncVote(WATCH); };
 $("#wDislike").onclick=()=>{ if(!WATCH)return; setVote(WATCH.id, myVote(WATCH.id)===-1?0:-1); syncVote(WATCH); };
 $("#wSave").onclick=()=>{ if(!WATCH)return; const s=toggleSaved(WATCH.id); $("#wSave").classList.toggle("act",s); $("#wSave").innerHTML=s?"✓ Saved":"🔖 Save"; toast(s?"Saved to my library":"Removed from library"); };
-$("#wShare").onclick=async()=>{ if(!WATCH)return; const url=location.origin+location.pathname+"#watch/"+(WATCH.ident||WATCH.id);
+$("#wShare").onclick=async()=>{ if(!WATCH)return; const url=shareUrl(WATCH);
   try{ if(navigator.share){ await navigator.share({title:WATCH.name,url}); } else { await navigator.clipboard.writeText(url); toast("Link copied anyone can open it in one tap"); } }catch{} };
 $("#wMenu").onclick=()=>{ if(!WATCH)return; navigator.clipboard?.writeText("did:holo:sha256:"+WATCH.k).then(()=>toast("Content address (κ) copied"),()=>{}); };
 $("#wGet").onclick=async()=>{ if(!WATCH)return; if(isOwned(WATCH.id)){ toast("You already hold a title to this"); return; }
@@ -1336,27 +1355,35 @@ function renderComments(p){
   const host=$("#cmList");
   if(!list.length){ renderKScene(host, { "@type":"holo:Surface", kind:"container", w:680, h:54, pad:14, layout:"stack", fill:[0,0,0,0],
     children:[{ kind:"text", text:"No comments yet be the first to say something.", textSize:14, h:22, textColor:[0.62,0.65,0.76,1] }] }, {stretch:true}); return; }
-  const W=680, bodyW=W-52, lh=19, cpl=Math.max(12,Math.floor((bodyW-8)/7.3));
-  const kids=[], actions={};
-  list.forEach((c,idx)=>{
+  const W=680, lh=19;
+  // group into a parentId tree (orphan-safe: a reply whose parent is gone shows at top level)
+  const ids=new Set(list.map(c=>c.id));
+  const byParent={}; list.forEach(c=>{ const pid=(c.parentId&&ids.has(c.parentId))?c.parentId:"__root"; (byParent[pid]=byParent[pid]||[]).push(c); });
+  const kids=[], actions={}; let idx=0;
+  function commentRow(c, depth){
+    const indent=Math.min(depth,4)*30, rowW=W-indent, bodyW=rowW-52, cpl=Math.max(12,Math.floor((bodyW-8)/7.3));
     const a=hx2("#"+(hint(c.name||c.uh||"?")&0xffffff).toString(16).padStart(6,"0"));
     const txt=String(c.text||""); const txtH=Math.max(lh, Math.ceil(txt.length/cpl)*lh)+6;
-    const lid="cl"+idx;
-    kids.push({ kind:"container", w:W, layout:"row", gap:12, pad:8, fill:[0,0,0,0], children:[
+    const lid="cl"+(idx++);
+    const row={ kind:"container", w:rowW, layout:"row", gap:12, pad:8, fill:[0,0,0,0], children:[
       { kind:"container", w:40, h:40, radius:999, pad:0, layout:"stack", fill:[a[0],a[1],a[2],1],
         children:[{ kind:"text", text:(c.name||"?")[0].toUpperCase(), textSize:16, h:40, align:"center", pad:10, textColor:[1,1,1,1] }] },
       { kind:"container", w:bodyW, pad:0, gap:4, layout:"stack", fill:[0,0,0,0], children:[
-        { kind:"text", text:`${c.name||"Anonymous"} · ${ago(c.at)}${c.mine?" · you":""}`, textSize:12, h:18, textColor:[0.62,0.65,0.76,1] },
+        { kind:"text", text:`${c.name||"Anonymous"} · ${ago(c.at)}${c.mine?" · you":""}${depth>0?" · reply":""}`, textSize:12, h:18, textColor:[0.62,0.65,0.76,1] },
         { kind:"text", text:txt, textSize:14, h:txtH, textColor:[0.90,0.92,0.98,1] },
         { kind:"container", w:bodyW, h:34, layout:"row", gap:8, pad:0, fill:[0,0,0,0], children:[
           { kind:"button", action:lid, label:`👍 ${fmt(c.likes||0)}`, w:84, h:30, radius:999, toggleable:true, toggled:!!c._liked, accent:[0.26,0.52,1,1], fill:[0.16,0.17,0.22,1] },
           { kind:"button", action:lid+"r", label:"Reply", w:78, h:30, radius:999, fill:[0,0,0,0], textColor:[0.62,0.65,0.76,1] },
         ] },
       ] },
-    ] });
+    ] };
     actions[lid]=()=>{ cmLike(p,c.id); renderComments(p); };
-    actions[lid+"r"]=()=>{ const f=$("#cmComposeK")?.querySelector('.holo-input-proxy, [data-holo-surface="input"]'); f&&f.focus&&f.focus(); };
-  });
+    actions[lid+"r"]=()=>{ cmReplyTo=c; renderComposerK(WATCH); const f=$("#cmComposeK")?.querySelector('.holo-input-proxy, [data-holo-surface="input"]'); f&&f.focus&&f.focus(); };
+    return indent>0
+      ? { kind:"container", w:W, layout:"row", gap:0, pad:0, fill:[0,0,0,0], children:[ { kind:"container", w:indent, h:1, pad:0, fill:[0,0,0,0] }, row ] }
+      : row;
+  }
+  (function walk(pid, depth){ for(const c of (byParent[pid]||[])){ kids.push(commentRow(c, depth)); walk(c.id, depth+1); } })("__root", 0);
   renderKSceneActions(host, { "@type":"holo:Surface", kind:"container", w:W, layout:"stack", gap:6, pad:0, fill:[0,0,0,0], children:kids }, actions, {stretch:true});
 }
 const cmCompose=$("#cmCompose");
@@ -1386,7 +1413,7 @@ async function renderUpNext(p){
         { kind:"container", w:bodyW, h:thH, pad:0, gap:3, layout:"stack", fill:[0,0,0,0], children:[
           { kind:"text", text:String(q.name||""), textSize:14, h:38, textColor:[0.97,0.98,1,1] },
           { kind:"text", text:String(q.channel||"")+" ✓", textSize:12, h:16, textColor:[0.62,0.65,0.76,1] },
-          { kind:"text", text:`${fmt(cc.streams)} streams · ${ago(q.date)}`, textSize:11, h:15, textColor:[0.55,0.58,0.68,1] },
+          { kind:"text", text:`${cc.comments?fmt(cc.comments)+" comments · ":""}${ago(q.date)}`, textSize:11, h:15, textColor:[0.55,0.58,0.68,1] },
           { kind:"text", text:"✦ "+String(why||""), textSize:11, h:15, textColor:[0.50,0.62,0.95,1] },
         ] },
       ] },

@@ -45,7 +45,7 @@ const LENSES = [
 ];
 const WIN = 40;
 const edges = new Map();
-const blocked = new Set();
+const policy = new Map();   // origin → "cut" | "pause" | "restrict" | "throttle" — REAL egress governance for the egress this pane owns
 let lens = "orbit", selected = null, tick = 0, conscience = null;
 
 // telemetry runtime + live signal stream
@@ -460,8 +460,9 @@ async function applyControl(e, action) {
   if (action === "cut") { const ok = await confirmModal("Cut this connection?", `This severs <b>${e.label}</b>. ${e.kind === "egress" ? "This pane will refuse future requests to this destination." : "The policy is recorded and the edge is marked cut; cross-process enforcement is armed pending the delegation layer."} The action is sealed to a verifiable receipt.`, "Cut"); if (!ok) return; }
   let verdict = "accepted";
   try { if (conscience && conscience.evaluate) { const v = conscience.evaluate({ action: "control." + action, edge: e.id, leavesNoAuditTrace: false, refusesLawfulRequest: false }); verdict = v.outcome === "block" ? "blocked" : v.outcome; if (v.outcome === "block") return toast("Conscience blocked the action"); } } catch {}
-  if (action === "cut") { e.control = "cut"; if (e.kind === "egress" && e.k) blocked.add(e.k); }
-  else { const want = { throttle: "throttled", restrict: "restricted", pause: "paused" }[action]; e.control = e.control === want ? "open" : want; }
+  if (action === "cut") { e.control = "cut"; if (e.kind === "egress" && e.k) policy.set(e.k, "cut"); }
+  else { const want = { throttle: "throttled", restrict: "restricted", pause: "paused" }[action]; const off = e.control === want; e.control = off ? "open" : want;
+    if (e.kind === "egress" && e.k) { if (off) policy.delete(e.k); else policy.set(e.k, action); } }   // enact through the fetch boundary, not just a receipt
   const kappa = await sealControl(e, action, verdict);
   e.receipts.unshift({ action, verdict, kappa, at: tick });
   toast(`${action} · ${e.label}`, kappa); render();
@@ -476,9 +477,21 @@ async function sealControl(e, action, verdict) {
   }
   return "did:holo:sha256:" + await sha(JSON.stringify({ action, edge: e.id, verdict, tick }));
 }
-// real egress enforcement for what this pane owns: refuse fetches to a cut origin
+// REAL egress enforcement for the egress this pane owns: cut · pause · restrict (block writes) · throttle (rate-limit).
+// The operator's verdict on the edge graph becomes real behaviour on the wire — not just a sealed receipt.
 const _fetch = window.fetch.bind(window);
-window.fetch = (input, init) => { try { const u = new URL(typeof input === "string" ? input : input.url, location.href); if (blocked.has(u.origin)) return Promise.reject(new Error("Holo Control: egress to " + u.origin + " is CUT by the operator")); } catch {} return _fetch(input, init); };
+window.fetch = async (input, init) => {
+  let origin = null; try { origin = new URL(typeof input === "string" ? input : input.url, location.href).origin; } catch {}
+  const mode = origin && policy.get(origin);
+  if (mode === "cut")    return Promise.reject(new Error("Holo Control: egress to " + origin + " is CUT by the operator"));
+  if (mode === "pause")  return Promise.reject(new Error("Holo Control: egress to " + origin + " is PAUSED by the operator"));
+  if (mode === "restrict") {
+    const method = ((init && init.method) || (typeof input !== "string" && input && input.method) || "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) return Promise.reject(new Error("Holo Control: egress to " + origin + " is RESTRICTED to reads by the operator"));
+  }
+  if (mode === "throttle") await new Promise((r) => setTimeout(r, 1500));   // a real, observable rate-limit on the pane's own egress
+  return _fetch(input, init);
+};
 
 // ── modal · toast · palette · isolate ─────────────────────────────────────────────────────────────
 function confirmModal(title, blast, goLabel = "Confirm") {

@@ -11,7 +11,7 @@
 
 import { loadByKappa, GGML_TYPE_NAME } from "./gguf-forge.mjs";
 import { dequantizeExact, GGML } from "./gguf-forge-dequant.mjs";
-import { quantizeRowQ8K, vecDotQ4K, vecDotQ6K, quantizeRowQ8_0, vecDotQ8_0, vecDotQ5_0, vecDotQ4_0 } from "./gguf-forge-matmul.mjs";
+import { quantizeRowQ8K, vecDotQ4K, vecDotQ6K, vecDotTq2_0, vecDotF16, f16Row, quantizeRowQ8_0, vecDotQ8_0, vecDotQ5_0, vecDotQ4_0 } from "./gguf-forge-matmul.mjs";
 import { rmsNorm, layerNorm, swiglu, geglu, softmax, ropeNeox, sigmoid, silu, ssmConv1d, selectiveScan, selectiveScan2, wkv7, moeRoute, moeCombine } from "./gguf-forge-kernels.mjs";
 import { tqRotate } from "./gguf-forge-turboquant.mjs";
 
@@ -26,6 +26,10 @@ function blockOf(type) {
     case GGML.Q4_0: return [32, 18];
     case GGML.Q5_0: return [32, 22];
     case GGML.Q5_1: return [32, 24];
+    case GGML.Q2_K: return [QK_K, 84];
+    case GGML.Q3_K: return [QK_K, 110];
+    case GGML.Q5_K: return [QK_K, 176];
+    case GGML.TQ2_0: return [QK_K, 66];   // BitNet ternary (integer-dot matvec)
     default: throw new Error("exec: no block size for type " + (GGML_TYPE_NAME[type] || type));
   }
 }
@@ -38,6 +42,7 @@ function getRow(store, w, rowIdx, load = loadByKappa) {
   const K = w.dims[0];
   const raw = load(store, w.kappa);
   if (w.type === GGML.F32) return dequantizeExact(GGML.F32, raw.subarray(rowIdx * K * 4, (rowIdx + 1) * K * 4), K);
+  if (w.type === GGML.F16) return dequantizeExact(GGML.F16, raw.subarray(rowIdx * K * 2, (rowIdx + 1) * K * 2), K); // F16 weight (e.g. BitNet)
   const [bElems, bBytes] = blockOf(w.type);
   const nb = K / bElems, off = rowIdx * nb * bBytes;
   return dequantizeExact(w.type, raw.subarray(off, off + nb * bBytes), K);
@@ -56,6 +61,16 @@ function matvecBytes(raw, type, K, N, x, base = 0) {
   if (type === GGML.Q4_K || type === GGML.Q6_K) {
     const q8k = quantizeRowQ8K(x, K), nb = K / QK_K, bBytes = type === GGML.Q4_K ? 144 : 210;
     for (let n = 0; n < N; n++) y[n] = type === GGML.Q4_K ? vecDotQ4K(nb, raw, q8k, base + n * nb * bBytes) : vecDotQ6K(nb, raw, q8k, base + n * nb * bBytes);
+    return y;
+  }
+  if (type === GGML.TQ2_0) {                 // BitNet ternary: Q8_K-activation integer dot
+    const q8k = quantizeRowQ8K(x, K), nb = K / QK_K;
+    for (let n = 0; n < N; n++) y[n] = vecDotTq2_0(nb, raw, q8k, base + n * nb * 66);
+    return y;
+  }
+  if (type === GGML.F16) {                    // ggml f16·f16 dot, bit-exact to forge-ref (SSE3)
+    const dv = dvOf(raw), xh = f16Row(x, K);  // activation → f16 grid ONCE, shared across rows
+    for (let n = 0; n < N; n++) y[n] = vecDotF16(dv, K, xh, base + n * K * 2);
     return y;
   }
   if (type === GGML.Q8_0 || type === GGML.Q5_0 || type === GGML.Q4_0) {
@@ -162,6 +177,9 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
   // κ -> weight descriptor (graph.weights keyed by name)
   const byK = {}; for (const nm in graph.weights) byK[graph.weights[nm].kappa] = graph.weights[nm];
   const W = (kappa) => kappa ? byK[kappa] : null;
+  // LoRA adapter inference: y += scale·B·(A·x) on a target linear. opts.adapter[weightκ] = {A,B,scale,inn,out,r}.
+  const loraDelta = (ad, x) => { const h = new Float32Array(ad.r); for (let k = 0; k < ad.r; k++) { let s = 0; for (let i = 0; i < ad.inn; i++) s = fr(s + fr(ad.A[k * ad.inn + i] * x[i])); h[k] = s; } const d = new Float32Array(ad.out); for (let o = 0; o < ad.out; o++) { let bh = 0; for (let k = 0; k < ad.r; k++) bh = fr(bh + fr(ad.B[o * ad.r + k] * h[k])); d[o] = fr(ad.scale * bh); } return d; };
+  const adapterAdd = (y, x, ww) => { const ad = ww && opts.adapter ? opts.adapter[ww.kappa] : null; if (ad) { const d = loraDelta(ad, x); for (let i = 0; i < y.length; i++) y[i] = fr(y[i] + d[i]); } return y; };
 
   let logits = null;
   for (let pos = startPos; pos < T; pos++) {
@@ -179,7 +197,8 @@ export function forward(plan, graph, store, tokenIds, opts = {}) {
           break;
         case "qkv": {
           const x = env.get(op.in);
-          let q = addBias(matvec(store, W(op.w.wq), x, load), W(op.w.bq), store, load);
+          const wqW = W(op.w.wq);
+          let q = addBias(adapterAdd(matvec(store, wqW, x, load), x, wqW), W(op.w.bq), store, load);
           let k = addBias(matvec(store, W(op.w.wk), x, load), W(op.w.bk), store, load);
           const v = addBias(matvec(store, W(op.w.wv), x, load), W(op.w.bv), store, load);
           // BitNet ternary weight-scales (build_lora_mm scale arg): scalar per linear.

@@ -68,15 +68,29 @@
       background: radial-gradient(circle at 50% 42%, #141026 0%, #07040f 58%, #000 100%); touch-action: none;
       user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }   /* panning must never select label text */
     #room[data-layout="honeycomb"].grab { cursor: grabbing; }
-    #comb { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
-    .hex { position: absolute; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+    /* WebGPU ambient backdrop (depth + parallax). Hidden until a device is confirmed; the room's
+       radial-gradient stays the honest fallback when there's no GPU. */
+    #combgpu { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
+    #combgpu.on { opacity: 1; }
+    #comb { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; z-index: 1; }
+    /* pointy-top hexagons (rotated from flat-top) — the reference's enclosed-room orientation */
+    .hex { position: absolute; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
       background: #15102e center/cover no-repeat; cursor: pointer; transition: transform .16s cubic-bezier(.2,.8,.2,1), filter .16s;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
-    .hex:not(.ph):hover { transform: scale(1.07); filter: brightness(1.16); z-index: 3; }
-    .hex.ph { background: #0d0a1e; cursor: default; }   /* calm, static wall — no stray pulsing highlights */
+      box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.4); }   /* a crisp dark bevel separates adjacent rooms (the reference's tile edge) */
+    .hex:not(.ph):hover { transform: translateY(-2px) scale(1.05); filter: brightness(1.1); z-index: 3; }
+    .hex .room { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }   /* the isometric room fills the hex */
+    /* the app icon: ONE consistent style — a clean BLACK outline, no background, crisp on the room floor.
+       brightness(0) forces every glyph (line, filled, or overridden) to pure black; a faint light halo keeps
+       it legible on the darker wall. */
+    .hex .room image { filter: brightness(0) drop-shadow(0 1px 1.5px rgba(255,255,255,.28)); }
+    /* the unified glyph is inlined as real vector (already pure black): a tight, crisp white lift keeps it
+       legible on the lit wall WITHOUT the soft raster halo that blurred the old <image> path. */
+    .hex .room .glyph { filter: drop-shadow(0 0 .7px rgba(255,255,255,.6)) drop-shadow(0 1px .5px rgba(255,255,255,.35)); }
+    /* empty cells = clean recessed hex-prisms (lit top half over a darker front wedge → the bottom point reads 3D) */
+    .hex.ph { background: linear-gradient(180deg, #232030 0 47%, #16131f 47% 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 0 0 1.5px rgba(0,0,0,.4); cursor: default; }
     .hex.fallback { background-color: #211c3a; }
-    .hexcap { position: absolute; left: 0; right: 0; bottom: 12%; display: flex; flex-direction: column; align-items: center; gap: 0;
-      opacity: 1; pointer-events: none; text-shadow: 0 1px 8px rgba(0,0,0,.95); padding: 0 16%; text-align: center; }   /* always show the app's name */
+    .hexcap { position: absolute; left: 0; right: 0; bottom: 14%; display: flex; flex-direction: column; align-items: center; gap: 1px;
+      opacity: 1; pointer-events: none; text-shadow: 0 1px 8px rgba(0,0,0,.95); padding: 0 9%; text-align: center; }   /* always show the app's name — sits on the room floor */
     .hexcap b { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 
     /* Maps-style camera controls (mouse-wheel users + discoverability) */
@@ -85,8 +99,8 @@
       background: rgba(13,9,28,.72); border: 1px solid var(--line); backdrop-filter: blur(10px); cursor: pointer; display: grid; place-items: center; }
     .combctl button:hover { border-color: var(--accent); color: var(--accent); }
     .combctl button:active { transform: translateY(1px); }
-    .hexcap b { font-size: 1.05rem; font-weight: var(--holo-weight-bold, 700); color: #fff; line-height: 1.1; }
-    .hexcap span { font-size: var(--fs-label); color: rgba(255,255,255,.72); }
+    .hexcap b { font-size: 1.6rem; font-weight: var(--holo-weight-semibold, 600); color: #fff; line-height: 1.08; letter-spacing: -.005em; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+    .hexcap span { font-size: 1.04rem; font-weight: var(--holo-weight-regular, 400); color: rgba(255,255,255,.8); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
 
     /* the per-hex PREVIEW: a mini-honeycomb of hexagons (the room's members) — same shape as the lobby,
        and a nested-Space child holds its own tinier hex-cluster: a hexagon of hexagons, all the way down */
@@ -105,8 +119,27 @@
     .hex.app.lit { box-shadow: inset 0 0 0 1.5px hsla(var(--hue,200), 80%, 65%, .7), 0 0 38px hsla(var(--hue,200), 80%, 55%, .28); }
     .hex.app.hidden { opacity: 0; transform: scale(.35); pointer-events: none; }   /* a filter hides non-matches entirely */
 
+    /* the SELECTED hex (pointer hover OR keyboard focus → the preview target): a living rim + glow.
+       Drawn as a sibling ring BEHIND the hex — a clip-path shape can't outline itself and a child would
+       be clipped by the parent's clip-path, so one shared ring tracks the active cell. */
+    .hex.app.selected { z-index: 6; transform: translateY(-3px) scale(1.02); filter: brightness(1.06); }   /* a gentle lift */
+    /* the selected hex gets a SUBTLE clean border: a thin hue rim (the sibling ring peeking out) with a soft glow */
+    .hex.selring { pointer-events: none; z-index: 5; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+      background: hsla(var(--hue,200), 85%, 70%, .9);
+      filter: drop-shadow(0 0 6px hsla(var(--hue,200),85%,62%,.45));
+      transition: left .17s cubic-bezier(.2,.8,.2,1), top .17s cubic-bezier(.2,.8,.2,1), width .17s, height .17s; }
+
+    /* keyboard hint: a glass strip, dismissible, anchored bottom-centre of the map */
+    .combhint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: .4rem;
+      padding: .4rem .8rem; border-radius: var(--pill); font-size: var(--fs-label); color: var(--dim); white-space: nowrap; pointer-events: auto;
+      background: rgba(13,9,28,.55); border: 1px solid var(--line); backdrop-filter: blur(13px) saturate(1.3); -webkit-backdrop-filter: blur(13px) saturate(1.3); box-shadow: 0 10px 34px rgba(0,0,0,.45); }
+    .combhint kbd { font: var(--holo-weight-semibold, 600) .82em var(--mono); color: var(--ink); background: rgba(255,255,255,.09); border: 1px solid var(--line); border-radius: 6px; padding: .1em .42em; }
+    .combhint .x { margin-left: .35rem; cursor: pointer; color: var(--dim); }
+    .combhint .x:hover { color: var(--accent); }
+    @media (max-width: 560px) { .combhint { display: none; } }
+
     /* the category/query ANCHOR at the heart of the flower */
-    .hex.anchor { display: grid; place-items: center; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); cursor: pointer;
+    .hex.anchor { display: grid; place-items: center; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); cursor: pointer;
       box-shadow: inset 0 0 0 2px hsla(var(--hue,165), 85%, 70%, .85), 0 0 60px hsla(var(--hue,165), 85%, 55%, .4); animation: anchorin .34s cubic-bezier(.2,.8,.2,1); }
     @keyframes anchorin { from { transform: scale(.6); opacity: 0; } }
     .anchorlbl { text-align: center; padding: 0 14%; }
@@ -236,6 +269,26 @@
     import { identity, kappa, verify, addMember, encode, decode, makeStore, hexOf, LAYOUTS, poster, hexLayout, hexSpiral } from "./holo-spaces.mjs";
     import { planWithQ, tokens, qPickIds } from "./holo-spaces-plan.mjs";
     const SPIRAL = hexSpiral(4000);   // one centre-out spiral; the i-th slot is stable → the limitless lattice
+
+    // balancedCells(n) → n axial cells that always form a SYMMETRICAL, balanced cluster: complete hex rings
+    // centre-out, and within the last partial ring every off-axis cell is added with its vertical-axis mirror
+    // (mirror of {q,r} about x=0 is {-q-r, r}) → the silhouette is always left-right symmetric and centred.
+    // Centred-hexagonal counts (1·7·19·37·61…) come out as perfect hexagons; in-between counts stay mirror-
+    // symmetric with at most one centre-axis apex. cells[0] is always the centre (0,0).
+    const _px = (c) => Math.sqrt(3) * (c.q + c.r / 2), _py = (c) => 1.5 * c.r, _ring = (c) => Math.max(Math.abs(c.q), Math.abs(c.r), Math.abs(c.q + c.r));
+    function balancedCells(n) {
+      const key = (c) => c.q + "," + c.r, mir = (c) => ({ q: -c.q - c.r, r: c.r }), onAxis = (c) => Math.abs(_px(c)) < 1e-6;
+      const sorted = hexSpiral(n * 5 + 400).slice().sort((a, b) =>
+        _ring(a) - _ring(b) || Math.abs(_py(a)) - Math.abs(_py(b)) || _py(b) - _py(a) || Math.abs(_px(a)) - Math.abs(_px(b)) || _px(a) - _px(b));
+      const chosen = [], used = new Set();
+      for (const c of sorted) {
+        if (chosen.length >= n) break;
+        if (used.has(key(c))) continue;
+        if (onAxis(c)) { used.add(key(c)); chosen.push(c); }
+        else { const m = mir(c); if (used.has(key(m))) continue; if (chosen.length + 2 <= n) { used.add(key(c)); used.add(key(m)); chosen.push(c, m); } }
+      }
+      return chosen.slice(0, n);
+    }
 
     // ── params: ?space=<κ> | #space=<κ> | ?s=<payload> | #s=<payload> | &bare=1 ───────────
     const qs = new URLSearchParams(location.search);
@@ -396,7 +449,7 @@
         const a = apps.find((x) => x.root === hex);
         if (!a) return null;
         const label = catLabel(a.cat), hue = catHue(label);   // colour + chip come from the app's category
-        return { hex, kind: "app", id: a.id, name: a.name, author: "hologram", hue, cat: a.cat, catLabel: label, keywords: a.keywords, categories: a.categories, desc: a.desc || "", count: 0, icon: a.icon, preview: [{ kind: "app", icon: a.icon }] };
+        return { hex, kind: "app", id: a.id, name: a.name, author: "hologram", hue, cat: a.cat, catLabel: label, keywords: a.keywords, categories: a.categories, desc: a.desc || "", count: 0, icon: a.icon, glyph: a.glyph, preview: [{ kind: "app", icon: a.icon }] };
       }
       const sp = seedByKappa.get(hex) || (store ? await store.get("did:holo:sha256:" + hex) : null);
       if (!sp) return null;
@@ -446,42 +499,90 @@
       return '<div class="poster">' + hexClusterHTML(items, size, 1) + "</div>";
     }
 
+    // roomSVG(hue, icon) → an enclosed isometric ROOM that fills a pointy-top hex: a dark hue shell holding a
+    // lit floor + two shaded walls (one lit, one in shadow), a crisp rim-light along the back edges, and the
+    // app's icon as the centrepiece object with a soft contact shadow. Pure + content-derived (hue + icon come
+    // from the κ catalog) — a sharp SVG, no art assets, no live iframe. The hex clip trims it to the room shape.
+    function roomSVG(hue, icon, glyph) {
+      const h = hue == null ? 200 : hue;
+      // the room FILLS the hex: the classic cube-in-hexagon decomposition into 3 rhombi (two walls + floor)
+      // meeting at the centre → adjacent rooms touch edge-to-edge (no dark border, tight like the reference).
+      const wallL = `hsl(${h} 40% 49%)`, wallR = `hsl(${h} 44% 31%)`, floor = `hsl(${h} 38% 39%)`,
+            seam = `hsl(${h} 66% 75%)`, lip = `hsl(${h} 52% 60%)`;
+      // No tile/background: the icon sits straight on the room floor, rendered LIGHT + crisp (see .room image
+      // filter), large and centred — one clean, consistent style. The room (hue walls/floor) is the colour.
+      // Prefer the unified glyph INLINED as real vector (sharp at any zoom, pure black) — the room viewBox
+      // (200×231) shares the hex aspect (√3:2), so the translate+scale is uniform: no stroke distortion.
+      // Fall back to the app's own icon as a rasterised <image> only when there's no override glyph.
+      const img = glyph
+        ? `<g class="glyph" transform="translate(57,55) scale(${(86 / 24).toFixed(4)})" color="#000" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${glyph}</g>`
+        : (icon ? `<image href="${icon}" x="57" y="55" width="86" height="86" preserveAspectRatio="xMidYMid meet"/>` : "");
+      return '<svg class="room" viewBox="0 0 200 231" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">'
+        + `<polygon points="100,0 0,57.75 0,173.25 100,115.5" fill="${wallL}"/>`        // back-left wall (lit)
+        + `<polygon points="100,0 200,57.75 200,173.25 100,115.5" fill="${wallR}"/>`     // back-right wall (in shadow)
+        + `<polygon points="100,115.5 0,173.25 100,231 200,173.25" fill="${floor}"/>`    // floor
+        + `<polyline points="0,57.75 100,0 200,57.75" fill="none" stroke="${seam}" stroke-opacity=".5" stroke-width="1.5" stroke-linejoin="round"/>`     // back top rim-light
+        + `<polyline points="0,173.25 100,115.5 200,173.25" fill="none" stroke="${lip}" stroke-opacity=".45" stroke-width="1.3" stroke-linejoin="round"/>` // floor↔wall lip
+        + `<line x1="100" y1="0" x2="100" y2="115.5" stroke="${seam}" stroke-opacity=".22" stroke-width="1"/>`   // back vertical seam
+        + '<ellipse cx="100" cy="150" rx="38" ry="9.5" fill="#000" opacity=".2"/>'       // a soft ground shadow under the icon
+        + img
+        + '</svg>';
+    }
+
     let combState = null, mapApi = null, onOpenCb = null, onSelectCb = null;   // Play host hooks: open a tab · inspect a hex
     async function renderHoneycomb(space, kap) {
       const room = els("room");
       room.dataset.layout = "honeycomb"; room.style.gridTemplateRows = "";
-      room.innerHTML = '<div id="comb"></div>';
+      room.innerHTML = '<canvas id="combgpu"></canvas><div id="comb"></div>';
       const comb = room.querySelector("#comb");
       const metas = (await Promise.all((space.members || []).map((m) => memberMeta(m).catch(() => null)))).filter(Boolean);
       const planCat = (await catalogApps()).map((a) => ({ root: a.root, name: a.name, id: a.id }));   // for Q's id→κ validation
 
-      const SIZE = 132, W = 2 * SIZE, H = Math.round(Math.sqrt(3) * SIZE);
-      const slotXY = (i) => { const c = SPIRAL[i] || SPIRAL[0]; return { x: 1.5 * SIZE * c.q, y: Math.sqrt(3) * SIZE * (c.r + c.q / 2) }; };
+      // pointy-top metrics: SIZE = packing radius (slot SPACING). The drawn hex is a touch smaller (DR) so a
+      // small, uniform dark gap shows between rooms — the reference's tile separation. width=√3·DR, height=2·DR.
+      const SIZE = 132, DR = SIZE * 0.93, W = Math.round(Math.sqrt(3) * DR), H = Math.round(2 * DR);
+      // the cluster uses a symmetric, balanced cell set (always left-right mirror, centred) instead of the raw
+      // spiral, so the wall reads as one tidy hexagon for any app count; beyond the set, fall back to the spiral.
+      const CELLS = balancedCells(metas.length);
+      const cellAt = (i) => CELLS[i] || SPIRAL[i] || SPIRAL[0];
+      // the smallest centred hexagon (rings 0..HEXR, capacity 3k²+3k+1) that encloses every app. The apps fill
+      // the inner cells; the leftover cells of THIS hexagon render as solid dark tiles → the wall ALWAYS reads
+      // as one complete large hexagon (a hexagon of hexagons), for any app count. (37·61… are exact; between,
+      // the outer ring is part apps · part dark tiles — still a full hexagon silhouette, like the reference.)
+      let HEXR = 0; while (3 * HEXR * HEXR + 3 * HEXR + 1 < metas.length) HEXR++;
+      const slotXY = (i) => { const c = cellAt(i); return { x: Math.sqrt(3) * SIZE * (c.q + c.r / 2), y: 1.5 * SIZE * c.r }; };
 
       // ONE persistent hexagon per member (apps or spaces). The filter REFLOWS them (moves slots),
       // it never rebuilds. Slots are centre-out on the shared spiral, so identity i ⇒ a fixed cell.
       let pgMode = false, hexDrag = null;
       const hexEls = new Map();
+      let selectedK = null, selEl = null, lastSelectPayload = null;   // the previewed hex: one source of truth (hover + keyboard)
       function buildHex(meta) {
         const el = document.createElement("div");
         el.className = "hex app"; el.style.width = W + "px"; el.style.height = H + "px";
         el.style.setProperty("--hue", meta.hue == null ? 200 : meta.hue);
-        el.style.background = hexBg(meta.hue == null ? 200 : meta.hue, false);
         el.dataset.k = meta.hex; el.dataset.kind = meta.kind; el.dataset.name = meta.name; el.dataset.cat = meta.catLabel || ""; if (meta.id) el.dataset.appid = meta.id;
         if (meta.icon) el.dataset.icon = meta.icon; if (meta.desc) el.dataset.desc = meta.desc;
-        const fireSelect = () => { if (onSelectCb && meta.kind === "app") { try { onSelectCb({ appId: meta.id || "", name: meta.name, cat: meta.catLabel || "", kappa: "did:holo:sha256:" + meta.hex, icon: meta.icon || "", desc: meta.desc || "", hue: meta.hue == null ? 200 : meta.hue }); } catch (e) {} } };
-        el.addEventListener("pointerenter", fireSelect); el.addEventListener("focus", fireSelect);
-        el.innerHTML = posterInner(meta) + '<div class="hexcap"><b>' + meta.name + "</b><span>" + (meta.catLabel || ("by " + (meta.author || ""))) + "</span></div>";
-        el.addEventListener("click", () => { if (!pgMode && combState && !combState.moved) dive(el); });   // Browse dives; Playground drags
+        el.__meta = meta;
+        const cap = '<div class="hexcap"><b>' + meta.name + "</b><span>" + (meta.catLabel || ("by " + (meta.author || ""))) + "</span></div>";
+        // an app hex is an enclosed isometric ROOM (κ-derived: hue + icon); a Space hex keeps its mini-honeycomb preview
+        if (meta.kind === "app") { el.style.background = "transparent"; el.innerHTML = roomSVG(meta.hue == null ? 200 : meta.hue, meta.icon, meta.glyph) + cap; }
+        else { el.style.background = hexBg(meta.hue == null ? 200 : meta.hue, false); el.innerHTML = posterInner(meta) + cap; }
+        // Tap (select) and double-tap (open) are detected centrally in the pointer-up handler — robust under
+        // the room's pointer-capture, which would otherwise steal a real click from this element.
         comb.appendChild(el); hexEls.set(meta.hex, el); return el;
       }
       metas.forEach(buildHex);
 
       let fullOrder = metas.map((m) => m.hex);
+      // Holo Hub takes the centre cell (spiral slot 0) so Play opens with it at the heart of the comb.
+      const hubI = metas.findIndex((m) => /^holo\s*hub$/i.test(m.name) || /hub/i.test(m.id || ""));
+      if (hubI > 0) { const [hub] = fullOrder.splice(hubI, 1); fullOrder.unshift(hub); }
       let order = fullOrder.slice(), occupied = new Set();
       function placeApps() {
         occupied = new Set();
-        order.forEach((k, i) => { const el = hexEls.get(k); if (!el) return; const p = slotXY(i); el.style.left = (p.x - W / 2).toFixed(1) + "px"; el.style.top = (p.y - H / 2).toFixed(1) + "px"; const c = SPIRAL[i]; occupied.add(c.q + "," + c.r); });
+        order.forEach((k, i) => { const el = hexEls.get(k); if (!el) return; const p = slotXY(i); el.style.left = (p.x - W / 2).toFixed(1) + "px"; el.style.top = (p.y - H / 2).toFixed(1) + "px"; const c = cellAt(i); occupied.add(c.q + "," + c.r); });
+        refreshSel();
       }
       placeApps();
 
@@ -491,17 +592,20 @@
       function ensurePool(n) { while (pool.length < n) { const d = document.createElement("div"); d.className = "hex ph"; d.style.width = W + "px"; d.style.height = H + "px"; comb.appendChild(d); pool.push(d); } }
       ensurePool(280);
       function renderField() {
-        const z = view.z, vw = room.clientWidth / z, vh = room.clientHeight / z, wx = -view.x / z, wy = -view.y / z, mg = W;
-        const qMin = Math.floor((wx - mg) / (1.5 * SIZE)), qMax = Math.ceil((wx + vw + mg) / (1.5 * SIZE));
+        const z = view.z, vw = room.clientWidth / z, vh = room.clientHeight / z, wx = -view.x / z, wy = -view.y / z, mg = H;
+        const rt = 1.5 * SIZE, ct = Math.sqrt(3) * SIZE;   // pointy-top: rows pitch by 1.5·s, cols by √3·s
+        const rMin = Math.floor((wy - mg) / rt), rMax = Math.ceil((wy + vh + mg) / rt);
         let pi = 0;
-        for (let q = qMin; q <= qMax && pi < pool.length; q++) {
-          const rOff = q / 2, rt = Math.sqrt(3) * SIZE;
-          const rMin = Math.floor((wy - mg) / rt - rOff), rMax = Math.ceil((wy + vh + mg) / rt - rOff);
-          for (let r = rMin; r <= rMax && pi < pool.length; r++) {
+        for (let r = rMin; r <= rMax && pi < pool.length; r++) {
+          const qOff = r / 2;
+          const qMin = Math.floor((wx - mg) / ct - qOff), qMax = Math.ceil((wx + vw + mg) / ct - qOff);
+          for (let q = qMin; q <= qMax && pi < pool.length; q++) {
             if (occupied.has(q + "," + r)) continue;
-            const x = 1.5 * SIZE * q, y = rt * (r + q / 2), d = Math.hypot(x, y), el = pool[pi++];
+            const x = ct * (q + r / 2), y = rt * r, d = Math.hypot(x, y), el = pool[pi++];
+            const ring = Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r));
             el.style.left = (x - W / 2).toFixed(1) + "px"; el.style.top = (y - H / 2).toFixed(1) + "px";
-            el.style.display = d > 2700 ? "none" : ""; el.style.opacity = Math.max(0.02, 0.5 * (1 - d / 2400)).toFixed(3);
+            if (ring <= HEXR) { el.style.display = ""; el.style.opacity = "1"; }   // INSIDE the big hexagon → a solid dark tile that completes the shape
+            else { el.style.display = d > 2900 ? "none" : ""; el.style.opacity = Math.max(0.05, 0.72 * (1 - d / 2700)).toFixed(3); }   // beyond → the field fading to the void
           }
         }
         for (; pi < pool.length; pi++) pool[pi].style.display = "none";
@@ -512,21 +616,22 @@
       const ZMIN = 0.22, ZMAX = 4;
       // default view: zoomed OUT to frame the whole app set (see many at once), not 1:1. Floors at .42 so
       // labels stay legible; centres on the cluster. Reused by recenter (⌖) so "home" is this overview.
+      // ANCHOR on the centre hexagon (Holo Hub, at world origin): Play opens — and ⌖ recenters — with the
+      // centre hex dead-centre as the fixed navigation reference, framing the whole hexagon symmetrically.
       const homeView = () => {
-        const cnt = Math.max(1, order.length), xs = [], ys = [];
-        for (let i = 0; i < cnt; i++) { const p = slotXY(i); xs.push(p.x); ys.push(p.y); }
-        const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-        const bw = Math.max(...xs) - Math.min(...xs) + W * 1.5, bh = Math.max(...ys) - Math.min(...ys) + H * 1.7;
+        const cnt = Math.max(1, order.length); let maxX = 0, maxY = 0;
+        for (let i = 0; i < cnt; i++) { const p = slotXY(i); maxX = Math.max(maxX, Math.abs(p.x)); maxY = Math.max(maxY, Math.abs(p.y)); }
+        const bw = 2 * maxX + W * 1.6, bh = 2 * maxY + H * 1.8;   // symmetric extent about the origin
         const z = Math.min(1, Math.max(0.42, Math.min(room.clientWidth / bw, room.clientHeight / bh)));
-        return { z, x: room.clientWidth / 2 - cx * z, y: room.clientHeight / 2 - cy * z };
+        return { z, x: room.clientWidth / 2, y: room.clientHeight / 2 };   // origin → viewport centre
       };
       const _hv = homeView();
       const cam = { x: _hv.x, y: _hv.y, z: _hv.z }, view = { x: _hv.x, y: _hv.y, z: _hv.z };
-      let vx = 0, vy = 0, anchor = null, raf = 0, dragging = false, lastFx = 1e9, lastFy = 1e9, lastFz = 0;
+      let vx = 0, vy = 0, anchor = null, raf = 0, dragging = false, lastFx = 1e9, lastFy = 1e9, lastFz = 0, gpuBg = null;
       combState = { moved: false, get z() { return view.z; } };
       function maybeField() { if (Math.abs(view.x - lastFx) > 36 || Math.abs(view.y - lastFy) > 36 || Math.abs(view.z - lastFz) > 0.02) { lastFx = view.x; lastFy = view.y; lastFz = view.z; renderField(); } }
       const apply = () => { comb.style.transform = `translate3d(${view.x.toFixed(2)}px,${view.y.toFixed(2)}px,0) scale(${view.z.toFixed(4)})`;
-        comb.style.setProperty("--cap", String(Math.max(0, Math.min(1, (view.z - 0.9) / 0.5)))); maybeField(); };
+        comb.style.setProperty("--cap", String(Math.max(0, Math.min(1, (view.z - 0.9) / 0.5)))); if (gpuBg) gpuBg.setView(view.x, view.y, view.z); maybeField(); };
       function frame() {
         const dz = cam.z - view.z; view.z += Math.abs(dz) > 0.0008 ? dz * 0.2 : dz;
         if (anchor) { cam.x = anchor.sx - anchor.wx * cam.z; cam.y = anchor.sy - anchor.wy * cam.z; view.x = anchor.sx - anchor.wx * view.z; view.y = anchor.sy - anchor.wy * view.z; if (Math.abs(dz) < 0.0008) anchor = null; }
@@ -540,10 +645,23 @@
       const zoomAt = (sx, sy, f) => { const nz = Math.min(ZMAX, Math.max(ZMIN, cam.z * f)); anchor = { sx, sy, wx: (sx - view.x) / view.z, wy: (sy - view.y) / view.z }; cam.z = nz; kick(); };
       apply();
 
-      const ptrs = new Map(); let pinchD = 0;
+      // ── WebGPU ambient backdrop: depth + parallax behind the wall. Honest fallback = the CSS radial. ──
+      (async () => {
+        try {
+          const mod = await import("/_shared/holo-play-gpu.js");
+          await mod.ready;
+          if (!mod.gpuAvailable()) return;                 // no device → leave the CSS gradient showing
+          const cv = room.querySelector("#combgpu"); if (!cv) return;
+          const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+          gpuBg = mod.start(cv, { reduced, hue: 200 });
+          if (gpuBg) { cv.classList.add("on"); gpuBg.setView(view.x, view.y, view.z); }
+        } catch (e) {}
+      })();
+
+      const ptrs = new Map(); let pinchD = 0, tapDown = null, lastTap = { k: null, t: 0 };
       room.onpointerdown = (e) => {
         if (pgMode) { const hx = e.target.closest(".hex.app"); if (hx) { hexDrag = { el: hx, k: hx.dataset.k, id: e.pointerId, sx: e.clientX, sy: e.clientY, l: parseFloat(hx.style.left) || 0, t: parseFloat(hx.style.top) || 0, moved: false }; hx.classList.add("dragging"); try { room.setPointerCapture(e.pointerId); } catch {} return; } }
-        ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { room.setPointerCapture(e.pointerId); } catch {} if (ptrs.size === 1) { dragging = true; combState.moved = false; vx = vy = 0; anchor = null; room.classList.add("grab"); kick(); } else if (ptrs.size === 2) { const a = [...ptrs.values()]; pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } };
+        ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { room.setPointerCapture(e.pointerId); } catch {} if (ptrs.size === 1) { dragging = true; combState.moved = false; vx = vy = 0; anchor = null; tapDown = { x: e.clientX, y: e.clientY, id: e.pointerId }; room.classList.add("grab"); kick(); } else if (ptrs.size === 2) { const a = [...ptrs.values()]; pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } };
       room.onpointermove = (e) => {
         if (hexDrag && e.pointerId === hexDrag.id) {
           const d = hexDrag; d.el.style.left = (d.l + (e.clientX - d.sx) / view.z).toFixed(1) + "px"; d.el.style.top = (d.t + (e.clientY - d.sy) / view.z).toFixed(1) + "px";
@@ -559,10 +677,23 @@
       };
       const up = (e) => {
         if (hexDrag && e.pointerId === hexDrag.id) { endHexDrag(e); try { room.releasePointerCapture(e.pointerId); } catch {} return; }
-        ptrs.delete(e.pointerId); try { room.releasePointerCapture(e.pointerId); } catch {} if (ptrs.size < 2) pinchD = 0; if (ptrs.size === 0) { dragging = false; room.classList.remove("grab"); kick(); } };
+        // a TAP = single pointer that barely moved. Detected here (not via the hex's click) because the room
+        // captures the pointer, which would steal a real click. elementFromPoint finds the hex under release.
+        const tap = tapDown && e.pointerId === tapDown.id && ptrs.size === 1 && Math.hypot(e.clientX - tapDown.x, e.clientY - tapDown.y) < 6;
+        ptrs.delete(e.pointerId); try { room.releasePointerCapture(e.pointerId); } catch {} if (ptrs.size < 2) pinchD = 0; if (ptrs.size === 0) { dragging = false; room.classList.remove("grab"); kick(); }
+        if (tap && !pgMode) {
+          const o = document.elementFromPoint(e.clientX, e.clientY), hex = o && o.closest && o.closest(".hex.app");
+          if (hex) {
+            const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+            if (lastTap.k === hex.dataset.k && now - lastTap.t < 350) { lastTap = { k: null, t: 0 }; dive(hex); }   // double-tap opens
+            else { lastTap = { k: hex.dataset.k, t: now }; if (EMBED) selectHex(hex, {}); else dive(hex); }          // single tap selects (standalone dives in)
+          }
+        }
+        tapDown = null;
+      };
       room.onpointerup = up; room.onpointercancel = up;
       room.onwheel = (e) => { e.preventDefault(); const rr = room.getBoundingClientRect(); zoomAt(e.clientX - rr.left, e.clientY - rr.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0022))); };
-      room.ondblclick = (e) => { if (e.target.closest(".hex.app")) return; const rr = room.getBoundingClientRect(); zoomAt(e.clientX - rr.left, e.clientY - rr.top, 1.7); };
+      room.ondblclick = (e) => { const o = document.elementFromPoint(e.clientX, e.clientY); if (o && o.closest && o.closest(".hex.app")) return; const rr = room.getBoundingClientRect(); zoomAt(e.clientX - rr.left, e.clientY - rr.top, 1.7); };
 
       const ctl = document.createElement("div"); ctl.className = "combctl";
       ctl.innerHTML = '<button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="home" aria-label="Recenter">⌖</button>';
@@ -572,6 +703,89 @@
       ctl.querySelector('[data-z="out"]').onclick = () => zoomAt(room.clientWidth / 2, room.clientHeight / 2, 1 / 1.5);
       ctl.querySelector('[data-z="home"]').onclick = recenter;
       room.appendChild(ctl);
+
+      // ── selection: the previewed hex gets a living rim; pointer hover AND keyboard funnel through here ──
+      function payloadFor(meta) { return { appId: meta.id || "", name: meta.name, cat: meta.catLabel || "", kappa: "did:holo:sha256:" + meta.hex, icon: meta.icon || "", desc: meta.desc || "", hue: meta.hue == null ? 200 : meta.hue, kind: meta.kind }; }
+      function ensureSel() { if (selEl) return selEl; selEl = document.createElement("div"); selEl.className = "hex selring"; selEl.style.display = "none"; comb.appendChild(selEl); return selEl; }
+      function placeSel(el) {
+        const s = ensureSel(), t = 3, l = parseFloat(el.style.left) || 0, tp = parseFloat(el.style.top) || 0;
+        s.style.setProperty("--hue", el.style.getPropertyValue("--hue") || 200);
+        s.style.width = (W + 2 * t) + "px"; s.style.height = (H + 2 * t) + "px";
+        s.style.left = (l - t).toFixed(1) + "px"; s.style.top = (tp - t).toFixed(1) + "px"; s.style.display = "";
+      }
+      function selectHex(el, opts) {
+        opts = opts || {}; if (!el) return;
+        if (selectedK && hexEls.get(selectedK)) hexEls.get(selectedK).classList.remove("selected");
+        selectedK = el.dataset.k; el.classList.add("selected"); placeSel(el);
+        const meta = el.__meta;
+        if (gpuBg && meta) { try { gpuBg.setHue(meta.hue == null ? 200 : meta.hue); } catch (e) {} }   // backdrop follows the previewed app
+        if (meta && meta.kind === "app") { lastSelectPayload = payloadFor(meta); if (onSelectCb) { try { onSelectCb(lastSelectPayload); } catch (e) {} } }
+        if (opts.center) ensureVisible(el);
+      }
+      function refreshSel() { const el = selectedK && hexEls.get(selectedK); if (el && !el.classList.contains("hidden")) placeSel(el); else if (selEl) selEl.style.display = "none"; }
+      // clear the selection: drop the rim, reset the preview to its empty state, calm the backdrop
+      function deselect() {
+        if (selectedK && hexEls.get(selectedK)) hexEls.get(selectedK).classList.remove("selected");
+        selectedK = null; lastSelectPayload = null; if (selEl) selEl.style.display = "none";
+        if (gpuBg) { try { gpuBg.setHue(200); } catch (e) {} }
+        if (onSelectCb) { try { onSelectCb(null); } catch (e) {} }
+      }
+      // keep the active hex comfortably inside the viewport (keyboard moves ease the camera to follow)
+      function ensureVisible(el) {
+        const cw = room.clientWidth, ch = room.clientHeight;
+        const wx = (parseFloat(el.style.left) || 0) + W / 2, wy = (parseFloat(el.style.top) || 0) + H / 2;
+        const sx = wx * view.z + view.x, sy = wy * view.z + view.y, mx = cw * 0.2, my = ch * 0.2;
+        let nx = cam.x, ny = cam.y, move = false;
+        if (sx < mx) { nx += mx - sx; move = true; } else if (sx > cw - mx) { nx -= sx - (cw - mx); move = true; }
+        if (sy < my) { ny += my - sy; move = true; } else if (sy > ch - my) { ny -= sy - (ch - my); move = true; }
+        if (move) { anchor = null; cam.x = nx; cam.y = ny; kick(); }
+      }
+      function visibleApps() { return [...hexEls.values()].filter((el) => !el.classList.contains("hidden")); }
+      // directional spatial nav: pick the nearest hex inside a forward cone of the pressed direction.
+      // Works on the full wall AND on a reflowed flower (positions, not grid indices).
+      function stepSelect(dx, dy) {
+        const list = visibleApps(); if (!list.length) return;
+        const cur = selectedK && hexEls.get(selectedK);
+        if (!cur || cur.classList.contains("hidden")) { selectHex(list[0], { center: true }); return; }
+        const cx = (parseFloat(cur.style.left) || 0) + W / 2, cy = (parseFloat(cur.style.top) || 0) + H / 2;
+        let best = null, bestScore = Infinity;
+        for (const el of list) {
+          if (el === cur) continue;
+          const ex = (parseFloat(el.style.left) || 0) + W / 2, ey = (parseFloat(el.style.top) || 0) + H / 2;
+          const vx = ex - cx, vy = ey - cy, d = Math.hypot(vx, vy); if (!d) continue;
+          const dot = (vx * dx + vy * dy) / d; if (dot < 0.4) continue;     // forward cone (~66°) only
+          const score = d / dot; if (score < bestScore) { bestScore = score; best = el; }
+        }
+        if (best) selectHex(best, { center: true });
+      }
+      // one keydown owner across re-renders: drop the prior handler before installing this render's.
+      function onCombKey(e) {
+        const dv = els("dive"); if (dv && dv.classList.contains("show")) return;
+        const ae = document.activeElement, typing = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
+        if (typing || pgMode || e.metaKey || e.ctrlKey || e.altKey) return;
+        switch (e.key) {
+          case "ArrowUp": case "k": e.preventDefault(); stepSelect(0, -1); return;
+          case "ArrowDown": case "j": e.preventDefault(); stepSelect(0, 1); return;
+          case "ArrowLeft": case "h": e.preventDefault(); stepSelect(-1, 0); return;
+          case "ArrowRight": case "l": e.preventDefault(); stepSelect(1, 0); return;
+          case "Enter": { const cur = selectedK && hexEls.get(selectedK); if (cur) { e.preventDefault(); dive(cur); } return; }
+          case "+": case "=": e.preventDefault(); zoomAt(room.clientWidth / 2, room.clientHeight / 2, 1.4); return;
+          case "-": case "_": e.preventDefault(); zoomAt(room.clientWidth / 2, room.clientHeight / 2, 1 / 1.4); return;
+          case "0": e.preventDefault(); recenter(); return;
+          case "/": { const f = els("filter"); if (f && f.offsetParent !== null) { e.preventDefault(); f.focus(); } return; }
+        }
+      }
+      if (window.__holoCombKey) window.removeEventListener("keydown", window.__holoCombKey);
+      window.__holoCombKey = onCombKey; window.addEventListener("keydown", onCombKey);
+
+      // a discoverable, dismissible glass hint of the keys (remembers the dismissal)
+      let hintDone = false; try { hintDone = !!localStorage.getItem("holo.play.hint.dismissed"); } catch (e) {}
+      if (!hintDone) {
+        const hint = document.createElement("div"); hint.className = "combhint";
+        hint.innerHTML = '<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> move · <kbd>↵</kbd> open · <kbd>/</kbd> search · <kbd>0</kbd> recenter<span class="x" title="Dismiss">✕</span>';
+        hint.querySelector(".x").addEventListener("click", () => { hint.remove(); try { localStorage.setItem("holo.play.hint.dismissed", "1"); } catch (e) {} });
+        room.appendChild(hint);
+      }
 
       // ── reflow: a filter resolves the wall into a labelled flower — anchor at centre, matches ringed ──
       function frameSlots(n) {                                  // ease the camera to frame slots 0..n
@@ -597,15 +811,17 @@
           a.style.setProperty("--hue", hue); a.style.background = hexBg(hue, true);
           a.innerHTML = '<div class="anchorlbl"><b>' + (q.charAt(0).toUpperCase() + q.slice(1)) + "</b><span>" + matched.length + (matched.length === 1 ? " app" : " apps") + "</span></div>";
           const p0 = slotXY(0); a.style.left = (p0.x - W / 2).toFixed(1) + "px"; a.style.top = (p0.y - H / 2).toFixed(1) + "px";
-          occupied = new Set([SPIRAL[0].q + "," + SPIRAL[0].r]);
-          matched.forEach((k, i) => { const el = hexEls.get(k); if (!el) return; const p = slotXY(i + 1); el.style.left = (p.x - W / 2).toFixed(1) + "px"; el.style.top = (p.y - H / 2).toFixed(1) + "px"; el.classList.remove("dim", "hidden"); el.classList.add("lit"); const c = SPIRAL[i + 1]; occupied.add(c.q + "," + c.r); });
+          occupied = new Set([cellAt(0).q + "," + cellAt(0).r]);
+          matched.forEach((k, i) => { const el = hexEls.get(k); if (!el) return; const p = slotXY(i + 1); el.style.left = (p.x - W / 2).toFixed(1) + "px"; el.style.top = (p.y - H / 2).toFixed(1) + "px"; el.classList.remove("dim", "hidden"); el.classList.add("lit"); const c = cellAt(i + 1); occupied.add(c.q + "," + c.r); });
           hexEls.forEach((el, k) => { if (!set.has(k)) { el.classList.remove("lit", "dim"); el.classList.add("hidden"); } });
           frameSlots(matched.length);
+          if (selectedK && !set.has(selectedK)) deselect();   // a filtered-out selection clears (no auto-jump); a tap picks a match
+          else refreshSel();
         } else {                                               // CLEARED: the whole wall returns, no anchor
           if (anchorEl) anchorEl.style.display = "none";
           order = fullOrder.slice(); placeApps();
           hexEls.forEach((el) => el.classList.remove("hidden", "dim", "lit"));
-          recenter();
+          recenter(); refreshSel();
         }
         renderField();
       }
@@ -665,10 +881,16 @@
         categories: [...new Set(metas.map((m) => m.catLabel).filter((c) => c && c !== "Space"))].sort(),
         setPlayground: (on) => { pgMode = !!on; document.body.classList.toggle("pg", pgMode); },
         bundle: (a, b) => bundle(a, b),                       // drag-to-bundle entry (also testable)
+        select: (k) => { const el = k ? hexEls.get(hexOf(k)) : null; if (el) selectHex(el, { center: true }); },   // drive the preview from the host
         get onOpen() { return onOpenCb; }, set onOpen(f) { onOpenCb = f; },   // Play host: hex-dive → real OS tab
-        get onSelect() { return onSelectCb; }, set onSelect(f) { onSelectCb = f; },   // Play host: hex hover/focus → inspector card
+        // Play host: hex hover/focus → inspector card. Replay the current selection so a late-bound host card fills immediately.
+        get onSelect() { return onSelectCb; }, set onSelect(f) { onSelectCb = f; if (f && lastSelectPayload) { try { f(lastSelectPayload); } catch (e) {} } },
       };
       window.HoloSpacesMap = mapApi;                          // a seam: the shell / Q can drive the map
+      // Play always opens with ONE hexagon selected so the preview rail is never empty (default: Holo Hub).
+      // lastSelectPayload is replayed when the host binds onSelect, so the card fills even though it binds late.
+      const _defK = (metas.find((m) => /^holo\s*hub$/i.test(m.name)) || metas.find((m) => /hub/i.test(m.id || "")) || metas[0] || {}).hex;
+      if (_defK && hexEls.get(_defK)) selectHex(hexEls.get(_defK), {});
       renderField(); buildChips();
       if (EMBED && els("chips")) els("chips").classList.add("show");   // category nav always visible in Play
     }
@@ -731,15 +953,75 @@
     }
 
     // ── catalog (normalized once): the live menu of κ-addressed apps to compose from ─────────
+    // ── one consistent OUTLINE icon style for the whole wall ──────────────────────────────────────
+    // Most app icons are clean line-glyphs; a handful ship filled / raster / backgrounded icons that break
+    // the style. The launcher renders THOSE as matching outline glyphs (keyed by app id) — purely
+    // presentational, the app's own sealed icon/κ is untouched. Every icon is then drawn as a uniform white
+    // outline (see `.hex .room image` filter). One viewBox, one stroke weight, no fills, no backgrounds.
+    const ICON_WRAP = (inner) => "data:image/svg+xml;utf8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" color="#fff" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + inner + "</svg>");
+    const ICON_OVERRIDES = {
+      "org.kde.PlasmaDesktop": '<rect x="3" y="4.5" width="18" height="12" rx="1.8" fill="currentColor" fill-opacity=".16"/><path d="M8.5 20.5h7M12 16.5v4"/>',
+      "org.hologram.HoloNotepad": '<rect x="5" y="3.5" width="11" height="17" rx="1.8" fill="currentColor" fill-opacity=".16"/><path d="M8 8h5M8 11.5h5M8 15h3"/><path d="M16.3 12.2l3 3-4 1 1-4z"/>',
+      "org.hologram.HoloNotepadPP": '<path d="M6 3.5h8l4 4V20.5H6z" fill="currentColor" fill-opacity=".16"/><path d="M14 3.5V7.5h4"/><path d="M12 11v6M9 14h6"/>',
+      "org.hologram.HoloPlayer": '<circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".16"/><path d="M10 8.3l5.2 3.7-5.2 3.7z" fill="currentColor" stroke="none"/>',
+      "org.hologram.HoloUI": '<rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="currentColor" fill-opacity=".16"/><path d="M3.5 9.5h17M9 9.5V19.5"/>',
+      "org.hologram.HoloX86": '<rect x="6.5" y="6.5" width="11" height="11" rx="1.4" fill="currentColor" fill-opacity=".16"/><path d="M9.5 3.5v3M12 3.5v3M14.5 3.5v3M9.5 17.5v3M12 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 12h3M3.5 14.5h3M17.5 9.5h3M17.5 12h3M17.5 14.5h3"/>',
+      "org.hologram.HoloEtherscan": '<rect x="4" y="4.5" width="16" height="3.5" rx="1" fill="currentColor" fill-opacity=".16"/><rect x="4" y="10.2" width="16" height="3.5" rx="1"/><rect x="4" y="15.9" width="10" height="3.5" rx="1"/>',
+      "org.hologram.HoloDocs": '<path d="M6 3.5h8l4 4V20.5H6z" fill="currentColor" fill-opacity=".16"/><path d="M14 3.5V7.5h4"/><path d="M8.5 12h7M8.5 15.5h7M8.5 19h4"/>',
+      "org.hologram.HoloEVM": '<path d="M12 2.5l5.5 9-5.5 3-5.5-3z" fill="currentColor" fill-opacity=".16"/><path d="M6.5 12.8l5.5 3 5.5-3-5.5 8.7z"/>',
+      "org.hologram.HoloIpfs": '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" fill="currentColor" fill-opacity=".16"/><circle cx="12" cy="12" r="1.9"/><path d="M12 10.1V6.6M12 13.9v3.6M13.7 13l3-1.7M10.3 13l-3-1.7"/>',
+      "org.hologram.HoloVideo": '<rect x="3" y="9" width="18" height="10.5" rx="1.5" fill="currentColor" fill-opacity=".16"/><path d="M3.6 9l2.4-4.2h12l-2.4 4.2"/><path d="M9.6 4.8l-2.4 4.2M15.6 4.8l-2.4 4.2"/>',
+      "org.hologram.HoloSearch": '<circle cx="11" cy="11" r="6.4" fill="currentColor" fill-opacity=".16"/><path d="M15.7 15.7L20 20"/>',
+      "org.hologram.Holo3D": '<path d="M12 3.7l7.5 4.3v8L12 20.3 4.5 16V8z" fill="currentColor" fill-opacity=".16"/><path d="M12 12l7.5-4M12 12v8.3M12 12L4.5 8"/>',
+      "org.hologram.HoloCloud": '<path d="M7.5 18.5h9a4 4 0 0 0 .5-7.97A5.5 5.5 0 0 0 6.2 11 3.75 3.75 0 0 0 7.5 18.5z" fill="currentColor" fill-opacity=".16"/>',
+      "org.hologram.HoloGuide": '<circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".16"/><path d="M15.2 8.8l-2 5.4-5.4 2 2-5.4z" fill="currentColor" stroke="none"/>',
+      "org.hologram.HoloBootPrompt": '<circle cx="12" cy="12.5" r="7.5" fill="currentColor" fill-opacity=".16"/><path d="M12 5v6"/><path d="M8.6 8.4a6 6 0 1 0 6.8 0"/>',
+      "org.hologram.HoloCode": '<rect x="3" y="4" width="18" height="16" rx="3" fill="currentColor" fill-opacity=".16"/><path d="M9.5 9l-3 3 3 3M14.5 9l3 3-3 3"/>',
+      "org.hologram.HoloLinux": '<path d="M12 3.5c-2.1 0-3.4 1.7-3.4 3.9 0 1.3.2 1.9-.7 3.2C6.7 12.2 6 14 6 16c0 2.5 2.4 4.5 6 4.5s6-2 6-4.5c0-2-.7-3.8-1.9-5.4-.9-1.3-.7-1.9-.7-3.2 0-2.2-1.3-3.9-3.4-3.9z" fill="currentColor" fill-opacity=".16"/><circle cx="10.5" cy="8.3" r=".55" fill="currentColor" stroke="none"/><circle cx="13.5" cy="8.3" r=".55" fill="currentColor" stroke="none"/><path d="M11 9.9l1 .9 1-.9"/>',
+      "org.hologram.HoloStream": '<circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/><path d="M8.6 8.6a4.8 4.8 0 0 0 0 6.8M15.4 8.6a4.8 4.8 0 0 1 0 6.8M6.2 6.2a8.2 8.2 0 0 0 0 11.6M17.8 6.2a8.2 8.2 0 0 1 0 11.6"/>',
+      "org.hologram.HoloPrivacy": '<path d="M12 3l7 3v5.5c0 4.2-3 7.2-7 9-4-1.8-7-4.8-7-9V6z" fill="currentColor" fill-opacity=".16"/><rect x="9.5" y="11.2" width="5" height="4" rx="1"/><path d="M10.6 11.2v-1.2a1.4 1.4 0 0 1 2.8 0v1.2"/>',
+      "org.hologram.HoloF1": '<circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".16"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.1 2.3c-.8.4-.8.9-.8 1.6"/><circle cx="12" cy="16.6" r=".55" fill="currentColor" stroke="none"/>',
+      "org.hologram.HoloBrc": '<path d="M5 6.5c3-2.2 7-2.2 11.5.3-2 .8-3.6 2.2-4.6 4.2C10 8.8 8 7.2 5 6.5z" fill="currentColor" fill-opacity=".16"/><path d="M11 11l-6.5 8"/>',
+      "org.hologram.HoloAmp": '<path d="M13 3L5.5 13H10l-1 8 8-11h-4.5z" fill="currentColor" fill-opacity=".16"/>',
+      "org.hologram.HoloHub": '<circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="12" cy="4.6" r="1.4" fill="currentColor" fill-opacity=".16"/><circle cx="18.4" cy="8.3" r="1.4" fill="currentColor" fill-opacity=".16"/><circle cx="18.4" cy="15.7" r="1.4" fill="currentColor" fill-opacity=".16"/><circle cx="12" cy="19.4" r="1.4" fill="currentColor" fill-opacity=".16"/><circle cx="5.6" cy="15.7" r="1.4" fill="currentColor" fill-opacity=".16"/><circle cx="5.6" cy="8.3" r="1.4" fill="currentColor" fill-opacity=".16"/><path d="M12 10V6.1M13.7 11l3.2-1.9M13.7 13l3.2 1.9M12 14v3.4M10.3 13l-3.2 1.9M10.3 11L7.1 9.1"/>',
+      "org.hologram.HoloAscii": '<rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="currentColor" fill-opacity=".16"/><path d="M7 9h4M7 12.5h10M7 16h6"/><rect x="14.6" y="14.7" width="2.3" height="2.3" fill="currentColor" stroke="none"/>',
+      "org.hologram.HoloBrowser": '<rect x="3" y="4.5" width="18" height="15" rx="2.4" fill="currentColor" fill-opacity=".16"/><path d="M3 8.6h18"/><circle cx="12" cy="14" r="3.4"/><path d="M8.6 14h6.8M12 10.6v6.8"/>',
+      "org.hologram.HoloFiles": '<path d="M4 7a2 2 0 0 1 2-2h3.2l1.6 2H18a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="currentColor" fill-opacity=".16"/>',
+      "org.hologram.HoloQ": '<circle cx="12" cy="12" r="7.6" fill="currentColor" fill-opacity=".16"/><path d="M12 7.8l1 2.9 2.9 1-2.9 1-1 2.9-1-2.9-2.9-1 2.9-1z" fill="currentColor" stroke="none"/>',
+      "org.qemu.QEMU": '<rect x="3" y="4.5" width="18" height="12" rx="2" fill="currentColor" fill-opacity=".16"/><rect x="6.5" y="7.3" width="8" height="6" rx="1"/><path d="M8.5 20.5h7M12 16.5v4"/>',
+      "org.hologram.HoloForge": '<path d="M14.5 4l5.5 5.5-3 3-5.5-5.5z" fill="currentColor" fill-opacity=".16"/><path d="M11.5 7l-7.5 7.5V18h3.5l7.5-7.5"/>',
+      "org.hologram.HoloBtc": '<circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".16"/><path d="M9.5 8h4.2a1.9 1.9 0 0 1 0 3.8H9.5zM9.5 11.8h4.6a1.9 1.9 0 0 1 0 3.8H9.5zM9.5 8v7.6M11 6.4v1.6M11 15.6v1.6M13 6.4v1.6M13 15.6v1.6"/>',
+      "org.hologram.HoloAtlas": '<circle cx="6.5" cy="7" r="1.9" fill="currentColor" fill-opacity=".16"/><circle cx="17.5" cy="9" r="1.9" fill="currentColor" fill-opacity=".16"/><circle cx="9.5" cy="17.5" r="1.9" fill="currentColor" fill-opacity=".16"/><circle cx="16.5" cy="16.5" r="1.9" fill="currentColor" fill-opacity=".16"/><path d="M8.3 7.5l7.4 1.2M7.4 8.6l1.4 7M11.3 17.2l3.3-.5M17.2 10.9l-.6 3.8"/>',
+      "org.hologram.HoloAtlas96": '<circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><ellipse cx="12" cy="12" rx="9" ry="3.6" fill="currentColor" fill-opacity=".16"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)"/>',
+      "org.hologram.HoloCapture": '<rect x="3" y="7" width="18" height="12" rx="2.4" fill="currentColor" fill-opacity=".16"/><path d="M8.5 7l1.4-2.5h4.2L15.5 7"/><circle cx="12" cy="13" r="3.3"/>',
+      "org.hologram.HoloGit": '<circle cx="7" cy="6.5" r="2" fill="currentColor" fill-opacity=".16"/><circle cx="7" cy="17.5" r="2" fill="currentColor" fill-opacity=".16"/><circle cx="17" cy="9" r="2" fill="currentColor" fill-opacity=".16"/><path d="M7 8.5v7M7 12h5a3 3 0 0 0 3-3v-.5"/>',
+      "org.hologram.QvacSdk": '<rect x="3.5" y="12" width="7" height="6.5" rx="1.2" fill="currentColor" fill-opacity=".16"/><rect x="13.5" y="12" width="7" height="6.5" rx="1.2"/><rect x="8.5" y="4.5" width="7" height="6.5" rx="1.2" fill="currentColor" fill-opacity=".16"/>',
+      "org.hologram.HoloTerms": '<path d="M12 3l7 3v5.5c0 4.2-3 7.2-7 9-4-1.8-7-4.8-7-9V6z" fill="currentColor" fill-opacity=".16"/><path d="M9 11.8l2.2 2.2L15.5 9.8"/>',
+      "org.hologram.HoloTube": '<rect x="3.5" y="6.5" width="17" height="12" rx="3" fill="currentColor" fill-opacity=".16"/><path d="M10.5 9.8l4.5 2.7-4.5 2.7z" fill="currentColor" stroke="none"/><path d="M9 3.5l3 3 3-3"/>',
+      "org.hologram.HoloControl": '<path d="M6 4v5M6 13v7M12 4v3M12 11v9M18 4v9M18 17v3"/><circle cx="6" cy="11" r="2" fill="currentColor" fill-opacity=".16"/><circle cx="12" cy="9" r="2" fill="currentColor" fill-opacity=".16"/><circle cx="18" cy="15" r="2" fill="currentColor" fill-opacity=".16"/>',
+      "org.hologram.HoloCodeDesktop": '<rect x="3" y="4.5" width="18" height="12" rx="2" fill="currentColor" fill-opacity=".16"/><path d="M9.5 7.6l-2.6 2.9 2.6 2.9M14.5 7.6l2.6 2.9-2.6 2.9"/><path d="M8.5 20.5h7M12 16.5v4"/>',
+      "org.hologram.HoloCosmos": '<circle cx="12" cy="11" r="4.5" fill="currentColor" fill-opacity=".16"/><ellipse cx="12" cy="11" rx="9.5" ry="3.4" transform="rotate(-22 12 11)"/>',
+      "org.hologram.HoloV86": '<rect x="3" y="5" width="18" height="13" rx="2" fill="currentColor" fill-opacity=".16"/><path d="M3 8.5h18"/><rect x="9.3" y="11" width="5.4" height="4.2" rx=".8"/>',
+      "org.hologram.HoloTrade": '<path d="M4 4v16h16"/><path d="M7 14.5l3.3-3.6 2.6 1.9 4.4-5.3"/><path d="M14.7 7h2.8v2.8"/>',
+      "org.hologram.HologramMeet": '<rect x="3.5" y="7" width="11" height="10" rx="2" fill="currentColor" fill-opacity=".16"/><path d="M14.5 11l5-2.6v7.2l-5-2.6z"/>',
+      "org.hologram.HoloJupyter": '<circle cx="12" cy="5.2" r="1.3" fill="currentColor" stroke="none"/><path d="M5 9.6c2 3.1 12 3.1 14 0M5 14.2c2 3.1 12 3.1 14 0"/><circle cx="6" cy="18.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="18" cy="18.4" r="1.1" fill="currentColor" stroke="none"/>',
+      "org.hologram.HoloMusic": '<circle cx="8" cy="17" r="2.2" fill="currentColor" fill-opacity=".16"/><circle cx="17" cy="15" r="2.2" fill="currentColor" fill-opacity=".16"/><path d="M10.2 17V7l9-2v10"/>',
+      "org.hologram.HoloWorkspace": '<rect x="3.5" y="5" width="17" height="14" rx="2" fill="currentColor" fill-opacity=".16"/><path d="M10 5v14"/><path d="M13.3 9.8l2.2 2.2-2.2 2.2"/>',
+      "did:holo:sha256:3dd559e0fd7c038589a1b3a650d6ad1ea46d03abfc224a1995bc6433e52af2f7": '<path d="M12 6.5C10 5.2 7 5.2 5 6.5v11c2-1.3 5-1.3 7 0 2-1.3 5-1.3 7 0v-11c-2-1.3-5-1.3-7 0z" fill="currentColor" fill-opacity=".16"/><path d="M12 6.5v11"/>',
+    };
+
     let _apps = null;
     async function catalogApps() {
       if (_apps) return _apps;
       let ds = [];
       try { ds = (await fetch("/apps/index.jsonld", { cache: "no-store" }).then((r) => r.json()))["dcat:dataset"] || []; } catch {}
-      _apps = ds.map((a) => ({ root: hexOf(a["@id"]), name: a["schema:name"] || "app", desc: a["schema:description"] || "", id: a["schema:identifier"] || "",
-        cat: a["schema:applicationCategory"] || "Utilities", keywords: a["schema:keywords"] || [], categories: a["holo:categories"] || [],
-        icon: a["schema:image"] ? "/" + String(a["schema:image"]).replace(/^\/+/, "") : "" }))   // root-absolute (catalog paths are root-relative)
-                .filter((a) => a.root && a.id !== "org.hologram.HoloSpaces");
+      _apps = ds.map((a) => { const id = a["schema:identifier"] || "";
+        const glyph = ICON_OVERRIDES[id] || null;   // the unified line-glyph body (currentColor) — inlined SHARP into the room (no raster)
+        const icon = glyph ? ICON_WRAP(glyph) : (a["schema:image"] ? "/" + String(a["schema:image"]).replace(/^\/+/, "") : "");   // data-URI form for <img> previews; else the app's own icon (root-absolute)
+        return { root: hexOf(a["@id"]), name: a["schema:name"] || "app", desc: a["schema:description"] || "", id,
+          cat: a["schema:applicationCategory"] || "Utilities", keywords: a["schema:keywords"] || [], categories: a["holo:categories"] || [], icon, glyph }; })
+                .filter((a) => a.root && a.id !== "org.hologram.HoloSpaces" && a.id !== "org.hologram.HoloOS");   // exclude Spaces (self) + the OS shell itself from the wall
       return _apps;
     }
 

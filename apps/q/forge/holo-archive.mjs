@@ -84,6 +84,32 @@ export function writeHolo(ggufBytes) {
   return { holo: out, rootHolo: didHolo("sha256", footHex), nBodies: uniq.length, nTensors: f.tensors.length, bytes: fileLen };
 }
 
+// ── generic archive writer ──
+// Seal ANY content into the same MAGIC HOLO v2 structure as writeHolo (so readHolo / openHoloStream /
+// makeKappaStore / the SW /.holo/sha256/<κ> route all read it unchanged) — used for non-GGUF κ-objects
+// like a LoRA adapter. Caller supplies the deduped κ-bodies + a metadata object (with order:[{name,kappa}])
+// + an optional extension payload. Footer = sha256(everything) = the archive's did:holo identity.
+export function writeHoloArchive({ meta, bodies, extKey = "holo.archive", extBytes = new Uint8Array(0) }) {
+  const enc = new TextEncoder();
+  const metaBytes = enc.encode(JSON.stringify(meta));
+  const extKeyBytes = enc.encode(extKey);
+  const extPayload = cat([u16(extKeyBytes.length), extKeyBytes, extBytes]);
+  const dirCount = bodies.length, dirBytes = 4 + dirCount * 48;
+  let bodyTotal = 0; for (const b of bodies) bodyTotal += b.bytes.length;
+  const sectionCount = 3, headSize = 4 + 2 + 2 + 2 + sectionCount * 17;
+  const extOff = headSize, metaOff = extOff + extPayload.length, weightsOff = metaOff + metaBytes.length;
+  const bodiesStart = weightsOff + dirBytes, fileLen = bodiesStart + bodyTotal + 32;
+  const out = new Uint8Array(fileLen), dv = new DataView(out.buffer);
+  let p = 0; out.set(MAGIC, p); p += 4; dv.setUint16(p, VERSION, true); p += 2; dv.setUint16(p, 0, true); p += 2; dv.setUint16(p, sectionCount, true); p += 2;
+  const sec = (kind, off, len) => { out[p] = kind; p += 1; dv.setBigUint64(p, BigInt(off), true); p += 8; dv.setBigUint64(p, BigInt(len), true); p += 8; };
+  sec(K.Extension, extOff, extPayload.length); sec(K.Metadata, metaOff, metaBytes.length); sec(K.Weights, weightsOff, dirBytes + bodyTotal);
+  out.set(extPayload, extOff); out.set(metaBytes, metaOff);
+  dv.setUint32(weightsOff, dirCount, true); let dp = weightsOff + 4, bo = bodiesStart;
+  for (const b of bodies) { out.set(HEX(b.kappa), dp); dp += 32; dv.setBigUint64(dp, BigInt(bo), true); dp += 8; dv.setBigUint64(dp, BigInt(b.bytes.length), true); dp += 8; out.set(b.bytes, bo); bo += b.bytes.length; }
+  const footHex = sha256hex(out.subarray(0, fileLen - 32)); out.set(HEX(footHex), fileLen - 32);
+  return { holo: out, footer: didHolo("sha256", footHex), bytes: fileLen };
+}
+
 // ── reader ──
 export function readHolo(bytes) {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

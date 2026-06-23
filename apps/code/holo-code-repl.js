@@ -99,7 +99,7 @@ export class REPL {
       case "share": return arg ? this.agent.send("share " + arg) : this._line("usage: /share &lt;path&gt;");
       case "receipt": return this._line(this._lastReceipt ? `session receipt <code>${esc(this._lastReceipt)}</code>` : "no receipt yet — run a tool");
       case "theme": { try { window.HoloUI && window.HoloUI.setAccent && window.HoloUI.setAccent(["#d97757", "#5eead4", "#7cc7ff", "#a78bfa", "#22c55e"][(this._ti = ((this._ti || 0) + 1) % 5)]); } catch {} return; }
-      case "vim": return this._line("vim mode: noted (key-handling is a follow-on)");
+      case "vim": return this._line("vim mode isn't available in this build.");
       default: return this._line(`unknown command <code>/${esc(cmd)}</code> — try <code>/help</code>`);
     }
   }

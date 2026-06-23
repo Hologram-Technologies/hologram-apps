@@ -8,11 +8,10 @@
 // `holo://os/…` exactly as it does over the browser dev server, but here there is no Chrome, no
 // CORS wall, and a real shell + filesystem underneath.
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use sha2::{Digest, Sha256};
+use kappa_route::{load_store, resolve, KStore};
 use tauri::http::{Request, Response};
 use tauri::{
     Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewBuilder,
@@ -20,14 +19,10 @@ use tauri::{
 };
 
 // ── the content-addressed store the κ-route serves ──────────────────────────────────────────────
-// A flat OS image (`dist/`, produced by ../make-dist.mjs) + its `os-closure.json` (path → did:holo
-// sha256 κ). The host re-derives each file's κ on read and refuses a mismatch (Law L5).
-struct KStore {
-    root: PathBuf,
-    // flat served path (e.g. "_shared/holo-dock.js") → expected sha256 hex (lower-case)
-    closure: HashMap<String, String>,
-}
-
+// A flat OS image (`dist/`, produced by ../make-dist.mjs) + its `os-closure.json` (path → did:holo κ,
+// DUAL-AXIS). The verification itself — re-derive both axes, refuse a mismatch or an unpinned byte
+// (Law L5 / SEC-1 / SEC-6) — lives in the engine-agnostic `kappa-route` crate (one audited verifier
+// for both this Tauri host and the CEF host to come). Here we just hold the loaded store.
 static STORE: OnceLock<KStore> = OnceLock::new();
 
 fn store() -> &'static KStore {
@@ -36,101 +31,10 @@ fn store() -> &'static KStore {
         let root = std::env::var("HOLO_OS_DIR").map(PathBuf::from).unwrap_or_else(|_| {
             std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("dist"))).unwrap_or_else(|| PathBuf::from("dist"))
         });
-        let mut closure = HashMap::new();
-        if let Ok(text) = std::fs::read_to_string(root.join("os-closure.json")) {
-            if let Ok(doc) = serde_json::from_str::<serde_json::Value>(&text) {
-                if let Some(map) = doc.get("closure").and_then(|c| c.as_object()) {
-                    for (path, v) in map {
-                        if let Some(k) = v.get("kappa").and_then(|x| x.as_str()) {
-                            if let Some(hex) = k.rsplit(':').next() {
-                                closure.insert(path.clone(), hex.to_ascii_lowercase());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        KStore { root, closure }
+        // Optional baked trust root: set HOLO_CLOSURE_ANCHOR=<sha256 of os-closure.json> at build time
+        // to fail closed on a swapped manifest. Unset → manifest trusted by path (pre-P5 behavior).
+        load_store(root, option_env!("HOLO_CLOSURE_ANCHOR").map(|s| s.to_string()))
     })
-}
-
-fn content_type(path: &str) -> &'static str {
-    match path.rsplit('.').next().unwrap_or("") {
-        "html" => "text/html; charset=utf-8",
-        "js" | "mjs" => "text/javascript; charset=utf-8",
-        "css" => "text/css; charset=utf-8",
-        "json" => "application/json; charset=utf-8",
-        "jsonld" => "application/ld+json; charset=utf-8",
-        "wasm" => "application/wasm",
-        "svg" => "image/svg+xml",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "webp" => "image/webp",
-        "ico" => "image/x-icon",
-        "woff2" => "font/woff2",
-        "woff" => "font/woff",
-        "ttf" => "font/ttf",
-        "webmanifest" => "application/manifest+json",
-        "txt" => "text/plain; charset=utf-8",
-        _ => "application/octet-stream",
-    }
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    h.finalize().iter().map(|b| format!("{:02x}", b)).collect()
-}
-
-// Normalize a requested path to the OS's ONE flat URL key — the same space the dev server and the
-// Pages Service Worker speak (os/lib/holo-fhs-map.mjs). Two rules matter here; the rest of the FHS
-// map is already baked into the flat `dist/` by make-dist.mjs:
-//   • drop the `os` root segment (Tauri exposes the URL host as a path prefix on some platforms);
-//   • collapse an app-relative `apps/<id>/_shared|pkg/…` ref to the top-level engine path — exactly
-//     fhsMap's `(?:apps/<id>/)?_shared/` rule — so it hits one engine copy AND its closure pin.
-fn flat_key(req_path: &str) -> String {
-    let mut rel = req_path.trim_start_matches('/').to_string();
-    if let Some(rest) = rel.strip_prefix("os/") {
-        rel = rest.to_string();
-    } else if rel == "os" {
-        rel = String::new();
-    }
-    if let Some(i) = rel.find("/_shared/") {
-        if rel.starts_with("apps/") {
-            rel = rel[i + 1..].to_string();
-        }
-    }
-    if let Some(i) = rel.find("/pkg/") {
-        if rel.starts_with("apps/") {
-            rel = rel[i + 1..].to_string();
-        }
-    }
-    rel
-}
-
-// resolve a `holo://os/<path>` request → verified bytes + mime, or an HTTP error code.
-fn resolve(req_path: &str) -> Result<(Vec<u8>, &'static str), u16> {
-    let st = store();
-    let mut rel = flat_key(req_path);
-    if rel.is_empty() {
-        rel = "apps/browser/index.html".into();
-    } else if rel.ends_with('/') {
-        rel.push_str("index.html");
-    }
-    // contain to the store root (no traversal).
-    let full = st.root.join(&rel);
-    if !full.starts_with(&st.root) || !full.is_file() {
-        return Err(404);
-    }
-    let bytes = std::fs::read(&full).map_err(|_| 404u16)?;
-    // Law L5 — re-derive the content address and verify it. Pinned files MUST match; unpinned
-    // (e.g. app bytes carried by their own lock, not the OS closure) pass through.
-    if let Some(expected) = st.closure.get(&rel) {
-        if &sha256_hex(&bytes) != expected {
-            return Err(403); // tampered byte → refuse
-        }
-    }
-    Ok((bytes, content_type(&rel)))
 }
 
 // ── deep links: hologram:// · web+hologram:// · holo:// → open the OS at that object ──────────────
@@ -378,10 +282,10 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol("holo", |_ctx, request: Request<Vec<u8>>, responder| {
             let path = request.uri().path().to_string();
             std::thread::spawn(move || {
-                let resp = match resolve(&path) {
+                let resp = match resolve(store(), &path) {
                     Ok((body, mime)) => Response::builder()
                         .status(200)
-                        .header("Content-Type", mime)
+                        .header("Content-Type", mime.to_str().unwrap_or("application/octet-stream"))
                         // cross-origin isolation so the OS's WASM engines (SharedArrayBuffer) run.
                         .header("Cross-Origin-Opener-Policy", "same-origin")
                         .header("Cross-Origin-Embedder-Policy", "credentialless")

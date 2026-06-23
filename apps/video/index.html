@@ -167,10 +167,16 @@
       });
       window.player = player;   // witness / automation handle (repo idiom)
 
+      // A single content-addressed object (mp4/webm) may be streamed through the holo-pull swarm:
+      // deadline-ordered, per-block L5-verified κ-pieces, reassembled, then played. Opt-in via ?swarm=1
+      // and only for a κ-addressed single object (HLS/DASH manifests already verify per-segment via the
+      // holo:// engine, so they take the direct path). Fully non-breaking: no ?swarm → byte-identical.
+      const isManifest = (s) => /m3u8|mpd|x-mpegURL|dash\+xml/i.test((s.type || "") + " " + (s.src || ""));
       function load(s, opts = {}) {
         source = { ...source, ...s };
         showKaddr(source.kappa);
         $("ver").textContent = ""; $("ver").className = "ver";
+        if (!opts._noSwarm && bool(params.get("swarm"), false) && source.kappa && !isManifest(source)) { loadViaSwarm(source, opts); return; }
         // Cross-origin streams (e.g. a remote 4K HLS ladder): fetch with CORS so the
         // segments load even on a cross-origin-isolated page (COEP require-corp), which
         // admits CORS responses. Same-origin content-addressed content needs none.
@@ -213,6 +219,39 @@
       }
       async function sha256(u8) { const d = await crypto.subtle.digest("SHA-256", u8);
         return "sha256:" + Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join(""); }
+
+      // ── swarm path: holo-pull streams the object as per-block L5-verified κ-pieces ──────────────
+      // The bridge (holo-pull-media.mjs) pulls every piece through the consume loop over a verify-on-
+      // receipt source (production: the mesh/swarm; the served object seeds it), reassembles, and hands
+      // back a playable Blob URL — or refuses (url:null) if any piece fails L5 / the declared κ mismatches.
+      // The object is verified BEFORE it reaches the decoder (no mismatched bytes ever play). The bridge
+      // is the same module witnessed in Node + the browser proof. If unavailable, fall back to direct.
+      async function loadViaSwarm(s, opts = {}) {
+        setState("loading", ""); showOverlay("Holo Video", "streaming + verifying κ-blocks…");
+        try {
+          const M = await import("/_shared/holo-pull-media.mjs");   // absolute virtual FHS alias → usr/lib/holo (depth-independent; matches control/hub/qvac)
+          const res = await M.playableFromSwarm(
+            async () => new Uint8Array(await (await fetch(s.src, { cache: "no-store" })).arrayBuffer()),
+            { type: s.type || "video/mp4", want: s.kappa || "" });
+          if (window.HoloTeleport && s.kappa) HoloTeleport.stamp(s.kappa);
+          if (!res.url) {                                  // a piece failed L5, or the whole object ≠ its κ
+            $("ver").textContent = "✗ κ mismatch refused"; $("ver").className = "ver bad";
+            showOverlay("Refused", "content does not match its hash (Law L5)", true); setState("refused", "off");
+            return;
+          }
+          $("ver").textContent = "✓ κ verified · swarm"; $("ver").className = "ver ok";
+          try { player.crossOrigin(null); } catch {}
+          player.src({ src: res.url, type: s.type || "video/mp4" });
+          if (params.get("poster") || opts.poster) player.poster(params.get("poster") || opts.poster);
+          player.muted(bool(params.get("muted"), true));
+          player.loop(bool(params.get("loop"), false));
+          if (bool(params.get("autoplay") ?? opts.autoplay, true))
+            player.play().catch(() => { setState("paused", ""); showOverlay("Ready", "press play"); });
+        } catch (e) {                                      // bridge missing / fetch failed → direct path
+          toast("swarm path unavailable — direct play");
+          load(s, { ...opts, _noSwarm: true });
+        }
+      }
 
       // ── chrome wiring ──────────────────────────────────────────────────────────
       const fmtRes = () => { const w = player.videoWidth?.() || 0, h = player.videoHeight?.() || 0;

@@ -1,0 +1,3 @@
+// holo.rc — embed the Hologram mark as the app/window icon. Icon ID 1 is the lowest, so the Windows
+// shell uses it for the exe (taskbar, Alt-Tab, Explorer) and Chromium uses it as the default window icon.
+1 ICON "holo.ico"

@@ -30,7 +30,8 @@
   "shared": [
     "holo-theme.css",
     "holo-mobile.css",
-    "holo-phi.css"
+    "holo-phi.css",
+    "holo-play-gpu.js"
   ],
   "engines": [],
   "description": [

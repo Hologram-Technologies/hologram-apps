@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Holo Test Extension",
+  "version": "1.0",
+  "description": "Proves Chrome extensions load+run in the Hologram native Chromium host.",
+  "content_scripts": [
+    { "matches": ["https://example.com/*"], "js": ["c.js"], "run_at": "document_end" }
+  ]
+}

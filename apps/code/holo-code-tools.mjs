@@ -212,10 +212,11 @@ export const TOOLS = {
     summary: "Delegate a sub-task to a sub-agent (composes Holo Orchestrate).",
     params: { goal: "string" },
     async run({ goal }) {
-      // The sub-agent seam: a delegated unit of work becomes a step in the session's PROV-O receipt
-      // and, when the full stack is live, a node in a Holo Orchestrate execution DAG (ADR-0045),
-      // authorized by a Holo Delegate UCAN (ADR-042). Dormant in v1 — surfaced, not faked.
-      return { ok: true, text: `sub-agent goal recorded: "${goal}". Live delegation composes Holo Orchestrate + Delegate (wired, dormant in v1).`, meta: { delegated: true, goal } };
+      // Live delegation = a node in a Holo Orchestrate execution DAG (ADR-0045) authorized by a Holo
+      // Delegate UCAN (ADR-042). That stack is NOT wired in this build, so we decline honestly: ok:false
+      // and NO delegated-success step is sealed. Reporting ok:true here would forge a receipt for work
+      // that never ran (simulation) — forbidden. When Orchestrate is live, run it here and seal the DAG node.
+      return { ok: false, text: `Sub-agent delegation isn't available in this build (needs Holo Orchestrate + Delegate). Goal not run: "${goal}".` };
     },
   },
   // ── SELF-EVOLVING SKILLS (agentskills.io-compatible, UOR-sealed; the Hermes closed loop) ──

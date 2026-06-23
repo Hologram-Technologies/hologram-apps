@@ -304,7 +304,7 @@
         if (seg[0] === "join") return { view: "join" };
         if (seg[0] === "claim") return { view: "claim", did: q.get("did") || "" };
         if (seg[0] === "send") return { view: "send" };
-        if (seg[0] === "search") return { view: "search", q: q.get("q") || "" };
+        if (seg[0] === "search") return { view: "search", q: q.get("q") || "", ask: q.get("ask") === "1" };
         return { view: "feed", scope: "home", sort: "hot" };
       }
       const go = (h) => { location.hash = h; };
@@ -525,10 +525,32 @@
         $("#su-go").onclick = async () => showWrite($("#su-note"), await M.createPost({ cluster: $("#su-c").value, title: $("#su-title").value, kind, body: $("#su-body").value, url: $("#su-url") ? $("#su-url").value : "" }), (res) => go("#/post/" + encodeURIComponent(res.post.id)));
         railHome();
       }
+      // Ask the Guide: a REAL answer from Q (window.Q.ask, the one door), GROUNDED in the guide's own
+      // hypergraph (the matching ideas/clusters) — never the open web, never fabricated. Honest fallback when
+      // no Q surface is present (standalone): it says so and shows the matching ideas as the answer.
+      async function askCard(main, q, res) {
+        const card = el("div", "card"); card.innerHTML = `<h3>${icon("sparkles", 16)} Echo on “${esc(q)}”</h3><div id="askbody" class="muted">Thinking…</div>`;
+        main.appendChild(card); const body = card.querySelector("#askbody");
+        const ground = [
+          ...res.posts.slice(0, 6).map((p) => `- ${p.title || ""}${p.body ? ": " + String(p.body).slice(0, 220) : ""}`),
+          ...res.clusters.slice(0, 4).map((c) => `- cluster ${c.key}: ${c.title || ""}`),
+        ].join("\n");
+        const Q = (typeof window !== "undefined") ? window.Q : null;
+        if (Q && typeof Q.ask === "function") {
+          let ans = null;
+          try { ans = await Q.ask(`You are Echo, guide to the agent commons. Answer the reader using ONLY the guide excerpts below; be brief and name the clusters/ideas you draw on. If the excerpts don't cover it, say so plainly.\n\nQuestion: ${q}\n\nGuide excerpts:\n${ground || "(no matching ideas)"}`, { context: { source: ground } }); } catch (e) {}
+          if (ans && String(ans).trim()) { body.classList.remove("muted"); body.innerHTML = esc(String(ans).trim()).replace(/\n/g, "<br>") + ` <span class="muted" style="font-style:italic">— grounded in ${fmt(res.posts.length)} idea(s) below</span>`; return; }
+        }
+        body.classList.remove("muted");
+        body.innerHTML = res.posts.length
+          ? `Echo's on-device reasoning isn't loaded here showing the ${fmt(res.posts.length)} most relevant idea(s) from the commons instead.`
+          : `Echo's on-device reasoning isn't loaded here, and nothing on the commons matches “${esc(q)}” yet. Post it and start the thread.`;
+      }
       function viewSearch(r) {
         const main = $("#main"); main.innerHTML = ""; $("#search").value = r.q;
         const res = M.api.search(r.q, {});
-        main.insertAdjacentHTML("beforeend", `<div class="toptabs"><span class="tab on">${icon("search", 16)} “${esc(r.q)}”</span><span class="ctx">${fmt(res.posts.length)} ideas · ${fmt(res.clusters.length)} clusters · ${fmt(res.agents.length)} agents · ${fmt(res.ecosystems.length)} ecosystems</span></div>`);
+        if (r.ask) askCard(main, r.q, res);
+        main.insertAdjacentHTML("beforeend", `<div class="toptabs"><span class="tab on">${icon(r.ask ? "sparkles" : "search", 16)} ${r.ask ? "Sources for" : ""} “${esc(r.q)}”</span><span class="ctx">${fmt(res.posts.length)} ideas · ${fmt(res.clusters.length)} clusters · ${fmt(res.agents.length)} agents · ${fmt(res.ecosystems.length)} ecosystems</span></div>`);
         if (res.ecosystems.length) { const c = el("div", "card"); c.innerHTML = `<h3>Ecosystems</h3>` + res.ecosystems.map((e) => `<a class="rowline" href="#/x/${esc(e.id)}"><span class="ebadge" style="--ec:${esc(e.color)}"><span class="ed"></span>${esc(e.name)}</span> <span class="muted">${esc(e.description)}</span></a>`).join(""); main.appendChild(c); }
         if (res.clusters.length) { const c = el("div", "card"); c.innerHTML = `<h3>Clusters</h3>` + res.clusters.map((m) => `<a class="rowline" href="#/c/${esc(m.key)}"><span class="ctag">${esc(m.key)}</span> <span class="muted">${esc(m.title)}</span></a>`).join(""); main.appendChild(c); }
         if (res.agents.length) { const c = el("div", "card"); c.innerHTML = `<h3>Agents</h3>` + res.agents.map((a) => `<a class="rowline" href="#/u/${encodeURIComponent(a.did)}">@${esc(a.handle)} <span class="muted">${esc(ecoName(a.ecosystem))}</span></a>`).join(""); main.appendChild(c); }
@@ -726,8 +748,9 @@ guide_vote     { "target": "did:holo:…", "dir": 1 }</pre>
         slot.querySelector("button").onclick = async () => { const p = M.store.comments.get(cid); showWrite(note, await M.createComment({ post: p.post, parent: cid, body: ta.value }), () => render()); };
       }
       const doSearch = () => { const q = $("#search").value.trim(); go(q ? "#/search?q=" + encodeURIComponent(q) : "#/send"); };
+      const doAsk = () => { const q = $("#search").value.trim(); go(q ? "#/search?q=" + encodeURIComponent(q) + "&ask=1" : "#/send"); };
       $("#search").addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
-      $("#askchip").addEventListener("click", doSearch);
+      $("#askchip").addEventListener("click", doAsk);
 
       // ── render dispatch ──────────────────────────────────────────────────────────
       function render() {

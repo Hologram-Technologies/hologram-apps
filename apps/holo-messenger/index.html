@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Holo Messenger</title>
+  <meta name="description" content="Every messenger, one inbox. Real messages from every platform, streamed in real time, each a self-verifying κ — instantly familiar like WhatsApp." />
+  <style>
+    /* Signal-Desktop design language (dark theme): ultramarine accent, sent-bubble blue,
+       received-bubble gray — the closest open-source mirror of WhatsApp's familiar layout. */
+    :root {
+      color-scheme: dark;
+      --bg: #121212; --panel: #1b1b1b; --panel2: #2a2a2a; --hover: #2c2c2c;
+      --line: #2c2c2c; --ink: #e9e9eb; --dim: #8e8e93; --accent: #2c6bed;   /* Signal ultramarine */
+      --in: #2a2a2a; --out: #2c6bed; --chatbg: #121212;
+      --mono: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+      --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--sans); overflow: hidden;
+      display: grid; grid-template-columns: minmax(300px, 30%) 1fr; }
+    button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+    .mono { font-family: var(--mono); }
+    ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: #374248; border-radius: 99px; }
+
+    /* ── LEFT: the unified inbox (chat list) ───────────────────────────────── */
+    #left { background: var(--panel); border-right: 1px solid var(--line); display: grid; grid-template-rows: auto auto 1fr; min-height: 0; }
+    #brand { display: flex; align-items: center; gap: .6rem; padding: .8rem 1rem; background: var(--panel2); }
+    #brand .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; color: #062; font-weight: 800; }
+    #brand .logo svg { width: 18px; height: 18px; }
+    #brand h1 { font-size: 1.05rem; font-weight: 700; margin: 0; letter-spacing: .2px; }
+    #brand .sub { color: var(--dim); font-size: .72rem; margin-left: auto; text-align: right; line-height: 1.2; }
+    #search { padding: .5rem .75rem; background: var(--panel); }
+    #search input { width: 100%; background: var(--panel2); border: 0; border-radius: 99px; color: var(--ink);
+      padding: .5rem .9rem; font-size: .9rem; outline: none; }
+    #chats { overflow: auto; min-height: 0; }
+    .chat { display: grid; grid-template-columns: 46px 1fr auto; gap: .7rem; align-items: center;
+      padding: .65rem 1rem; cursor: pointer; border-bottom: 1px solid #1a242c; }
+    .chat:hover { background: var(--hover); }
+    .chat.active { background: var(--panel2); }
+    .chat .avatar { width: 46px; height: 46px; border-radius: 50%; background: #3b4a54; display: grid; place-items: center;
+      font-weight: 700; font-size: 1.1rem; position: relative; }
+    .chat .avatar .plat { position: absolute; right: -2px; bottom: -2px; font-size: .8rem; filter: drop-shadow(0 0 1px #000); }
+    .chat .who { min-width: 0; }
+    .chat .who .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat .who .last { color: var(--dim); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat .meta { text-align: right; color: var(--dim); font-size: .7rem; display: grid; gap: .25rem; justify-items: end; }
+    .chat .meta .badge { background: var(--accent); color: #fff; border-radius: 99px; min-width: 18px; height: 18px; padding: 0 5px;
+      font-size: .7rem; font-weight: 700; display: inline-grid; place-items: center; }
+
+    /* ── RIGHT: the open conversation ──────────────────────────────────────── */
+    #right { display: grid; grid-template-rows: auto 1fr auto; min-height: 0;
+      background: var(--chatbg);
+      background-image: linear-gradient(rgba(11,20,26,.94), rgba(11,20,26,.94)); }
+    #thead { display: flex; align-items: center; gap: .7rem; padding: .6rem 1rem; background: var(--panel2); border-left: 1px solid var(--line); }
+    #thead .avatar { width: 40px; height: 40px; border-radius: 50%; background: #3b4a54; display: grid; place-items: center; font-weight: 700; }
+    #thead .t { min-width: 0; }
+    #thead .t .name { font-weight: 600; }
+    #thead .t .status { color: var(--dim); font-size: .76rem; }
+    #thead .verified { margin-left: auto; color: var(--accent); font-size: .74rem; display: inline-flex; align-items: center; gap: .35rem; }
+    #stream { overflow: auto; min-height: 0; padding: 1.1rem 8% 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+    .bubble { max-width: 65%; padding: .5rem .75rem .55rem; border-radius: 18px; position: relative; width: fit-content;
+      box-shadow: 0 1px .5px rgba(0,0,0,.18); font-size: .94rem; }
+    .bubble.in { background: var(--in); align-self: flex-start; border-bottom-left-radius: 4px; }
+    .bubble.out { background: var(--out); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .bubble.out .sender { color: #cfe0ff; } .bubble.out .time { color: #cdddff; } .bubble.out .kap { color: #b9cdf6; }
+    .bubble .sender { color: var(--accent); font-size: .78rem; font-weight: 600; margin-bottom: .1rem; }
+    .bubble .text { white-space: pre-wrap; word-break: break-word; }
+    .bubble .foot { display: flex; align-items: center; gap: .4rem; justify-content: flex-end; margin-top: .12rem; }
+    .bubble .time { color: var(--dim); font-size: .68rem; }
+    .bubble .kap { color: #5b7283; font-size: .62rem; font-family: var(--mono); cursor: pointer; opacity: .8; }
+    .bubble .kap:hover { color: var(--accent); }
+    .bubble .tick { color: #cdddff; font-size: .7rem; }
+    .bubble .lock { font-size: .66rem; }
+    #dayline { align-self: center; background: var(--panel2); color: var(--dim); font-size: .7rem; padding: .2rem .7rem; border-radius: 99px; margin: .2rem 0 .4rem; }
+    #composer { display: flex; align-items: center; gap: .6rem; padding: .55rem .9rem; background: var(--panel2); }
+    #composer input { flex: 1; background: var(--panel); border: 0; border-radius: 99px; color: var(--ink); padding: .65rem 1rem; outline: none; }
+    #composer .send { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 1.2rem; }
+    #composer .send:disabled { opacity: .4; }
+
+    /* ── live + integrity affordances (quiet, glanceable) ──────────────────── */
+    #live { display: flex; gap: .4rem; align-items: center; padding: .35rem .9rem; background: var(--panel); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    #live .pill { font-size: .72rem; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: .2rem .6rem; }
+    #live .pill:hover { color: var(--accent); border-color: var(--accent); }
+    #live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+    #live .grow { margin-left: auto; color: var(--dim); font-size: .7rem; }
+    #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #3a1f24; color: #ffb4b4;
+      border: 1px solid #6b2c34; border-radius: 8px; padding: .5rem .9rem; font-size: .82rem; opacity: 0; transition: opacity .25s; pointer-events: none; }
+    #toast.show { opacity: 1; }
+    .empty { color: var(--dim); margin: auto; text-align: center; }
+  </style>
+</head>
+<body>
+  <aside id="left">
+    <div id="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><path fill="#fff" d="M32 14c-10.5 0-19 6.9-19 15.4 0 4.7 2.6 8.9 6.7 11.7-.3 2.2-1.3 4.6-3.1 6.6-.5.6-.1 1.5.7 1.4 3.9-.5 7-2 9.2-3.6 1.8.4 3.6.6 5.5.6 10.5 0 19-6.9 19-15.4S42.5 14 32 14z"/><g fill="#2c6bed"><circle cx="24" cy="29.4" r="2.6"/><circle cx="32" cy="29.4" r="2.6"/><circle cx="40" cy="29.4" r="2.6"/></g></svg>
+      </span>
+      <h1>Holo Messenger</h1>
+      <span class="sub">every messenger<br/>one inbox</span>
+    </div>
+    <div id="search"><input id="q" placeholder="Search or start a chat" /></div>
+    <div id="chats"></div>
+  </aside>
+
+  <main id="right">
+    <header id="thead"><div class="avatar" id="thAvatar">·</div><div class="t"><div class="name" id="thName">Select a chat</div><div class="status" id="thStatus"></div></div><span class="verified" id="thVerified"></span></header>
+    <div id="live">
+      <span class="dot" title="live"></span>
+      <button class="pill" id="simIn">▶ Simulate incoming</button>
+      <button class="pill" id="simTamper">✕ Simulate tampered</button>
+      <button class="pill" id="share">⤴ Share thread</button>
+      <span class="grow" id="grow"></span>
+    </div>
+    <div id="stream"><div class="empty">Your unified inbox. Pick a conversation.</div></div>
+    <footer id="composer"><input id="msg" placeholder="Type a message" disabled /><button class="send" id="send" disabled>➤</button></footer>
+  </main>
+  <div id="toast"></div>
+
+  <script type="module">
+    // ── the substrate, reused whole — capture → conversation chain → live stream ──
+    import { ADAPTERS, resolveAdapter, captureRow } from "/usr/lib/holo/holo-bridge-adapters.mjs";
+    import { conversationGenesis, makeThread } from "/usr/lib/holo/holo-messenger-thread.mjs";
+    import { frameMessage, makePublisher, makeSubscriber } from "/usr/lib/holo/holo-messenger-transport.mjs";
+    import { mint } from "/usr/lib/holo/holo-pluck.mjs";
+    import { makeSender } from "/usr/lib/holo/holo-messenger-send.mjs";
+    import { buildStepUp } from "/usr/lib/holo/holo-stepup.mjs";
+    import { addressOf } from "/usr/lib/holo/holo-identity.mjs";
+    import { newEpoch, sealMessage, openMessage, unwrapEpochKey } from "/usr/lib/holo/holo-messenger-epoch.mjs";
+    import { makeSecureLink } from "/usr/lib/holo/holo-messenger-secure.mjs";
+    import { kemKeygen } from "/usr/lib/holo/holo-pqc.mjs";
+    import { threadAddress, resolveThreadWords, shareThreadPayload, shareLinkFor, decodeShareLink, mountSharedThread } from "/usr/lib/holo/holo-messenger-share.mjs";
+    import { defaultWordlist } from "/usr/lib/holo/holo-words.mjs";
+
+    const glyphFor = (id) => (ADAPTERS.find((a) => a.id === id) || {}).glyph || "💬";
+    const labelFor = (id) => (ADAPTERS.find((a) => a.id === id) || {}).label || id;
+    const now = () => new Date().toISOString();
+    const hhmm = (iso) => { try { const d = new Date(iso); return isNaN(d) ? iso : `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; } catch { return iso; } };
+
+    // ── operator identity for SENDING (authorship + TEE step-up subject) ──
+    // Production binds this to the enrolled operator + a WebAuthn/TEE biometric (holo-stepup
+    // .requireStepUp). In this standalone preview we generate an in-page sovereign principal so a
+    // send is genuinely consent-gated by a signature over the action κ — honest: cryptographically
+    // gated, the biometric presence is the production upgrade. If keygen is unavailable, operator
+    // stays null and the composer sends ungated local-echo (clearly not a TEE-gated send).
+    let principal = null, operator = null, gate = null, wordlist = null, kem = null;
+    async function initIdentity() {
+      try {
+        const SUB = crypto.subtle, te = new TextEncoder(), b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
+        let kp, alg = "Ed25519";
+        try { kp = await SUB.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]); }
+        catch { alg = "ECDSA"; kp = await SUB.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]); }
+        const pub = new Uint8Array(await SUB.exportKey("raw", kp.publicKey));
+        operator = await addressOf(pub);
+        principal = { kappa: operator, alg, pub: b64(pub),
+          async sign(s) { const u = typeof s === "string" ? te.encode(s) : s; return b64(await SUB.sign(alg === "Ed25519" ? { name: "Ed25519" } : { name: "ECDSA", hash: "SHA-256" }, kp.privateKey, u)); } };
+        kem = kemKeygen();                                 // hybrid X25519‖ML-KEM-1024 identity for PQ epoch wrapping
+        // The gate signs a step-up over the action κ with the in-page sovereign principal.
+        // PRODUCTION swaps in holo-stepup.requireStepUp (WebAuthn/TEE) here — a one-line change.
+        // NOTE: we do NOT eagerly import requireStepUp in this preview: its transitive wallet/TON
+        // bundle installs an incomplete global Buffer polyfill that breaks holo-pluck base64url
+        // mints page-wide. Surfaced as a finding; the production host resolves that polyfill.
+        gate = async (action) => buildStepUp(action, principal);
+      } catch (e) { principal = null; operator = null; gate = null; kem = null; }
+    }
+    // the platform delivery seam — in a real platform tab this injects compose+send (Phase 7);
+    // standalone it is honest local-echo, never a faked remote send.
+    const localDeliver = async () => ({ ok: true, note: "local-echo (preview; platform inject = Phase 7)" });
+
+    // a conversation = { meta, thread, sender }. Operator-signed when an identity is present.
+    function makeConversation(meta) {
+      const genesis = conversationGenesis(meta);
+      const thread = makeThread({ genesis, now, signer: principal });
+      const sender = makeSender({ thread, operator, stepUp: gate, deliver: localDeliver, now });
+      return { meta: { ...meta, genesis }, thread, sender };
+    }
+
+    // ── seed: a few real conversations across platforms, with genuinely plucked κ messages ──
+    const SEED = [
+      { meta: { platform: "whatsapp", chat: "Ilya" }, msgs: [
+        { text: "The future is light photonics. HOLOGRAM.", sender: "Ilya", sentAt: "08:31" },
+        { text: "On it — wiring the unified inbox now.", sender: "Me", sentAt: "08:32" },
+        { text: "Make it feel like WhatsApp. Instantly familiar.", sender: "Ilya", sentAt: "08:33" },
+      ] },
+      { meta: { platform: "telegram", chat: "Hologram Devs" }, msgs: [
+        { text: "gm — strand layer is green ✅", sender: "Bob", sentAt: "09:00" },
+        { text: "29/29 across capture, chain, transport.", sender: "Me", sentAt: "09:01" },
+      ] },
+      { meta: { platform: "discord", chat: "#general" }, msgs: [
+        { text: "ship it 🚀", sender: "carol", sentAt: "09:14" },
+      ] },
+      { meta: { platform: "slack", chat: "#eng" }, msgs: [
+        { text: "deploy is green", sender: "Dave", sentAt: "09:20" },
+        { text: "verify-before-render holding at the edge.", sender: "Me", sentAt: "09:21" },
+      ] },
+    ];
+
+    const convos = [];
+    let active = null;
+
+    async function boot() {
+      await initIdentity();
+      try { wordlist = await defaultWordlist(); } catch { wordlist = null; }   // three-word addresses (verified resolve)
+      for (const s of SEED) {
+        const c = makeConversation(s.meta);
+        for (const m of s.msgs) await c.thread.ingest({ ...m, chat: s.meta.chat, source: "web." + s.meta.platform + ".com" });
+        convos.push(c);
+      }
+      // per-conversation POST-QUANTUM epoch: a key wrapped to this device (member), sealing the live stream
+      const member = { kappa: operator || "did:holo:member:me", pub: kem && kem.pub, sk: kem && kem.sk };
+      for (const c of convos) {
+        try { c.epoch = await newEpoch({ genesis: c.meta.genesis, members: [member] }); c.epochKey = await unwrapEpochKey(c.epoch.meta, member); }
+        catch (e) { c.epoch = null; c.epochKey = null; }
+      }
+      renderChats();
+      openConversation(convos[0]);
+      wireLive();
+      window.__M = api;                       // verification hook
+      document.documentElement.setAttribute("data-holo-messenger-ready", "1");
+    }
+
+    function renderChats(filter = "") {
+      const host = document.getElementById("chats");
+      host.innerHTML = "";
+      for (const c of convos) {
+        const row = c.thread.summarize(c.meta);
+        if (filter && !(c.meta.chat.toLowerCase().includes(filter) || row.lastText.toLowerCase().includes(filter))) continue;
+        const el = document.createElement("div");
+        el.className = "chat" + (active && active.meta.genesis === c.meta.genesis ? " active" : "");
+        el.innerHTML = `
+          <div class="avatar">${c.meta.chat.replace(/[^A-Za-z0-9]/g,"").slice(0,1).toUpperCase() || "#"}<span class="plat" title="${labelFor(c.meta.platform)}">${glyphFor(c.meta.platform)}</span></div>
+          <div class="who"><div class="name">${esc(c.meta.chat)}</div><div class="last">${esc(row.lastSender ? (row.lastSender === "Me" ? "You: " : "") : "")}${esc(row.lastText)}</div></div>
+          <div class="meta"><span>${esc(hhmm(row.lastSentAt))}</span>${row.count ? `<span class="badge">${row.count}</span>` : ""}</div>`;
+        el.onclick = () => openConversation(c);
+        host.appendChild(el);
+      }
+    }
+
+    function openConversation(c) {
+      active = c;
+      document.getElementById("thName").textContent = c.meta.chat;
+      const addr = wordlist ? threadAddress(c.meta.genesis, wordlist) : null;
+      document.getElementById("thStatus").textContent = `${labelFor(c.meta.platform)} ${glyphFor(c.meta.platform)} · ${addr ? addr.words : c.meta.genesis.slice(0,18) + "…"}`;
+      document.getElementById("thAvatar").textContent = c.meta.chat.replace(/[^A-Za-z0-9]/g,"").slice(0,1).toUpperCase() || "#";
+      document.getElementById("msg").disabled = false;
+      document.getElementById("send").disabled = false;
+      renderStream();
+      renderChats(document.getElementById("q").value.trim().toLowerCase());
+    }
+
+    function renderStream() {
+      const host = document.getElementById("stream");
+      const msgs = active.thread.view();                  // view() already drops anything that fails L5 (verify-before-render)
+      const consentSet = new Set(active.thread.replay({ kind: "message.consent" }).map((n) => n["holstr:payload"]["holo:message"]));
+      host.innerHTML = `<div id="dayline">today</div>`;
+      for (const m of msgs) {
+        const out = m.sender === "Me";
+        const gated = out && consentSet.has(m.kappa);
+        const el = document.createElement("div");
+        el.className = "bubble " + (out ? "out" : "in");
+        el.innerHTML = `
+          ${!out && m.sender ? `<div class="sender">${esc(m.sender)}</div>` : ""}
+          <div class="text">${esc(m.text)}</div>
+          <div class="foot"><span class="kap mono" title="${esc(m.kappa)}">κ ${esc(m.short)}</span><span class="time">${esc(hhmm(m.sentAt))}</span>${gated ? `<span class="lock" title="TEE step-up — consent bound to this message κ">🔒</span>` : ""}${out ? `<span class="tick">✓✓</span>` : ""}</div>`;
+        el.querySelector(".kap").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(m.kappa).catch(()=>{}); flashVerified(); };
+        host.appendChild(el);
+      }
+      host.scrollTop = host.scrollHeight;
+      document.getElementById("thVerified").innerHTML = `<span class="dot" style="width:7px;height:7px"></span> ${msgs.length} verified`;
+      document.getElementById("grow").textContent = `${convos.reduce((n,c)=>n+c.thread.length(),0)} messages · all re-derived`;
+    }
+
+    // ── the live stream: a content-blind publisher → the inbox subscriber verifies → renders ──
+    // (standalone, the publisher stands in for a platform tab; same transport + reception code) ──
+    let channelSend = () => {}, lastWire = null;
+    function wireLive() {
+      const receivers = new Set();
+      channelSend = (frame) => { lastWire = frame; receivers.forEach((r) => r(frame)); };   // in-page channel (a tab uses BroadcastChannel)
+      for (const c of convos) {
+        // the live stream is SEALED: incoming is opened under the conversation's PQ epoch key,
+        // re-verified, then ingested. The wire carries ciphertext; a relay sees no plaintext.
+        c.secure = makeSecureLink({
+          genesis: c.meta.genesis, epoch: c.epoch, epochKey: c.epochKey, thread: c.thread, send: channelSend,
+          onRender: () => { if (active && active.meta.genesis === c.meta.genesis) renderStream(); renderChats(document.getElementById("q").value.trim().toLowerCase()); },
+          onRefused: () => toast("Message refused — couldn't verify/decrypt (not shown)"),
+        });
+        receivers.add((frame) => c.secure.receive(frame));
+      }
+      // PRODUCTION capture: listen on the real BroadcastChannel the native CEF platform-tab inject
+      // (holo-messenger-capture-boot.js) publishes to. A captured message is a verified κ frame; we
+      // mount it verify-before-trust and ingest into the matching conversation. Dormant in preview
+      // (no platform tab posts here), live once the Phase-7 inject filter is built.
+      try {
+        const capBC = new BroadcastChannel("holo-messenger");
+        const capSub = makeSubscriber({
+          topics: convos.map((c) => c.meta.genesis),
+          onMessage: async ({ genesis, object }) => {
+            const c = convos.find((x) => x.meta.genesis === genesis); if (!c) return;
+            await c.thread.ingestObject(object);
+            if (active && active.meta.genesis === genesis) renderStream();
+            renderChats(document.getElementById("q").value.trim().toLowerCase());
+          },
+        });
+        capBC.onmessage = (e) => { try { capSub.receive(e.data); } catch (err) {} };
+      } catch (e) {}
+    }
+
+    function simulateIncoming() {
+      if (!active || !active.secure) return;
+      const obj = mint({ text: pickIncoming(), sender: active.meta.chat.replace(/^#/, "") || "Them", sentAt: now(), chat: active.meta.chat, source: "web." + active.meta.platform + ".com" }).object;
+      active.secure.publishSecure(obj);                   // sealed under the epoch → ciphertext on the channel
+    }
+    function simulateTampered() {
+      if (!active) return;
+      // inject a frame NOT sealed under our epoch (a valid κ but a plaintext message) → the secure
+      // inbox refuses to open it (fail-closed); it never renders.
+      const obj = mint({ text: "TAMPERED — injected, not sealed under our epoch", sender: "attacker", sentAt: now(), chat: active.meta.chat, source: "spoof" }).object;
+      channelSend(frameMessage(active.meta.genesis, obj));
+    }
+
+    const INCOMING = ["typing…done. looks great 👌","love the verified κ on each bubble","this feels exactly like WhatsApp","real-time and serverless — magical","that refused the spoof instantly 🔒"];
+    let ix = 0; const pickIncoming = () => INCOMING[(ix++) % INCOMING.length];
+
+    async function sendMessage() {
+      const input = document.getElementById("msg"); const text = input.value.trim(); if (!text || !active) return;
+      input.value = "";
+      // route through the GATED sender: mint → TEE step-up (bound to the message κ) → deliver → echo one verified κ
+      const r = await active.sender.send({ text, chat: active.meta.chat, platform: active.meta.platform }, { nowMs: Date.now() });
+      if (!r.sent) toast("Not sent — " + (r.why || "unknown"));
+      else if (r.gated) toast("Sent — TEE step-up bound to this message 🔒");
+      renderStream(); renderChats(document.getElementById("q").value.trim().toLowerCase());
+    }
+
+    // ── small helpers ──
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+    function toast(t) { const el = document.getElementById("toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2200); }
+    function flashVerified() { const v = document.getElementById("thVerified"); const o = v.textContent; v.textContent = "κ copied ✓"; setTimeout(() => renderStream(), 900); }
+
+    document.getElementById("q").addEventListener("input", (e) => {
+      const val = e.target.value.trim();
+      // typing a thread's three words jumps straight to it (verified resolve, L5)
+      if (wordlist && /^[a-z]+\.[a-z]+\.[a-z]+$/i.test(val)) {
+        const hit = resolveThreadWords(val.toLowerCase(), convos, wordlist);
+        if (hit.length === 1) { const c = convos.find((x) => x.meta.genesis === hit[0].kappa); if (c) { openConversation(c); return; } }
+      }
+      renderChats(val.toLowerCase());
+    });
+    document.getElementById("share").addEventListener("click", async () => {
+      if (!active) return;
+      const p = shareThreadPayload(active.thread, { genesis: active.meta.genesis, platform: active.meta.platform, chat: active.meta.chat, wordlist });
+      const link = location.origin + shareLinkFor(p, "/apps/holo-messenger/shared.html");
+      try { await navigator.clipboard.writeText(link); } catch {}
+      const a = wordlist ? threadAddress(active.meta.genesis, wordlist) : null;
+      toast("Read-only link copied — " + (a ? a.words : "this thread") + " · attenuated to one thread");
+    });
+    document.getElementById("send").addEventListener("click", sendMessage);
+    document.getElementById("msg").addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+    document.getElementById("simIn").addEventListener("click", simulateIncoming);
+    document.getElementById("simTamper").addEventListener("click", simulateTampered);
+
+    // ── verification API (driven by the preview harness) ──
+    const api = {
+      conversations: () => convos.map((c) => ({ ...c.thread.summarize(c.meta) })),
+      active: () => active && active.meta.genesis,
+      view: () => active.thread.view().map((m) => ({ text: m.text, sender: m.sender, kappa: m.kappa, short: m.short })),
+      open: (genesis) => { const c = convos.find((x) => x.meta.genesis === genesis); if (c) openConversation(c); return !!c; },
+      incoming: (text) => { const obj = mint({ text: text || pickIncoming(), sender: "Them", sentAt: now(), chat: active.meta.chat, source: "web." + active.meta.platform + ".com" }).object; active.secure.publishSecure(obj); return obj.id; },
+      lastWireText: () => lastWire ? new TextDecoder().decode(lastWire) : null,
+      sealedStream: () => !!(active && active.epoch && active.secure),
+      tampered: () => { simulateTampered(); return true; },
+      send: async (text) => { const r = await active.sender.send({ text, chat: active.meta.chat, platform: active.meta.platform }, { nowMs: Date.now() }); renderStream(); renderChats(document.getElementById("q").value.trim().toLowerCase()); return r; },
+      total: () => convos.reduce((n, c) => n + c.thread.length(), 0),
+      verifyActive: async () => active.thread.verify(),
+      operator: () => operator,
+      consentNotes: () => active.thread.replay({ kind: "message.consent" }).map((n) => n["holstr:payload"]),
+      adapters: () => ADAPTERS.map((a) => a.id),
+      address: () => wordlist ? threadAddress(active.meta.genesis, wordlist) : null,
+      resolveWords: (typed) => resolveThreadWords(typed, convos, wordlist).map((h) => h.kappa),
+      shareActive: () => { const p = shareThreadPayload(active.thread, { genesis: active.meta.genesis, platform: active.meta.platform, chat: active.meta.chat, wordlist }); return { link: shareLinkFor(p, "/apps/holo-messenger/shared.html"), mounted: mountSharedThread(p) }; },
+      mountShared: (link) => mountSharedThread(decodeShareLink(link)),
+      // Phase 5 — prove the post-quantum confidentiality envelope runs in THIS browser:
+      // wrap a fresh epoch key to a hybrid (X25519‖ML-KEM-1024) member, AEAD-seal a message body,
+      // confirm the envelope leaks no plaintext, then unwrap + open + re-verify the content κ.
+      epochDemo: async () => {
+        const kp = kemKeygen();
+        const member = { kappa: operator || "did:holo:member:me", pub: kp.pub, sk: kp.sk };
+        const epoch = await newEpoch({ genesis: active.meta.genesis, members: [member], seq: 0 });
+        const obj = mint({ text: "pq-sealed, live in the browser", sender: "Me", sentAt: now(), chat: active.meta.chat, source: "holo" }).object;
+        const env = await sealMessage(epoch, obj);
+        const leaksPlaintext = JSON.stringify(env).includes("pq-sealed") || JSON.stringify(env).includes("schema:text");
+        const key = await unwrapEpochKey(epoch.meta, member);
+        const opened = await openMessage(key, env);
+        return { scheme: epoch.meta.scheme, epoch: epoch.id, envelope: env.id, hybridWrap: { x: !!epoch.meta.wraps[0].kem.x, pq: !!epoch.meta.wraps[0].kem.pq, pqBytes: epoch.meta.wraps[0].kem.pq.length }, leaksPlaintext, opened: opened.ok, kappaMatches: opened.ok && opened.kappa === obj.id };
+      },
+    };
+
+    boot().catch((e) => { document.getElementById("stream").innerHTML = `<div class="empty">boot error: ${esc(e && e.message)}</div>`; console.error(e); document.documentElement.setAttribute("data-holo-messenger-error", String(e && e.message)); });
+  </script>
+</body>
+</html>

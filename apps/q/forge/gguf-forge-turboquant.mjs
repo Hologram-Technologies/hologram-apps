@@ -199,6 +199,15 @@ export function tqDecodeKV(typeId, blob, elements) {
   return out;
 }
 
+// GPU-side tables for a TQ/PQ type: the codebook, the nearest-centroid boundaries, the Hadamard
+// rotation signs, and the byte layout. run-native uploads these so the in-shader encode/decode
+// reproduce tqEncodeKV/tqDecodeKV exactly.
+export function tqTables(typeId) {
+  const t = TQ_TYPES[typeId]; if (!t) throw new Error("turboquant: not a TQ/PQ type " + typeId);
+  const d = t.d, threeBit = t.bits === 3;
+  return { d, total: t.total, idx: t.idx, qjl: t.qjl, bits: t.bits, codebook: threeBit ? cb3(d) : cb4(d), boundaries: threeBit ? bnd3(d) : bnd4(d), signs: tqSigns(d) };
+}
+
 export function tqQuant(typeId, x, k) {
   const t = TQ_TYPES[typeId]; if (!t) throw new Error("turboquant: not a TQ/PQ type " + typeId);
   const nb = k / t.d, out = new Uint8Array(nb * t.total);

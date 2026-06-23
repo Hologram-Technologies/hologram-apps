@@ -131,6 +131,76 @@ export function vecDotQ4_0(nb, q4w, q8a, wOff = 0, aBlk = 0) {
   return sumf;
 }
 
+// 65536-entry f16→f32 LUT (== f16ToF32, branch-free). Every f16 is exactly representable
+// in f32, so lut[h] is the exact decoded weight element.
+let _f16lut = null;
+function f16Lut() {
+  if (_f16lut) return _f16lut;
+  const t = new Float32Array(65536);
+  for (let h = 0; h < 65536; h++) t[h] = f16ToF32(h);
+  return (_f16lut = t);
+}
+// ggml_fp32_to_fp16_row: round an f32 activation row to the f16 grid (the from_float for
+// vec_dot_type=GGML_TYPE_F16). Returns a Float32Array of the f16-rounded values; compute
+// ONCE per matvec and share across all output rows (exec.mjs F16 case does this).
+export function f16Row(x, K = x.length) {
+  const out = new Float32Array(K), lut = f16Lut();
+  for (let i = 0; i < K; i++) out[i] = lut[f32ToF16(x[i])];
+  return out;
+}
+
+// F16 weight · F16 activation, BIT-EXACT to ggml's ggml_vec_dot_f16 (vec.cpp:264) — and,
+// for f16 operands, to BOTH x86 CPU tiers at once:
+//   • SSE3   (forge-ref's build: GGML_FMA/F16C/AVX OFF, SSE42 ON; simd-mappings.h:887):
+//     GGML_F16_STEP=32, EPR=4, ARR=8; FMA macro'd to add(mul(b,c),a) → two f32 roundings.
+//   • AVX/AVX2 (+F16C+FMA; simd-mappings.h:568/622/583): STEP=32, EPR=8, ARR=4;
+//     _mm256_fmadd_ps → one fused rounding.
+// These two produce IDENTICAL bits for f16·f16: (1) STEP=32 in both ⇒ the 32 position-in-
+// block accumulators sum element i+p across blocks in the same order, and their reduce
+// folds to the same tree (16→8→4 then two horizontal adds); (2) each product is exact in
+// f32 — an f16 has an ≤11-bit significand, so w·x has ≤22 bits ≤ f32's 24 — hence the
+// intermediate rounding in SSE3's two-step FMA is a no-op and equals AVX's fused FMA.
+// Proven empirically below + by witness vs vecdot-ref.exe (SSE3) AND vecdot-ref-avx2.exe.
+// NOT covered: AVX512F (STEP=64 ⇒ different reduce tree) and AVX512-FP16 (native f16
+// accumulate) — neither is forge-ref; if a build ever uses them this needs its own model.
+// `dv` is a DataView over the weight bytes, `wOff` the byte offset of the row; `xh` is the
+// f16-rounded activation from f16Row().
+export function vecDotF16(dv, K, xh, wOff = 0) {
+  const lut = f16Lut();
+  const np = K & ~31;                      // largest multiple of GGML_F16_STEP (32)
+  const acc = new Float32Array(32);        // 32 position-in-block accumulators
+  for (let i = 0; i < np; i += 32)
+    for (let p = 0; p < 32; p++) { const idx = i + p; acc[p] = fr(acc[p] + fr(lut[dv.getUint16(wOff + idx * 2, true)] * xh[idx])); }
+  // reduce: fold 16→8→4 lane-wise (f32), then two horizontal adds (identical across tiers)
+  for (let p = 0; p < 16; p++) acc[p] = fr(acc[p] + acc[p + 16]);
+  for (let p = 0; p < 8; p++) acc[p] = fr(acc[p] + acc[p + 8]);
+  for (let p = 0; p < 4; p++) acc[p] = fr(acc[p] + acc[p + 4]);
+  const h0 = fr(acc[0] + acc[1]), h1 = fr(acc[2] + acc[3]);
+  let sumf = fr(h0 + h1);                   // f32 horizontal sum → promoted to double
+  for (let i = np; i < K; i++) sumf += fr(lut[dv.getUint16(wOff + i * 2, true)] * xh[i]); // tail in double
+  return fr(sumf);                          // *s = (float) sumf
+}
+
+// ggml_vec_dot_tq2_0_q8_K_generic (quants.c:851). BitNet ternary weight (block_tq2_0:
+// qs[QK_K/4]=64 bytes of 2-bit codes, f16 d at offset 64; 66 B/256 elems) dotted against
+// a Q8_K-quantized activation. Each code is {0,1,2} → ternary value (code-1) ∈ {-1,0,1};
+// the dot is a pure integer sum, scaled once per block by y.d·f16(x.d).
+export function vecDotTq2_0(nb, qw, q8k, wOff = 0, q8kBlk = 0) {
+  const dv = new DataView(qw.buffer, qw.byteOffset, qw.byteLength);
+  let sumf = 0;
+  for (let i = 0; i < nb; ++i) {
+    const bp = wOff + i * 66, q8 = q8k.qs, q8base = (q8kBlk + i) * QK_K;
+    let sumi = 0;
+    for (let j = 0; j < 64; j += 32)
+      for (let l = 0; l < 4; ++l)
+        for (let k = 0; k < 32; ++k)
+          sumi += q8[q8base + j * 4 + l * 32 + k] * ((((qw[bp + j + k] >> (l * 2)) & 3)) - 1);
+    const d = fr(q8k.d[q8kBlk + i] * f16ToF32(dv.getUint16(bp + 64, true)));
+    sumf = fr(sumf + fr(sumi * d));
+  }
+  return sumf;
+}
+
 const kmask1 = 0x3f3f3f3f, kmask2 = 0x0f0f0f0f, kmask3 = 0x03030303;
 
 // ggml_vec_dot_q4_K_q8_K_generic (quants.c:1098). q4k: Uint8Array(nb*144). q8k: {d,qs,bsums}.

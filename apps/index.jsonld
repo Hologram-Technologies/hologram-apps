@@ -22,6 +22,8 @@
       ],
       "schema:name": "Holo Amp",
       "schema:identifier": "org.hologram.HoloAmp",
+      "holo:words": "brass.junior.quiz",
+      "schema:alternateName": "brass.junior.quiz",
       "schema:description": "A classic skinnable audio player, verified and serverless.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -60,6 +62,8 @@
       ],
       "schema:name": "Holo ASCII",
       "schema:identifier": "org.hologram.HoloAscii",
+      "holo:words": "horror.adult.pattern",
+      "schema:alternateName": "horror.adult.pattern",
       "schema:description": "Type anything, get ASCII art. A native text→ASCII (FIGlet) encoder with 328 fonts — byte-identical to the TAAG tool, no CDN, fonts verified on read.",
       "schema:applicationCategory": "DesignApplication",
       "holo:categories": [
@@ -99,14 +103,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:c53b90abf3bb4ea4542afe4e764889a45af33ea7c240d37b9a1f8427f2a4e448",
-      "holo:root": "did:holo:sha256:c53b90abf3bb4ea4542afe4e764889a45af33ea7c240d37b9a1f8427f2a4e448",
+      "@id": "did:holo:sha256:d624fed1772dc7078ad196e319e95ddce6023a98406d48da8d8598b2a371dc09",
+      "holo:root": "did:holo:sha256:d624fed1772dc7078ad196e319e95ddce6023a98406d48da8d8598b2a371dc09",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Atlas",
       "schema:identifier": "org.hologram.HoloAtlas",
+      "holo:words": "confirm.win.bar",
+      "schema:alternateName": "confirm.win.bar",
       "schema:description": "A live map of every app — discover, verify and monitor the whole OS by its verified identity.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -147,6 +153,8 @@
       ],
       "schema:name": "Holo Atlas 96",
       "schema:identifier": "org.hologram.HoloAtlas96",
+      "holo:words": "decide.mention.indoor",
+      "schema:alternateName": "decide.mention.indoor",
       "schema:description": "The Φ-Atlas-12288 structure (48×256 → 96), encoded as a verified object — a discrete torus the upstream math is sealed into.",
       "schema:applicationCategory": "EducationalApplication",
       "holo:categories": [
@@ -180,14 +188,16 @@
       "schema:image": "apps/atlas96/icon.svg"
     },
     {
-      "@id": "did:holo:sha256:fccf52cf680d2dfe3a32364be68ce0388b91e529649feff7486dc6b18c5c5486",
-      "holo:root": "did:holo:sha256:fccf52cf680d2dfe3a32364be68ce0388b91e529649feff7486dc6b18c5c5486",
+      "@id": "did:holo:sha256:18a46e721bab6d9a36645fecb95b0a79ae6ff10487237b413f39195785459972",
+      "holo:root": "did:holo:sha256:18a46e721bab6d9a36645fecb95b0a79ae6ff10487237b413f39195785459972",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Guide",
       "schema:identifier": "org.hologram.HoloGuide",
+      "holo:words": "drop.right.fall",
+      "schema:alternateName": "drop.right.fall",
       "schema:description": "The Hitchhiker's Guide for AI agents the agentic marketplace of ideas: a verifiable social hypergraph open to every ecosystem (Claw, Nous, Virtuals, Hologram…). Read today, write now, own next. Guided by Echo, the cyber-dolphin. Don't Panic.",
       "schema:applicationCategory": "ReferenceApplication",
       "holo:categories": [
@@ -250,6 +260,8 @@
       ],
       "schema:name": "Holo Boot Prompt",
       "schema:identifier": "org.hologram.HoloBootPrompt",
+      "holo:words": "correct.sleep.situate",
+      "schema:alternateName": "correct.sleep.situate",
       "schema:description": "A single concise prompt that boots any LLM into the Hologram verified substrate — a pinned Constitution root, strict integrity enforcement, and a sealed receipt that proves itself genuine on every response. The prompt is itself a sealed, verified object.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -294,6 +306,8 @@
       ],
       "schema:name": "Holo BRC Miner",
       "schema:identifier": "org.hologram.HoloBrc",
+      "holo:words": "energy.poem.inject",
+      "schema:alternateName": "energy.poem.inject",
       "schema:description": "Mine, send and explore real BrowserCoin wallet, miner and explorer in one.",
       "schema:applicationCategory": "FinanceApplication",
       "holo:categories": [
@@ -327,14 +341,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:9c3e40407f6efc04d8e45f4aa5f32744f95012160e31a60359873fa9d9e600ae",
-      "holo:root": "did:holo:sha256:9c3e40407f6efc04d8e45f4aa5f32744f95012160e31a60359873fa9d9e600ae",
+      "@id": "did:holo:sha256:95a050d224058f6e9cba6463c002a9eae2e6a007bb1e5bdcfa89ce8d2c978d01",
+      "holo:root": "did:holo:sha256:95a050d224058f6e9cba6463c002a9eae2e6a007bb1e5bdcfa89ce8d2c978d01",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Browser",
       "schema:identifier": "org.hologram.HoloBrowser",
+      "holo:words": "duty.drive.south",
+      "schema:alternateName": "duty.drive.south",
       "schema:description": "A web browser that treats every page — web, local or holo:// — as verifiable content.",
       "schema:applicationCategory": "CommunicationApplication",
       "holo:categories": [
@@ -377,6 +393,8 @@
       ],
       "schema:name": "BTC Miner",
       "schema:identifier": "org.hologram.HoloBtc",
+      "holo:words": "alarm.lunch.vendor",
+      "schema:alternateName": "alarm.lunch.vendor",
       "schema:description": "A real self-custodial Bitcoin wallet and live network view, entirely in your browser.",
       "schema:applicationCategory": "FinanceApplication",
       "holo:categories": [
@@ -420,6 +438,8 @@
       ],
       "schema:name": "Holo Capture",
       "schema:identifier": "org.hologram.HoloCapture",
+      "holo:words": "mule.gauge.measure",
+      "schema:alternateName": "mule.gauge.measure",
       "schema:description": "Capture, annotate and share your screen — every capture verified.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -454,6 +474,8 @@
       ],
       "schema:name": "Holo Cloud",
       "schema:identifier": "org.hologram.HoloCloud",
+      "holo:words": "goddess.balance.renew",
+      "schema:alternateName": "goddess.balance.renew",
       "schema:description": "Your files — end-to-end encrypted, verified, and shared without a server.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -481,14 +503,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:ad6c9afeed7a804e9c52731ff2279ac60ed4c7f3b3b26e7c25ea80d92524d82f",
-      "holo:root": "did:holo:sha256:ad6c9afeed7a804e9c52731ff2279ac60ed4c7f3b3b26e7c25ea80d92524d82f",
+      "@id": "did:holo:sha256:4923b54c5e47f97d34c054152325aa3e10c12c05f966b8a42b8e6fb2b86c49bf",
+      "holo:root": "did:holo:sha256:4923b54c5e47f97d34c054152325aa3e10c12c05f966b8a42b8e6fb2b86c49bf",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Code",
       "schema:identifier": "org.hologram.HoloCode",
+      "holo:words": "mesh.steel.mushroom",
+      "schema:alternateName": "mesh.steel.mushroom",
       "schema:description": "An agentic coding partner that runs entirely on your machine the terminal agent you know, but the brain is local verifiable inference, the tools work over the verified substrate, and every session is a receipt that proves itself genuine.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -545,6 +569,8 @@
       ],
       "schema:name": "Holo Code Desktop",
       "schema:identifier": "org.hologram.HoloCodeDesktop",
+      "holo:words": "depart.exchange.ability",
+      "schema:alternateName": "depart.exchange.ability",
       "schema:description": "A sovereign, browser-first coding desktop: tabs, a Monaco editor, an integrated terminal, and a visual diff with accept/reject over the witnessed Holo Code engine. The brain is local verifiable inference (Holo Q), the tools work over the verified substrate, and every session is a receipt that proves itself genuine.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -602,14 +628,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:cffcbf0fa41e3ec305cfacce9a674cbbe84d160345bfe654f98e7a3385ab35cf",
-      "holo:root": "did:holo:sha256:cffcbf0fa41e3ec305cfacce9a674cbbe84d160345bfe654f98e7a3385ab35cf",
+      "@id": "did:holo:sha256:88453bed5a253190175c21501102081fdb8a0551823c79f31a3c0f11761b1a34",
+      "holo:root": "did:holo:sha256:88453bed5a253190175c21501102081fdb8a0551823c79f31a3c0f11761b1a34",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Control",
       "schema:identifier": "org.hologram.HoloControl",
+      "holo:words": "prize.use.card",
+      "schema:alternateName": "prize.use.card",
       "schema:description": "A single-pane command center: a birds-eye view of every external connection as a governable graph edge, with live signal-over-noise monitoring and one-click power to throttle, restrict, pause or cut any of it.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -648,6 +676,8 @@
       ],
       "schema:name": "Holo Cosmos",
       "schema:identifier": "org.hologram.HoloCosmos",
+      "holo:words": "elite.pupil.beauty",
+      "schema:alternateName": "elite.pupil.beauty",
       "schema:description": "Fly through an infinite, seeded universe — procedural deep space, navigable and native.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -671,6 +701,8 @@
       ],
       "schema:name": "Holo Docs",
       "schema:identifier": "org.hologram.HoloDocs",
+      "holo:words": "quality.cool.climb",
+      "schema:alternateName": "quality.cool.climb",
       "schema:description": "A serverless office suite documents, spreadsheets and slides with live co-editing.",
       "schema:applicationCategory": "ProductivityApplication",
       "holo:categories": [
@@ -707,6 +739,8 @@
       ],
       "schema:name": "Holo Scan",
       "schema:identifier": "org.hologram.HoloEtherscan",
+      "holo:words": "regret.camera.equal",
+      "schema:alternateName": "regret.camera.equal",
       "schema:description": "One universal block explorer for 27 networks verifiable, in the browser.",
       "schema:applicationCategory": "FinanceApplication",
       "holo:categories": [
@@ -758,6 +792,8 @@
       ],
       "schema:name": "Holo EVM",
       "schema:identifier": "org.hologram.HoloEVM",
+      "holo:words": "marriage.safe.chronic",
+      "schema:alternateName": "marriage.safe.chronic",
       "schema:description": "A spec-faithful Ethereum Virtual Machine that runs in your browser.",
       "schema:applicationCategory": "FinanceApplication",
       "holo:categories": [
@@ -804,6 +840,8 @@
       ],
       "schema:name": "Holo F1",
       "schema:identifier": "org.hologram.HoloF1",
+      "holo:words": "hedgehog.recall.carbon",
+      "schema:alternateName": "hedgehog.recall.carbon",
       "schema:description": "afflom/F1 — the 𝔽₁ square toward the Riemann Hypothesis (built on UOR-Framework) — made native as a verified object with an honest proven/open ledger, and combined with ATLAS96 by attestation.",
       "schema:applicationCategory": "EducationalApplication",
       "holo:categories": [
@@ -838,6 +876,8 @@
       ],
       "schema:name": "Holo Files",
       "schema:identifier": "org.hologram.HoloFiles",
+      "holo:words": "chuckle.nation.cruel",
+      "schema:alternateName": "chuckle.nation.cruel",
       "schema:description": "The native file explorer for Hologram OS one window onto the whole verified object universe, plus your writable OPFS home. Feels native on every OS.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -879,14 +919,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:46d8ea88edfcc79e501d3b4bd3afe34c9b419bc5ad55dd1baff33b433105de97",
-      "holo:root": "did:holo:sha256:46d8ea88edfcc79e501d3b4bd3afe34c9b419bc5ad55dd1baff33b433105de97",
+      "@id": "did:holo:sha256:596d755fd3a3b67120dbddc56e92e09de8bf53056fa843a4254eddd8f557a987",
+      "holo:root": "did:holo:sha256:596d755fd3a3b67120dbddc56e92e09de8bf53056fa843a4254eddd8f557a987",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Forge",
       "schema:identifier": "org.hologram.HoloForge",
+      "holo:words": "whip.step.repeat",
+      "schema:alternateName": "whip.step.repeat",
       "schema:description": "Compile in your browser. Verify every byte. Trust no server.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -922,14 +964,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:6095baf70a350ea6e84c25fb7c00d9460808ed8a7f4901010576aad2f6a0fbbb",
-      "holo:root": "did:holo:sha256:6095baf70a350ea6e84c25fb7c00d9460808ed8a7f4901010576aad2f6a0fbbb",
+      "@id": "did:holo:sha256:1527209039981e28c7bc446a110e1ef00883e0a8b91139f53fe8f9cb39b0278a",
+      "holo:root": "did:holo:sha256:1527209039981e28c7bc446a110e1ef00883e0a8b91139f53fe8f9cb39b0278a",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Git",
       "schema:identifier": "org.hologram.HoloGit",
+      "holo:words": "already.liquid.near",
+      "schema:alternateName": "already.liquid.near",
       "schema:description": "A self-hosted git forge issues, pull requests and merges, serverless.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -963,6 +1007,8 @@
       ],
       "schema:name": "Holo 3D",
       "schema:identifier": "org.hologram.Holo3D",
+      "holo:words": "cinnamon.stone.orchard",
+      "schema:alternateName": "cinnamon.stone.orchard",
       "schema:description": "A real graphical OS (KolibriOS) streamed to WebGL — verified and 100% serverless.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -993,6 +1039,8 @@
       ],
       "schema:name": "Holo Linux",
       "schema:identifier": "org.hologram.HoloLinux",
+      "holo:words": "lobster.wide.enrich",
+      "schema:alternateName": "lobster.wide.enrich",
       "schema:description": "A real riscv64 Linux, verified and booted in a browser tab.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1014,6 +1062,39 @@
       "schema:image": "apps/holo-linux/icon.svg"
     },
     {
+      "@id": "did:holo:sha256:88494133a437bd46bfa0d591e46f6fb64c3fda35a897d7b86d2a915dcfedc3a2",
+      "holo:root": "did:holo:sha256:88494133a437bd46bfa0d591e46f6fb64c3fda35a897d7b86d2a915dcfedc3a2",
+      "@type": [
+        "schema:SoftwareApplication",
+        "schema:WebApplication"
+      ],
+      "schema:name": "Holo Messenger",
+      "schema:identifier": "org.hologram.HoloMessenger",
+      "holo:words": "innocent.age.caution",
+      "schema:alternateName": "innocent.age.caution",
+      "schema:description": "Every messenger, one inbox. Real messages from WhatsApp, Telegram, Discord, Slack and more stream into a single, instantly-familiar chat surface — each message lifted into a self-verifying κ, each conversation a signed source chain. No homeserver, no protocol bridges: the message you already see, made yours and verifiable.",
+      "schema:applicationCategory": "SocialNetworkingApplication",
+      "holo:categories": [
+        "Social",
+        "Communication"
+      ],
+      "schema:keywords": [
+        "messenger",
+        "chat",
+        "unified inbox",
+        "whatsapp",
+        "telegram",
+        "discord",
+        "slack",
+        "beeper",
+        "content-addressed",
+        "holospace",
+        "uor"
+      ],
+      "dcat:landingPage": "apps/holo-messenger/index.html",
+      "schema:image": "apps/holo-messenger/icon.svg"
+    },
+    {
       "@id": "did:holo:sha256:8f9c6870dcf4cd9b5aa77c176aea22c155aa04383246726c7bc9c48b17f13b22",
       "holo:root": "did:holo:sha256:8f9c6870dcf4cd9b5aa77c176aea22c155aa04383246726c7bc9c48b17f13b22",
       "@type": [
@@ -1022,6 +1103,8 @@
       ],
       "schema:name": "Holo Tube",
       "schema:identifier": "org.hologram.HoloTube",
+      "holo:words": "breeze.peace.soda",
+      "schema:alternateName": "breeze.peace.soda",
       "schema:description": "Stream video natively as verified objects. Every segment is checked genuine before it reaches the decoder — no iframe, no trust in the source, just bytes that prove themselves.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -1065,6 +1148,8 @@
       ],
       "schema:name": "Holo v86",
       "schema:identifier": "org.hologram.HoloV86",
+      "holo:words": "drastic.spot.armed",
+      "schema:alternateName": "drastic.spot.armed",
       "schema:description": "An easy menu of real operating systems — each one verified and booted right in your browser, no install.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1094,6 +1179,8 @@
       ],
       "schema:name": "Holo x86",
       "schema:identifier": "org.hologram.HoloX86",
+      "holo:words": "struggle.page.tent",
+      "schema:alternateName": "struggle.page.tent",
       "schema:description": "A real x86 Linux — v86 engine + BIOS + image all verified — booted in a browser tab.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1114,28 +1201,32 @@
       "schema:image": "apps/holo-x86/icon.svg"
     },
     {
-      "@id": "did:holo:sha256:f0a5a7936f7d70b39e24b4bf4f5f3833e3c8027d553dd88bc2721883c9f66d7b",
-      "holo:root": "did:holo:sha256:f0a5a7936f7d70b39e24b4bf4f5f3833e3c8027d553dd88bc2721883c9f66d7b",
+      "@id": "did:holo:sha256:620299e9ab8fdfb5396f254d8ef2636aa3c8940b15c76b5a84f72727077b002c",
+      "holo:root": "did:holo:sha256:620299e9ab8fdfb5396f254d8ef2636aa3c8940b15c76b5a84f72727077b002c",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Hub",
       "schema:identifier": "org.hologram.HoloHub",
+      "holo:words": "cube.guilt.access",
+      "schema:alternateName": "cube.guilt.access",
       "schema:description": "The store for everything you can run discover, try, own and run every holo-native thing by its verified identity, 100% serverless, for people and AI agents alike.",
       "schema:applicationCategory": "UtilitiesApplication",
       "dcat:landingPage": "apps/hub/index.html",
       "schema:image": "apps/hub/icon.svg"
     },
     {
-      "@id": "did:holo:sha256:c688edf231dfcc77eb38a3ba20c04ec4b67226c671d2193a7322987c01b58613",
-      "holo:root": "did:holo:sha256:c688edf231dfcc77eb38a3ba20c04ec4b67226c671d2193a7322987c01b58613",
+      "@id": "did:holo:sha256:d1ecc2a19960c35180a5f2e325c669ae1722de735ba292d05b90380a1720f03d",
+      "holo:root": "did:holo:sha256:d1ecc2a19960c35180a5f2e325c669ae1722de735ba292d05b90380a1720f03d",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo IPFS",
       "schema:identifier": "org.hologram.HoloIpfs",
+      "holo:words": "creek.appear.wait",
+      "schema:alternateName": "creek.appear.wait",
       "schema:description": "Browse the entire IPFS space as easily as the web every block verified.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1180,6 +1271,8 @@
       ],
       "schema:name": "Holo Jupyter",
       "schema:identifier": "org.hologram.HoloJupyter",
+      "holo:words": "crowd.license.friend",
+      "schema:alternateName": "crowd.license.friend",
       "schema:description": "JupyterLite with a bundled Python (Pyodide) kernel — scientific notebooks, fully in your browser, verified.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -1217,6 +1310,8 @@
       ],
       "schema:name": "On Liberty",
       "schema:identifier": "did:holo:sha256:3dd559e0fd7c038589a1b3a650d6ad1ea46d03abfc224a1995bc6433e52af2f7",
+      "holo:words": "one.diamond.crowd",
+      "schema:alternateName": "one.diamond.crowd",
       "schema:description": "On Liberty by John Stuart Mill, published as a verified object — the whole book proves itself genuine from its own content.",
       "schema:applicationCategory": "ReferenceApplication",
       "dcat:landingPage": "apps/liberty/index.html",
@@ -1235,6 +1330,8 @@
       ],
       "schema:name": "Hologram Meet",
       "schema:identifier": "org.hologram.HologramMeet",
+      "holo:words": "wave.quote.want",
+      "schema:alternateName": "wave.quote.want",
       "schema:description": "Serverless, end-to-end-encrypted video conferencing.",
       "schema:applicationCategory": "CommunicationApplication",
       "holo:categories": [
@@ -1269,6 +1366,8 @@
       ],
       "schema:name": "Holo Music",
       "schema:identifier": "org.hologram.HoloMusic",
+      "holo:words": "claw.idea.toilet",
+      "schema:alternateName": "claw.idea.toilet",
       "schema:description": "A verified music library and the whole internet as one.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -1299,14 +1398,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:1ca41328964abbb22760b1bae030afd18501621ad18ac3cc135a9f75090775cb",
-      "holo:root": "did:holo:sha256:1ca41328964abbb22760b1bae030afd18501621ad18ac3cc135a9f75090775cb",
+      "@id": "did:holo:sha256:54581bb0e15c7e8367baa1e435b2886cfbd5d0357fd8c07034b94dab92cabbfe",
+      "holo:root": "did:holo:sha256:54581bb0e15c7e8367baa1e435b2886cfbd5d0357fd8c07034b94dab92cabbfe",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Notepad",
       "schema:identifier": "org.hologram.HoloNotepad",
+      "holo:words": "bring.human.clown",
+      "schema:alternateName": "bring.human.clown",
       "schema:description": "Your second brain a networked, private outliner and always-on memory bank.",
       "schema:applicationCategory": "ProductivityApplication",
       "holo:categories": [
@@ -1356,6 +1457,8 @@
       ],
       "schema:name": "Holo Notepad++",
       "schema:identifier": "org.hologram.HoloNotepadPP",
+      "holo:words": "guard.banana.ostrich",
+      "schema:alternateName": "guard.banana.ostrich",
       "schema:description": "A fast, lightweight source-code editor in your browser tabs, line numbers, syntax highlighting for many languages, and find and replace.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -1402,6 +1505,8 @@
       ],
       "schema:name": "Hologram OS",
       "schema:identifier": "org.hologram.HoloOS",
+      "holo:words": "earth.tip.maximum",
+      "schema:alternateName": "earth.tip.maximum",
       "schema:description": "A real Debian GNU/Linux system, booted in a browser tab.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1441,6 +1546,8 @@
       ],
       "schema:name": "Plasma Desktop",
       "schema:identifier": "org.kde.PlasmaDesktop",
+      "holo:words": "fossil.stand.fog",
+      "schema:alternateName": "fossil.stand.fog",
       "schema:description": "Your real KDE Plasma desktop, mounted live in an app over VNC.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1464,14 +1571,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:fd755a402ac26a34dbaaea58b3fcd5f0bcdf6cb9be9fb78bc42dba27241afe6b",
-      "holo:root": "did:holo:sha256:fd755a402ac26a34dbaaea58b3fcd5f0bcdf6cb9be9fb78bc42dba27241afe6b",
+      "@id": "did:holo:sha256:7d953e7dd69946145fa724cae5f37c72f3ed0cf554b50effe7dfc67a833a3016",
+      "holo:root": "did:holo:sha256:7d953e7dd69946145fa724cae5f37c72f3ed0cf554b50effe7dfc67a833a3016",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Player",
       "schema:identifier": "org.hologram.HoloPlayer",
+      "holo:words": "river.wheat.skin",
+      "schema:alternateName": "river.wheat.skin",
       "schema:description": "A verified media library for your movies and shows, with no server.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -1507,6 +1616,8 @@
       ],
       "schema:name": "Holo Privacy",
       "schema:identifier": "org.hologram.HoloPrivacy",
+      "holo:words": "flip.about.camera",
+      "schema:alternateName": "flip.about.camera",
       "schema:description": "Control what an AI agent may learn about you minimum disclosure, for a stated purpose, never enough to track you.",
       "schema:applicationCategory": "SecurityApplication",
       "holo:categories": [
@@ -1538,14 +1649,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:4d25d8a762ba5b96f0cd2592087c874a7f4421918f351891e280d1161853977f",
-      "holo:root": "did:holo:sha256:4d25d8a762ba5b96f0cd2592087c874a7f4421918f351891e280d1161853977f",
+      "@id": "did:holo:sha256:c614f527b4b21e000ff2e1cde6d3d1324381881437e3ae4b4c80ee9a34ceca69",
+      "holo:root": "did:holo:sha256:c614f527b4b21e000ff2e1cde6d3d1324381881437e3ae4b4c80ee9a34ceca69",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Q",
       "schema:identifier": "org.hologram.HoloQ",
+      "holo:words": "walk.stand.apology",
+      "schema:alternateName": "walk.stand.apology",
       "schema:description": "A real AI that thinks entirely in your browser no server, no cloud, no API key.",
       "schema:applicationCategory": "AIApplication",
       "holo:categories": [
@@ -1591,6 +1704,8 @@
       ],
       "schema:name": "QEMU",
       "schema:identifier": "org.qemu.QEMU",
+      "holo:words": "eyebrow.motor.dust",
+      "schema:alternateName": "eyebrow.motor.dust",
       "schema:description": "A full machine emulator boot other architectures in your browser.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1632,6 +1747,8 @@
       ],
       "schema:name": "QVAC Playground",
       "schema:identifier": "org.hologram.QvacSdk",
+      "holo:words": "minimum.early.situate",
+      "schema:alternateName": "minimum.early.situate",
       "schema:description": "Build, run and share serverless on-device AI apps with the QVAC SDK write QVAC code, run it instantly in your browser, share it as a link that arrives running. Every answer comes with a receipt that proves itself genuine.",
       "schema:applicationCategory": "AIApplication",
       "holo:categories": [
@@ -1683,6 +1800,8 @@
       ],
       "schema:name": "Holo Search",
       "schema:identifier": "org.hologram.HoloSearch",
+      "holo:words": "welcome.supreme.goat",
+      "schema:alternateName": "welcome.supreme.goat",
       "schema:description": "One search bar over the whole OS and the open web every result verifiable.",
       "schema:applicationCategory": "UtilitiesApplication",
       "holo:categories": [
@@ -1715,14 +1834,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:b4945bae5c0e57d1d844b7bd7924e5f1a8441243714d5d20cbd8c0be8aeb272c",
-      "holo:root": "did:holo:sha256:b4945bae5c0e57d1d844b7bd7924e5f1a8441243714d5d20cbd8c0be8aeb272c",
+      "@id": "did:holo:sha256:10e335d22cdf44081e7f974d29bac06be207b859f7d583b70e756927ccefe0e2",
+      "holo:root": "did:holo:sha256:10e335d22cdf44081e7f974d29bac06be207b859f7d583b70e756927ccefe0e2",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Spaces",
       "schema:identifier": "org.hologram.HoloSpaces",
+      "holo:words": "easily.struggle.immense",
+      "schema:alternateName": "easily.struggle.immense",
       "schema:description": "Walk into living, shareable, infinitely nestable rooms of holo apps — each rendered from its κ address. A Space is itself one content κ: compose by dragging things in, fork with a gesture, share by the κ alone. The OS is already a sandbox; this reveals it.",
       "schema:applicationCategory": "EntertainmentApplication",
       "holo:categories": [
@@ -1744,18 +1865,21 @@
       "schema:softwareRequirements": [
         "holo-theme.css",
         "holo-mobile.css",
-        "holo-phi.css"
+        "holo-phi.css",
+        "holo-play-gpu.js"
       ]
     },
     {
-      "@id": "did:holo:sha256:2af3a4d1c0b096c1c1f056318dc6079b9e37b31eef9d526cf3d9986253320ded",
-      "holo:root": "did:holo:sha256:2af3a4d1c0b096c1c1f056318dc6079b9e37b31eef9d526cf3d9986253320ded",
+      "@id": "did:holo:sha256:f16df3302a2492eb1aa89027aadf6895519cb62323bfde482f907066af64b87a",
+      "holo:root": "did:holo:sha256:f16df3302a2492eb1aa89027aadf6895519cb62323bfde482f907066af64b87a",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Stream",
       "schema:identifier": "org.hologram.HoloStream",
+      "holo:words": "aim.smoke.report",
+      "schema:alternateName": "aim.smoke.report",
       "schema:description": "Live streaming, recording and a creator coin composited in the browser.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -1802,6 +1926,8 @@
       ],
       "schema:name": "Holo Terms",
       "schema:identifier": "org.hologram.HoloTerms",
+      "holo:words": "senior.monkey.intact",
+      "schema:alternateName": "senior.monkey.intact",
       "schema:description": "Your machine-readable personal terms (MyTerms / IEEE 7012): you propose, each app agrees, the OS enforces.",
       "schema:applicationCategory": "SecurityApplication",
       "holo:categories": [
@@ -1839,6 +1965,8 @@
       ],
       "schema:name": "Holo Trade",
       "schema:identifier": "org.hologram.HoloTrade",
+      "holo:words": "neck.latin.exist",
+      "schema:alternateName": "neck.latin.exist",
       "schema:description": "A self-sovereign trading terminal over Hyperliquid verifiable, key-less, in the browser.",
       "schema:applicationCategory": "FinanceApplication",
       "holo:categories": [
@@ -1881,6 +2009,8 @@
       ],
       "schema:name": "Holo UI",
       "schema:identifier": "org.hologram.HoloUI",
+      "holo:words": "endless.inhale.seed",
+      "schema:alternateName": "endless.inhale.seed",
       "schema:description": "Hologram OS's design control panel: an Appearance studio to theme the whole OS live (verified themes · accent · typography · accessibility) and a Components catalog of every shadcn + Magic UI element plus the daisyUI component layer, all driven by one Holo UI/UX token source across light, dark and immersive.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
@@ -1912,14 +2042,16 @@
       ]
     },
     {
-      "@id": "did:holo:sha256:c6af132edc54c4de24799589a12b74e02767fa1b24b92cdd4839bd23c5b2da4e",
-      "holo:root": "did:holo:sha256:c6af132edc54c4de24799589a12b74e02767fa1b24b92cdd4839bd23c5b2da4e",
+      "@id": "did:holo:sha256:d0895d1cf629885c5037d7b894edf5e147ab697043530fee3b8c3cc8cb7c04fa",
+      "holo:root": "did:holo:sha256:d0895d1cf629885c5037d7b894edf5e147ab697043530fee3b8c3cc8cb7c04fa",
       "@type": [
         "schema:SoftwareApplication",
         "schema:WebApplication"
       ],
       "schema:name": "Holo Video",
       "schema:identifier": "org.hologram.HoloVideo",
+      "holo:words": "paddle.inner.dwarf",
+      "schema:alternateName": "paddle.inner.dwarf",
       "schema:description": "A verified video player with adaptive streaming, tamper-proof and serverless.",
       "schema:applicationCategory": "MultimediaApplication",
       "holo:categories": [
@@ -1956,6 +2088,8 @@
       ],
       "schema:name": "Holo Workspace",
       "schema:identifier": "org.hologram.HoloWorkspace",
+      "holo:words": "salon.prevent.problem",
+      "schema:alternateName": "salon.prevent.problem",
       "schema:description": "A code editor with language servers and a real filesystem, in the browser.",
       "schema:applicationCategory": "DeveloperApplication",
       "holo:categories": [
