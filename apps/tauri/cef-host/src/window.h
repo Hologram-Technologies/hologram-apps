@@ -28,6 +28,31 @@ class AlloyBrowserViewDelegate : public CefBrowserViewDelegate {
   DISALLOW_COPY_AND_ASSIGN(AlloyBrowserViewDelegate);
 };
 
+// P3 — single chrome (Path A): host each tab as a CHROME-runtime BrowserView (keeps Chrome's extensions /
+// native DevTools / GPU) but HIDE the native toolbar for holo:// pages, so the shell's own HTML chrome
+// (tab strip · address bar · bookmarks bar · action rail — see holo-bar.mjs) is the only chrome. Open-web
+// tabs keep a real address bar (hybrid). GetChromeToolbarType defaults to CEF_CTT_NONE in CEF 149; we set
+// it explicitly per tab from a flag fixed at tab creation (it is queried once, before the URL is known).
+// Toolbar types (cef_types.h): CEF_CTT_NONE = no toolbar · CEF_CTT_NORMAL = full · CEF_CTT_LOCATION = bar only.
+class HoloBrowserViewDelegate : public CefBrowserViewDelegate {
+ public:
+  explicit HoloBrowserViewDelegate(bool is_holo) : is_holo_(is_holo) {}
+  cef_runtime_style_t GetBrowserRuntimeStyle() override { return CEF_RUNTIME_STYLE_CHROME; }
+  ChromeToolbarType GetChromeToolbarType(CefRefPtr<CefBrowserView>) override {
+    return is_holo_ ? CEF_CTT_NONE : CEF_CTT_NORMAL;  // holo:// → shell chrome only; web → address bar
+  }
+
+ private:
+  bool is_holo_;
+  IMPLEMENT_REFCOUNTING(HoloBrowserViewDelegate);
+  DISALLOW_COPY_AND_ASSIGN(HoloBrowserViewDelegate);
+};
+
+// holo_url(url) — a tab is "holo" (toolbar-less) when it loads the OS over the κ scheme, or is the home tab.
+inline bool HoloIsHoloUrl(const std::string& url) {
+  return url.empty() || url.rfind("holo://", 0) == 0;
+}
+
 class HoloWindow : public CefBaseRefCounted {
  public:
   HoloWindow(CefRefPtr<CefClient> client, const CefString& omni_url, const CefString& home_url)
