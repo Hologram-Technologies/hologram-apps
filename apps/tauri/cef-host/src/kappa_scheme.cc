@@ -17,7 +17,7 @@ namespace {
 
 class KappaResourceHandler : public CefResourceHandler {
  public:
-  explicit KappaResourceHandler(KStore* store) : store_(store) {}
+  explicit KappaResourceHandler(HotStore* store) : store_(store) {}
   ~KappaResourceHandler() override {
     if (data_) {
       kr_free(data_, size_);
@@ -41,7 +41,7 @@ class KappaResourceHandler : public CefResourceHandler {
     path_ = req;                                       // remembered for the scoped-CORS decision below
 
     const char* mime = nullptr;
-    status_ = kr_resolve(store_, req.c_str(), &data_, &size_, &mime);
+    status_ = store_->resolve(req.c_str(), &data_, &size_, &mime);  // hot-reloadable store (live reseal)
     mime_ = mime ? mime : "application/octet-stream";
     return true;
   }
@@ -67,8 +67,27 @@ class KappaResourceHandler : public CefResourceHandler {
     // substrate, so no cross-origin page can read user data or other modules. Same-origin holo:// is unchanged.
     if (path_.find("/_shared/holo-playground-") != std::string::npos ||
         path_.find("/_shared/holo-live-edit.mjs") != std::string::npos ||
-        path_.find("/_shared/holo-uor.mjs") != std::string::npos) {
+        path_.find("/_shared/holo-uor.mjs") != std::string::npos ||
+        // The Holo DevTools dock is ALSO host-injected into every tab (holo-devtools-dock-boot.js), so its
+        // module graph is fetched CORS-mode by app origins and needs ACAO. Scope: the whole devtools graph
+        // plus its non-devtools deps (object/scene/blake3). uor is already covered above.
+        path_.find("/_shared/devtools/") != std::string::npos ||
+        path_.find("/_shared/holo-object.mjs") != std::string::npos ||
+        path_.find("/_shared/holo-scene.mjs") != std::string::npos ||
+        path_.find("/_shared/holo-blake3.mjs") != std::string::npos) {
       response->SetHeaderByName("Access-Control-Allow-Origin", "*", true);
+    }
+    // κ caching. ONLY the CONTENT route (/.holo/<axis>/<hex> — where the hex literally IS the content
+    // hash) is truly IMMUTABLE: cache it forever, re-serve from memory with no re-fetch/re-verify →
+    // content-addressed streaming. A per-κ ORIGIN (host = an app's @id κ) is NOT content-immutable: the
+    // app's bytes change as the operator develops while the @id stays fixed, so caching it immutable would
+    // serve STALE after a reseal — it must revalidate. Everything except the content route → no-cache
+    // (revalidate, so a reseal is picked up immediately). Per-byte L5 verification is unaffected.
+    if (status_ == 200) {
+      const bool immutable = path_.find("/.holo/sha256/") != std::string::npos ||
+                             path_.find("/.holo/blake3/") != std::string::npos;
+      response->SetHeaderByName(
+          "Cache-Control", immutable ? "public, max-age=31536000, immutable" : "no-cache", true);
     }
     response_length = (status_ == 200) ? static_cast<int64_t>(size_) : 0;
   }
@@ -92,7 +111,7 @@ class KappaResourceHandler : public CefResourceHandler {
   void Cancel() override {}
 
  private:
-  KStore* store_ = nullptr;
+  HotStore* store_ = nullptr;
   uint8_t* data_ = nullptr;
   size_t size_ = 0;
   size_t offset_ = 0;

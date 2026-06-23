@@ -40,6 +40,30 @@ void kr_free(uint8_t* ptr, size_t len);
  * a payload is refused by THIS hash, so a denylisted ad object is caught wherever it is served. */
 void kr_sha256_hex(const uint8_t* data, size_t len, char* out);
 
+/* ── Open-web κ-cache (kr_cache_*). The host's resource path content-addresses every cacheable http(s)
+ * subresource and serves repeats from this cache at memory speed (no DNS/TLS/network) — projecting the
+ * substrate in front of the network for EVERY website, not just holo://. Distinct from the sealed,
+ * read-only kr_store. Thread-safe (the handle wraps a Mutex<WebCache>). Safe because κ = the content
+ * address: a hit only returns bytes that re-derive to the requested κ (Law L5). */
+typedef struct KCache KCache;
+
+/* Open an open-web κ-cache bounded to `cap` distinct κ (the resident working set). Free with kr_cache_free. */
+KCache* kr_cache_new(size_t cap);
+void kr_cache_free(KCache* c);
+
+/* Serve a GET `url` from the cache if held (re-derives κ first — L5; tamper ⇒ miss). Returns 1 on a hit
+ * (*out_ptr/*out_len = buffer, free with kr_free; *out_mime = mime buffer, free with kr_cache_free_mime),
+ * else 0 (out-params cleared). */
+uint8_t kr_cache_get(const KCache* c, const char* url,
+                     uint8_t** out_ptr, size_t* out_len, char** out_mime);
+
+/* Install a fetched (cold-miss) body, deduped by κ. `immutable` (0/1) marks serve-forever assets. */
+void kr_cache_put(const KCache* c, const char* url,
+                  const uint8_t* data, size_t len, const char* mime, uint8_t immutable);
+
+/* Free a mime string returned by kr_cache_get. */
+void kr_cache_free_mime(char* m);
+
 #ifdef __cplusplus
 }
 #endif

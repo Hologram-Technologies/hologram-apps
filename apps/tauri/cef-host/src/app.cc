@@ -9,14 +9,19 @@
 #include "include/cef_browser.h"
 #include "include/cef_command_line.h"
 #include "include/cef_frame.h"
+#include "include/cef_request_context.h"  // pin DevTools dock side (right) + golden-ratio width
 #include "include/cef_scheme.h"
+#include "include/cef_values.h"
 #include "include/wrapper/cef_helpers.h"
 
 #include "closure_anchor.h"
 #include "handler.h"
+#include "hot_store.h"      // HotStore — live-anchor hot-reload of the sealed image (no reseal poisoning)
 #include "kappa_route.h"
 #include "kappa_scheme.h"
+#include "devtools_bundle.h"    // kHoloDevToolsBundle — host-injected, drift-proof DevTools dock (every app tab)
 #include "playground_bundle.h"  // kHoloPlaygroundBundle — host-injected, CSP-proof Playground runtime
+#include "messenger_capture_bundle.h"  // kHoloMessengerCaptureBundle — host-injected, CSP-proof messenger capture
 
 namespace {
 // window.HoloBridge — the per-tab seam to the browser-process Hologram service. Injected ONLY into
@@ -507,10 +512,35 @@ void SimpleApp::OnContextInitialized() {
   // baked value. So allow a launch-time override: HOLO_CLOSURE_ANCHOR=<hex> tracks the freshly-sealed
   // dist without a rebuild; HOLO_CLOSURE_ANCHOR="" skips the manifest check (path-trust). Either way,
   // per-file L5 (every served byte must re-derive to its pinned κ) is still enforced by the verifier.
-  const char* anchor = HOLO_CLOSURE_ANCHOR;
-  if (const char* a = std::getenv("HOLO_CLOSURE_ANCHOR")) anchor = a[0] ? a : nullptr;
-  KStore* store = kr_store_open(root.c_str(), anchor);
-  CefRegisterSchemeHandlerFactory("holo", CefString(), new KappaSchemeHandlerFactory(store));
+  // Live-anchor hot-reload: a HotStore watches dist/os-closure.json and re-opens the sealed image whenever
+  // the operator reseals during dev — the running browser absorbs a reseal in ~400ms instead of being
+  // poisoned (stale anchor → 403) until relaunch. The watcher derives the anchor live from the file, so the
+  // HOLO_CLOSURE_ANCHOR baked/env plumbing is no longer consulted for the scheme store. Per-byte L5 unchanged.
+  static HotStore* g_store = new HotStore(root);  // owns the watcher thread for the process lifetime
+  CefRegisterSchemeHandlerFactory("holo", CefString(), new KappaSchemeHandlerFactory(g_store));
+
+  // DevTools docks RIGHT at a golden-ratio width, Chrome-style. We pin the DevTools front-end's own
+  // persisted settings on the global request context so Chrome's native F12 (which we deliberately do
+  // not intercept — see handler.cc OnKeyEvent) opens the inspector docked to the right against whatever
+  // tab is focused. currentDockState/InspectorView.splitViewState are JSON-encoded string values inside
+  // the devtools.preferences dictionary (that is how the front-end stores them). The split size is the
+  // DevTools panel width in px ≈ a 1/φ² (38.2%) golden minor of a typical ~1920px window → 733px; the
+  // page keeps the golden major. The user can still drag it; Chrome persists the new size.
+  {
+    CefRefPtr<CefRequestContext> rc = CefRequestContext::GetGlobalContext();
+    if (rc && rc->CanSetPreference("devtools.preferences")) {
+      CefRefPtr<CefValue> cur = rc->GetPreference("devtools.preferences");
+      CefRefPtr<CefDictionaryValue> dict =
+          (cur && cur->GetType() == VTYPE_DICTIONARY) ? cur->GetDictionary()->Copy(false)
+                                                      : CefDictionaryValue::Create();
+      dict->SetString("currentDockState", "\"right\"");
+      dict->SetString("InspectorView.splitViewState", "{\"vertical\":{\"size\":733}}");
+      CefRefPtr<CefValue> v = CefValue::Create();
+      v->SetDictionary(dict);
+      CefString err;
+      rc->SetPreference("devtools.preferences", v, err);
+    }
+  }
 
   // Home = the FULL Hologram shell (its own tabstrip/omnibox/workspace-switcher/verbs), matching the OS
   // look. Chromium's own chrome stays (Chrome-runtime: extensions/GPU/address bar); kHoloUnchrome below
@@ -546,9 +576,17 @@ void SimpleApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
     // The privileged service runs only in the OS home frame (the shell). Other holo:// frames (apps)
     // get the bridge but reach the service through the relay, never host it themselves.
     const std::string fu = frame->GetURL().ToString();
-    if (frame->IsMain() && (fu.rfind("holo://os/shell", 0) == 0 || fu.rfind("holo://os/home", 0) == 0)) {
+    const bool is_shell = (fu.rfind("holo://os/shell", 0) == 0 || fu.rfind("holo://os/home", 0) == 0);
+    if (frame->IsMain() && is_shell) {
       frame->ExecuteJavaScript(kHoloServiceShim, frame->GetURL(), 0);
       frame->ExecuteJavaScript(kHoloUnchrome, frame->GetURL(), 0);  // show the FULL Hologram shell chrome
+    }
+    // Holo DevTools dock (ADR-0095): every APP tab (holo://<κ>/ — a top-level κ-holospace with no shell
+    // parent) gets the right-docked inspector by injecting the boot MODULE. Skip the shell (it installs its
+    // own dock). Our own holo:// pages have no hostile CSP, so a holo://os module <script> loads fine
+    // (cross-origin, host-granted ACAO for the devtools graph). F12 in the host routes to HoloDevDock.toggle.
+    if (frame->IsMain() && !is_shell) {
+      frame->ExecuteJavaScript(kHoloDevToolsBundle, frame->GetURL(), 0);
     }
   } else {
     // Web page: collapse leftover ad placeholders so the page re-flows ad-free (cosmetic complement to
@@ -570,6 +608,10 @@ void SimpleApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
     // never holo:// (the OS shell runs its own Playground). The boot self-defers until document.body exists.
     if (frame->IsMain() && (u.empty() || u.rfind("http", 0) == 0 || u.rfind("file:", 0) == 0)) {
       frame->ExecuteJavaScript(kHoloPlaygroundBundle, frame->GetURL(), 0);
+      // Holo Messenger capture (Phase 7): same CSP-proof host-inject path. Self-gates to messenger
+      // hosts (web.whatsapp.com / web.telegram.org / discord.com / app.slack.com / …); inert elsewhere.
+      // Posts raw captured message fields on the "holo-messenger" BroadcastChannel → the inbox mints + ingests.
+      frame->ExecuteJavaScript(kHoloMessengerCaptureBundle, frame->GetURL(), 0);
     }
     // Web Store detail page → rebrand it to Hologram (relabel "Add to Chrome", wordmark, nags) + the
     // κ-install affordance (only the real CWS host, main frame).

@@ -40,9 +40,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   settings.no_sandbox = true;
 #endif
   settings.remote_debugging_port = 9333;  // localhost-only CDP — for the boot proof.
-  // Brand the User-Agent: append a Hologram product token to the default UA. Additive — the UA stays
-  // Chrome-compatible (sites that gate features on Chrome still work) while advertising Hologram.
-  CefString(&settings.user_agent_product).FromASCII("Hologram/1.0");
+  // Keep a CLEAN, standard Chrome product token. user_agent_product REPLACES the product token; any
+  // extra token wedged between Chrome/<ver> and Safari/537.36 (e.g. a Hologram brand) breaks UA-gating
+  // sites — web.whatsapp.com refuses to render ("update your browser") unless the UA looks like real
+  // Chrome. Chrome reports a reduced version (149.0.0.0). Hologram branding lives off the UA.
+  CefString(&settings.user_agent_product).FromASCII("Chrome/149.0.0.0");
 
   // Chrome style (the real Chrome UI) needs a persistent cache dir; place it next to the executable.
   wchar_t exe[MAX_PATH] = {0};

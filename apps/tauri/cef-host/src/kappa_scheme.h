@@ -7,11 +7,11 @@
 #include "include/cef_resource_handler.h"
 #include "include/cef_scheme.h"
 
-#include "kappa_route.h"
+#include "hot_store.h"  // HotStore — a hot-reloadable κ-store (re-opens on reseal, no relaunch/poison)
 
 class KappaSchemeHandlerFactory : public CefSchemeHandlerFactory {
  public:
-  explicit KappaSchemeHandlerFactory(KStore* store) : store_(store) {}
+  explicit KappaSchemeHandlerFactory(HotStore* store) : store_(store) {}
 
   CefRefPtr<CefResourceHandler> Create(CefRefPtr<CefBrowser> browser,
                                        CefRefPtr<CefFrame> frame,
@@ -19,7 +19,7 @@ class KappaSchemeHandlerFactory : public CefSchemeHandlerFactory {
                                        CefRefPtr<CefRequest> request) override;
 
  private:
-  KStore* store_;
+  HotStore* store_;
   IMPLEMENT_REFCOUNTING(KappaSchemeHandlerFactory);
   DISALLOW_COPY_AND_ASSIGN(KappaSchemeHandlerFactory);
 };

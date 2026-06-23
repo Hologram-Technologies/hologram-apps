@@ -38,6 +38,7 @@ set(HOLO_SRCS
   src/app.cc
   src/handler.cc
   src/kappa_scheme.cc
+  src/hot_store.cc   # live-anchor hot-reload: watches os-closure.json, hot-swaps the sealed store on reseal
   holo.rc   # embeds the Hologram mark as the exe/window icon (taskbar, Alt-Tab, title bar)
 )
 

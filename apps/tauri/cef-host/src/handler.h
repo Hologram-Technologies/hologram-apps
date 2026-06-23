@@ -47,6 +47,7 @@ class SimpleHandler : public CefClient,
   // replies. Async by construction: ServiceFrame()->ExecuteJavaScript(__holoSvc) → service computes →
   // window.cefQuery('holo:svcreply:<id>:<json>') → ResolvePending(id, json) → callback->Success.
   CefRefPtr<CefFrame> ServiceFrame();  // the OS home frame iff it is still holo://os, else null
+  void RelayCapture(const std::string& payload);  // forward a captured message to the holo://os inbox frame(s)
   int StashPending(CefRefPtr<CefMessageRouterBrowserSide::Callback> callback);
   void ResolvePending(int id, const std::string& json);
 

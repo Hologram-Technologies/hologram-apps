@@ -210,6 +210,146 @@ class HoloAdKappaFilter : public CefResponseFilter {
   IMPLEMENT_REFCOUNTING(HoloAdKappaFilter);
 };
 
+// ── Open-web κ-cache. Projects the κ-substrate in FRONT of the network for every website (not just
+// holo://): every cacheable http(s) subresource is content-addressed; a repeat on ANY site, in ANY tab,
+// is served from the local substrate at memory speed (no DNS/TLS/network). Safe because κ = the content
+// address — a hit only returns bytes that re-derive to the requested κ (Law L5). Cold-novel bytes still
+// hit the network (physics); everything else is substrate-speed. The single shared cache (thread-safe in
+// Rust) is created once via a C++11 magic-static — no app.cc plumbing.
+KCache* WebCache() {
+  static KCache* c = kr_cache_new(4096);  // bounded resident working set (distinct κ)
+  return c;
+}
+
+// Which loads are cacheable: GET, http(s), and a static subresource type. Documents/XHR/fetch/media are
+// EXCLUDED — dynamic responses must never be served stale, and we don't buffer video. Start narrow.
+bool IsCacheableWeb(CefRefPtr<CefRequest> request) {
+  if (request->GetMethod().ToString() != "GET") return false;
+  const std::string url = request->GetURL().ToString();
+  if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0) return false;
+  switch (request->GetResourceType()) {
+    case RT_SCRIPT:
+    case RT_STYLESHEET:
+    case RT_IMAGE:
+    case RT_FONT_RESOURCE:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Serve-forever heuristic: immutable / long max-age / fingerprinted name. The cache is correct either way;
+// `immutable` just lets a later layer skip revalidation. (Conservative: false unless clearly immutable.)
+bool ImmutableByHeaders(CefRefPtr<CefResponse> response, const std::string& /*url*/) {
+  if (!response) return false;
+  std::string cc = response->GetHeaderByName("Cache-Control").ToString();
+  std::transform(cc.begin(), cc.end(), cc.begin(), [](unsigned char ch) { return std::tolower(ch); });
+  if (cc.find("immutable") != std::string::npos) return true;
+  const size_t p = cc.find("max-age=");
+  if (p != std::string::npos && std::atol(cc.c_str() + p + 8) >= 86400) return true;
+  return false;
+}
+
+// Serve a κ-HIT: a Rust-heap buffer (freed via kr_free) + mime (kr_cache_free_mime). Mirrors HoloSurrogateHandler.
+class HoloKappaCacheHandler : public CefResourceHandler {
+ public:
+  HoloKappaCacheHandler(uint8_t* data, size_t len, char* mime) : data_(data), len_(len), mime_(mime) {}
+  ~HoloKappaCacheHandler() override {
+    if (data_) kr_free(data_, len_);
+    if (mime_) kr_cache_free_mime(mime_);
+  }
+  bool Open(CefRefPtr<CefRequest>, bool& handle_request, CefRefPtr<CefCallback>) override {
+    handle_request = true;
+    return true;
+  }
+  void GetResponseHeaders(CefRefPtr<CefResponse> response, int64_t& response_length, CefString&) override {
+    response->SetStatus(200);
+    response->SetStatusText("OK");
+    response->SetMimeType(mime_ ? std::string(mime_) : std::string("application/octet-stream"));
+    CefResponse::HeaderMap h;
+    response->GetHeaderMap(h);
+    h.insert(std::make_pair("X-Holo-Source", "kappa-cache"));      // observable proof in DevTools/Network
+    h.insert(std::make_pair("Access-Control-Allow-Origin", "*"));  // a κ-hit must not break CORS-mode loads
+    response->SetHeaderMap(h);
+    response_length = static_cast<int64_t>(len_);
+  }
+  bool Read(void* out, int n, int& read, CefRefPtr<CefResourceReadCallback>) override {
+    if (off_ >= len_) { read = 0; return false; }
+    const size_t avail = len_ - off_;
+    const size_t cnt = (static_cast<size_t>(n) < avail) ? static_cast<size_t>(n) : avail;
+    std::memcpy(out, data_ + off_, cnt);
+    off_ += cnt;
+    read = static_cast<int>(cnt);
+    return true;
+  }
+  void Cancel() override {}
+
+ private:
+  uint8_t* data_;
+  size_t len_;
+  char* mime_;
+  size_t off_ = 0;
+  IMPLEMENT_REFCOUNTING(HoloKappaCacheHandler);
+};
+
+// Tee a cacheable response body into the κ-cache (cold miss only), passing it through UNCHANGED. Mirrors
+// HoloAdKappaFilter's buffer→drain protocol; on EOF it content-addresses + kr_cache_puts the whole body
+// (deduped by κ). A κ-HIT is served upstream by HoloKappaCacheHandler with NO filter in the path, so the
+// populate cost lands only on the cold (network-bound) miss. Oversized bodies pass through uncached.
+class HoloKappaTeeFilter : public CefResponseFilter {
+ public:
+  HoloKappaTeeFilter(std::string url, std::string mime, bool immutable)
+      : url_(std::move(url)), mime_(std::move(mime)), immutable_(immutable) {}
+  bool InitFilter() override { return true; }
+
+  FilterStatus Filter(void* data_in, size_t data_in_size, size_t& data_in_read,
+                      void* data_out, size_t data_out_size, size_t& data_out_written) override {
+    data_in_read = 0;
+    data_out_written = 0;
+    if (passthrough_) return DrainBufferThenCopy(data_in, data_in_size, data_in_read,
+                                                 data_out, data_out_size, data_out_written);
+    if (!stored_) {
+      if (data_in_size > 0) {  // accumulate the body; emit nothing yet
+        buf_.append(static_cast<const char*>(data_in), data_in_size);
+        data_in_read = data_in_size;
+        if (buf_.size() > kCap) passthrough_ = true;  // too big to cache → stream intact, skip the put
+        return RESPONSE_FILTER_NEED_MORE_DATA;
+      }
+      stored_ = true;  // EOF → content-address + store the whole body (dedup by κ)
+      kr_cache_put(WebCache(), url_.c_str(), reinterpret_cast<const uint8_t*>(buf_.data()), buf_.size(),
+                   mime_.c_str(), immutable_ ? 1 : 0);
+    }
+    return DrainBuffer(data_out, data_out_size, data_out_written);
+  }
+
+ private:
+  static constexpr size_t kCap = 16 * 1024 * 1024;  // hold up to 16MB; beyond that, passthrough uncached
+
+  FilterStatus DrainBuffer(void* data_out, size_t data_out_size, size_t& data_out_written) {
+    const size_t remaining = buf_.size() - off_;
+    const size_t n = remaining < data_out_size ? remaining : data_out_size;
+    if (n) { std::memcpy(data_out, buf_.data() + off_, n); off_ += n; data_out_written = n; }
+    return (off_ < buf_.size()) ? RESPONSE_FILTER_NEED_MORE_DATA : RESPONSE_FILTER_DONE;
+  }
+  FilterStatus DrainBufferThenCopy(void* data_in, size_t data_in_size, size_t& data_in_read,
+                                   void* data_out, size_t data_out_size, size_t& data_out_written) {
+    if (off_ < buf_.size()) { DrainBuffer(data_out, data_out_size, data_out_written); return RESPONSE_FILTER_NEED_MORE_DATA; }
+    if (data_in_size > 0) {
+      const size_t n = data_in_size < data_out_size ? data_in_size : data_out_size;
+      std::memcpy(data_out, data_in, n); data_in_read = n; data_out_written = n;
+      return RESPONSE_FILTER_NEED_MORE_DATA;
+    }
+    return RESPONSE_FILTER_DONE;
+  }
+
+  std::string url_, mime_, buf_;
+  size_t off_ = 0;
+  bool stored_ = false;
+  bool passthrough_ = false;
+  bool immutable_ = false;   // set from the ctor: marks serve-forever assets for kr_cache_put
+  IMPLEMENT_REFCOUNTING(HoloKappaTeeFilter);
+};
+
 // ── Playground injection. Splices the in-page Playground bootstrap into every top-level HTML document the
 // host renders (real web, IPFS, κ-app), so EVERY element on EVERY page becomes right-click-editable on screen
 // — the native twin of the shell injecting holo-playground-app.js into same-origin app frames. The bootstrap
@@ -285,16 +425,12 @@ class HoloPlaygroundInjectFilter : public CefResponseFilter {
   IMPLEMENT_REFCOUNTING(HoloPlaygroundInjectFilter);
 };
 const char HoloPlaygroundInjectFilter::kTag[] =
-    // NOTE: Playground is NO LONGER injected here. A spliced holo:// <script> is refused by real-site CSP
-    // (proven on HN/Google: "Failed to fetch dynamically imported module"), so Playground moved to a
-    // CSP-PROOF path — app.cc OnContextCreated ExecuteJavaScript()s a self-contained bundle into the page's
-    // main world (kHoloPlaygroundBundle). The messenger capture below uses the same byte-splice and has the
-    // SAME CSP limitation on strict-CSP messenger hosts — consider moving it to the host-inject path too.
-    // PHASE 7 — Holo Messenger capture: arm the per-platform message capture on every real-web page. It
-    // self-gates (holo-bridge-adapters.resolveBy host → no-op unless the page is a messenger client), so it
-    // is inert everywhere except web.whatsapp.com / web.telegram.org / discord.com / app.slack.com / … where
-    // it streams rendered messages to the inbox tab over the "holo-messenger" BroadcastChannel.
-    "<script type=\"module\" src=\"holo://os/_shared/holo-messenger-capture-boot.js\" data-holo-ephemeral></script>";
+    // NOTHING is byte-spliced anymore. A spliced holo:// <script> is refused by real-site CSP (proven on
+    // HN/Google: "Failed to fetch dynamically imported module"). BOTH Playground AND Holo Messenger capture
+    // now inject via the CSP-PROOF host path — app.cc OnContextCreated ExecuteJavaScript()s self-contained
+    // bundles into the page's main world (kHoloPlaygroundBundle, kHoloMessengerCaptureBundle). This filter is
+    // retained only as a no-op seam; kTag is empty so Splice() inserts nothing.
+    "";
 
 // ── Surrogates (anti-anti-adblock). Inert stand-ins served HTTP 200 in place of ad/detector requests so
 // the page sees a SUCCESS (not a cancel) and finds the globals it probes for — blocking becomes undetectable.
@@ -467,6 +603,17 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
     const std::string req = request.ToString();
     const std::string origin = frame->GetURL().ToString();
 
+    // Capture relay (Holo Messenger): a per-platform capture bundle on a web origin (web.whatsapp.com,
+    // …) posts a rendered message here because BroadcastChannel can't cross into the holo://os inbox.
+    // CONTENT-BLIND + cross-origin by design: the host forwards the opaque payload to the holo://os
+    // inbox frame(s), which mint the κ and verify-before-trust. Allowed from ANY origin (it can only
+    // reach the inbox, never the service); the inbox is the trust boundary, not this relay.
+    if (req.rfind("holo:capture:", 0) == 0) {
+      owner_->RelayCapture(req.substr(13));   // URI-encoded JSON payload (URL-safe → embeds in a JS string)
+      callback->Success("{\"ok\":true}");
+      return true;
+    }
+
     // Governance verdict path: the service returns a navigation verdict (origin holo://os only).
     if (req.rfind("holo:govverdict:", 0) == 0) {
       if (origin.rfind("holo://os", 0) != 0) {
@@ -615,6 +762,21 @@ CefRefPtr<CefFrame> SimpleHandler::ServiceFrame() {
   return f->GetURL().ToString().rfind("holo://os", 0) == 0 ? f : nullptr;
 }
 
+// RelayCapture — forward a captured message (URI-encoded JSON, content-blind) to every holo://os main
+// frame. The inbox surface listens for the 'holo-capture' window event, mints the κ and verifies before
+// it ingests; this host step only carries opaque bytes across the origin boundary. The payload is
+// encodeURIComponent output (no ", \\, or newline), so it embeds safely in a double-quoted JS string.
+void SimpleHandler::RelayCapture(const std::string& payload) {
+  CEF_REQUIRE_UI_THREAD();
+  const std::string js =
+      "window.dispatchEvent(new MessageEvent('holo-capture',{data:decodeURIComponent(\"" + payload + "\")}));";
+  for (auto& b : browser_list_) {
+    CefRefPtr<CefFrame> f = b->GetMainFrame();
+    if (f && f->GetURL().ToString().rfind("holo://os", 0) == 0)
+      f->ExecuteJavaScript(js, f->GetURL(), 0);
+  }
+}
+
 int SimpleHandler::StashPending(CefRefPtr<CefMessageRouterBrowserSide::Callback> callback) {
   CEF_REQUIRE_UI_THREAD();
   const int id = next_query_id_++;
@@ -646,67 +808,72 @@ void SimpleHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
 // tab, every element, every byte — by construction. The front-end's own asset loads route through
 // the holo:// κ scheme (sealed, verified) so the DevTools surface is itself substrate-native.
 //
-// DOCKED RIGHT, like Chrome: we do NOT SetAsPopup (a popup forces a separate OS window — and a second
-// window can land on a different DPI surface, which is what makes it look soft). Instead we force the
-// Chrome-runtime dock side to "right" via the persisted devtools preference, then ShowDevTools with a
-// default window_info so the runtime docks the inspector INSIDE this window, sharing its exact
-// device-scale (pixel-crisp) and renderer process (in-process CDP, no cross-window latency).
+// DOCKED RIGHT, like Chrome — but NOT via CefBrowserHost::ShowDevTools. That API, in a host with custom
+// chrome, opens a DETACHED inspector window that cannot dock (and a second OS window lands on its own DPI
+// surface, which is what made it look soft). Instead F12 toggles the IN-PAGE right-slide dock: the same
+// vendored Chrome devtools-frontend, κ-served (holo://), mounted over the κ-CDP backend, sliding in from
+// the right at a golden-ratio width. Consequences the operator asked for: it ALWAYS slides from the right,
+// the width is golden-ratio, it shares this window's exact device-scale (pixel-crisp / high-DPI), and the
+// backend is in-process (low latency). 100% κ-native: the dock + frontend are κ-served, handles alias κ.
 void SimpleHandler::ShowHoloDevTools(CefRefPtr<CefBrowser> browser, const CefPoint& inspect_at) {
   CEF_REQUIRE_UI_THREAD();
   if (!browser) return;
-  // Pin the dock side to the right once (Chrome stores it in devtools.preferences.currentDockState;
-  // the value is a JSON-encoded string, hence the embedded quotes). Idempotent + cheap.
-  static bool dock_pinned = false;
-  if (!dock_pinned) {
-    dock_pinned = true;
-    CefRefPtr<CefRequestContext> rc = browser->GetHost()->GetRequestContext();
-    if (rc && rc->CanSetPreference("devtools.preferences")) {
-      CefRefPtr<CefValue> cur = rc->GetPreference("devtools.preferences");
-      CefRefPtr<CefDictionaryValue> dict =
-          (cur && cur->GetType() == VTYPE_DICTIONARY) ? cur->GetDictionary()->Copy(false)
-                                                      : CefDictionaryValue::Create();
-      dict->SetString("currentDockState", "\"right\"");
-      CefRefPtr<CefValue> v = CefValue::Create();
-      v->SetDictionary(dict);
-      CefString err;
-      rc->SetPreference("devtools.preferences", v, err);
-    }
-  }
-  CefWindowInfo window_info;  // default (no SetAsPopup) → Chrome runtime docks per currentDockState
-  CefBrowserSettings settings;
-  // Reuse this client: the DevTools page is a κ-served resource like every other holo:// asset.
-  browser->GetHost()->ShowDevTools(window_info, this, settings, inspect_at);
+  CefRefPtr<CefFrame> frame = browser->GetMainFrame();  // the OS shell frame owns window.HoloDevDock
+  if (!frame) return;
+  // Toggle the dock in the shell. Harmless no-op if the dock isn't installed (non-shell main frame).
+  frame->ExecuteJavaScript(
+      "window.HoloDevDock&&window.HoloDevDock.toggle&&window.HoloDevDock.toggle();",
+      "holo://devtools/toggle", 0);
 }
 
 bool SimpleHandler::OnKeyEvent(CefRefPtr<CefBrowser> browser,
                                const CefKeyEvent& event,
                                CefEventHandle os_event) {
   CEF_REQUIRE_UI_THREAD();
-  // Only act on key-down; ignore key-up / char so the chord fires once.
   if (event.type != KEYEVENT_RAWKEYDOWN && event.type != KEYEVENT_KEYDOWN) return false;
   if (!browser) return false;
   const bool ctrl = (event.modifiers & EVENTFLAG_CONTROL_DOWN) != 0;
   const bool shift = (event.modifiers & EVENTFLAG_SHIFT_DOWN) != 0;
   const int code = event.windows_key_code;
-  // Windows virtual-key codes (avoid pulling <winuser.h>): F12=0x7B, I=0x49, J=0x4A, C=0x43.
-  constexpr int VK_F12_ = 0x7B, VK_I_ = 0x49, VK_J_ = 0x4A, VK_C_ = 0x43;
-  CefRefPtr<CefBrowserHost> host = browser->GetHost();
+  constexpr int VK_F12_ = 0x7B, VK_I_ = 0x49, VK_J_ = 0x4A, VK_C_ = 0x43;  // F12, I, J, C
+  const bool is_devtools_chord =
+      (code == VK_F12_) || (ctrl && shift && (code == VK_I_ || code == VK_J_ || code == VK_C_));
+  if (!is_devtools_chord) return false;
 
-  // F12 or Ctrl+Shift+I → toggle DevTools.
-  if (code == VK_F12_ || (ctrl && shift && code == VK_I_)) {
-    if (host->HasDevTools()) host->CloseDevTools();
-    else ShowHoloDevTools(browser, CefPoint());
-    return true;  // consume
+  // Toggle the IN-PAGE right-docked Holo DevTools (the κ-served real Chrome frontend over the κ-CDP
+  // backend, injected into every tab by holo-devtools-dock-boot.js). We CONSUME the chord (return true)
+  // so Chrome's own F12 never opens its detached window — the whole reason it kept "opening as a new
+  // window." The inspector docks right at a golden-ratio width and reflects this tab's live κ-holospace.
+  CefRefPtr<CefFrame> frame = browser->GetMainFrame();
+  if (frame) {
+    frame->ExecuteJavaScript(
+        "window.HoloDevDock&&window.HoloDevDock.toggle&&window.HoloDevDock.toggle();",
+        "holo://devtools/toggle", 0);
   }
-  // Ctrl+Shift+J → open straight to Console; Ctrl+Shift+C → inspect-element mode.
-  if (ctrl && shift && (code == VK_J_ || code == VK_C_)) {
-    ShowHoloDevTools(browser, CefPoint());
-    return true;
+  return true;  // consume — do NOT let Chrome open its detached DevTools window
+}
+
+namespace {
+// Messenger platforms are FIRST-CLASS destinations of the unified inbox — the user is signing into
+// their OWN accounts (the whole point of Holo Messenger), not disclosing PII to an arbitrary site. So
+// they are exempt from the conscience gate's data-minimisation red-line (which guards against LEAKING
+// the operator's PII outward, a different act). Host-suffix match, mirroring holo-bridge-adapters.
+bool IsMessengerHost(const std::string& url) {
+  static const char* const kMsgrHosts[] = {
+      "web.whatsapp.com", "web.telegram.org", "discord.com", "discordapp.com", "app.slack.com",
+      "x.com", "twitter.com", "mobile.twitter.com", "www.messenger.com", "messenger.com",
+      "www.instagram.com", "instagram.com", "www.linkedin.com", "linkedin.com", "messages.google.com" };
+  const std::string host = HostOf(url);
+  if (host.empty()) return false;
+  for (const char* d : kMsgrHosts) {
+    const size_t dl = std::strlen(d);
+    if (host.size() >= dl && host.compare(host.size() - dl, dl, d) == 0 &&
+        (host.size() == dl || host[host.size() - dl - 1] == '.'))
+      return true;
   }
   return false;
 }
 
-namespace {
 // The block page shown when the user's constitution refuses a destination. A data: URL (not http/https)
 // so it is not itself re-judged. Minimal, honest, no external assets.
 std::string BlockPageUrl(const std::string& url) {
@@ -735,6 +902,7 @@ bool SimpleHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
     return true;
   }
   if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0) return false;
+  if (IsMessengerHost(url)) return false;  // a sanctioned messenger destination — never gated by the PII red-line
   // Our own re-navigation of a cleared URL passes exactly once (so the verdict isn't re-run into a loop).
   auto a = approved_.find(url);
   if (a != approved_.end()) { approved_.erase(a); return false; }
@@ -795,6 +963,13 @@ CefRefPtr<CefResourceHandler> SimpleHandler::GetResourceHandler(CefRefPtr<CefBro
                                                                CefRefPtr<CefRequest> request) {
   const std::string url = request->GetURL().ToString();
   if (url.rfind("holo://", 0) == 0) return nullptr;
+  // Open-web κ-cache: serve a HIT from the substrate, ZERO network — every cacheable subresource, any site,
+  // any tab. (Populated by the tee filter on the cold miss; see GetResourceResponseFilter.)
+  if (IsCacheableWeb(request)) {
+    uint8_t* p = nullptr; size_t len = 0; char* mime = nullptr;
+    if (kr_cache_get(WebCache(), url.c_str(), &p, &len, &mime) == 1)
+      return new HoloKappaCacheHandler(p, len, mime);
+  }
   if (!IsAdRequest(url) && !IsAaDetect(url)) return nullptr;  // not ad/detector → normal network load
   if (IsGptScript(url))
     return new HoloSurrogateHandler(kGptSurrogate, sizeof(kGptSurrogate) - 1, "application/javascript");
@@ -828,12 +1003,17 @@ CefRefPtr<CefResponseFilter> SimpleHandler::GetResourceResponseFilter(
   }
 
   LoadAdKappaOnce();
-  if (g_ad_kappa.empty()) return nullptr;            // no content-κ rules → zero overhead
-  if (rt != RT_SCRIPT) return nullptr;               // scripts are the ad-payload tier
   const std::string url = request->GetURL().ToString();
   if (url.rfind("holo://", 0) == 0) return nullptr;  // never touch the κ substrate
-  (void)response;  // Content-Length not required — the filter buffers chunked/compressed bodies safely
-  return new HoloAdKappaFilter();
+  // ad-κ scripts take precedence (the ad filter drops denylisted payloads by content κ)
+  if (!g_ad_kappa.empty() && rt == RT_SCRIPT) return new HoloAdKappaFilter();
+  // Open-web κ-cache POPULATE: tee a cacheable subresource body into the substrate (cold miss only — a HIT
+  // is served upstream with no filter). Applies to EVERY site in EVERY CEF tab; cold-novel only.
+  if (IsCacheableWeb(request)) {
+    const std::string mime = response ? response->GetMimeType().ToString() : std::string();
+    return new HoloKappaTeeFilter(url, mime, ImmutableByHeaders(response, url));
+  }
+  return nullptr;
 }
 
 void SimpleHandler::OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
