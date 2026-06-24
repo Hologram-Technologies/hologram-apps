@@ -3,20 +3,20 @@
     "dcterms": "http://purl.org/dc/terms/",
     "holo": "https://hologram.os/ns#"
   },
-  "root": "did:holo:sha256:231ede4d30fcc6b408aed1e943379888aaa0e8958c6bb863cd15d6ec740bc9a0",
+  "root": "did:holo:sha256:44da486b00cb5f3686ce2f5910e9ec25d22ce65038f0473fdde5dfc98d2a3421",
   "identifier": "org.hologram.V86lEEtOS",
   "algo": "sha256",
   "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
   "holo:atlasCoordinate": {
     "space": "Φ-Atlas-12288",
     "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
-    "cell": 6560,
-    "page": 25,
-    "byte": 160,
-    "r96": 64,
-    "phi": 6560
+    "cell": 9249,
+    "page": 36,
+    "byte": 33,
+    "r96": 33,
+    "phi": 9249
   },
-  "files": 23,
+  "files": 17,
   "closure": {
     "apps/leetos/holo-splash.js": {
       "kappa": "did:holo:sha256:3765a20ebcddb83cd420d9ea6a56bf43fbbee2a04a0350591f505fa64bbf7317",
@@ -52,60 +52,6 @@
       "bytes": 1474560,
       "alsoKnownAs": [
         "did:holo:blake3:73a81da2f99df9efad282812befbad67c56a4b8f4467e19e3bc705467605dc46"
-      ]
-    },
-    "apps/leetos/images/leetos.img.kblocks/.holo/sha256/5ef3f4deeff1a01f9bdf27a7882f39c9fff6e064e40df958014a8ca59bce7ce4": {
-      "kappa": "did:holo:sha256:5ef3f4deeff1a01f9bdf27a7882f39c9fff6e064e40df958014a8ca59bce7ce4",
-      "sri": "sha256-XvP03u/xoB+b3yeniC85yf/24GTkDflYAUqMpZvOfOQ=",
-      "multibase": "uEiBe8_Te7_GgH5vfJ6eILznJ__bgZOQN-VgBSoylm8585A",
-      "bytes": 262144,
-      "alsoKnownAs": [
-        "did:holo:blake3:9ca2bc5aecd7a0f2c83f3066a72ad66fa261436444e16af562484d387df3105c"
-      ]
-    },
-    "apps/leetos/images/leetos.img.kblocks/.holo/sha256/7fc05d7971fa84e6c5d874cf80d6452f19d93426d8859e4abf9a439fa862fdab": {
-      "kappa": "did:holo:sha256:7fc05d7971fa84e6c5d874cf80d6452f19d93426d8859e4abf9a439fa862fdab",
-      "sri": "sha256-f8BdeXH6hObF2HTPgNZFLxnZNCbYhZ5Kv5pDn6hi/as=",
-      "multibase": "uEiB_wF15cfqE5sXYdM-A1kUvGdk0JtiFnkq_mkOfqGL9qw",
-      "bytes": 163840,
-      "alsoKnownAs": [
-        "did:holo:blake3:46b7dd22f6d2cac8dc6fbc963590710c14bad060ff0900eaf0839b5cc515fe65"
-      ]
-    },
-    "apps/leetos/images/leetos.img.kblocks/.holo/sha256/88fe15d0b5c5d5d57d6adf0f3e221950efe65be7cb3eca46e062ac08c8139c5f": {
-      "kappa": "did:holo:sha256:88fe15d0b5c5d5d57d6adf0f3e221950efe65be7cb3eca46e062ac08c8139c5f",
-      "sri": "sha256-iP4V0LXF1dV9at8PPiIZUO/mW+fLPspG4GKsCMgTnF8=",
-      "multibase": "uEiCI_hXQtcXV1X1q3w8-IhlQ7-Zb58s-ykbgYqwIyBOcXw",
-      "bytes": 262144,
-      "alsoKnownAs": [
-        "did:holo:blake3:0a548cefced6694a5bf6ca0deb8aa9f30ae5e95cffa2cb7fc79ddb31b251c55e"
-      ]
-    },
-    "apps/leetos/images/leetos.img.kblocks/.holo/sha256/90010c7e7c45c62b483d784d186679e166791d24006e51873a1c2e34a3afd8bd": {
-      "kappa": "did:holo:sha256:90010c7e7c45c62b483d784d186679e166791d24006e51873a1c2e34a3afd8bd",
-      "sri": "sha256-kAEMfnxFxitIPXhNGGZ54WZ5HSQAblGHOhwuNKOv2L0=",
-      "multibase": "uEiCQAQx-fEXGK0g9eE0YZnnhZnkdJABuUYc6HC40o6_YvQ",
-      "bytes": 262144,
-      "alsoKnownAs": [
-        "did:holo:blake3:d14bc6058fba7a8a9a958692f95c800a0897d0300fb59500fff78f938ecbb328"
-      ]
-    },
-    "apps/leetos/images/leetos.img.kblocks/.holo/sha256/a2a3502cc8d6bdc176428dac305152ca21d6aeed44637f71e38aa0a449c0ad5a": {
-      "kappa": "did:holo:sha256:a2a3502cc8d6bdc176428dac305152ca21d6aeed44637f71e38aa0a449c0ad5a",
-      "sri": "sha256-oqNQLMjWvcF2Qo2sMFFSyiHWru1EY39x44qgpEnArVo=",
-      "multibase": "uEiCio1AsyNa9wXZCjawwUVLKIdau7URjf3HjiqCkScCtWg",
-      "bytes": 262144,
-      "alsoKnownAs": [
-        "did:holo:blake3:bebec750e7ed45429e8d91850bdfa3d61954afe10916ff126fd8e0e4be2fea2a"
-      ]
-    },
-    "apps/leetos/images/leetos.img.kblocks/.holo/sha256/c0d7cfce6316ddfd25c49edfe0ec924ae6e4cd10ae44d05f1da85fd52f3721fe": {
-      "kappa": "did:holo:sha256:c0d7cfce6316ddfd25c49edfe0ec924ae6e4cd10ae44d05f1da85fd52f3721fe",
-      "sri": "sha256-wNfPzmMW3f0lxJ7f4OySSubkzRCuRNBfHahf1S83If4=",
-      "multibase": "uEiDA18_OYxbd_SXEnt_g7JJK5uTNEK5E0F8dqF_VLzch_g",
-      "bytes": 262144,
-      "alsoKnownAs": [
-        "did:holo:blake3:9e3d95b3920fdecc738d68084b82e0118def30536404dec5924234bbf0cb8475"
       ]
     },
     "apps/leetos/images/leetos.img.kblocks.json": {
