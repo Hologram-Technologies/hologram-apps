@@ -40,6 +40,10 @@ void kr_free(uint8_t* ptr, size_t len);
  * a payload is refused by THIS hash, so a denylisted ad object is caught wherever it is served. */
 void kr_sha256_hex(const uint8_t* data, size_t len, char* out);
 
+/* BLAKE3 hex (64 chars + NUL) into `out` (>= 65 bytes) — the substrate's FAST σ-axis (did:holo:blake3:…),
+ * a SIMD tree hash ~5x faster than sha256. The projection producer addresses per-frame tiles on this axis. */
+void kr_blake3_hex(const uint8_t* data, size_t len, char* out);
+
 /* ── Open-web κ-cache (kr_cache_*). The host's resource path content-addresses every cacheable http(s)
  * subresource and serves repeats from this cache at memory speed (no DNS/TLS/network) — projecting the
  * substrate in front of the network for EVERY website, not just holo://. Distinct from the sealed,
@@ -76,6 +80,12 @@ char* kr_cache_entries(const KCache* c);
  * buffer, free with kr_free; *out_mime = mime, free with kr_cache_free_mime), else 0 (re-derives — L5). */
 uint8_t kr_cache_get_kappa(const KCache* c, const char* kappa,
                            uint8_t** out_ptr, size_t* out_len, char** out_mime);
+
+/* Fetch a held object BY its BLAKE3 σ-axis hex — how the projection lens pulls a tile addressed on the fast
+ * axis (holo://os/cache/blake3/<hex>). Returns 1 on a verified hit (same out-params + free rules as
+ * kr_cache_get_kappa), else 0 (re-derives BLAKE3 — L5). */
+uint8_t kr_cache_get_b3(const KCache* c, const char* b3hex,
+                        uint8_t** out_ptr, size_t* out_len, char** out_mime);
 
 /* ── Planetary shared-κ substrate (kr_shared_*). The next layer above kr_cache: a SHARED, content-addressed
  * store keyed BY κ (not url) behind a swappable transport — so the web's FIRST load for you is served from a

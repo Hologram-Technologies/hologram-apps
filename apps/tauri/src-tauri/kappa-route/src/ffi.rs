@@ -117,6 +117,24 @@ pub unsafe extern "C" fn kr_sha256_hex(data: *const u8, len: usize, out: *mut c_
     *out.add(64) = 0;
 }
 
+/// BLAKE3 hex of `data` into `out` — the substrate's FAST σ-axis (did:holo:blake3:…), a SIMD tree hash ~5×
+/// faster than sha256 (see webcache.rs). The projection producer addresses per-frame tiles on this axis.
+///
+/// # Safety
+/// `out` must point to ≥ 65 writable bytes; `data` valid for `len` bytes (or `len == 0`).
+#[no_mangle]
+pub unsafe extern "C" fn kr_blake3_hex(data: *const u8, len: usize, out: *mut c_char) {
+    if out.is_null() || (data.is_null() && len != 0) {
+        return;
+    }
+    let slice = if len == 0 { &[][..] } else { std::slice::from_raw_parts(data, len) };
+    let hex = crate::blake3_hex(slice); // 64 ASCII hex chars
+    for (i, &b) in hex.as_bytes().iter().enumerate().take(64) {
+        *out.add(i) = b as c_char;
+    }
+    *out.add(64) = 0;
+}
+
 /// Free a buffer returned by `kr_resolve`.
 ///
 /// # Safety
@@ -213,6 +231,36 @@ pub unsafe extern "C" fn kr_cache_get_kappa(
     let kappa = match CStr::from_ptr(kappa).to_str() { Ok(k) => k, Err(_) => return 0 };
     let cache = match (*c).0.lock() { Ok(g) => g, Err(_) => return 0 };
     match cache.get_by_kappa(kappa) {
+        Some((bytes, mime)) => {
+            let len = bytes.len();
+            *out_ptr = Box::into_raw(bytes.into_boxed_slice()) as *mut u8;
+            *out_len = len;
+            *out_mime = std::ffi::CString::new(mime).unwrap_or_default().into_raw();
+            1
+        }
+        None => 0,
+    }
+}
+
+/// Fetch a held object BY its BLAKE3 σ-axis hex (the fast axis the projection producer addresses tiles on).
+/// Mirrors kr_cache_get_kappa; serves holo://os/cache/blake3/<hex>. Returns 1 on hit, 0 on miss/tamper.
+///
+/// # Safety: `c` valid; `b3hex` NUL-terminated UTF-8; out-pointers writable.
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_get_b3(
+    c: *const KCache,
+    b3hex: *const c_char,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+    out_mime: *mut *mut c_char,
+) -> u8 {
+    if !out_ptr.is_null() { *out_ptr = std::ptr::null_mut(); }
+    if !out_len.is_null() { *out_len = 0; }
+    if !out_mime.is_null() { *out_mime = std::ptr::null_mut(); }
+    if c.is_null() || b3hex.is_null() { return 0; }
+    let b3hex = match CStr::from_ptr(b3hex).to_str() { Ok(k) => k, Err(_) => return 0 };
+    let cache = match (*c).0.lock() { Ok(g) => g, Err(_) => return 0 };
+    match cache.get_by_b3(b3hex) {
         Some((bytes, mime)) => {
             let len = bytes.len();
             *out_ptr = Box::into_raw(bytes.into_boxed_slice()) as *mut u8;

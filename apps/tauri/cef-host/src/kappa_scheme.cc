@@ -398,6 +398,23 @@ class KappaResourceHandler : public CefResourceHandler {
       return true;
     }
 
+    // The FAST σ-axis: the projection lens pulls a κ tile by its BLAKE3 address (holo://os/cache/blake3/<hex>).
+    // Same cache, same L5 (re-derive BLAKE3) — the OSR producer hashes tiles on this axis (~3.2 GB/s) and the
+    // lens fetches + verifies on it. Mirrors the sha256 route above.
+    static const std::string kCacheB3Pfx = "/os/cache/blake3/";
+    if (req.compare(0, kCacheB3Pfx.size(), kCacheB3Pfx) == 0) {
+      const std::string hex = req.substr(kCacheB3Pfx.size());
+      char* m = nullptr;
+      if (HoloWebCache() && kr_cache_get_b3(HoloWebCache(), hex.c_str(), &data_, &size_, &m) == 1) {
+        status_ = 200;
+        mime_ = m ? m : "application/octet-stream";
+        if (m) kr_cache_free_mime(m);
+      } else {
+        status_ = 404;
+      }
+      return true;
+    }
+
     // DEV: serve the Living Window page + its bundle + css from $HOLO_LW_DIR for holo://os/lw/* — lets the
     // in-host experience run WITHOUT sealing into the tree (the production path is the reseal). Same OS origin,
     // so the page can fetch the holo://os/cache/* endpoints. Gated by the env var (absent ⇒ inactive); a path
@@ -415,6 +432,7 @@ class KappaResourceHandler : public CefResourceHandler {
           const std::string ext = file.substr(file.find_last_of('.') + 1);
           mime_ = ext == "html" ? "text/html"
                 : ext == "js"   ? "text/javascript"
+                : ext == "mjs"  ? "text/javascript"   // ES modules need a JS MIME or the import is refused
                 : ext == "css"  ? "text/css"
                 : ext == "json" ? "application/json"
                 : ext == "webm" ? "video/webm"

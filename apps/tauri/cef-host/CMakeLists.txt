@@ -40,6 +40,7 @@ set(HOLO_SRCS
   src/holo_media.cc   # κ Universal Media Resolver backend (ffmpeg H.264→VP9/Opus transcode)
   src/holo_sc.cc      # native /sc/* streaming backend (yt-dlp resolve + ffmpeg copy-mux for the dock media apps)
   src/kappa_scheme.cc
+  src/holo_osr.cc    # off-screen browser PRODUCER: page → κ tiles → lens (P4 projection; OnPaint + CDP input)
   src/hot_store.cc   # live-anchor hot-reload: watches os-closure.json, hot-swaps the sealed store on reseal
   src/broker_server.cc   # self-contained loopback HTTP server serving the step-up WebAuthn broker
   src/mesh_supervisor.cc # auto-spawn + supervise the always-on mesh node (planetary content network, zero input)

@@ -91,6 +91,7 @@ pub struct CacheEntry {
 pub struct WebCache {
     url_to_kappa: HashMap<String, String>, // GET url → κ (sha256 hex): which content this url last served
     store: HashMap<String, CacheEntry>,    // κ → deduped bytes (one entry per unique byte-sequence)
+    byb3: HashMap<String, String>,         // blake3 hex (σ-axis) → κ: fetch by the fast axis (projection tiles)
     cap: usize,
     pub requests: u64,
     pub net_fetches: u64,
@@ -126,6 +127,16 @@ impl WebCache {
         let hex = kappa.rsplit(':').next().unwrap_or(kappa).to_ascii_lowercase();
         let e = self.store.get(&hex)?;
         if !verify_b3(&e.bytes, &e.b3) { return None; }   // L5: never serve a tampered entry (fast axis)
+        Some((e.bytes.clone(), e.mime.clone()))
+    }
+
+    /// Fetch a held object BY its BLAKE3 σ-axis hex (the fast axis the projection producer addresses tiles on).
+    /// Re-derives BLAKE3 before serving (L5); a tamper is a miss. The lens fetches holo://os/cache/blake3/<hex>.
+    pub fn get_by_b3(&self, b3hex: &str) -> Option<(Vec<u8>, String)> {
+        let hex = b3hex.rsplit(':').next().unwrap_or(b3hex).to_ascii_lowercase();
+        let k = self.byb3.get(&hex)?;
+        let e = self.store.get(k)?;
+        if !verify_b3(&e.bytes, &e.b3) { return None; }   // L5: re-derive the σ-axis, never serve tampered
         Some((e.bytes.clone(), e.mime.clone()))
     }
 
@@ -168,6 +179,8 @@ impl WebCache {
                 }
             }
             let b3 = *blake3::hash(&bytes).as_bytes();   // L5 integrity digest, derived from the same bytes as κ
+            let b3hex: String = b3.iter().map(|b| format!("{:02x}", b)).collect();
+            self.byb3.insert(b3hex, k.clone());          // index by the σ-axis so tiles fetch by blake3
             self.store.insert(k.clone(), CacheEntry { bytes, mime: mime.to_string(), immutable, b3 });
         }
         self.url_to_kappa.insert(url.to_string(), k.clone());

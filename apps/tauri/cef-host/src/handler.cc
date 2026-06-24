@@ -4,10 +4,12 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <mutex>
 #include <set>
 #include <string>
@@ -16,6 +18,7 @@
 #include <vector>
 
 #include "holo_media.h"  // κ Universal Media Resolver backend (ffmpeg H.264→VP9/Opus transcode)
+#include "holo_osr.h"     // off-screen projection producer: OpenOsr / DispatchOsrInput (P4 live projection)
 #include "kappa_scheme.h"  // HoloCreateScHandler — native /sc/* media streaming for the dock apps
 
 #include "include/base/cef_callback.h"
@@ -983,6 +986,35 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       return true;
     }
 
+    // ── Live projection (P4): the κ-tile lens surface drives the off-screen producer. ──
+    // Input: the projector page captures DOM input on its canvas and forwards it here; we replay it on the
+    // off-screen producer (which renders the real page) — closing the click-to-photon loop. From holo:// only.
+    if (req.rfind("holo:osrinput:", 0) == 0) {
+      if (origin.rfind("holo://", 0) != 0) { callback->Failure(403, "holo-bridge: osrinput only from holo://"); return true; }
+      holo::DispatchOsrInput(req.substr(14));
+      callback->Success("{\"ok\":true}");
+      return true;
+    }
+    // Open a URL as a projected tab: the service opens the lens page, which fires holo:osrready, on which we
+    // spawn the producer at the pending URL pointed at the lens frame. (Service origin only — it renders web.)
+    static std::string s_pending_project_url;
+    if (req.rfind("holo:project:", 0) == 0) {
+      std::fprintf(stderr, "HOLO-PROJECT: project verb, origin=%s\n", origin.c_str()); std::fflush(stderr);
+      if (origin.rfind("holo://os", 0) != 0) { callback->Failure(403, "holo-bridge: only the service may project"); return true; }
+      s_pending_project_url = req.substr(13);
+      owner_->OpenPopupWindow("holo://os/lw/holo-osr-projector.html");   // top-level window w/ the main client (router)
+      std::fprintf(stderr, "HOLO-PROJECT: opened lens window, pending=%s\n", s_pending_project_url.c_str()); std::fflush(stderr);
+      callback->Success("{\"ok\":true}");
+      return true;
+    }
+    if (req.rfind("holo:osrready", 0) == 0) {
+      std::fprintf(stderr, "HOLO-PROJECT: osrready from %s, pending=%s\n", origin.c_str(), s_pending_project_url.c_str()); std::fflush(stderr);
+      if (origin.find("holo-osr-projector") == std::string::npos) { callback->Failure(403, "holo-bridge: not the projector surface"); return true; }
+      if (!s_pending_project_url.empty()) { holo::OpenOsr(s_pending_project_url, frame, 1280, 800); s_pending_project_url.clear(); std::fprintf(stderr, "HOLO-PROJECT: producer opened on lens frame\n"); std::fflush(stderr); }
+      callback->Success("{\"ok\":true}");
+      return true;
+    }
+
     // Governance verdict path: the service returns a navigation verdict (origin holo://os only).
     if (req.rfind("holo:govverdict:", 0) == 0) {
       if (origin.rfind("holo://os", 0) != 0) {
@@ -1428,6 +1460,22 @@ void SimpleHandler::OnLoadError(CefRefPtr<CefBrowser> browser,
   const std::string url = failedUrl.ToString();
   if (url.rfind("data:", 0) == 0) return;          // never recurse on the diagnostic page itself
   if (url.rfind("holo://os", 0) != 0) return;      // only guard the canonical OS entry (login/shell), not web
+
+  // Transient-error retry for the projection lens: holo://os/lw/holo-osr-projector.html can race the κ
+  // scheme/store during boot and return ERR_INVALID_RESPONSE on the first load. A reload reliably succeeds, so
+  // retry a few times (keyed per frame → self-resets each projection) before falling to the diagnostic.
+  if (url.find("holo-osr-projector") != std::string::npos) {
+    static std::map<std::string, int> s_retries;
+    int& n = s_retries[frame->GetIdentifier().ToString()];
+    if (n < 5) {
+      ++n;
+      LogLife("projector transient load error (" + errorText.ToString() + ") — retry " + std::to_string(n));
+      CefRefPtr<CefFrame> f = frame;
+      CefPostDelayedTask(TID_UI, base::BindOnce([](CefRefPtr<CefFrame> fr, std::string u) { if (fr) fr->LoadURL(u); }, f, url), 120);
+      return;
+    }
+  }
+
   const std::string reason =
       "Some of Hologram's files changed since they were last checked, so it paused to keep you safe. "
       "Click Try again below. This usually fixes it.";  // plain English; the error code lives in the trail
