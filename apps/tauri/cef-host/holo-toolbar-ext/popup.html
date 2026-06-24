@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hologram</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; width: 320px; background: #0c1020; color: #eef0fb;
+         font: 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px; font-weight: 700; letter-spacing: -.01em; }
+  header .h { width: 16px; height: 16px; }
+  .sub { padding: 0 14px 8px; font-size: 11px; opacity: .55; }
+  #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px 10px 12px; }
+  .tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 0;
+          border-radius: 12px; background: transparent; color: inherit; cursor: pointer; font: inherit;
+          transition: background .12s ease, transform .08s ease; }
+  .tile:hover { background: #ffffff14; }
+  .tile:active { transform: scale(.94); }
+  .chip { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+          font-size: 17px; font-weight: 700; color: #fff; }
+  .chip img { width: 38px; height: 38px; border-radius: 11px; object-fit: cover; }
+  .lbl { font-size: 10.5px; line-height: 1.15; text-align: center; max-width: 64px;
+         overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  footer { padding: 8px 14px 12px; border-top: 1px solid #ffffff14; }
+  footer button { width: 100%; padding: 8px; border: 0; border-radius: 9px; background: #ffffff10; color: inherit;
+                  cursor: pointer; font: inherit; }
+  footer button:hover { background: #ffffff1c; }
+</style>
+<body>
+  <header><svg class="h" viewBox="0 0 128 128"><rect width="128" height="128" rx="28" fill="#3b82f6"></rect><path d="M64 22 L104 45 V91 L64 114 L24 91 V45 Z" fill="none" stroke="#04101f" stroke-width="9" stroke-linejoin="round"></path><path d="M52 58 L78 70 L52 82 Z" fill="#04101f"></path></svg> Hologram</header>
+  <div class="sub" id="sub">Your apps</div>
+  <div id="grid"></div>
+  <footer><button id="manage">Manage extensions</button></footer>
+  <script src="popup.js"></script>
+</body>

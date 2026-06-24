@@ -12,11 +12,15 @@
 #include "include/cef_request_context.h"  // pin DevTools dock side (right) + golden-ratio width
 #include "include/cef_scheme.h"
 #include "include/cef_values.h"
+#include "include/base/cef_callback.h"          // base::BindOnce / OnceCallback (complete type for the deferred task)
 #include "include/wrapper/cef_helpers.h"
+#include "include/wrapper/cef_closure_task.h"  // CefPostDelayedTask — defer non-critical boot work off the path
 
 #include "closure_anchor.h"
 #include "handler.h"
 #include "hot_store.h"      // HotStore — live-anchor hot-reload of the sealed image (no reseal poisoning)
+#include "mesh_supervisor.h"  // auto-spawn + supervise the always-on mesh node (planetary network, zero input)
+#include "broker_server.h"  // self-contained loopback HTTP server for the step-up WebAuthn broker
 #include "kappa_route.h"
 #include "kappa_scheme.h"
 #include "devtools_bundle.h"    // kHoloDevToolsBundle — host-injected, drift-proof DevTools dock (every app tab)
@@ -136,6 +140,74 @@ const char kHoloServiceShim[] =
     "window.cefQuery({request:'holo:open:'+url,persistent:false,onSuccess:function(){},onFailure:function(){}});"
     "out={ok:true,verb:'compose-surface',intent:arg,surfaceKappa:s.surfaceKappa,title:s.title,"
     "via:s.via,surfaceUrl:url,members:s.members};}"
+    // WebAuthn PASSKEY PROVIDER (P4): a WEB page called navigator.credentials.get(); the host routed the
+    // ceremony here with the REAL committed origin (3rd arg — the page cannot forge it). We sign with a
+    // vault-resident passkey after the TEE step-up. The private key never leaves this trusted context.
+    "else if(verb==='webauthn'){var req;try{req=JSON.parse(arg);}catch(e){req={};}"
+    "var O,H;try{O=new URL(origin).origin;H=new URL(origin).hostname;}catch(e){O=origin;H=origin;}"
+    "var rpId=req.rpId||H;var V=window.__holoPassVault;"
+    "if(!V){out={ok:false,verb:'webauthn',error:'vault locked'};}"
+    "else{var PK=await import(DIR+'holo-passkey.mjs');"
+    // REGISTRATION: navigator.credentials.create → mint a per-rp passkey, store it in the vault (opening
+    // the vault is itself the biometric/user-verification). Returns the attestation for the relying party.
+    "if(req.type==='create'){"
+    "var cc=await PK.createCredential({rpId:rpId,rpName:req.rpName||rpId,userId:req.userId,userName:req.userName||'',userDisplayName:req.userDisplayName||'',challenge:req.challenge,origin:O,signCount:0});"
+    "await V.put({origin:rpId,kind:'passkey',username:req.userName||null,secret:JSON.stringify(cc.store)});"
+    "out={ok:true,verb:'webauthn',credential:cc.credential};"
+    "}else{"
+    "var r=await PK.getAssertion({rpId:rpId,challenge:req.challenge,origin:O,allowCredentials:req.allowCredentials||[]},{"
+    "lookup:function(rp,ids){return Promise.resolve(V.get(rp)).then(function(e){if(!e||e.kind!=='passkey')return null;try{return JSON.parse(e.secret);}catch(_){return null;}});},"
+    "stepup:function(a){return (typeof window.__holoStepUp==='function')?window.__holoStepUp(a):import(DIR+'holo-stepup.mjs').then(function(SU){return SU.requireStepUp(a,{});});},"
+    "persist:function(rec){return Promise.resolve(V.put({origin:rec.rpId,kind:'passkey',username:rec.userName||null,secret:JSON.stringify(rec)}));}"
+    "});out={ok:true,verb:'webauthn',credential:r.credential,signCount:r.signCount};}}}"
+    // [holo-cred] UNIFIED web2 credential ops over the unlocked vault (origin = host-supplied, 3rd arg).
+    // fill: return the saved login for THIS exact verified origin (seamless — the login biometric opened
+    // the vault). save: a one-tap PROPOSAL to remember a submitted login. totp: the live 2FA code.
+    "else if(verb==='cred'){var req;try{req=JSON.parse(arg);}catch(e){req={};}"
+    "var O;try{O=new URL(origin).origin;}catch(e){O=origin;}"
+    "var V=window.__holoPassVault;"
+    "if(!V&&req.op!=='web3'){out={ok:false,verb:'cred',error:'vault unavailable'};}"
+    "else if(req.op==='fill'){var es=await V.list();var hit=es.find(function(x){return x.origin===O&&x.kind==='password';});"
+    "if(hit){var f=await V.get(hit.id);out={ok:true,verb:'cred',op:'fill',u:(f&&f.username)||'',p:f&&f.secret};}else{out={ok:true,verb:'cred',op:'fill',u:null,p:null};}}"
+    "else if(req.op==='has'){var es=await V.list();var hit=es.find(function(x){return x.origin===O&&x.kind==='password';});out={ok:true,verb:'cred',op:'has',exists:!!hit,username:hit?(hit.username||''):null};}"
+    "else if(req.op==='save'){if(req.p==null||req.p===''){out={ok:false,verb:'cred',error:'nothing to save'};}else{await V.put({origin:O,kind:'password',username:req.u||null,secret:req.p});out={ok:true,verb:'cred',op:'save',saved:true};}}"
+    "else if(req.op==='totp'){var e2=await V.list();var th=e2.find(function(x){return x.origin===O&&x.kind==='totp';});"
+    "if(th){var tf=await V.get(th.id);var TT=await import(DIR+'holo-totp.mjs');var rc=await TT.codeForEntry(tf);out={ok:true,verb:'cred',op:'totp',code:rc?rc.code:null};}else{out={ok:true,verb:'cred',op:'totp',code:null};}}"
+    // [holo-cred web3] EIP-1193 over the relay: accounts/chainId are PUBLIC (no biometric); sign/send
+    // are VALUE-level → always step-up gated. The dApp never sees a key; the wallet signs in the shell.
+    "else if(req.op==='web3'){var W=window.__holoWallet;var m=req.method;"
+    "if(m==='eth_requestAccounts'||m==='eth_accounts'){out={ok:true,verb:'cred',op:'web3',result:(W&&W.accounts)||[]};}"
+    "else if(m==='eth_chainId'){out={ok:true,verb:'cred',op:'web3',result:(W&&W.chainId)||'0x1'};}"
+    "else if(m==='net_version'){out={ok:true,verb:'cred',op:'web3',result:'1'};}"
+    // SIGN methods now ride the ONE universal verb (window.HoloAuth.authorize SIGN/ethereum): same gate, same
+    // key, PLUS an L5-verifiable authorization κ. The old __holoStepUp+W.sign duplicate path is retired.
+    "else if(m==='personal_sign'||m==='eth_sign'||m==='eth_signTypedData_v4'){"
+    "var A=window.HoloAuth;if(!A){out={ok:false,verb:'cred',error:'auth seam unavailable'};}else{"
+    "var pl=(m==='personal_sign')?(req.params&&req.params[0]):(req.params&&req.params[1]);"   // personal_sign:[msg,addr]; eth_sign/typed:[addr,msg]
+    "var ar=await A.authorize({subject:A.operatorKappa,context:O,mode:'SIGN',spec:{keyDomain:'ethereum',payload:pl}});"
+    "out={ok:!!(ar&&ar.result&&ar.result.signature),verb:'cred',op:'web3',result:ar&&ar.result&&ar.result.signature,authorization:ar&&ar.authorization};}}"
+    // eth_sendTransaction is a VALUE transfer (a wallet op, not an auth-signature): gated by the ONE gate
+    // (__holoStepUp now delegates to holoGate) then the WDK send. Authentication=authorize; value=wallet.
+    "else if(m==='eth_sendTransaction'){if(!W){out={ok:false,verb:'cred',error:'wallet locked'};}else{"
+    "var tok=(typeof window.__holoStepUp==='function')?await window.__holoStepUp({kind:'wallet.send',appId:O,payload:{method:m,params:req.params}}):null;"
+    "if(!tok){out={ok:false,verb:'cred',error:'step-up denied'};}else{"
+    "var rr=await W.send((req.params&&req.params[0])||{});out={ok:true,verb:'cred',op:'web3',result:rr};}}}"
+    "else{out={ok:false,verb:'cred',error:'unsupported web3 method: '+m};}}"
+    "else{out={ok:false,verb:'cred',error:'unknown cred op: '+req.op};}}"
+    // [holo-auth] THE universal authorization verb — every app and web page authenticates through the ONE
+    // seam (window.HoloAuth.authorize: SIGN|RELEASE|PROVE + SIWE/OIDC). The app supplies ONLY mode/spec; the
+    // HOST supplies the context (3rd arg origin — unforgeable) and the device operator κ is taken from the
+    // session (never the app). One device-TEE biometric; the returned authorization is L5-verifiable + PQ.
+    "else if(verb==='auth'){var req;try{req=JSON.parse(arg);}catch(e){req={};}"
+    "var O;try{O=new URL(origin).origin;}catch(e){O=origin;}"
+    "var A=window.HoloAuth;"
+    "if(!A){out={ok:false,verb:'auth',error:'auth seam unavailable (guest or shell not ready)'};}"
+    "else if(req.kind==='oidc'){var r=await A.signIn({audience:O,nonce:req.nonce||null,claims:req.claims||{},ttlSec:req.ttlSec||300});"
+    "out={ok:!!(r&&r.idToken),verb:'auth',kind:'oidc',idToken:r&&r.idToken,jwks:r&&r.jwks,authorization:r&&r.authorization};}"
+    "else if(req.kind==='siwe'){var r=await A.siwe({origin:O,siweMessage:req.siweMessage});"
+    "out={ok:!!(r&&r.result),verb:'auth',kind:'siwe',signature:r&&r.result&&r.result.signature,authorization:r&&r.authorization};}"
+    "else{var r=await A.authorize({subject:A.operatorKappa,context:O,mode:req.mode,spec:req.spec||{}});"
+    "out={ok:!!(r&&r.authorization),verb:'auth',mode:req.mode,result:r&&r.result,authorization:r&&r.authorization,level:r&&r.level};}}"
     "else{out={ok:false,error:'unknown verb: '+verb};}"
     "}catch(e){out={ok:false,error:String((e&&e.message)||e)};}reply(id,out);};"
     // OnBeforeBrowse relay target: judge a held web navigation, reply allow|block (fail-closed to block).
@@ -161,6 +233,87 @@ const char kHoloServiceShim[] =
     "}catch(e){out={ok:false,error:String((e&&e.message)||e)};}"
     "window.cefQuery({request:'holo:svcreply:'+qid+':'+JSON.stringify(out),persistent:false,onSuccess:function(){},onFailure:function(){}});};"
     "})();";
+
+// WebAuthn passkey provider — web-frame shim (P4). Overrides navigator.credentials.get so any site's
+// passkey ceremony is answered by the operator's Hologram vault, brokered through window.cefQuery to the
+// trusted holo://os shell. Carries NO secret: the private key and signer stay in the shell process; this
+// shim only forwards the challenge and rebuilds a PublicKeyCredential. If the host declines (no passkey /
+// vault locked) it transparently defers to the platform authenticator. The host supplies the true origin.
+const char kHoloWebAuthn[] =
+    "(function(){try{if(window.__holoPk)return;"
+    "function q(req){return new Promise(function(res,rej){window.cefQuery({request:req,persistent:false,"
+    "onSuccess:function(r){try{res(JSON.parse(r));}catch(e){rej(e);}},onFailure:function(c,m){rej(new Error(m||'holo'));}});});}"
+    "function b2u(buf){var u=new Uint8Array(buf),s='';for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');}"
+    "function u2b(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;}"
+    // navigator.credentials may be absent at OnContextCreated (secure-context promotion lags commit), so
+    // install on a capped retry until it appears, then override get() permanently.
+    "function install(){try{if(window.__holoPk)return true;if(!navigator.credentials||!navigator.credentials.get)return false;"
+    "var orig=navigator.credentials.get.bind(navigator.credentials);"
+    "navigator.credentials.get=function(opts){try{"
+    "if(!opts||!opts.publicKey)return orig(opts);"
+    "var pk=opts.publicKey;var rpId=pk.rpId||location.hostname;var challenge=b2u(pk.challenge);"
+    "var allow=(pk.allowCredentials||[]).map(function(c){return b2u(c.id);});"
+    "return q('holo:webauthn:'+JSON.stringify({type:'get',rpId:rpId,challenge:challenge,allowCredentials:allow})).then(function(res){"
+    "if(!res||!res.ok||!res.credential){window.__holoPkErr='not-ok:'+JSON.stringify(res).slice(0,160);return orig(opts);}"
+    "var c=res.credential;"
+    "return {id:c.id,rawId:u2b(c.rawId),type:'public-key',authenticatorAttachment:'platform',"
+    "response:{authenticatorData:u2b(c.response.authenticatorData),clientDataJSON:u2b(c.response.clientDataJSON),signature:u2b(c.response.signature),userHandle:c.response.userHandle?u2b(c.response.userHandle):null},"
+    "getClientExtensionResults:function(){return {};}};"
+    "}).catch(function(e){window.__holoPkErr='then-catch:'+String(e);return orig(opts);});"
+    "}catch(e){window.__holoPkErr='sync-catch:'+String(e);return orig(opts);}};if(navigator.credentials.create){var origC=navigator.credentials.create.bind(navigator.credentials);navigator.credentials.create=function(opts){try{if(!opts||!opts.publicKey||!opts.publicKey.user)return origC(opts);var pk=opts.publicKey;var rpId=(pk.rp&&pk.rp.id)||location.hostname;var rpName=(pk.rp&&pk.rp.name)||rpId;var challenge=b2u(pk.challenge);var userId=b2u(pk.user.id);var userName=pk.user.name||'';var userDisplayName=pk.user.displayName||'';return q('holo:webauthn:'+JSON.stringify({type:'create',rpId:rpId,rpName:rpName,challenge:challenge,userId:userId,userName:userName,userDisplayName:userDisplayName})).then(function(res){if(!res||!res.ok||!res.credential){window.__holoPkErr='create-not-ok:'+JSON.stringify(res).slice(0,160);return origC(opts);}var c=res.credential;var ad=u2b(c.response.attestationObject);return {id:c.id,rawId:u2b(c.rawId),type:'public-key',authenticatorAttachment:'platform',response:{attestationObject:ad,clientDataJSON:u2b(c.response.clientDataJSON),getAuthenticatorData:function(){return ad;},getPublicKey:function(){return null;},getPublicKeyAlgorithm:function(){return -7;},getTransports:function(){return ['internal'];}},getClientExtensionResults:function(){return {};}};}).catch(function(e){window.__holoPkErr='create-catch:'+String(e);return origC(opts);});}catch(e){return origC(opts);}};}window.__holoPk=1;return true;}catch(e){return false;}}"
+    "if(!install()){var n=0,iv=setInterval(function(){if(install()||++n>600)clearInterval(iv);},16);"
+    "if(document.addEventListener)document.addEventListener('DOMContentLoaded',install);}"
+    "}catch(e){}})();";
+
+// kHoloCred — the web2 half of the unified credential relay, injected into web frames. Finds the login
+// form, asks the host (holo:cred op:fill) for a saved login for THIS verified origin and fills it; on
+// submit it offers the typed login to the vault (op:save); a one-time-code field is filled from the
+// vault's TOTP (op:totp). Carries NO secret and never sends an origin (the host supplies the real one).
+const char kHoloCred[] =
+    "(function(){try{if(window.__holoCred)return;"
+    "function q(req){return new Promise(function(res,rej){window.cefQuery({request:req,persistent:false,onSuccess:function(r){try{res(JSON.parse(r));}catch(e){rej(e);}},onFailure:function(c,m){rej(new Error(m||'holo'));}});});}"
+    "function fields(){var ins=[].slice.call(document.querySelectorAll('input')).filter(function(e){return e.type!=='hidden'&&e.type!=='submit'&&e.type!=='button';});"
+    "var pw=ins.filter(function(e){return (e.type||'').toLowerCase()==='password';});"
+    "var uf=null;if(pw.length){var pi=ins.indexOf(pw[0]);for(var i=pi-1;i>=0;i--){var t=(ins[i].type||'text').toLowerCase();if(t==='email'||t==='text'){uf=ins[i];break;}}}"
+    "var otp=ins.filter(function(e){var a=((e.autocomplete||'')+' '+(e.name||'')+' '+(e.id||'')).toLowerCase();return a.indexOf('one-time-code')>=0||a.indexOf('otp')>=0||a.indexOf('totp')>=0||a.indexOf('2fa')>=0;})[0]||null;"
+    "return {user:uf,pass:pw[0]||null,otp:otp,signup:pw.length>=2};}"
+    "function setv(el,v){if(!el)return;var d=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value');if(d&&d.set){d.set.call(el,v);}else{el.value=v;}el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}"
+    "function doFill(){q('holo:cred:'+JSON.stringify({op:'fill'})).then(function(r){if(r&&r.ok&&r.p){var f=fields();if(f.user&&r.u)setv(f.user,r.u);if(f.pass)setv(f.pass,r.p);window.__holoCredFilled=true;}}).catch(function(){});}"
+    "function chip(user){if(document.getElementById('holo-signin-chip')||!document.body)return;var f=fields();if(!f.pass)return;var b=document.createElement('button');b.id='holo-signin-chip';b.type='button';b.setAttribute('aria-label','Sign in with Hologram');b.textContent='\\uD83D\\uDC46 Sign in'+(user?(' as '+user):'')+' \\u2014 Hologram';"
+    "b.style.cssText='position:fixed;z-index:2147483000;right:16px;bottom:16px;padding:10px 14px;border:0;border-radius:10px;background:#6fa8ff;color:#06121f;font:600 13px system-ui;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.3)';"
+    "b.onclick=function(){b.disabled=true;b.textContent='\\u2026';doFill();setTimeout(function(){try{b.remove();}catch(e){}},500);};document.body.appendChild(b);}"
+    "function detect(){var f=fields();if(f.pass&&!f.signup&&!window.__holoCredHas){q('holo:cred:'+JSON.stringify({op:'has'})).then(function(r){if(r&&r.ok&&r.exists){window.__holoCredHas=true;chip(r.username);}}).catch(function(){});}"
+    "if(f.otp){q('holo:cred:'+JSON.stringify({op:'totp'})).then(function(r){if(r&&r.ok&&r.code){setv(f.otp,r.code);}}).catch(function(){});}}"
+    "function saveBanner(u,p){if(document.getElementById('holo-save-banner')||!document.body)return;var d=document.createElement('div');d.id='holo-save-banner';"
+    "d.style.cssText='position:fixed;z-index:2147483000;left:50%;top:18px;transform:translateX(-50%);background:#0b0d10;color:#e8e8f0;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;font:13px system-ui;box-shadow:0 8px 28px rgba(0,0,0,.5);display:flex;gap:10px;align-items:center';"
+    "var sp=document.createElement('span');sp.textContent='Remember this login with Hologram?';var sv=document.createElement('button');sv.id='holo-save-yes';sv.textContent='Save';"
+    "sv.style.cssText='all:unset;cursor:pointer;background:#6fa8ff;color:#06121f;font-weight:600;padding:6px 12px;border-radius:8px';var no=document.createElement('button');no.textContent='Not now';no.style.cssText='all:unset;cursor:pointer;color:#9aa3b8;padding:6px 8px';"
+    "sv.onclick=function(){q('holo:cred:'+JSON.stringify({op:'save',u:u,p:p})).catch(function(){});try{d.remove();}catch(e){}};no.onclick=function(){try{d.remove();}catch(e){}};"
+    "d.appendChild(sp);d.appendChild(sv);d.appendChild(no);document.body.appendChild(d);setTimeout(function(){try{d.remove();}catch(e){}},12000);}"
+    "function hookSave(){document.addEventListener('submit',function(){try{var f=fields();if(f.pass&&f.pass.value){var u=f.user?f.user.value:'',p=f.pass.value;"
+    "q('holo:cred:'+JSON.stringify({op:'has'})).then(function(r){if(!(r&&r.exists))saveBanner(u,p);}).catch(function(){saveBanner(u,p);});}}catch(e){}},true);}"
+    "function installEth(){if(window.ethereum&&window.ethereum.isHologram)return;var P={isHologram:true,isMetaMask:false,_cbs:{},chainId:'0x1',selectedAddress:null,"
+    "request:function(a){a=a||{};return q('holo:cred:'+JSON.stringify({op:'web3',method:a.method,params:a.params||[]})).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'rejected');if((a.method==='eth_requestAccounts'||a.method==='eth_accounts')&&r.result&&r.result[0])P.selectedAddress=r.result[0];return r.result;});},"
+    "on:function(e,cb){(P._cbs[e]=P._cbs[e]||[]).push(cb);return P;},removeListener:function(e,cb){if(P._cbs[e])P._cbs[e]=P._cbs[e].filter(function(f){return f!==cb;});return P;},"
+    "enable:function(){return this.request({method:'eth_requestAccounts'});}};"
+    "try{Object.defineProperty(window,'ethereum',{value:P,writable:false,configurable:true});}catch(e){try{window.ethereum=P;}catch(e2){}}"
+    "try{window.dispatchEvent(new Event('ethereum#initialized'));}catch(e){}"
+    "var info={uuid:'6f9a3b2c-1d4e-4a8b-9c0d-1e2f3a4b5c6d',name:'Hologram',icon:'data:image/svg+xml,%3Csvg%2F%3E',rdns:'org.hologram.wallet'};"
+    "function ann(){try{window.dispatchEvent(new CustomEvent('eip6963:announceProvider',{detail:Object.freeze({info:info,provider:P})}));}catch(e){}}"
+    "window.addEventListener('eip6963:requestProvider',ann);ann();}"
+    // window.HoloID — the public web API for the UNIVERSAL authenticator. A site calls HoloID.signIn() to get
+    // a standards OIDC ID Token ('Sign in with Hologram'); HoloID.authorize({mode,spec}) for SIGN/RELEASE/PROVE;
+    // HoloID.connect() for the wallet. All route through holo:auth → the ONE biometric in the trusted shell.
+    "function installID(){if(window.HoloID)return;window.HoloID={"
+    "signIn:function(o){o=o||{};return q('holo:auth:'+JSON.stringify({kind:'oidc',nonce:o.nonce||null,claims:o.claims||{},ttlSec:o.ttlSec||300})).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'denied');return {idToken:r.idToken,jwks:r.jwks,authorization:r.authorization};});},"
+    "siwe:function(o){o=o||{};return q('holo:auth:'+JSON.stringify({kind:'siwe',siweMessage:o.siweMessage})).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'denied');return r;});},"
+    "authorize:function(req){req=req||{};return q('holo:auth:'+JSON.stringify({mode:req.mode,spec:req.spec||{}})).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'denied');return r;});},"
+    "connect:function(){return (window.ethereum?window.ethereum.request({method:'eth_requestAccounts'}):Promise.reject(new Error('no wallet')));}"
+    "};}"
+    "function start(){if(window.__holoCred)return;window.__holoCred=1;installEth();installID();hookSave();detect();}"
+    "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);}else{start();}"
+    "var n=0,iv=setInterval(function(){if(window.__holoCredHas||window.__holoCredFilled||++n>40){clearInterval(iv);return;}detect();},250);"
+    "}catch(e){}})();";
 
 // Cosmetic ad-slot collapse (the "magical finish"). Network blocking already stops the ads themselves;
 // this hides the leftover empty ad CONTAINERS so the page re-flows as if ads never existed (positive-space
@@ -374,16 +527,12 @@ std::string CosmeticInject(const std::string& css) {
 }
 
 // shell.html adds `html.native-chrome` (when holo:// && top===self) to HIDE its own tabstrip/nav/omnibox
-// for the embedded-in-a-browser case. Here we WANT the full Hologram shell chrome visible (the OS look),
-// with Chromium's chrome kept above it (user's choice). So strip that class and keep it stripped.
+// for the embedded-in-a-browser case. Shell-is-chrome (the chosen model): the window has NO native toolbar
+// or tab strip (the shell view is hosted toolbar-less, CEF_CTT_NONE), so the shell's OWN chrome — INCLUDING
+// its tab strip — is the only chrome and the holospace switcher. Strip that class and keep it stripped; the
+// shell tabs are real tabs again (no longer retired in favour of native Chromium tabs).
 const char kHoloUnchrome[] =
-    "(function(){function rm(){try{var d=document.documentElement;if(d)d.classList.remove('native-chrome');}catch(e){}"
-    // Retire the shell's REDUNDANT tab list: the native Chromium tab strip is now the holospace switcher
-    // (each space is its own κ-tab). Keep the rest of the shell chrome (Main workspace switcher, branded
-    // omnibox, nav, verbs, Sign in). Uses the shell's own tab selectors; never touches #tabstrip > Main.
-    "try{if(!document.getElementById('holo-retire-tabs')){var p=document.head||document.documentElement;if(p){"
-    "var st=document.createElement('style');st.id='holo-retire-tabs';"
-    "st.textContent='#tabstrip > .tab,#tabstrip > #newtab{display:none!important}';p.appendChild(st);}}}catch(e){}}"
+    "(function(){function rm(){try{var d=document.documentElement;if(d)d.classList.remove('native-chrome');}catch(e){}}"
     "var obs=false;function tick(){rm();if(!obs&&document.documentElement){try{"
     "new MutationObserver(rm).observe(document.documentElement,{attributes:true,attributeFilter:['class']});"
     "obs=true;}catch(e){}}}tick();"
@@ -500,6 +649,38 @@ void SimpleApp::OnBeforeCommandLineProcessing(const CefString& process_type,
     command_line->AppendSwitch("disable-sync");
     command_line->AppendSwitchWithValue(
         "disable-features", "SigninPromo,DiceWebSigninInterception,SyncPromoAfterSignin,SigninInterceptBubble");
+    // First-boot companion tabs (Start here, Play) now open as IN-PAGE holospace tabs via the shell's own
+    // window.HoloOpen (handler OnLoadEnd) — not native popups — so the popup blocker no longer matters for
+    // boot. Kept off so any gesture-less host-issued open (e.g. a deep-link surface) is never suppressed.
+    command_line->AppendSwitch("disable-popup-blocking");
+  }
+}
+
+// Non-critical host services, run on a posted task AFTER first paint so they never sit on the boot path:
+// the loopback WebAuthn step-up broker and the DevTools dock preference. Both are only needed well after the
+// login screen is on screen (biometric step-up / F12), so deferring them makes boot leaner without any loss.
+static void HoloDeferredHostInit(std::string root, int broker_port) {
+  holo::StartBrokerServer(root, broker_port);
+  CefRefPtr<CefRequestContext> rc = CefRequestContext::GetGlobalContext();
+  if (rc && rc->CanSetPreference("devtools.preferences")) {
+    CefRefPtr<CefValue> cur = rc->GetPreference("devtools.preferences");
+    CefRefPtr<CefDictionaryValue> dict =
+        (cur && cur->GetType() == VTYPE_DICTIONARY) ? cur->GetDictionary()->Copy(false)
+                                                    : CefDictionaryValue::Create();
+    dict->SetString("currentDockState", "\"right\"");  // F12 docks right at a golden-ratio width
+    dict->SetString("InspectorView.splitViewState", "{\"vertical\":{\"size\":733}}");
+    CefRefPtr<CefValue> v = CefValue::Create();
+    v->SetDictionary(dict);
+    CefString err;
+    rc->SetPreference("devtools.preferences", v, err);
+  }
+  // Show Chrome's NATIVE bookmarks bar on all tabs, so the κ bookmarks the Hologram projector writes via
+  // chrome.bookmarks are always visible — the "bookmarks row under the address bar", 100% native Chromium.
+  if (rc && rc->CanSetPreference("bookmark_bar.show_on_all_tabs")) {
+    CefRefPtr<CefValue> bb = CefValue::Create();
+    bb->SetBool(true);
+    CefString e2;
+    rc->SetPreference("bookmark_bar.show_on_all_tabs", bb, e2);
   }
 }
 
@@ -519,46 +700,28 @@ void SimpleApp::OnContextInitialized() {
   static HotStore* g_store = new HotStore(root);  // owns the watcher thread for the process lifetime
   CefRegisterSchemeHandlerFactory("holo", CefString(), new KappaSchemeHandlerFactory(g_store));
 
-  // DevTools docks RIGHT at a golden-ratio width, Chrome-style. We pin the DevTools front-end's own
-  // persisted settings on the global request context so Chrome's native F12 (which we deliberately do
-  // not intercept — see handler.cc OnKeyEvent) opens the inspector docked to the right against whatever
-  // tab is focused. currentDockState/InspectorView.splitViewState are JSON-encoded string values inside
-  // the devtools.preferences dictionary (that is how the front-end stores them). The split size is the
-  // DevTools panel width in px ≈ a 1/φ² (38.2%) golden minor of a typical ~1920px window → 733px; the
-  // page keeps the golden major. The user can still drag it; Chrome persists the new size.
-  {
-    CefRefPtr<CefRequestContext> rc = CefRequestContext::GetGlobalContext();
-    if (rc && rc->CanSetPreference("devtools.preferences")) {
-      CefRefPtr<CefValue> cur = rc->GetPreference("devtools.preferences");
-      CefRefPtr<CefDictionaryValue> dict =
-          (cur && cur->GetType() == VTYPE_DICTIONARY) ? cur->GetDictionary()->Copy(false)
-                                                      : CefDictionaryValue::Create();
-      dict->SetString("currentDockState", "\"right\"");
-      dict->SetString("InspectorView.splitViewState", "{\"vertical\":{\"size\":733}}");
-      CefRefPtr<CefValue> v = CefValue::Create();
-      v->SetDictionary(dict);
-      CefString err;
-      rc->SetPreference("devtools.preferences", v, err);
-    }
-  }
+  // Bring the planetary content network up automatically — no user input. Spawns + supervises the always-on
+  // mesh node (serves the shared dir to peers + is kr_mesh_get's gateway on 127.0.0.1:9802). Dormant + harmless
+  // if the sidecar isn't staged; the browser never blocks on it (origin is always the floor).
+  StartMeshSupervisor();
 
-  // Home = the FULL Hologram shell (its own tabstrip/omnibox/workspace-switcher/verbs), matching the OS
-  // look. Chromium's own chrome stays (Chrome-runtime: extensions/GPU/address bar); kHoloUnchrome below
-  // keeps the shell's chrome visible (un-strips native-chrome) so the home renders exactly like the OS.
-  std::string url = "holo://os/shell.html";
+  // INSTANT BOOT — boot the window + canonical login FIRST, before any non-critical init, so first paint is
+  // never blocked behind the broker socket bind or DevTools preference writes. The boot-critical path is now
+  // just: register the κ scheme (above) + open the canonical login (here). Everything else is deferred below.
+  std::string url = "holo://os/login.html";
   if (const char* u = std::getenv("HOLO_START_URL")) url = u;
 
   CefRefPtr<SimpleHandler> handler(new SimpleHandler());
-  CefBrowserSettings browser_settings;
-  CefWindowInfo window_info;
-  window_info.SetAsPopup(nullptr, "Hologram");
-  window_info.runtime_style = CEF_RUNTIME_STYLE_CHROME;
-  CefBrowserHost::CreateBrowser(window_info, handler, url, browser_settings, nullptr, nullptr);
-  // P1 — every space is its OWN isolated κ-tab. Open Start here + Play as native, process-isolated
-  // holo://<κ>/ tabs (each app served as its own origin, verified against its own holospace.lock). The
-  // native Chromium tab strip becomes the holospace switcher. (OpenTab is gated to holo:// URLs.)
-  handler->OpenTab("holo://18a46e721bab6d9a36645fecb95b0a79ae6ff10487237b413f39195785459972/");  // Start here = Holo Guide
-  handler->OpenTab("holo://10e335d22cdf44081e7f974d29bac06be207b859f7d583b70e756927ccefe0e2/");  // Play = Holo Spaces
+  // Boot through the boot-health supervisor (SimpleHandler::StartBoot): one window, the canonical login, and
+  // if a window strategy collapses it self-heals to the proven native-hosted window instead of vanishing.
+  handler->StartBoot(url);
+
+  // Non-critical host services, woken AFTER first paint (off the boot-critical path): the loopback WebAuthn
+  // step-up broker (only needed once the user does biometric step-up) and the DevTools dock preference (only
+  // read on F12). Deferred so they never sit between launch and the login screen. See HoloDeferredHostInit.
+  int broker_port = 8495;
+  if (const char* bp = std::getenv("HOLO_BROKER_PORT")) { const int v = std::atoi(bp); if (v > 0 && v < 65536) broker_port = v; }
+  CefPostDelayedTask(TID_UI, base::BindOnce(&HoloDeferredHostInit, root, broker_port), 1200);
 }
 
 void SimpleApp::OnWebKitInitialized() {
@@ -611,6 +774,8 @@ void SimpleApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
       // hosts (web.whatsapp.com / web.telegram.org / discord.com / app.slack.com / …); inert elsewhere.
       // Posts raw captured message fields on the "holo-messenger" BroadcastChannel → the inbox mints + ingests.
       frame->ExecuteJavaScript(kHoloMessengerCaptureBundle, frame->GetURL(), 0);
+      frame->ExecuteJavaScript(kHoloWebAuthn, frame->GetURL(), 0);  // passkey provider on web frames
+      frame->ExecuteJavaScript(kHoloCred, frame->GetURL(), 0);  // web2 autofill/save/totp (unified credential relay)
     }
     // Web Store detail page → rebrand it to Hologram (relabel "Add to Chrome", wordmark, nags) + the
     // κ-install affordance (only the real CWS host, main frame).

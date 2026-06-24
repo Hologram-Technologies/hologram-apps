@@ -128,6 +128,158 @@ pub unsafe extern "C" fn kr_free(ptr: *mut u8, len: usize) {
     }
 }
 
+// ── open-web κ-cache ABI (kr_cache_*) ───────────────────────────────────────────────────────────────
+// The CEF host calls these from its resource path (handler.cc): GET a hit to serve without network,
+// PUT a teed miss body to populate the cache. Distinct from kr_resolve (sealed, read-only). Thread-safe:
+// the handle wraps a Mutex<WebCache> because CEF resource callbacks run off the UI thread.
+use std::sync::Mutex;
+
+use crate::webcache::WebCache;
+
+pub struct KCache(Mutex<WebCache>);
+
+/// Open an open-web κ-cache bounded to `cap` distinct κ (the resident working set). Free with kr_cache_free.
+#[no_mangle]
+pub extern "C" fn kr_cache_new(cap: usize) -> *mut KCache {
+    Box::into_raw(Box::new(KCache(Mutex::new(WebCache::new(cap)))))
+}
+
+/// Open an open-web κ-cache whose resident cap is **auto-sized to this device's RAM** (no setting): a weak
+/// laptop holds a small working set, a workstation a large one, automatically. Free with kr_cache_free.
+/// This is the "take full advantage of any hardware, just works" entry point the host uses by default.
+#[no_mangle]
+pub extern "C" fn kr_cache_new_auto() -> *mut KCache {
+    let cap = crate::webcache::auto_cap();
+    eprintln!("[kappa-route] κ-cache auto-sized to device: {cap} distinct κ resident");
+    Box::into_raw(Box::new(KCache(Mutex::new(WebCache::new(cap)))))
+}
+
+/// # Safety: `c` must be a kr_cache_new pointer (or NULL), freed at most once.
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_free(c: *mut KCache) {
+    if !c.is_null() {
+        drop(Box::from_raw(c));
+    }
+}
+
+/// Serve a GET url from the cache if held (re-derives κ first — L5; tamper ⇒ miss). Returns 1 on a hit
+/// (out-params filled: byte buffer free with kr_free, mime buffer free with kr_cache_free_mime), else 0.
+///
+/// # Safety: `c` valid; `url` NUL-terminated UTF-8; out-pointers writable.
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_get(
+    c: *const KCache,
+    url: *const c_char,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+    out_mime: *mut *mut c_char,
+) -> u8 {
+    if !out_ptr.is_null() { *out_ptr = std::ptr::null_mut(); }
+    if !out_len.is_null() { *out_len = 0; }
+    if !out_mime.is_null() { *out_mime = std::ptr::null_mut(); }
+    if c.is_null() || url.is_null() { return 0; }
+    let url = match CStr::from_ptr(url).to_str() { Ok(u) => u, Err(_) => return 0 };
+    let mut cache = match (*c).0.lock() { Ok(g) => g, Err(_) => return 0 };
+    match cache.get(url) {
+        Some((bytes, mime)) => {
+            let len = bytes.len();
+            *out_ptr = Box::into_raw(bytes.into_boxed_slice()) as *mut u8;
+            *out_len = len;
+            let cm = std::ffi::CString::new(mime).unwrap_or_default();
+            *out_mime = cm.into_raw();
+            1
+        }
+        None => 0,
+    }
+}
+
+/// Fetch a held object BY its κ (bare hex or `did:holo:sha256:<hex>`). The read the Living Window uses to
+/// pull a captured doc/asset's bytes by the κ from the manifest. Returns 1 on a verified hit (byte buffer
+/// free with kr_free; mime buffer free with kr_cache_free_mime), else 0. Re-derives before serving (L5).
+///
+/// # Safety: `c` valid; `kappa` NUL-terminated UTF-8; out-pointers writable.
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_get_kappa(
+    c: *const KCache,
+    kappa: *const c_char,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+    out_mime: *mut *mut c_char,
+) -> u8 {
+    if !out_ptr.is_null() { *out_ptr = std::ptr::null_mut(); }
+    if !out_len.is_null() { *out_len = 0; }
+    if !out_mime.is_null() { *out_mime = std::ptr::null_mut(); }
+    if c.is_null() || kappa.is_null() { return 0; }
+    let kappa = match CStr::from_ptr(kappa).to_str() { Ok(k) => k, Err(_) => return 0 };
+    let cache = match (*c).0.lock() { Ok(g) => g, Err(_) => return 0 };
+    match cache.get_by_kappa(kappa) {
+        Some((bytes, mime)) => {
+            let len = bytes.len();
+            *out_ptr = Box::into_raw(bytes.into_boxed_slice()) as *mut u8;
+            *out_len = len;
+            *out_mime = std::ffi::CString::new(mime).unwrap_or_default().into_raw();
+            1
+        }
+        None => 0,
+    }
+}
+
+/// Install a fetched (cold-miss) body, deduped by κ. `immutable` (0/1) marks serve-forever assets.
+///
+/// # Safety: `c` valid; `url`/`mime` NUL-terminated UTF-8; `data` valid for `len` bytes (or len==0).
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_put(
+    c: *const KCache,
+    url: *const c_char,
+    data: *const u8,
+    len: usize,
+    mime: *const c_char,
+    immutable: u8,
+) {
+    if c.is_null() || url.is_null() { return; }
+    let url = match CStr::from_ptr(url).to_str() { Ok(u) => u, Err(_) => return };
+    let mime = if mime.is_null() { "application/octet-stream" }
+        else { CStr::from_ptr(mime).to_str().unwrap_or("application/octet-stream") };
+    let bytes = if len == 0 { Vec::new() } else { std::slice::from_raw_parts(data, len).to_vec() };
+    if let Ok(mut cache) = (*c).0.lock() {
+        cache.put(url, bytes, mime, immutable != 0);
+    }
+}
+
+/// Free a mime string returned by kr_cache_get.
+/// # Safety: `m` must be exactly a kr_cache_get out_mime pointer, freed at most once.
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_free_mime(m: *mut c_char) {
+    if !m.is_null() {
+        drop(std::ffi::CString::from_raw(m));
+    }
+}
+
+/// Enumerate the cache as a JSON array string `[{"url","kappa","mime","len"}]` — the manifest the Living
+/// Window reads to compose from what you browsed. NO bodies are included (only metadata; bytes stay
+/// fetchable via the serve-hit path). Heap C string; free with `kr_cache_free_mime`. NULL on bad input.
+///
+/// # Safety: `c` must be a valid kr_cache_new handle (or NULL).
+#[no_mangle]
+pub unsafe extern "C" fn kr_cache_entries(c: *const KCache) -> *mut c_char {
+    if c.is_null() {
+        return std::ptr::null_mut();
+    }
+    let cache = match (*c).0.lock() {
+        Ok(g) => g,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let arr: Vec<serde_json::Value> = cache
+        .entries()
+        .into_iter()
+        // present the κ in the substrate form `did:holo:sha256:<hex>` (the cache stores the bare hex), so the
+        // manifest shares ONE κ address space with the Living Window composer (kobject.kappaOf).
+        .map(|(url, kappa, mime, len)| serde_json::json!({ "url": url, "kappa": format!("did:holo:sha256:{}", kappa), "mime": mime, "len": len }))
+        .collect();
+    let json = serde_json::Value::Array(arr).to_string();
+    std::ffi::CString::new(json).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
+}
+
 // ── witness: the C ABI round-trips a verified hit and reports refusals ─────────────────────────────
 #[cfg(test)]
 mod tests {
@@ -178,5 +330,91 @@ mod tests {
         assert!(ptr.is_null() && len == 0 && mime.is_null());
 
         unsafe { kr_store_free(st) };
+    }
+
+    #[test]
+    fn cache_abi_hit_miss_dedup() {
+        let c = kr_cache_new(64);
+        let url1 = CString::new("https://cdn/lib.js").unwrap();
+        let url2 = CString::new("https://other/lib.js").unwrap(); // different url, SAME bytes ⇒ dedup
+        let body = b"console.log(1);";
+        let mime = CString::new("text/javascript").unwrap();
+
+        // cold miss on url1
+        let (mut p, mut l, mut m) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut());
+        assert_eq!(unsafe { kr_cache_get(c, url1.as_ptr(), &mut p, &mut l, &mut m) }, 0, "cold = miss");
+        unsafe { kr_cache_put(c, url1.as_ptr(), body.as_ptr(), body.len(), mime.as_ptr(), 1) };
+
+        // hit on url1 → exact bytes back, served without network
+        let (mut p, mut l, mut m) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut());
+        assert_eq!(unsafe { kr_cache_get(c, url1.as_ptr(), &mut p, &mut l, &mut m) }, 1, "warm = hit");
+        assert_eq!(unsafe { std::slice::from_raw_parts(p, l) }, body);
+        assert_eq!(unsafe { CStr::from_ptr(m) }.to_str().unwrap(), "text/javascript");
+        unsafe { kr_free(p, l) };
+        unsafe { kr_cache_free_mime(m) };
+
+        // url2 carries identical bytes → dedup to one κ (put it, then both serve from the same entry)
+        unsafe { kr_cache_put(c, url2.as_ptr(), body.as_ptr(), body.len(), mime.as_ptr(), 1) };
+        let (mut p, mut l, mut m) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut());
+        assert_eq!(unsafe { kr_cache_get(c, url2.as_ptr(), &mut p, &mut l, &mut m) }, 1);
+        unsafe { kr_free(p, l) };
+        unsafe { kr_cache_free_mime(m) };
+        assert_eq!(unsafe { (*c).0.lock().unwrap().unique_kappa() }, 1, "identical bytes dedup to ONE κ");
+
+        unsafe { kr_cache_free(c) };
+    }
+
+    #[test]
+    fn cache_entries_lists_metadata_without_bodies() {
+        let c = kr_cache_new(64);
+        let url = CString::new("https://x/app.js").unwrap();
+        let body = b"console.log(1);";                         // 15 bytes
+        let mime = CString::new("text/javascript").unwrap();
+        unsafe { kr_cache_put(c, url.as_ptr(), body.as_ptr(), body.len(), mime.as_ptr(), 1) };
+
+        let j = unsafe { kr_cache_entries(c) };
+        let s = unsafe { CStr::from_ptr(j) }.to_str().unwrap().to_string();
+        // the manifest carries url + κ + mime + len …
+        assert!(s.contains("https://x/app.js"), "lists the url");
+        assert!(s.contains("did:holo:sha256:"), "lists the content κ");
+        assert!(s.contains("text/javascript") && s.contains("15"), "lists mime + len");
+        // … but NO bodies
+        assert!(!s.contains("console.log"), "the listing must NOT contain bodies");
+        // valid JSON array of one object
+        let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert!(v.is_array() && v.as_array().unwrap().len() == 1);
+
+        unsafe { kr_cache_free_mime(j) };
+        unsafe { kr_cache_free(c) };
+    }
+
+    #[test]
+    fn cache_get_by_kappa_round_trips() {
+        let c = kr_cache_new(64);
+        let url = CString::new("https://x/page.html").unwrap();
+        let body = b"<!doctype html><title>Hi</title>";
+        let mime = CString::new("text/html").unwrap();
+        unsafe { kr_cache_put(c, url.as_ptr(), body.as_ptr(), body.len(), mime.as_ptr(), 0) };
+
+        // get the κ from the manifest, then fetch the bytes BY that κ (the substrate did:holo form)
+        let manifest = unsafe { CStr::from_ptr(kr_cache_entries(c)).to_str().unwrap().to_string() };
+        let v: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        let kappa = v[0]["kappa"].as_str().unwrap().to_string();
+        assert!(kappa.starts_with("did:holo:sha256:"));
+
+        let kc = CString::new(kappa).unwrap();
+        let (mut p, mut l, mut m) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut());
+        assert_eq!(unsafe { kr_cache_get_kappa(c, kc.as_ptr(), &mut p, &mut l, &mut m) }, 1, "hit by κ");
+        assert_eq!(unsafe { std::slice::from_raw_parts(p, l) }, body, "bytes match the captured doc");
+        assert_eq!(unsafe { CStr::from_ptr(m) }.to_str().unwrap(), "text/html");
+        unsafe { kr_free(p, l) };
+        unsafe { kr_cache_free_mime(m) };
+
+        // an unknown κ misses
+        let bad = CString::new("did:holo:sha256:".to_string() + &"0".repeat(64)).unwrap();
+        let (mut p, mut l, mut m) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut());
+        assert_eq!(unsafe { kr_cache_get_kappa(c, bad.as_ptr(), &mut p, &mut l, &mut m) }, 0, "unknown κ misses");
+
+        unsafe { kr_cache_free(c) };
     }
 }

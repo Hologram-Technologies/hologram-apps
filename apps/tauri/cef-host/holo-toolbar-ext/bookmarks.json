@@ -1,0 +1,15 @@
+{
+  "_comment": "P1 κ bookmark list (a projection of the apps catalog). v1 is bundled; P1.5 swaps this for a live broker-fed κ-state read. Each entry: a κ-reference (holo:// url) + display title.",
+  "items": [
+    { "title": "Hologram Meet", "url": "holo://org.hologram.Meet" },
+    { "title": "Holo Messenger", "url": "holo://org.hologram.Messenger" },
+    { "title": "Holo Q", "url": "holo://org.hologram.Q" },
+    { "title": "Holo Tube", "url": "holo://org.hologram.Tube" },
+    { "title": "Holo Music", "url": "holo://org.hologram.Music" },
+    { "title": "Holo Files", "url": "holo://org.hologram.HoloFiles" },
+    { "title": "Holo Hub", "url": "holo://org.hologram.Hub" },
+    { "title": "Holo Atlas", "url": "holo://org.hologram.Atlas" },
+    { "title": "Holo Browser", "url": "holo://org.hologram.Browser" },
+    { "title": "Holo Code", "url": "holo://org.hologram.Code" }
+  ]
+}

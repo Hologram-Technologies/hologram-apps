@@ -71,7 +71,10 @@ function copyTree(srcRoot, destRoot) {
     const src = join(srcRoot, name);
     const st = statSync(src);
     if (st.isDirectory()) {
-      if (SKIP_DIR.test(name)) { skipped++; continue; }
+      // The vendored Chrome DevTools frontend has a `models/` SOURCE dir (workspace, issues_manager, …)
+      // that SKIP_DIR (meant for AI weight dirs) would wrongly drop — copy that tree in full.
+      const inDevtoolsVendor = src.replace(/\\/g, "/").includes("/devtools/vendor/front_end/");
+      if (SKIP_DIR.test(name) && !inDevtoolsVendor) { skipped++; continue; }
       copyTree(src, join(destRoot, name));
     } else if (st.isFile()) {
       copyOne(src, join(destRoot, name));

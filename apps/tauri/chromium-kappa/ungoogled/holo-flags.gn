@@ -28,7 +28,12 @@ enable_hangout_services_extension = false
 enable_mdns = false                    # no implicit local-network discovery chatter
 enable_reporting = false               # no reporting/NEL beacons
 enable_remoting = false                # no Chrome Remote Desktop / Google host
-enable_widevine = false                # no Google-distributed proprietary DRM CDM (see GOOGLE-FREE.md trade-off)
+enable_widevine = true                 # DRM playback ON (Netflix/euronews-class EME). Deliberate reversal of the
+                                       # GOOGLE-FREE no-DRM trade-off so web media "just works". The CDM is the
+                                       # proprietary Widevine library blob (libwidevinecdm.so) provisioned at
+                                       # RUNTIME from the existing on-disk component (WidevineCdm/4.10.3050.0,
+                                       # interface v10) into the profile dir — never auto-downloaded, never
+                                       # bundled into the de-Googled binary. See GOOGLE-FREE.md.
 google_api_key = ""
 google_default_client_id = ""
 google_default_client_secret = ""

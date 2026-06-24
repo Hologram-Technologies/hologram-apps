@@ -17,6 +17,12 @@ use std::sync::{Arc, Mutex};
 use sha2::{Digest, Sha256};
 
 pub mod ffi;
+pub mod webcache;
+pub mod sharedcache;  // planetary layer: shared, content-addressed substrate (kr_shared_*), L5-verified
+pub mod meshsync;     // native networking P1: wire-compatible κ content-network peer (BareNetSync frames)
+pub mod meshget;      // native networking P3b: lean std::net bridge to the mesh sidecar (kr_mesh_get)
+pub mod did;          // P5 host wiring: did:holo κ-rooted peer identity (kr_did_*)
+pub mod semantic;     // P5 host wiring: W3C Linked Data validate-before-serve (kr_ld_validate)
 
 /// Expected content address(es) for one served path, lower-case hex.
 pub struct Pin {

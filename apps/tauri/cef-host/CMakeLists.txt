@@ -37,8 +37,12 @@ set(HOLO_SRCS
   src/main.cc
   src/app.cc
   src/handler.cc
+  src/holo_media.cc   # κ Universal Media Resolver backend (ffmpeg H.264→VP9/Opus transcode)
+  src/holo_sc.cc      # native /sc/* streaming backend (yt-dlp resolve + ffmpeg copy-mux for the dock media apps)
   src/kappa_scheme.cc
   src/hot_store.cc   # live-anchor hot-reload: watches os-closure.json, hot-swaps the sealed store on reseal
+  src/broker_server.cc   # self-contained loopback HTTP server serving the step-up WebAuthn broker
+  src/mesh_supervisor.cc # auto-spawn + supervise the always-on mesh node (planetary content network, zero input)
   holo.rc   # embeds the Hologram mark as the exe/window icon (taskbar, Alt-Tab, title bar)
 )
 
@@ -51,10 +55,24 @@ target_link_libraries(holo_cef_host
   libcef_dll_wrapper
   ${CEF_STANDARD_LIBS}
   "${KR_DIR}/kappa_route.dll.lib"
+  ws2_32   # Winsock — the loopback step-up broker server (src/broker_server.cc)
 )
+# Emit a linked PDB even in Release so crash dumps symbolize to function+line (this host has had intermittent
+# GPU/subprocess crashes; symbols make future dumps diagnosable). /OPT:REF dead-strips as usual, but /OPT:NOICF
+# is deliberate: identical-COMDAT folding merges distinct functions and MISATTRIBUTES crash frames.
+target_compile_options(holo_cef_host PRIVATE /Zi)
+target_link_options(holo_cef_host PRIVATE /DEBUG /OPT:REF /OPT:NOICF)
 
 # Stage the runtime next to the exe: CEF binaries + resources, then the κ-route DLL.
 COPY_FILES(holo_cef_host "${CEF_BINARY_FILES}"   "${CEF_BINARY_DIR}"   "${CEF_TARGET_OUT_DIR}")
 COPY_FILES(holo_cef_host "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "${CEF_TARGET_OUT_DIR}")
 add_custom_command(TARGET holo_cef_host POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${KR_DIR}/kappa_route.dll" "${CEF_TARGET_OUT_DIR}")
+
+# Stage the mesh sidecar next to the host exe so the supervisor finds it (the planetary network auto-starts).
+# Best-effort: only if it has been built — the host runs fine without it (origin floor), so this never blocks.
+set(HOLO_MESH_EXE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../holo-mesh-node/target/x86_64-pc-windows-msvc/release/holo-mesh-node.exe")
+if(EXISTS "${HOLO_MESH_EXE}")
+  add_custom_command(TARGET holo_cef_host POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${HOLO_MESH_EXE}" "${CEF_TARGET_OUT_DIR}")
+endif()

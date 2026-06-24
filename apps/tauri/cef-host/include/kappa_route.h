@@ -49,6 +49,8 @@ typedef struct KCache KCache;
 
 /* Open an open-web κ-cache bounded to `cap` distinct κ (the resident working set). Free with kr_cache_free. */
 KCache* kr_cache_new(size_t cap);
+/* Open a κ-cache whose resident cap is auto-sized to this device's RAM (no setting; scales weak↔strong). */
+KCache* kr_cache_new_auto(void);
 void kr_cache_free(KCache* c);
 
 /* Serve a GET `url` from the cache if held (re-derives κ first — L5; tamper ⇒ miss). Returns 1 on a hit
@@ -63,6 +65,79 @@ void kr_cache_put(const KCache* c, const char* url,
 
 /* Free a mime string returned by kr_cache_get. */
 void kr_cache_free_mime(char* m);
+
+/* Enumerate the cache as a JSON array string [{"url","kappa","mime","len"}] — the manifest the Living
+ * Window reads to compose from what you browsed. NO bodies (metadata only; bytes stay fetchable via the
+ * serve-hit path). Heap string; free with kr_cache_free_mime. NULL on bad input. */
+char* kr_cache_entries(const KCache* c);
+
+/* Fetch a held object BY its κ (bare hex or "did:holo:sha256:<hex>") — how the Living Window pulls a
+ * captured doc/asset's bytes by the κ from the manifest. Returns 1 on a verified hit (*out_ptr/*out_len =
+ * buffer, free with kr_free; *out_mime = mime, free with kr_cache_free_mime), else 0 (re-derives — L5). */
+uint8_t kr_cache_get_kappa(const KCache* c, const char* kappa,
+                           uint8_t** out_ptr, size_t* out_len, char** out_mime);
+
+/* ── Planetary shared-κ substrate (kr_shared_*). The next layer above kr_cache: a SHARED, content-addressed
+ * store keyed BY κ (not url) behind a swappable transport — so the web's FIRST load for you is served from a
+ * blob a PEER already minted, origin untouched, only a hash ever crossing the wire. A read re-derives the κ
+ * and refuses a mismatch (Law L5), so an untrusted relay is safe (a hostile peer ⇒ miss ⇒ origin fallback,
+ * never poison). This first landing backs the transport with a directory (one blob file per κ); a network
+ * relay is the same get/put-BY-κ interface. Thread-safe (Mutex). See kappa-route/src/sharedcache.rs. */
+typedef struct KShared KShared;
+
+/* Open the shared substrate rooted at `dir` (UTF-8, NUL-terminated). Free with kr_shared_free; NULL on bad
+ * input. Two handles over the same dir are two nodes sharing the same relay. */
+KShared* kr_shared_open(const char* dir);
+void kr_shared_free(KShared* c);
+
+/* Fetch bytes for a `kappa` (bare 64-hex or "did:holo:sha256:<hex>"). Returns 1 on a VERIFIED hit
+ * (*out_ptr/*out_len = buffer, free with kr_free; *out_mime = mime, free with kr_cache_free_mime), else 0
+ * (miss/refusal). A malformed κ is refused (path-traversal guard). */
+uint8_t kr_shared_get(const KShared* c, const char* kappa,
+                      uint8_t** out_ptr, size_t* out_len, char** out_mime);
+
+/* Publish bytes to the shared substrate (deduped by κ). `kappa` is advisory — the address is recomputed
+ * from the bytes, so a caller cannot mislabel content. */
+void kr_shared_put(const KShared* c, const char* kappa,
+                   const uint8_t* data, size_t len, const char* mime);
+
+/* Record url→κ in the shared manifest (the gossip κ-source) so a node that never fetched `url` can resolve
+ * its content address. Called on a cold miss alongside kr_shared_put. The BYTE transport stays κ-only; this
+ * sidecar reveals only the public url↔κ fact. */
+void kr_shared_note(const KShared* c, const char* url, const char* kappa);
+
+/* The κ a peer recorded for `url`, or NULL if unknown. Heap string (bare 64-hex); free with
+ * kr_cache_free_mime. This is the κ the HIT seam asks the shared substrate for. */
+char* kr_shared_kappa_for(const KShared* c, const char* url);
+
+/* ── Mesh bridge (kr_mesh_get). On a shared-cache miss for a κ a peer gossiped, ask the LOCAL mesh sidecar
+ * (holo-mesh-node gateway) to fetch it from a remote peer over BareNetSync. The gateway verifies (L5) and
+ * persists the blob into HOLO_SHARED_DIR, so the host re-reads kr_shared_get and serves it (kappa-mesh).
+ * Returns 1 if fetched+persisted (re-read kr_shared_get), 0 otherwise (no gateway / no peer / timeout →
+ * fall through to the origin). Gateway addr from env HOLO_MESH_GATEWAY (default 127.0.0.1:9802). std::net
+ * only — no networking deps in this crate; the BareNetSync machinery lives in the sidecar process. */
+uint8_t kr_mesh_get(const char* kappa);
+
+/* ── Peer/agent identity + semantic conformance (P5 host wiring). did:holo is a κ-rooted, self-certifying W3C
+ * DID (the DID is sha256(pubkey); no registry). The host serves its DID Document at /.well-known/did.json so
+ * any W3C consumer or agent resolves + verifies it. kr_ld_validate is validate-before-serve: a κ-object's
+ * properties must be W3C AS2 / schema.org / DID-core terms (or a declared local-context extension). */
+
+/* did:holo:<sha256(pubkey)>. Heap string; free with kr_cache_free_mime. NULL on bad input. */
+char* kr_did_from_key(const uint8_t* pubkey, size_t len);
+/* 1 iff `did` == did:holo:sha256(pubkey) (self-certifying), else 0. */
+uint8_t kr_did_verify(const char* did, const uint8_t* pubkey, size_t len);
+/* The W3C DID Document (JSON) for did:holo rooted in `pubkey`, advertising the verification key + a
+ * HoloContentNetwork `serviceEndpoint`. Heap string; free with kr_cache_free_mime. NULL on bad input. */
+char* kr_did_document(const uint8_t* pubkey, size_t len, const char* endpoint);
+/* The W3C DID Document for an EXPLICIT `did` (the TEE-authenticated operator κ — already a valid
+ * did:holo:sha256:<hex>), with `pubkey` as the verification key. The unified-identity form: the host's
+ * peer/mesh/agent DID IS the operator identity. Heap string; free with kr_cache_free_mime. NULL on bad input. */
+char* kr_did_document_for(const char* did, const uint8_t* pubkey, size_t len, const char* endpoint);
+
+/* Validate one JSON-LD object (NUL-terminated JSON). 1 if every property is a W3C AS2/schema.org/DID-core
+ * term, a JSON-LD keyword, or a declared local-context term; else 0. The host's validate-before-serve. */
+uint8_t kr_ld_validate(const char* json);
 
 #ifdef __cplusplus
 }
