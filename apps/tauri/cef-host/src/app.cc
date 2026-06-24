@@ -641,6 +641,10 @@ void SimpleApp::OnBeforeCommandLineProcessing(const CefString& process_type,
     // GPU watchdog (→ GPU disabled → forcing --disable-gpu-watchdog → the blank-window bug). The OpenGL
     // backend inits fast, so the GPU comes up WITH the watchdog active — full acceleration AND recovery.
     command_line->AppendSwitchWithValue("use-angle", "gl");
+    // Expose a WebGPU adapter to holo:// surfaces (the GPU projection lens: compositing + super-res + warp on
+    // the metal). Dawn uses its own backend (D3D12 on Windows), independent of the ANGLE-GL WebGL path above,
+    // so this doesn't affect the blank-window stability. Additive.
+    command_line->AppendSwitch("enable-unsafe-webgpu");
     if (const char* ext = std::getenv("HOLO_EXTENSIONS")) {
       if (ext[0]) command_line->AppendSwitchWithValue("load-extension", ext);
     }
