@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -53,6 +54,7 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
                             const void* buffer,
                             int width,
                             int height) {
+  if (screencast_) return;   // screencast mode streams Chromium-encoded JPEG via CDP (OnDevToolsEvent), not tiles
   if (type != PET_VIEW || !buffer || !lens_frame_) return;
   const uint8_t* src = static_cast<const uint8_t*>(buffer);  // BGRA, width*height*4, upper-left origin
   const int cols = (width + tile_ - 1) / tile_, rows = (height + tile_ - 1) / tile_;
@@ -110,6 +112,37 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
   lens_frame_->ExecuteJavaScript(js, lens_frame_->GetURL(), 0);
 }
 
+// In screencast mode, attach the DevTools observer and start CDP screencast (Chromium-encoded JPEG frames).
+void HoloOsrClient::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
+  browser_ = browser;
+  if (!screencast_) return;
+  dt_reg_ = browser->GetHost()->AddDevToolsMessageObserver(this);
+  browser->GetHost()->ExecuteDevToolsMethod(0, "Page.enable", nullptr);
+  CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
+  params->SetString("format", "jpeg");
+  params->SetInt("quality", 85);            // near-lossless for UI; tune for the video/quality tradeoff
+  params->SetInt("everyNthFrame", 1);
+  browser->GetHost()->ExecuteDevToolsMethod(0, "Page.startScreencast", params);
+}
+
+// A Page.screencastFrame arrived (base64 JPEG): forward it to the lens (__holoScreencastFrame decodes + tiles +
+// projects — witnessed) and ack so Chromium sends the next frame. Frames arrive ON CHANGE (static page ⇒ idle).
+void HoloOsrClient::OnDevToolsEvent(CefRefPtr<CefBrowser> browser, const CefString& method, const void* params, size_t params_size) {
+  if (method.ToString() != "Page.screencastFrame" || !lens_frame_) return;
+  CefRefPtr<CefValue> v = CefParseJSON(std::string(static_cast<const char*>(params), params_size), JSON_PARSER_RFC);
+  if (!v || v->GetType() != VTYPE_DICTIONARY) return;
+  CefRefPtr<CefDictionaryValue> d = v->GetDictionary();
+  const std::string data = d->HasKey("data") ? d->GetString("data").ToString() : "";
+  const int session = d->HasKey("sessionId") ? d->GetInt("sessionId") : 0;
+  if (data.empty()) return;
+  const std::string js = "window.__holoScreencastFrame&&window.__holoScreencastFrame('data:image/jpeg;base64," +
+                         data + "'," + std::to_string(sc_seq_++) + ")";
+  lens_frame_->ExecuteJavaScript(js, lens_frame_->GetURL(), 0);
+  CefRefPtr<CefDictionaryValue> ack = CefDictionaryValue::Create();
+  ack->SetInt("sessionId", session);
+  browser->GetHost()->ExecuteDevToolsMethod(0, "Page.screencastFrameAck", ack);
+}
+
 // Route a forwarded input event to the off-screen browser's host — so a projected tab is interactive like
 // Chrome. payload = {"t":"move|down|up|wheel|keydown|char","x":..,"y":..,"b":0,"k":keycode,"c":charcode,"dy":..}
 void DispatchOsrInput(const std::string& json) {
@@ -141,7 +174,8 @@ void OpenOsr(const std::string& url, CefRefPtr<CefFrame> lens_frame, int w, int 
   window_info.SetAsWindowless(0);                 // off-screen ⇒ forces Alloy runtime (no Chrome window)
   CefBrowserSettings settings;
   settings.windowless_frame_rate = 60;            // produce rate; present runs faster via holo-present-mailbox
-  g_active_osr = new HoloOsrClient(lens_frame, w, h);
+  const char* sc = std::getenv("HOLO_PROJECT_SCREENCAST");   // CDP JPEG full-motion path (vs raw tiles)
+  g_active_osr = new HoloOsrClient(lens_frame, w, h, 256, sc && sc[0] == '1');
   CefBrowserHost::CreateBrowser(window_info, g_active_osr, url, settings, nullptr, nullptr);
 }
 

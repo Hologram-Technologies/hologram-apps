@@ -24,7 +24,9 @@
 
 #include "include/cef_browser.h"
 #include "include/cef_client.h"
+#include "include/cef_devtools_message_observer.h"
 #include "include/cef_life_span_handler.h"
+#include "include/cef_registration.h"
 #include "include/cef_render_handler.h"
 
 namespace holo {
@@ -48,18 +50,26 @@ void BenchOsr(const std::string& url);
 // by env HOLO_PROJECT_URL=<url>. Verify via CDP (:9333): the lens canvas shows the producer's pixels.
 void ProjectBench(const std::string& url);
 
-// The off-screen client: turns CefRenderHandler paints into a κ-tile stream, and accepts forwarded input.
-class HoloOsrClient : public CefClient, public CefRenderHandler, public CefLifeSpanHandler {
+// The off-screen client: turns CefRenderHandler paints into a κ-tile stream, accepts forwarded input, and (in
+// screencast mode) streams Chromium-encoded JPEG frames via CDP — the full-motion path: video stays smooth and
+// ~360x smaller than raw tiles, encoded by Chromium itself (no ffmpeg), decoded by the lens's __holoScreencastFrame.
+class HoloOsrClient : public CefClient,
+                      public CefRenderHandler,
+                      public CefLifeSpanHandler,
+                      public CefDevToolsMessageObserver {
  public:
-  HoloOsrClient(CefRefPtr<CefFrame> lens_frame, int w, int h, int tile = 256)
-      : lens_frame_(lens_frame), w_(w), h_(h), tile_(tile) {}
+  HoloOsrClient(CefRefPtr<CefFrame> lens_frame, int w, int h, int tile = 256, bool screencast = false)
+      : lens_frame_(lens_frame), w_(w), h_(h), tile_(tile), screencast_(screencast) {}
 
   CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
 
   // CefLifeSpanHandler
-  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override { browser_ = browser; }
-  void OnBeforeClose(CefRefPtr<CefBrowser> browser) override { browser_ = nullptr; }
+  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;   // starts CDP screencast in screencast mode
+  void OnBeforeClose(CefRefPtr<CefBrowser> browser) override { browser_ = nullptr; dt_reg_ = nullptr; }
+
+  // CefDevToolsMessageObserver — receive Page.screencastFrame (JPEG) and forward to the lens.
+  void OnDevToolsEvent(CefRefPtr<CefBrowser> browser, const CefString& method, const void* params, size_t params_size) override;
 
   // CefRenderHandler
   void GetViewRect(CefRefPtr<CefBrowser> browser, CefRect& rect) override { rect = CefRect(0, 0, w_, h_); }
@@ -80,7 +90,10 @@ class HoloOsrClient : public CefClient, public CefRenderHandler, public CefLifeS
  private:
   CefRefPtr<CefFrame> lens_frame_;
   CefRefPtr<CefBrowser> browser_;
+  CefRefPtr<CefRegistration> dt_reg_;              // keeps the DevTools observer alive (screencast mode)
   std::map<std::string, std::string> last_kappa_;  // tile id ("t{cx}_{ry}") → last sha256 hex (delta state)
+  bool screencast_ = false;                        // CDP JPEG screencast instead of raw OnPaint tiles (full-motion)
+  int sc_seq_ = 0;
   int w_, h_, tile_;
   int seq_ = 0;
 
