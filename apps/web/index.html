@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Holo</title>
+  <meta name="description" content="One door to your whole web: Spaces, People, Posts — and private search that cites where it came from. No accounts, no servers, no setup." />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg: var(--holo-bg,#0b071e); --panel: var(--holo-surface,#15102e); --panel2: var(--holo-surface-2,#1c1640);
+      --line: var(--holo-border,#2a2350); --dim: var(--holo-ink-dim,#9b95c4); --ink: var(--holo-ink,#e8e6f0);
+      --accent:#2dd4bf; --accent2:#6366f1; --r:12px; --pill:999px;
+      --sans: var(--holo-font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--ink);font:1rem/1.5 var(--sans);display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+    header{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--panel),transparent)}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.15rem}
+    .brand .dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+    .tag{color:var(--dim);font-size:.82rem;font-weight:400}
+    header .spacer{flex:1}
+    #me{color:var(--dim);font-size:.85rem}
+    #me b{color:var(--ink)}
+    main{display:grid;grid-template-columns:240px 1fr 220px;min-height:0}
+    aside,.people{border-right:1px solid var(--line);padding:16px;overflow:auto}
+    .people{border-right:none;border-left:1px solid var(--line)}
+    h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+    .space,.person{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:var(--r);cursor:pointer;color:var(--ink)}
+    .space:hover{background:var(--panel)}
+    .space.active{background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+    .person{cursor:default}
+    .avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-size:.7rem;font-weight:700;color:#0b071e;flex:0 0 auto}
+    .count{margin-left:auto;color:var(--dim);font-size:.78rem}
+    form.add{display:flex;gap:6px;margin-top:12px}
+    input,button{font:inherit}
+    input{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:var(--r);padding:9px 12px;width:100%}
+    input:focus{outline:none;border-color:var(--accent)}
+    button{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0b071e;border:none;border-radius:var(--r);padding:9px 14px;font-weight:600;cursor:pointer}
+    button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+    button:active{transform:translateY(1px)}
+    .feed{display:flex;flex-direction:column;min-height:0}
+    .feedhead{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line)}
+    .feedhead h1{font-size:1.1rem;margin:0}
+    .feedhead .spacer{flex:1}
+    .searchbar{display:flex;gap:8px;padding:12px 22px;border-bottom:1px solid var(--line)}
+    .posts{flex:1;overflow:auto;padding:18px 22px;display:flex;flex-direction:column;gap:12px}
+    .post{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px}
+    .post .who{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:.8rem;margin-bottom:6px}
+    .post .body{color:var(--ink)}
+    .chip{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--accent);background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.25);border-radius:var(--pill);padding:2px 9px;margin-top:8px}
+    .composer{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--line)}
+    .empty{margin:auto;text-align:center;color:var(--dim);max-width:340px;padding:40px}
+    .empty .big{font-size:1.1rem;color:var(--ink);margin-bottom:6px}
+    .guest{font-size:.74rem;color:#f0c674;background:rgba(240,198,116,.08);border:1px solid rgba(240,198,116,.25);border-radius:var(--pill);padding:3px 10px}
+    .results{padding:0 22px 8px}
+    .result{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+    .overlay{position:fixed;inset:0;background:rgba(5,3,15,.6);display:grid;place-items:center;z-index:50;backdrop-filter:blur(3px)}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(440px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+    .cardhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .card .x{background:none;border:none;color:var(--dim);font-size:1rem;cursor:pointer;padding:4px 8px}
+    .card label{display:flex;align-items:center;gap:8px;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);margin:14px 0 6px}
+    .card textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:var(--r);padding:10px;font:.82rem ui-monospace,monospace;resize:vertical;word-break:break-all}
+    .card button:not(.ghost):not(.x){width:100%;margin-top:14px;padding:11px}
+    .muted{color:var(--dim);font-size:.86rem;line-height:1.5;margin:.2em 0 0}
+    .ghost.sm{padding:2px 8px;font-size:.7rem;margin-left:auto}
+    .status{margin-top:12px;font-size:.82rem;color:var(--accent);min-height:1.2em}
+    .status.warn{color:#f0c674}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="dot"></span> Holo <span class="tag">your whole web, one door</span></div>
+    <div class="spacer"></div>
+    <div id="me"></div>
+  </header>
+  <main>
+    <aside>
+      <h2>Spaces</h2>
+      <div id="spaces"></div>
+      <form class="add" id="newspace"><input id="spacename" placeholder="New space, or paste an invite…" autocomplete="off" /><button>+</button></form>
+    </aside>
+
+    <section class="feed">
+      <div class="feedhead">
+        <h1 id="spacetitle">Holo</h1>
+        <div class="spacer"></div>
+        <button class="ghost" id="invite" hidden>Invite</button>
+      </div>
+      <div class="searchbar" id="searchbar" hidden>
+        <input id="q" placeholder="Search this space privately…" autocomplete="off" />
+        <button class="ghost" id="searchbtn">Search</button>
+      </div>
+      <div class="results" id="results"></div>
+      <div class="posts" id="posts"></div>
+      <form class="composer" id="composer" hidden><input id="postbox" placeholder="Share something…" autocomplete="off" /><button>Post</button></form>
+    </section>
+
+    <div class="people">
+      <h2>People</h2>
+      <div id="people"></div>
+    </div>
+  </main>
+
+  <!-- the invite handshake: one link out, one answer back — a real WebRTC channel, no server -->
+  <div class="overlay" id="invitepanel" hidden>
+    <div class="card">
+      <div class="cardhead"><b id="invitetitle">Invite to this space</b><button class="x" id="invitex">✕</button></div>
+      <div id="invitestep">
+        <p class="muted">Share this link with someone. When they open it they'll send you an answer — paste it below to connect. No server, just the two of you.</p>
+        <label>Invite link <button class="ghost sm" id="copylink">Copy</button></label>
+        <textarea id="invitelink" rows="3" readonly></textarea>
+        <label>Paste their answer</label>
+        <textarea id="answerin" rows="3" placeholder="Paste the answer they send back…"></textarea>
+        <button id="connectbtn">Connect</button>
+        <div class="status" id="invitestatus"></div>
+      </div>
+    </div>
+  </div>
+  <div class="overlay" id="joinpanel" hidden>
+    <div class="card">
+      <div class="cardhead"><b>Joining a space</b><button class="x" id="joinx">✕</button></div>
+      <p class="muted">Send this answer back to whoever invited you. Once they connect, you're in — verified, no account.</p>
+      <label>Your answer <button class="ghost sm" id="copyanswer">Copy</button></label>
+      <textarea id="answerout" rows="3" readonly></textarea>
+      <div class="status" id="joinstatus">Waiting for them to connect…</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import "/usr/lib/holo/holo-ad4m-boot.mjs";
+    // the boot binding wires window.HoloWeb asynchronously (it lazily loads the WAN transport), so wait for it.
+    const web = window.HoloWeb || await new Promise((res) => {
+      if (window.HoloWeb) return res(window.HoloWeb);
+      const h = () => { if (window.HoloWeb) { document.documentElement.removeEventListener("holo-web-ready", h); res(window.HoloWeb); } };
+      document.documentElement.addEventListener("holo-web-ready", h);
+      setTimeout(() => res(window.HoloWeb), 4000);   // fail-soft: proceed even if the event was missed
+    });
+    const $ = (id) => document.getElementById(id);
+    const initials = (s) => (s || "?").replace(/^@/, "").slice(0, 2).toUpperCase();
+    let current = null;
+
+    function renderMe(){ const m = web.me(); $("me").innerHTML = `<b>${m.name}</b> ${m.guest ? '<span class="guest">guest</span>' : ''}`; }
+
+    function renderSpaces(){
+      const list = web.spaces();
+      $("spaces").innerHTML = list.map(s => `<div class="space ${s.id===current?'active':''}" data-id="${s.id}" data-name="${encodeURIComponent(s.name)}"><span class="avatar">${initials(s.name)}</span> ${s.name} <span class="count">${s.people}</span></div>`).join("") || `<div class="tag">No spaces yet — make one below.</div>`;
+      [...document.querySelectorAll('.space')].forEach(el => el.onclick = () => selectSpace(decodeURIComponent(el.dataset.name)));
+    }
+
+    async function selectSpace(name){
+      const r = await web.open(name);
+      if(!r.ok || r.opened !== 'space') return;
+      current = r.space.id;
+      $("spacetitle").textContent = r.space.name;
+      $("invite").hidden = false; $("searchbar").hidden = false; $("composer").hidden = false;
+      $("composer").dataset.name = name;
+      renderSpaces();
+      renderPosts(r.posts);
+      renderPeople(name);
+      $("results").innerHTML = "";
+    }
+
+    function renderPosts(posts){
+      if(!posts || !posts.length){ $("posts").innerHTML = `<div class="empty"><div class="big">Nothing here yet</div>Share the first thing into this space.</div>`; return; }
+      $("posts").innerHTML = posts.map(p => `<div class="post"><div class="who"><span class="avatar">${initials(p.by)}</span> ${p.by}</div><div class="body">${escapeHtml(p.text)}</div></div>`).join("");
+    }
+
+    function renderPeople(name){
+      const ppl = web.people(name);
+      $("people").innerHTML = ppl.map(x => `<div class="person"><span class="avatar">${initials(x.name)}</span> ${x.name}${x.you?' <span class="count">you</span>':''}</div>`).join("");
+    }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    // create a space — OR, if an invite link is pasted, join it (one link, a real WebRTC channel, no server)
+    $("newspace").onsubmit = async (e) => {
+      e.preventDefault(); const v = $("spacename").value.trim(); if(!v) return; $("spacename").value="";
+      if(/#i=/.test(v)){ await joinByLink(v); return; }
+      await selectSpace(v);
+    };
+
+    // ── the invite handshake UX ──────────────────────────────────────────────────────────────────────
+    let inviteHandle = null;
+    async function openInvite(){
+      const name = $("composer").dataset.name; if(!name) return;
+      const r = await web.invite(name);
+      $("invitelink").value = r.link;
+      $("invitestatus").textContent = ""; $("answerin").value = "";
+      inviteHandle = r;
+      $("invitepanel").hidden = false;
+    }
+    async function joinByLink(link){
+      const r = await web.open(link);
+      if(!r.ok){ alert(r.reason || "That invite link didn't work."); return; }
+      // show our answer to send back; the membership grant auto-arrives over the channel once they connect
+      $("answerout").value = JSON.stringify(r.answerBlob);
+      $("joinstatus").className = "status"; $("joinstatus").textContent = "Waiting for them to connect…";
+      $("joinpanel").hidden = false;
+      // when the channel converges, the space fills in — reflect that and open it
+      current = r.space.id; $("spacetitle").textContent = r.space.name;
+      $("composer").dataset.name = r.space.name; $("invite").hidden = false; $("searchbar").hidden = false; $("composer").hidden = false;
+    }
+    const copy = (id) => { try{ navigator.clipboard && navigator.clipboard.writeText($(id).value); }catch(e){} };
+    $("invite").onclick = openInvite;
+    $("invitex").onclick = () => $("invitepanel").hidden = true;
+    $("joinx").onclick = () => $("joinpanel").hidden = true;
+    $("copylink").onclick = () => { copy("invitelink"); $("copylink").textContent = "Copied"; setTimeout(()=>$("copylink").textContent="Copy",1200); };
+    $("copyanswer").onclick = () => { copy("answerout"); $("copyanswer").textContent = "Copied"; setTimeout(()=>$("copyanswer").textContent="Copy",1200); };
+    $("connectbtn").onclick = async () => {
+      if(!inviteHandle){ return; }
+      const ans = $("answerin").value.trim(); if(!ans){ $("invitestatus").textContent = "Paste their answer first."; return; }
+      $("invitestatus").className = "status"; $("invitestatus").textContent = "Connecting…";
+      try{ const blob = JSON.parse(ans); await inviteHandle.complete(blob); $("invitestatus").textContent = "Connected — they're in this space."; setTimeout(()=>$("invitepanel").hidden=true, 1400); }
+      catch(e){ $("invitestatus").className = "status warn"; $("invitestatus").textContent = "That answer didn't parse — copy the whole thing."; }
+    };
+    // post
+    $("composer").onsubmit = async (e) => { e.preventDefault(); const box = $("postbox"); const v = box.value.trim(); if(!v || !current) return; box.value=""; await web.post($("composer").dataset.name, v); };
+    // search
+    $("searchbtn").onclick = async () => {
+      const q = $("q").value.trim(); if(!q || !current) return;
+      const r = await web.search($("composer").dataset.name, q);
+      if(!r.ok){ $("results").innerHTML = `<div class="tag">${r.reason||'search unavailable'}</div>`; return; }
+      $("results").innerHTML = r.results.length
+        ? r.results.map(x => `<div class="result"><span>${escapeHtml((x.id||'').slice(-8))}</span><span class="chip">from ${escapeHtml(x.from||'?')}</span></div>`).join("")
+        : `<div class="tag">No matches.</div>`;
+    };
+
+    // live: re-render the open space whenever the web changes (the nervous system keeps it current)
+    web.onChange(async (e) => {
+      if(current){ const name = $("composer").dataset.name; if(name){ const r = await web.open(name); renderPosts(r.posts); renderPeople(name); renderSpaces();
+        // if the join panel is open and someone else is now here, the channel connected — reflect it.
+        if(!$("joinpanel").hidden && web.people(name).some(p=>!p.you)){ $("joinstatus").textContent = "Connected — you're in."; setTimeout(()=>$("joinpanel").hidden=true, 1400); }
+      } }
+    });
+
+    renderMe(); renderSpaces();
+  </script>
+</body>
+</html>
