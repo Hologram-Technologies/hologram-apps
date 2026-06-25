@@ -643,6 +643,15 @@ class KappaResourceHandler : public CefResourceHandler {
         status_ = 200;
         mime_ = m ? m : "application/octet-stream";
         if (m) kr_cache_free_mime(m);
+      } else if (HoloSharedCache() && kr_mesh_get(hex.c_str()) == 1 &&
+                 kr_shared_get(HoloSharedCache(), hex.c_str(), &data_, &size_, &m) == 1) {
+        // WAN: shared-dir miss but the κ is fetchable over the MESH — the local sidecar (kr_mesh_get) pulls the
+        // tile from a remote PEER, verifies (L5) + persists it, then kr_shared_get serves it. So a projection tile
+        // travels machine-to-machine by content address, novelty-only — the same peer leg the open-web κ-cache
+        // uses, now for live scene tiles. No peer / no gateway / timeout ⇒ 404 (origin floor), never a hang.
+        status_ = 200;
+        mime_ = m ? m : "application/octet-stream";
+        if (m) kr_cache_free_mime(m);
       } else {
         status_ = 404;
       }
