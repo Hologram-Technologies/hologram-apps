@@ -25,6 +25,7 @@
 #include "kappa_scheme.h"
 #include "devtools_bundle.h"    // kHoloDevToolsBundle — host-injected, drift-proof DevTools dock (every app tab)
 #include "playground_bundle.h"  // kHoloPlaygroundBundle — host-injected, CSP-proof Playground runtime
+#include "youtube_bundle.h"     // kHoloYoutubeBundle — host-injected YouTube player swap (self-gates to youtube.com)
 #include "messenger_capture_bundle.h"  // kHoloMessengerCaptureBundle — host-injected, CSP-proof messenger capture
 
 namespace {
@@ -215,6 +216,19 @@ const char kHoloServiceShim[] =
     "try{var g=await govVerdict(url);v=(g.outcome==='block')?'block':'allow';}catch(e){v='block';}"
     "window.cefQuery({request:'holo:govverdict:'+gid+':'+v,persistent:false,"
     "onSuccess:function(){},onFailure:function(){}});};"
+    // OnBeforeBrowse relay target for the native omnibox (Strategy A): resolve a raw typed query through the
+    // SAME resolver the shell uses (holo-omni-resolve over the live catalog) and reply with the canonical
+    // destination. A deterministic shape → its URL. A live shape (web3 ENS/0x, owned holo-name) → the shell
+    // opens it here via HoloOpen and we reply EMPTY so the host no-ops. Unknown → Holo Find. Never invents.
+    "window.__holoOmniResolve=async function(rid,q){var dest='';try{"
+    "var R=window.HoloResolve;"
+    "if(!R){try{var M=await import(DIR+'holo-omni-resolve.mjs');R={resolve:function(x){return M.resolveDestination(x,{catalog:(window.__holoCatalog||[])});}};}catch(e){R=null;}}"
+    "var r=R?R.resolve(q):null;"
+    "if(r&&r.url&&!r.defer){dest=r.url;}"
+    "else if(r&&r.defer){try{if(window.HoloOpen)window.HoloOpen(q);}catch(e){}dest='';}"
+    "else{dest='holo://os/find.html?q='+encodeURIComponent(q);}"
+    "}catch(e){dest='holo://os/find.html?q='+encodeURIComponent(q);}"
+    "window.cefQuery({request:'holo:omniresolved:'+rid+':'+dest,persistent:false,onSuccess:function(){},onFailure:function(){}});};"
     // In-place extension install (the seamless, Chrome-like path). The store-page "Add to Hologram" button
     // relays here (origin holo://os — the trusted shell). Fetch the CRX host-side (crxfetch, no CORS),
     // verify κ + publisher signature (Law L5), classify, persist to the κ-extensions store, and reply with
@@ -568,9 +582,9 @@ std::string CwsExtId(const std::string& url) {
 // debounced MutationObserver cover SPA re-renders without churn.
 const char kHoloRebrandTmpl[] =
     "(function(){if(window.__holoRebrand)return;window.__holoRebrand=1;var ID=\"%ID%\";"
-    // The ONE canonical Hologram mark (matches boot/icon.svg + the embedded window icon): hexagon + play
-    // on the brand-blue tile. Used for the store-page logo swap and the floating button — one mark everywhere.
-    "var H=\"<svg width='18' height='18' viewBox='0 0 128 128' style='vertical-align:-3px'><rect width='128' height='128' rx='28' fill='#3b82f6'></rect><path d='M64 22 L104 45 V91 L64 114 L24 91 V45 Z' fill='none' stroke='#04101f' stroke-width='9' stroke-linejoin='round'></path><path d='M52 58 L78 70 L52 82 Z' fill='#04101f'></path></svg>\";"
+    // The ONE canonical Hologram mark — the cube enclosing an H (matches the embedded window icon, the boot
+    // splash, and usr/share/icons/holo-glyph.svg). Brand-blue tile, dark cube + dark H. One mark everywhere.
+    "var H=\"<svg width='18' height='18' viewBox='0 0 128 128' style='vertical-align:-3px'><rect width='128' height='128' rx='28' fill='#3b82f6'></rect><path d='M64 20 L104 43 V89 L64 112 L24 89 V43 Z' fill='none' stroke='#04101f' stroke-width='8' stroke-linejoin='round'></path><path d='M50 48 V84 M78 48 V84 M50 66 H78' fill='none' stroke='#04101f' stroke-width='10' stroke-linecap='round' stroke-linejoin='round'></path></svg>\";"
     "function toast(m){var t=document.createElement('div');t.textContent=m;t.setAttribute('style','position:fixed;z-index:2147483647;left:50%;bottom:28px;transform:translateX(-50%);background:#0c1020;color:#eef0fb;border:1px solid #ffffff26;padding:13px 20px;border-radius:12px;font:600 14px system-ui;box-shadow:0 12px 34px #000a;max-width:80vw');document.body.appendChild(t);setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(function(){t.remove();},400);},3600);}"
     "function install(btn){if(btn)btn.textContent='Adding\\u2026';window.cefQuery({request:'holo:installext:'+ID,persistent:false,"
     "onSuccess:function(r){var o={};try{o=JSON.parse(r);}catch(e){}"
@@ -622,7 +636,12 @@ const char kHoloRebrandTmpl[] =
 void SimpleApp::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) {
   registrar->AddCustomScheme(
       "holo", CEF_SCHEME_OPTION_STANDARD | CEF_SCHEME_OPTION_SECURE |
-                  CEF_SCHEME_OPTION_CORS_ENABLED | CEF_SCHEME_OPTION_FETCH_ENABLED);
+                  CEF_SCHEME_OPTION_CORS_ENABLED | CEF_SCHEME_OPTION_FETCH_ENABLED |
+                  // CSP_BYPASSING: a page's Content-Security-Policy (e.g. YouTube's media-src) must not block a
+                  // holo:// subresource. holo:// bytes are L5 content-addressed + host-verified, so exempting them
+                  // is defensible (same mechanism Chromium grants privileged extension schemes). Unblocks the
+                  // YouTube <video> swap and the substrate-on-open-web pattern generally.
+                  CEF_SCHEME_OPTION_CSP_BYPASSING);
 }
 
 void SimpleApp::OnBeforeCommandLineProcessing(const CefString& process_type,
@@ -640,23 +659,63 @@ void SimpleApp::OnBeforeCommandLineProcessing(const CefString& process_type,
     // KEY: use ANGLE's OpenGL backend, not D3D11. On the 8050S the D3D11 init is slow enough to trip the
     // GPU watchdog (→ GPU disabled → forcing --disable-gpu-watchdog → the blank-window bug). The OpenGL
     // backend inits fast, so the GPU comes up WITH the watchdog active — full acceleration AND recovery.
-    command_line->AppendSwitchWithValue("use-angle", "gl");
+    // EXCEPTION: the zero-copy OSR projection path (HOLO_OSR_ACCEL=1) needs OnAcceleratedPaint, which on
+    // Windows delivers a *D3D11* shared texture — produced only on the ANGLE-D3D11 backend. Under use-angle=gl
+    // Chromium composites via GL, no shared texture is made, and CEF silently falls back to software OnPaint
+    // (measured: OnAcceleratedPaint never fires). So when accel is explicitly requested, select d3d11; the
+    // watchdog + software-compositing fallback stay ON, so the blank-window safety nets are unchanged.
+    const char* osr_accel = std::getenv("HOLO_OSR_ACCEL");
+    command_line->AppendSwitchWithValue("use-angle", (osr_accel && osr_accel[0] == '1') ? "d3d11" : "gl");
     // Expose a WebGPU adapter to holo:// surfaces (the GPU projection lens: compositing + super-res + warp on
     // the metal). Dawn uses its own backend (D3D12 on Windows), independent of the ANGLE-GL WebGL path above,
     // so this doesn't affect the blank-window stability. Additive.
     command_line->AppendSwitch("enable-unsafe-webgpu");
+    // Media: SOUND ON BY DEFAULT. Hologram is a media OS — the user opens a video intentionally, so unmuted
+    // autoplay must not need a per-page click gesture (Chromium's default policy otherwise forces MUTED autoplay).
+    // With this, a video plays WITH SOUND immediately; the player chrome still offers a mute toggle.
+    command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
+    // On a host with no hardware WebGPU adapter (a headless/remote CEF launch where requestAdapter()
+    // and even forceFallbackAdapter return null), force Dawn's software (SwiftShader) adapter so the
+    // GPU projection lens + super-res still render instead of falling back to a plain 2D blit. Opt-in
+    // via env so a machine WITH a real GPU keeps hardware acceleration by default.
+    if (const char* sw = std::getenv("HOLO_WEBGPU_SWIFTSHADER")) {
+      if (sw[0] == '1') command_line->AppendSwitchWithValue("use-webgpu-adapter", "swiftshader");
+    }
     if (const char* ext = std::getenv("HOLO_EXTENSIONS")) {
       if (ext[0]) command_line->AppendSwitchWithValue("load-extension", ext);
     }
     // Quiet the Google account surface: no sync + suppress sign-in promos/bubbles (best-effort via flags;
     // the profile avatar button itself is compiled Chrome UI — fully removed in the Phase-3 fork build).
     command_line->AppendSwitch("disable-sync");
+    // De-brand: never nag to be the default browser. The "Chromium isn't your default browser / Set as
+    // default" infobar (multicolor C logo + text) is the loudest Chromium leak on the login screen. The
+    // switch suppresses the runtime check; DefaultBrowserPromptRefresh is the infobar feature itself. The
+    // pref browser.default_browser_setting_enabled=false (set in HoloDeferredHostInit) is the belt-and-braces.
+    command_line->AppendSwitch("no-default-browser-check");
     command_line->AppendSwitchWithValue(
-        "disable-features", "SigninPromo,DiceWebSigninInterception,SyncPromoAfterSignin,SigninInterceptBubble");
+        "disable-features",
+        "SigninPromo,DiceWebSigninInterception,SyncPromoAfterSignin,SigninInterceptBubble,"
+        "DefaultBrowserPromptRefresh");
+#if !defined(CEF_USE_SANDBOX) && !defined(CEF_USE_BOOTSTRAP)
+    // INTERIM (unsandboxed builds only): silence the yellow "unsupported command-line flag: --no-sandbox"
+    // bar. It is Chromium's hard-coded bad-flags prompt (bad_flags_prompt.cc), fired because CEF appends
+    // --no-sandbox (settings.no_sandbox=true) when the host is built without the sandbox. The bar is NOT a
+    // Feature, so disable-features can't reach it; --test-type is the documented suppressor (same switch
+    // ChromeDriver uses). The bar TELLS THE TRUTH here, so this only masks it. The real fix — building with
+    // USE_SANDBOX (the bootstrap DLL + bootstrap.exe loader) — makes --no-sandbox never appear, so this whole
+    // block COMPILES OUT in a sandboxed build (we also don't want test-type's other test-only relaxations on a
+    // credential-handling browser). See main.cc / CMakeLists.txt USE_SANDBOX.
+    command_line->AppendSwitch("test-type");
+#endif
     // First-boot companion tabs (Start here, Play) now open as IN-PAGE holospace tabs via the shell's own
     // window.HoloOpen (handler OnLoadEnd) — not native popups — so the popup blocker no longer matters for
     // boot. Kept off so any gesture-less host-issued open (e.g. a deep-link surface) is never suppressed.
     command_line->AppendSwitch("disable-popup-blocking");
+    // SOUND ON BY DEFAULT: Hologram plays media you asked for, so let it autoplay WITH AUDIO without a per-play
+    // user gesture (the resolve+transcode takes seconds, by which the original click's gesture has expired →
+    // Chromium would otherwise force muted). Holo Video defaults muted=0 and relies on this. Mirrors a media
+    // appliance, not a hostile web page; the user can still mute per-video.
+    command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
   }
 }
 
@@ -686,6 +745,38 @@ static void HoloDeferredHostInit(std::string root, int broker_port) {
     CefString e2;
     rc->SetPreference("bookmark_bar.show_on_all_tabs", bb, e2);
   }
+  // De-brand belt-and-braces: turn the default-browser setting OFF as a pref too, so even if the feature
+  // flag path changes between Chromium versions the "Chromium isn't your default browser" infobar never
+  // appears. Pairs with --no-default-browser-check + disable DefaultBrowserPromptRefresh (OnBeforeCommandLine).
+  if (rc && rc->CanSetPreference("browser.default_browser_setting_enabled")) {
+    CefRefPtr<CefValue> db = CefValue::Create();
+    db->SetBool(false);
+    CefString e3;
+    rc->SetPreference("browser.default_browser_setting_enabled", db, e3);
+  }
+  // ── Unify-the-chrome (Strategy A): make the native omnibox κ-smart by pointing its free-text/search path
+  // at the holo resolver. Anything Chromium treats as a search (a name, three words, a κ, free text) then
+  // arrives as holo://os/omni?q=<raw>, which OnBeforeBrowse holds + resolves through holo-omni-resolve.
+  // NOTE (verify at build): the settable pref key for the default search provider is Chromium-version
+  // dependent ("default_search_provider_data.template_url_data" in current builds). It is guarded by
+  // CanSetPreference and fail-soft — if this CEF/Chromium doesn't expose it, the omni interception simply
+  // lies dormant for the NATIVE bar; the in-page home-hero omnibox still feeds the SAME route by navigating
+  // to holo://os/omni?q=<input> directly (Phase 1), so the resolver path is exercised either way.
+  if (rc && rc->CanSetPreference("default_search_provider_data.template_url_data")) {
+    CefRefPtr<CefDictionaryValue> turl = CefDictionaryValue::Create();
+    turl->SetString("short_name", "Hologram");
+    turl->SetString("keyword", "holo");
+    turl->SetString("url", "holo://os/omni?q={searchTerms}");
+    // New Tab Page → Hologram home/launcher. The default search provider's new_tab_url is what chrome-runtime
+    // navigates a fresh tab to (instead of chrome://new-tab-page-third-party). chrome already accepts our
+    // holo:// search url above, so point the NTP at the Hologram home — new tabs open the launcher, not Google.
+    turl->SetString("new_tab_url", "holo://os/home.html");
+    turl->SetBool("safe_for_autoreplace", false);
+    CefRefPtr<CefValue> v = CefValue::Create();
+    v->SetDictionary(turl);
+    CefString e4;
+    rc->SetPreference("default_search_provider_data.template_url_data", v, e4);
+  }
 }
 
 void SimpleApp::OnContextInitialized() {
@@ -712,7 +803,9 @@ void SimpleApp::OnContextInitialized() {
   // INSTANT BOOT — boot the window + canonical login FIRST, before any non-critical init, so first paint is
   // never blocked behind the broker socket bind or DevTools preference writes. The boot-critical path is now
   // just: register the κ scheme (above) + open the canonical login (here). Everything else is deferred below.
-  std::string url = "holo://os/login.html";
+  std::string url = "holo://os/login";   // the CLEAN address: the chrome-runtime omnibox shows this verbatim
+                                          // (the scheme canonicalizes os/login → os/login.html — same bytes, clean
+                                          // bar). Host stays "os" so the same-origin OS model is untouched.
   if (const char* u = std::getenv("HOLO_START_URL")) url = u;
 
   CefRefPtr<SimpleHandler> handler(new SimpleHandler());
@@ -743,7 +836,10 @@ void SimpleApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
     // The privileged service runs only in the OS home frame (the shell). Other holo:// frames (apps)
     // get the bridge but reach the service through the relay, never host it themselves.
     const std::string fu = frame->GetURL().ToString();
-    const bool is_shell = (fu.rfind("holo://os/shell", 0) == 0 || fu.rfind("holo://os/home", 0) == 0);
+    // The committed URL is what was navigated to (holo://os/home), not the canonical bytes path — so match the
+    // CLEAN short form too, exactly (not "holo://os/home-screen"), alongside the legacy holo://os/shell|home.html.
+    const bool is_shell = (fu == "holo://os/home" || fu.rfind("holo://os/home?", 0) == 0 || fu.rfind("holo://os/home/", 0) == 0 ||
+                           fu.rfind("holo://os/shell", 0) == 0 || fu.rfind("holo://os/home.", 0) == 0);
     if (frame->IsMain() && is_shell) {
       frame->ExecuteJavaScript(kHoloServiceShim, frame->GetURL(), 0);
       frame->ExecuteJavaScript(kHoloUnchrome, frame->GetURL(), 0);  // show the FULL Hologram shell chrome
@@ -778,6 +874,10 @@ void SimpleApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
       // hosts (web.whatsapp.com / web.telegram.org / discord.com / app.slack.com / …); inert elsewhere.
       // Posts raw captured message fields on the "holo-messenger" BroadcastChannel → the inbox mints + ingests.
       frame->ExecuteJavaScript(kHoloMessengerCaptureBundle, frame->GetURL(), 0);
+      // YouTube: this CEF lacks H.264/AAC so YouTube's MSE player shows "can't play"; the shim swaps the dead
+      // player for a native <video src=holo://os/sc/vstream…> (VP9/Opus, engine-decodable — PROVEN). Self-gates
+      // to youtube.com, inert elsewhere. The holo:// media load needs CEF_SCHEME_OPTION_CSP_BYPASSING (below).
+      frame->ExecuteJavaScript(kHoloYoutubeBundle, frame->GetURL(), 0);
       frame->ExecuteJavaScript(kHoloWebAuthn, frame->GetURL(), 0);  // passkey provider on web frames
       frame->ExecuteJavaScript(kHoloCred, frame->GetURL(), 0);  // web2 autofill/save/totp (unified credential relay)
     }

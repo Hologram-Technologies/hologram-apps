@@ -18,19 +18,17 @@
 #include "app.h"
 #include "holo_osr.h"
 
-// Enable the multiprocess sandbox by defining CEF_USE_SANDBOX and linking cef_sandbox.lib (standard
-// dist). The minimal dist omits it, so the skeleton runs unsandboxed; production MUST enable it (P4).
-#if defined(CEF_USE_SANDBOX)
+// Renderer sandbox model. CEF 149 NO LONGER links a cef_sandbox.lib — when USE_SANDBOX is on the CMake
+// defines CEF_USE_BOOTSTRAP, the host is built as a DLL, and the prebuilt bootstrap.exe (shipped in every
+// dist, incl. minimal) loads it, creates the sandbox, and calls our exported RunWinMain with sandbox_info.
+// The old linked-lib path is kept only for legacy dists (CEF_USE_SANDBOX without CEF_USE_BOOTSTRAP).
+#if defined(CEF_USE_SANDBOX) && !defined(CEF_USE_BOOTSTRAP)
 #pragma comment(lib, "cef_sandbox.lib")
 #endif
 
-int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
-  void* sandbox_info = nullptr;
-#if defined(CEF_USE_SANDBOX)
-  CefScopedSandboxInfo scoped_sandbox;
-  sandbox_info = scoped_sandbox.sandbox_info();
-#endif
-
+// Shared body for every entry-point flavor. |sandbox_info| is bootstrap-provided (sandboxed DLL),
+// CefScopedSandboxInfo-provided (legacy linked sandbox), or nullptr (unsandboxed exe).
+static int RunMain(HINSTANCE hInstance, LPTSTR /*lpCmdLine*/, int /*nCmdShow*/, void* sandbox_info) {
   CefMainArgs main_args(hInstance);
   CefRefPtr<SimpleApp> app(new SimpleApp);
 
@@ -41,7 +39,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   }
 
   CefSettings settings;
-#if !defined(CEF_USE_SANDBOX)
+  // Disable the sandbox ONLY in a genuinely unsandboxed build. On Windows the CEF cmake signals "sandboxed"
+  // with CEF_USE_BOOTSTRAP (the bootstrap model); CEF_USE_SANDBOX is the Linux/Mac signal. Gate on BOTH so a
+  // Windows bootstrap build keeps no_sandbox=false (sandbox ON). Keying on CEF_USE_SANDBOX alone left this
+  // true on Windows → every process ran "Not Sandboxed" despite the bootstrap loader.
+#if !defined(CEF_USE_SANDBOX) && !defined(CEF_USE_BOOTSTRAP)
   settings.no_sandbox = true;
 #endif
   // localhost-only CDP — for the boot proof. Default 9333; override with HOLO_DEBUG_PORT so a
@@ -102,3 +104,27 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   CefShutdown();
   return 0;
 }
+
+#if defined(CEF_USE_BOOTSTRAP)
+// CEF 149 sandbox: this module is a DLL loaded by bootstrap.exe (staged as holo_cef_host.exe). The
+// bootstrap process creates the sandbox and hands us |sandbox_info|; |version_info| is unused because we
+// link the matching libcef.lib at build time. RunWinMain is exported (CEF_BOOTSTRAP_EXPORT → dllexport,
+// extern "C") so bootstrap.exe resolves it by name.
+CEF_BOOTSTRAP_EXPORT int RunWinMain(HINSTANCE hInstance,
+                                    LPTSTR lpCmdLine,
+                                    int nCmdShow,
+                                    void* sandbox_info,
+                                    cef_version_info_t* /*version_info*/) {
+  return RunMain(hInstance, lpCmdLine, nCmdShow, sandbox_info);
+}
+#else
+// Unsandboxed (USE_SANDBOX=OFF) or legacy linked-sandbox build: a normal windowed executable.
+int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR lpCmdLine, int nCmdShow) {
+  void* sandbox_info = nullptr;
+#if defined(CEF_USE_SANDBOX)
+  CefScopedSandboxInfo scoped_sandbox;
+  sandbox_info = scoped_sandbox.sandbox_info();
+#endif
+  return RunMain(hInstance, lpCmdLine, nCmdShow, sandbox_info);
+}
+#endif

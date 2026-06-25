@@ -8,12 +8,16 @@ $tauri = Split-Path -Parent $here
 # 1) vendor CEF if missing
 if (-not (Test-Path (Join-Path $here "third_party\cef"))) { & (Join-Path $here "vendor-cef.ps1") }
 
-# 2) bake the closure anchor (sha256 of the shipped os-closure.json) into the host = the trust root.
-#    A swapped/tampered manifest at runtime != this baked value → the store refuses everything (G1).
+# 2) bake the closure anchor (CANONICAL blake3 of the shipped os-closure.json) into the host = the trust
+#    root (ADR-0115). A swapped/tampered manifest at runtime != this baked value → the store refuses
+#    everything (G1). NB: HotStore derives the anchor LIVE from the file at boot (hot_store.cc), so this
+#    baked header is a fallback; load_store matches blake3 first and accepts the legacy sha value too.
+#    PowerShell's Get-FileHash has no BLAKE3, so compute it with the OS's own kappo (holo-blake3.mjs).
 $closure = Join-Path $tauri "dist\os-closure.json"
 $anchorHdr = Join-Path $here "src\closure_anchor.h"
 if (Test-Path $closure) {
-  $anchor = (Get-FileHash $closure -Algorithm SHA256).Hash.ToLower()
+  $b3 = Join-Path $tauri "..\..\..\holo-os\system\os\usr\lib\holo\holo-blake3.mjs"
+  $anchor = (& node -e "const fs=require('fs');const {pathToFileURL}=require('url');import(pathToFileURL(process.argv[1]).href).then(m=>process.stdout.write(m.blake3hex(fs.readFileSync(process.argv[2]))))" $b3 $closure)
   $lines = @(
     "#ifndef HOLO_CLOSURE_ANCHOR_H",
     "#define HOLO_CLOSURE_ANCHOR_H",
@@ -41,6 +45,15 @@ Write-Host "Using $vcvars"
 # 4) inside the MSVC env: build the Rust verifier for the MSVC ABI (to match libcef.lib), then cmake+ninja.
 #    libcef.lib is MSVC/COFF, so the verifier must be MSVC too (the default toolchain here is GNU).
 $build = Join-Path $here "build"
+# One-time clean when the sandbox/target type flips. The old cache built holo_cef_host as an EXE with
+# USE_SANDBOX=OFF; the sandbox build makes it a DLL (+ staged bootstrap.exe). CMake can't change a target's
+# type in a dirty build dir, and a non-FORCE default can't override a stale cached value — so wipe the build
+# dir once when the cache is still on the old setting. Normal incremental builds (cache already ON) skip this.
+$cache = Join-Path $build "CMakeCache.txt"
+if ((Test-Path $cache) -and (Select-String -Path $cache -Pattern "USE_SANDBOX:BOOL=OFF" -Quiet)) {
+  Write-Host "USE_SANDBOX flipped ON → removing stale build dir for a clean reconfigure: $build"
+  Remove-Item -Recurse -Force $build
+}
 New-Item -ItemType Directory -Force -Path $build | Out-Null
 $krBuild = "cargo +nightly-x86_64-pc-windows-msvc build --release -p kappa-route --target x86_64-pc-windows-msvc"
 $cmd = "`"$vcvars`" && cd /d `"$tauri\src-tauri`" && $krBuild && cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -S `"$here`" -B `"$build`" && cmake --build `"$build`" --target holo_cef_host"
