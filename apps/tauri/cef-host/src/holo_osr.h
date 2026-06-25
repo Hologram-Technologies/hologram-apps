@@ -27,6 +27,7 @@
 #include "include/cef_client.h"
 #include "include/cef_devtools_message_observer.h"
 #include "include/cef_life_span_handler.h"
+#include "include/cef_load_handler.h"
 #include "include/cef_registration.h"
 #include "include/cef_render_handler.h"
 
@@ -51,6 +52,12 @@ void BenchOsr(const std::string& url);
 // by env HOLO_PROJECT_URL=<url>. Verify via CDP (:9333): the lens canvas shows the producer's pixels.
 void ProjectBench(const std::string& url);
 
+// CROSS-DEVICE remote lens (node B): open the projector page with NO local producer and drive it from the
+// manifest CHANNEL another node publishes (HOLO_SHARED_DIR/proj-manifest.json) — the tiles are fetched by content
+// address over the shared-κ transport. So a scene rendered on node A composites here, novelty-only, L5-verified.
+// Triggered by env HOLO_REMOTE_LENS=1 (the producer node sets HOLO_OSR_SHARE=1). Verify B's canvas via CDP.
+void ProjectRemote();
+
 // The off-screen client: turns CefRenderHandler paints into a κ-tile stream, accepts forwarded input, and
 // AUTO-SWITCHES per content. The default is the lossless pixel-native tile path (crisp UI/text, O(1) novelty).
 // When it detects sustained high churn (video/animation) it PROMOTES to CDP screencast — Chromium-encoded JPEG
@@ -61,16 +68,26 @@ void ProjectBench(const std::string& url);
 class HoloOsrClient : public CefClient,
                       public CefRenderHandler,
                       public CefLifeSpanHandler,
+                      public CefLoadHandler,
                       public CefDevToolsMessageObserver {
  public:
   HoloOsrClient(CefRefPtr<CefFrame> lens_frame, int w, int h, int tile = 256,
-                bool forced_screencast = false, bool autoswitch = false)
+                bool forced_screencast = false, bool autoswitch = false, bool content_space = true)
       : lens_frame_(lens_frame), w_(w), h_(h), tile_(tile),
         screencast_(forced_screencast), forced_sc_(forced_screencast),
-        auto_(autoswitch && !forced_screencast) {}
+        auto_(autoswitch && !forced_screencast), content_mode_(content_space) {}
+
+  // Predictor leg of scroll acquisition: a forwarded wheel event advances the document scrollY estimate
+  // synchronously (zero CDP lag), so OnPaint can tile in document coordinates with the scroll it was painted
+  // at. Reconciled against the authoritative CDP value in OnDevToolsMethodResult. Called from DispatchOsrInput.
+  void NotifyScroll(int dy);
 
   CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
+  CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
+
+  // CefLoadHandler — on every document load, attach a synchronous scroll reporter (low-lag scroll acquisition).
+  void OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int httpStatusCode) override;
 
   // CefLifeSpanHandler
   void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;   // attaches the CDP observer; starts screencast if forced
@@ -78,6 +95,10 @@ class HoloOsrClient : public CefClient,
 
   // CefDevToolsMessageObserver — receive Page.screencastFrame (JPEG) and forward to the lens.
   void OnDevToolsEvent(CefRefPtr<CefBrowser> browser, const CefString& method, const void* params, size_t params_size) override;
+  // CefDevToolsMessageObserver — the authoritative scroll source: the result of our throttled
+  // Runtime.evaluate("window.scrollY"). Reconciles (and corrects drift in) the predictor estimate.
+  void OnDevToolsMethodResult(CefRefPtr<CefBrowser> browser, int message_id, bool success,
+                              const void* result, size_t result_size) override;
 
   // CefRenderHandler
   void GetViewRect(CefRefPtr<CefBrowser> browser, CefRect& rect) override { rect = CefRect(0, 0, w_, h_); }
@@ -104,20 +125,55 @@ class HoloOsrClient : public CefClient,
   void StopScreencast(const std::string& why);   // stop screencast, force a repaint so tiling re-establishes
   void ScheduleDemoteCheck();             // post the next idle check (no-op if one is pending)
   void CheckDemoteIdle();                 // demote if no screencast frame for kDemoteIdleMs
+  void MaybeRequestScroll();              // throttled Runtime.evaluate → push scrollY back via the binding
+  long CurrentScrollEstimate();           // binding anchor dead-reckoned by velocity to THIS paint instant
+  void DoSelfScroll();                    // HOLO_OSR_SELFSCROLL bench: producer scrolls ITSELF (no lens/CDP needed)
+  void PollInput();                       // cross-device: apply input a REMOTE lens wrote to the reverse channel
 
   CefRefPtr<CefFrame> lens_frame_;
   CefRefPtr<CefBrowser> browser_;
   CefRefPtr<CefRegistration> dt_reg_;              // keeps the DevTools observer alive (screencast mode)
-  std::map<std::string, std::string> last_kappa_;  // tile id ("t{cx}_{ry}") → last blake3 hex (delta state)
+  std::map<std::string, std::string> last_kappa_;  // tile id ("c{cx}_{prow}" | "t{cx}_{ry}") → last blake3 hex (delta state)
   bool screencast_ = false;                        // CURRENT mode: CDP JPEG screencast (true) vs raw tiles (false)
   bool forced_sc_ = false;                         // env-forced always-screencast (never auto-demotes)
   bool auto_ = false;                              // churn-driven tile↔screencast auto-switch enabled
+  bool content_mode_ = true;                       // address tiles in DOCUMENT space (c{cx}_{prow}); else legacy screen space
   int hot_frames_ = 0;                             // consecutive high-churn paints (the promote counter)
-  long dirty_total_ = 0, recur_total_ = 0;         // κ-LUT instrumentation: dirty tiles vs content-recurrences
+  long dirty_total_ = 0, recur_total_ = 0;         // κ-LUT instrumentation: FULL-tile changes vs content-recurrences
+  long edge_total_ = 0;                            // margin (partial) tiles this stat window — inherently novel, tallied apart
   int stat_frames_ = 0;                            // frames since last κ-LUT stat log
   bool demote_scheduled_ = false;                  // an idle check is already queued
   std::chrono::steady_clock::time_point last_sc_;  // last screencast frame arrival (idle → demote to tiles)
   int sc_seq_ = 0;
+
+  // Scroll acquisition (content-space tiling needs the page's document scrollY at paint time). The predictor
+  // (forwarded wheel, NotifyScroll) advances scroll_y_ synchronously; a throttled CDP Runtime.evaluate is the
+  // authoritative truth that corrects drift (clamps, keyboard/JS/scrollbar scrolls, smooth-scroll overshoot).
+  long scroll_y_ = 0;                              // best estimate of the producer page's document scrollY
+  long last_tiled_scroll_ = -1;                    // scroll used for the previous emitted frame (detect a shift)
+  bool scroll_eval_inflight_ = false;              // a Runtime.evaluate("window.scrollY") is outstanding
+  std::chrono::steady_clock::time_point last_scroll_eval_;  // throttle the evaluate
+  std::chrono::steady_clock::time_point last_input_;        // last forwarded wheel (predictor liveness window)
+  long resid_n_ = 0; double resid_sum_ = 0, resid_max_ = 0; // scroll-acquisition residual (estimate vs binding truth)
+  double scroll_vel_ = 0.0;                        // px/ms, from consecutive binding reports — dead-reckon to paint time
+  std::chrono::steady_clock::time_point scroll_t_; // timestamp of the current scroll_y_ anchor
+
+  // HOLO_OSR_SELFSCROLL bench: the producer drives a sustained wheel scroll on ITSELF so the live content-space
+  // reuse% can be measured on the real engine WITHOUT a surviving lens, CDP driver, or external network — the
+  // robust way to read the falsifiable bar on a flaky host (mirrors the BenchOsr self-contained pattern).
+  bool self_scroll_ = false;
+  int self_scroll_dir_ = 1;                        // +1 = scrolling down, −1 = up (ping-pongs at the bounds)
+  int self_scroll_pos_ = 0;
+
+  // Cross-device projection (HOLO_OSR_SHARE): also publish each novel tile to the shared-κ transport keyed by
+  // its canonical sha256, so a lens on ANOTHER node fetches it by content address (novelty-only on the wire).
+  bool share_ = false;
+  long shared_n_ = 0;                              // tiles published to the shared-κ this stat window
+  std::string last_share_sha_;                     // a sample sha256 κ (for the cross-device verify)
+  long kf_ctr_ = 0;                                // KEYFRAME cadence: a remote lens that joins mid-stream (or a
+                                                   // static page that stopped emitting deltas) needs a FULL frame
+                                                   // — every Nth frame in share mode re-emits ALL visible tiles.
+  long last_input_seq_ = 0;                        // last remote-input event applied (the reverse-channel cursor)
   int w_, h_, tile_;
   int seq_ = 0;
 

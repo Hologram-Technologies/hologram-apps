@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -20,6 +21,8 @@
 #include "holo_media.h"  // κ Universal Media Resolver backend (ffmpeg H.264→VP9/Opus transcode)
 #include "holo_osr.h"     // off-screen projection producer: OpenOsr / DispatchOsrInput (P4 live projection)
 #include "kappa_scheme.h"  // HoloCreateScHandler — native /sc/* media streaming for the dock apps
+#include "holo_hello.h"   // native platform-authenticator (Windows Hello) login ceremony (no iframe / no prompt)
+#include "holo_winicon.h" // force the Hologram H as the native window + taskbar icon (de-brand the Chromium logo)
 
 #include "include/base/cef_callback.h"
 #include "include/cef_app.h"
@@ -609,7 +612,8 @@ class HoloMediaResolverHandler : public CefResourceHandler {
   explicit HoloMediaResolverHandler(std::string url) : url_(std::move(url)) {}
 
   bool Open(CefRefPtr<CefRequest> request, bool& handle_request, CefRefPtr<CefCallback> callback) override {
-    // Parse a Range header up front so we can answer 206 from the complete transcoded buffer.
+    // Parse a Range header up front. We can satisfy ranges only from a COMPLETE (cache-hit) buffer; a live
+    // transcode is served as a linear 200 (the browser plays progressively, no seek until it's κ-cached).
     const std::string range = request->GetHeaderByName("Range").ToString();
     if (range.rfind("bytes=", 0) == 0) {
       has_range_ = true;
@@ -621,28 +625,50 @@ class HoloMediaResolverHandler : public CefResourceHandler {
         if (!e.empty()) range_end_ = std::strtoull(e.c_str(), nullptr, 10);
       }
     }
-    handle_request = false;  // decide later — fetch+transcode happens off the IO thread
+    handle_request = false;  // decide later — cache lookup / transcode happens off the IO thread
     CefRefPtr<CefResourceHandler> self(this);
     const std::string key = HoloMediaCacheKey(url_);
     std::thread([self, this, key, callback]() {
-      // κ-media-cache HIT → instant (any tab, any site). Bytes re-derive to the cached entry.
+      // κ-media-cache HIT → instant + seekable (complete buffer, Range supported).
       uint8_t* p = nullptr; size_t len = 0; char* mime = nullptr;
       if (kr_cache_get(WebCache(), key.c_str(), &p, &len, &mime) == 1) {
         data_.assign(reinterpret_cast<const char*>(p), len);
         from_cache_ = true;
         if (p) kr_free(p, len);
         if (mime) kr_cache_free_mime(mime);
-      } else {
-        std::string webm;
-        if (HoloTranscodeToWebm(url_, webm) && !webm.empty()) {
-          kr_cache_put(WebCache(), key.c_str(), reinterpret_cast<const uint8_t*>(webm.data()),
-                       webm.size(), "video/webm", 0 /*revalidatable*/);
-          data_.swap(webm);
+        callback->Continue();
+        return;
+      }
+      // MISS → STREAM the transcode: serve bytes as ffmpeg emits them so a feature-length film starts in
+      // ~1-2 s instead of after a whole-file transcode. We read the FIRST chunk before committing headers
+      // so an immediate failure becomes a clean 502 (not an empty 200), then drain the rest into buf_.
+      HoloTranscodeStream* st = HoloTranscodeStreamStart(url_);
+      if (!st) { failed_ = true; callback->Continue(); return; }
+      char tmp[65536];
+      int r = HoloTranscodeStreamRead(st, tmp, sizeof(tmp));
+      if (r <= 0) { failed_ = true; HoloTranscodeStreamFree(st); callback->Continue(); return; }
+      { std::lock_guard<std::mutex> lk(mu_); buf_.append(tmp, static_cast<size_t>(r)); }
+      streaming_ = true;
+      callback->Continue();  // 200 streaming; first cluster already buffered for an instant start
+      for (;;) {
+        if (cancelled_) { std::lock_guard<std::mutex> lk(mu_); complete_ = true; break; }
+        int n = HoloTranscodeStreamRead(st, tmp, sizeof(tmp));
+        if (n > 0) {
+          { std::lock_guard<std::mutex> lk(mu_); buf_.append(tmp, static_cast<size_t>(n)); }
+          WakePending();
         } else {
-          failed_ = true;  // transcode failed → serve an error (no worse than the un-decodable source)
+          const bool clean = (n == 0);
+          std::string whole;
+          { std::lock_guard<std::mutex> lk(mu_); complete_ = true; if (clean) whole = buf_; }
+          // κ-cache the fully-assembled stream so the NEXT open is instant + seekable (Range path above).
+          if (clean && !whole.empty())
+            kr_cache_put(WebCache(), key.c_str(), reinterpret_cast<const uint8_t*>(whole.data()),
+                         whole.size(), "video/webm", 0 /*revalidatable*/);
+          WakePending();
+          break;
         }
       }
-      callback->Continue();
+      HoloTranscodeStreamFree(st);
     }).detach();
     return true;
   }
@@ -652,18 +678,28 @@ class HoloMediaResolverHandler : public CefResourceHandler {
     CefResponse::HeaderMap h;
     response->GetHeaderMap(h);
     h.insert(std::make_pair("Access-Control-Allow-Origin", "*"));
-    if (failed_ || data_.empty()) {
+    if (failed_ || (!streaming_ && data_.empty())) {
       response->SetStatus(502);
       response->SetStatusText("Media Transcode Failed");
       response->SetHeaderMap(h);
       response_length = 0;
       return;
     }
-    const uint64_t total = data_.size();
     response->SetMimeType("video/webm");
+    if (streaming_) {
+      // Live transcode: unknown total length, no random access. Linear 200; CEF reads until Read() signals
+      // EOF. No Accept-Ranges so <video> plays progressively rather than issuing ranges we can't satisfy.
+      h.insert(std::make_pair("X-Holo-Source", "kappa-media-stream"));
+      response->SetStatus(200);
+      response->SetStatusText("OK");
+      response->SetHeaderMap(h);
+      response_length = -1;  // unknown → stream until EOF
+      return;
+    }
+    // Complete buffer (cache hit): seekable, Range-capable.
+    const uint64_t total = data_.size();
     h.insert(std::make_pair("X-Holo-Source", from_cache_ ? "kappa-media-cache" : "kappa-media"));
     h.insert(std::make_pair("Accept-Ranges", "bytes"));
-    // Clamp + serve the requested range from the complete buffer; full 200 otherwise.
     if (range_start_ >= total) range_start_ = 0, has_range_ = false;  // invalid range → serve whole
     const uint64_t end = (has_range_ && range_end_ + 1 != 0 && range_end_ < total) ? range_end_ : total - 1;
     serve_off_ = has_range_ ? range_start_ : 0;
@@ -682,7 +718,21 @@ class HoloMediaResolverHandler : public CefResourceHandler {
     response_length = static_cast<int64_t>(serve_end_ - serve_off_ + 1);
   }
 
-  bool Read(void* out, int n, int& read, CefRefPtr<CefResourceReadCallback>) override {
+  bool Read(void* out, int n, int& read, CefRefPtr<CefResourceReadCallback> cb) override {
+    if (streaming_) {
+      std::lock_guard<std::mutex> lk(mu_);
+      if (sread_ < buf_.size()) {  // bytes available now → sync copy
+        const size_t cnt = std::min<size_t>(static_cast<size_t>(n), buf_.size() - sread_);
+        std::memcpy(out, buf_.data() + sread_, cnt);
+        sread_ += cnt; read = static_cast<int>(cnt);
+        return true;
+      }
+      if (complete_) { read = 0; return false; }  // drained + finished → EOF
+      // nothing buffered yet and more is coming → async: park the callback; the reader wakes it.
+      pend_cb_ = cb; pend_out_ = out; pend_n_ = n; read = 0;
+      return true;
+    }
+    // complete-buffer path (cache hit / failure)
     const uint64_t pos = serve_off_ + read_off_;
     if (failed_ || pos > serve_end_) { read = 0; return false; }
     const uint64_t avail = serve_end_ - pos + 1;
@@ -693,16 +743,46 @@ class HoloMediaResolverHandler : public CefResourceHandler {
     return true;
   }
 
-  void Cancel() override {}
+  void Cancel() override { cancelled_ = true; }
 
  private:
+  // Fulfil a parked async Read once bytes have arrived (or the stream finished). Continue() is invoked
+  // OUTSIDE the lock so CEF's re-entrant Read() can take the lock without deadlocking.
+  void WakePending() {
+    CefRefPtr<CefResourceReadCallback> cb;
+    int produced = 0;
+    {
+      std::lock_guard<std::mutex> lk(mu_);
+      if (!pend_cb_) return;
+      if (sread_ < buf_.size()) {
+        const size_t cnt = std::min<size_t>(static_cast<size_t>(pend_n_), buf_.size() - sread_);
+        std::memcpy(pend_out_, buf_.data() + sread_, cnt);
+        sread_ += cnt; produced = static_cast<int>(cnt);
+      } else if (!complete_) {
+        return;  // still nothing — keep waiting
+      }                          // else: complete + drained → produced stays 0 (EOF)
+      cb = pend_cb_; pend_cb_ = nullptr; pend_out_ = nullptr; pend_n_ = 0;
+    }
+    cb->Continue(produced);
+  }
+
   std::string url_;
-  std::string data_;                 // the complete transcoded WebM (written by the worker before Continue)
+  std::string data_;                 // complete transcoded WebM (cache-hit path; written before Continue)
   bool from_cache_ = false;
   std::atomic<bool> failed_{false};
   bool has_range_ = false;
   uint64_t range_start_ = 0, range_end_ = ~0ull;  // ~0 = open-ended
   uint64_t serve_off_ = 0, serve_end_ = 0, read_off_ = 0;
+  // streaming path
+  bool streaming_ = false;
+  std::atomic<bool> cancelled_{false};
+  std::mutex mu_;
+  std::string buf_;                  // grows as ffmpeg emits (guarded by mu_)
+  bool complete_ = false;            // EOF/error reached (guarded by mu_)
+  uint64_t sread_ = 0;               // streaming read offset (guarded by mu_)
+  CefRefPtr<CefResourceReadCallback> pend_cb_;  // parked async read (guarded by mu_)
+  void* pend_out_ = nullptr;
+  int pend_n_ = 0;
   IMPLEMENT_REFCOUNTING(HoloMediaResolverHandler);
 };
 
@@ -952,6 +1032,9 @@ class HoloCrxFetchClient : public CefURLRequestClient {
 // Living Window's manifest (holo://os/cache/entries.json) from what you've browsed. External linkage —
 // the cache itself is the anon-namespace magic-static above; this is the only door to it.
 KCache* HoloWebCache() { return WebCache(); }
+// External-linkage door to the planetary shared-κ transport (the anon-namespace SharedCache magic-static above)
+// — the producer publishes cross-device projection tiles to it, and the κ serve route falls back to it.
+KShared* HoloSharedCache() { return SharedCache(); }
 
 // window.HoloBridge.call(cmd) → window.cefQuery('holo:svc:<cmd>') → here. ORIGIN TIER: only holo://
 // frames are served; any other origin is refused (SEC-2/SEC-5). This is the boundary that keeps the web
@@ -986,6 +1069,79 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       return true;
     }
 
+    // ── κ-fabric goodput proof (InfiniBand-class) — run the bare-metal benchmark in native Rust and return
+    // the measured ceilings + the effective-goodput sweep vs IB as JSON. So a holo:// page surfaces the proof
+    // LIVE, the hot path (SIMD BLAKE3 + data-parallel verify) running in the host, not the browser JS. From
+    // holo:// only. "holo:fabric:goodput[:<object_mb>]" (default 64 MiB).
+    if (req.rfind("holo:fabric:goodput", 0) == 0) {
+      if (origin.rfind("holo://", 0) != 0) { callback->Failure(403, "holo-bridge: fabric proof only from holo://"); return true; }
+      size_t mb = 64;
+      const size_t c = req.rfind(':');
+      if (c != std::string::npos && c > std::string("holo:fabric:goodput").size() - 1) {
+        const long v = std::atol(req.substr(c + 1).c_str());
+        if (v > 0) mb = static_cast<size_t>(v);
+      }
+      char* json = kr_fabric_goodput(mb);     // bare-metal measurement, heap JSON
+      if (json) { callback->Success(CefString(json)); kr_cache_free_mime(json); }
+      else { callback->Failure(500, "kr_fabric_goodput failed"); }
+      return true;
+    }
+
+    // ── Verified-streaming PRODUCER bridge (holo:bao:*) — a holo:// page streams an OS-sealed κ-object as
+    // BLAKE3-verified chunks straight from the native engine: render/play on chunk 0, the whole object never
+    // re-hashed per request, each chunk proven by the consumer (holo-bao-stream / kr_bao_verify_slice). Reads
+    // ONLY from the OS dir (HOLO_OS_DIR), path-sanitized — those bytes are already L5-sealed; the producer
+    // emits proofs over them and the consumer verifies each chunk against the root it expects from the
+    // catalog. "holo:bao:open:<rel-path>" → {"root","chunks","bytes"} (builds+caches the encoder once);
+    // "holo:bao:chunk:<roothex>:<index>" → {"index","bytes"(hex),"proof"(hex, packed N×33)}. holo:// only.
+    if (req.rfind("holo:bao:", 0) == 0) {
+      if (origin.rfind("holo://", 0) != 0) { callback->Failure(403, "holo-bridge: bao stream only from holo://"); return true; }
+      static std::mutex s_bao_mu;
+      static std::map<std::string, BaoEncoder*> s_bao_cache;     // root hex → encoder (LRU-bounded below)
+      auto hexenc = [](const uint8_t* p, size_t n) { static const char* H = "0123456789abcdef"; std::string s; s.reserve(n * 2); for (size_t i = 0; i < n; i++) { s.push_back(H[p[i] >> 4]); s.push_back(H[p[i] & 15]); } return s; };
+
+      if (req.rfind("holo:bao:open:", 0) == 0) {
+        std::string rel = req.substr(std::string("holo:bao:open:").size());
+        // path sanitize: no traversal, no absolute / drive-qualified paths — read strictly under the OS dir.
+        if (rel.empty() || rel.find("..") != std::string::npos || rel[0] == '/' || rel[0] == '\\' || (rel.size() > 1 && rel[1] == ':')) { callback->Failure(400, "holo:bao: bad path"); return true; }
+        std::string osdir = "dist"; if (const char* e = std::getenv("HOLO_OS_DIR")) osdir = e;
+        std::ifstream f(osdir + "/" + rel, std::ios::binary);
+        if (!f) { callback->Failure(404, "holo:bao: not found"); return true; }
+        std::string bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        BaoEncoder* enc = kr_bao_encoder_new(bytes.empty() ? nullptr : reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+        if (!enc) { callback->Failure(500, "holo:bao: encoder"); return true; }
+        char root[65] = {0}; kr_bao_encoder_root(enc, root);
+        const uint64_t chunks = kr_bao_encoder_chunk_count(enc);
+        {
+          std::lock_guard<std::mutex> lk(s_bao_mu);
+          auto it = s_bao_cache.find(root);
+          if (it != s_bao_cache.end()) { kr_bao_encoder_free(enc); }       // already cached (dedup) → drop the dup
+          else { if (s_bao_cache.size() >= 8) { kr_bao_encoder_free(s_bao_cache.begin()->second); s_bao_cache.erase(s_bao_cache.begin()); } s_bao_cache[root] = enc; }
+        }
+        callback->Success(CefString(std::string("{\"root\":\"") + root + "\",\"chunks\":" + std::to_string(chunks) + ",\"bytes\":" + std::to_string(bytes.size()) + "}"));
+        return true;
+      }
+
+      if (req.rfind("holo:bao:chunk:", 0) == 0) {
+        const std::string rest = req.substr(std::string("holo:bao:chunk:").size());   // "<roothex>:<index>"
+        const size_t colon = rest.find(':');
+        if (colon == std::string::npos) { callback->Failure(400, "holo:bao: bad chunk req"); return true; }
+        const std::string roothex = rest.substr(0, colon);
+        const uint64_t index = std::strtoull(rest.substr(colon + 1).c_str(), nullptr, 10);
+        BaoEncoder* enc = nullptr;
+        { std::lock_guard<std::mutex> lk(s_bao_mu); auto it = s_bao_cache.find(roothex); if (it != s_bao_cache.end()) enc = it->second; }
+        if (!enc) { callback->Failure(404, "holo:bao: open the object first"); return true; }
+        uint8_t* cp = nullptr; size_t cl = 0; uint8_t* pp = nullptr; size_t pc = 0;
+        if (kr_bao_encoder_chunk(enc, index, &cp, &cl, &pp, &pc) != 1) { callback->Failure(416, "holo:bao: index out of range"); return true; }
+        std::string json = std::string("{\"index\":") + std::to_string(index) + ",\"bytes\":\"" + hexenc(cp, cl) + "\",\"proof\":\"" + hexenc(pp, pc * 33) + "\"}";
+        kr_free(cp, cl); kr_free(pp, pc * 33);
+        callback->Success(CefString(json));
+        return true;
+      }
+      callback->Failure(400, "holo:bao: unknown verb");
+      return true;
+    }
+
     // ── Live projection (P4): the κ-tile lens surface drives the off-screen producer. ──
     // Input: the projector page captures DOM input on its canvas and forwards it here; we replay it on the
     // off-screen producer (which renders the real page) — closing the click-to-photon loop. From holo:// only.
@@ -1002,15 +1158,46 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       std::fprintf(stderr, "HOLO-PROJECT: project verb, origin=%s\n", origin.c_str()); std::fflush(stderr);
       if (origin.rfind("holo://os", 0) != 0) { callback->Failure(403, "holo-bridge: only the service may project"); return true; }
       s_pending_project_url = req.substr(13);
-      owner_->OpenPopupWindow("holo://os/lw/holo-osr-projector.html");   // top-level window w/ the main client (router)
+      owner_->OpenPopupWindow("holo://os/usr/lib/holo/holo-osr-projector.html");   // SEALED lens (no dev seam); top-level window w/ the main client (router)
       std::fprintf(stderr, "HOLO-PROJECT: opened lens window, pending=%s\n", s_pending_project_url.c_str()); std::fflush(stderr);
       callback->Success("{\"ok\":true}");
       return true;
     }
     if (req.rfind("holo:osrready", 0) == 0) {
-      std::fprintf(stderr, "HOLO-PROJECT: osrready from %s, pending=%s\n", origin.c_str(), s_pending_project_url.c_str()); std::fflush(stderr);
       if (origin.find("holo-osr-projector") == std::string::npos) { callback->Failure(403, "holo-bridge: not the projector surface"); return true; }
-      if (!s_pending_project_url.empty()) { holo::OpenOsr(s_pending_project_url, frame, 1280, 800); s_pending_project_url.clear(); std::fprintf(stderr, "HOLO-PROJECT: producer opened on lens frame\n"); std::fflush(stderr); }
+      // The lens reports the resolution to render the producer at (its native display res) → pixel-native, no
+      // upscale. "holo:osrready:<w>:<h>"; default 1280x800 if absent.
+      int ow = 1280, oh = 800;
+      // "holo:osrready:<w>:<h>[:<uri-encoded target>]". The optional 3rd field lets an in-OS lens NODE (an
+      // iframe with ?target=<web url>) carry its OWN target inline → the producer is per-lens, with no shared
+      // pending-url race across multiple projected tabs. The target is URI-encoded (encodeURIComponent), so it
+      // contains no ':' to break this split. With no 3rd field we are the legacy popup lens (host holds the url).
+      std::string node_url;
+      const std::string rest = req.substr(std::string("holo:osrready").size());   // ":<w>:<h>[:<t>]" or ""
+      if (rest.size() > 1 && rest[0] == ':') {
+        const std::string body = rest.substr(1);
+        const size_t c1 = body.find(':');
+        if (c1 != std::string::npos) {
+          const std::string after = body.substr(c1 + 1);
+          const size_t c2 = after.find(':');
+          const int w = std::atoi(body.substr(0, c1).c_str());
+          const int h = std::atoi((c2 == std::string::npos ? after : after.substr(0, c2)).c_str());
+          if (w >= 320 && h >= 240 && w <= 4096 && h <= 4096) { ow = w; oh = h; }
+          if (c2 != std::string::npos && c2 + 1 < after.size()) {
+            node_url = CefURIDecode(after.substr(c2 + 1), true,
+                                    static_cast<cef_uri_unescape_rule_t>(UU_NORMAL | UU_SPACES | UU_PATH_SEPARATORS |
+                                                                         UU_URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS))
+                           .ToString();
+          }
+        }
+      }
+      const std::string proj_url = !node_url.empty() ? node_url : s_pending_project_url;
+      if (!proj_url.empty()) {
+        holo::OpenOsr(proj_url, frame, ow, oh);
+        if (node_url.empty()) s_pending_project_url.clear();
+        std::fprintf(stderr, "HOLO-PROJECT: producer opened at %dx%d (%s)\n", ow, oh, node_url.empty() ? "popup" : "node");
+        std::fflush(stderr);
+      }
       callback->Success("{\"ok\":true}");
       return true;
     }
@@ -1026,6 +1213,23 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       if (colon == std::string::npos) { callback->Failure(400, "holo-bridge: malformed verdict"); return true; }
       const int gid = std::atoi(rest.substr(0, colon).c_str());
       owner_->ResolveGov(gid, rest.substr(colon + 1) == "allow");
+      callback->Success("{\"ok\":true}");
+      return true;
+    }
+
+    // Omnibox-resolve reply: the service (origin holo://os only) returns the canonical destination for a held
+    // omnibox query (Strategy A). Format "holo:omniresolved:<rid>:<dest-url-or-empty>". The dest may itself
+    // contain colons (holo://…), so split on the FIRST colon after the rid only.
+    if (req.rfind("holo:omniresolved:", 0) == 0) {
+      if (origin.rfind("holo://os", 0) != 0) {
+        callback->Failure(403, "holo-bridge: only the service context may resolve the omnibox");
+        return true;
+      }
+      const std::string rest = req.substr(std::string("holo:omniresolved:").size());  // "<rid>:<dest>"
+      const size_t colon = rest.find(':');
+      if (colon == std::string::npos) { callback->Failure(400, "holo-bridge: malformed omni reply"); return true; }
+      const int rid = std::atoi(rest.substr(0, colon).c_str());
+      owner_->ResolveOmni(rid, rest.substr(colon + 1));   // empty tail ⇒ service handled it; ResolveOmni no-ops
       callback->Success("{\"ok\":true}");
       return true;
     }
@@ -1153,6 +1357,35 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       return true;
     }
 
+    // [holo-hello] NATIVE platform-authenticator (Windows Hello) ceremony for the OS login gate — the host
+    // calls webauthn.dll directly, firing the REAL biometric dialog on the login page with NO iframe, NO
+    // localhost, NO permission prompt. Only a holo:// origin (the greeter) may invoke it. The ceremony BLOCKS
+    // (it shows the OS dialog), so it runs on a worker thread; the result returns over the same callback.
+    if (req.rfind("holo:hello:", 0) == 0) {
+      if (origin.rfind("holo://", 0) != 0) { callback->Failure(403, "holo-hello: only a holo:// origin may run the native ceremony"); return true; }
+      const std::string payload = req.substr(11);   // JSON {op,name?,rpId?,credentialId?,challenge?}
+      auto jget = [](const std::string& s, const char* k) -> std::string {
+        std::string key = std::string("\"") + k + "\""; auto p = s.find(key); if (p == std::string::npos) return "";
+        p = s.find(':', p + key.size()); if (p == std::string::npos) return ""; p++;
+        while (p < s.size() && s[p] == ' ') p++;
+        if (p < s.size() && s[p] == '"') { auto e = s.find('"', p + 1); return s.substr(p + 1, e - p - 1); }
+        return "";
+      };
+      const std::string op = jget(payload, "op"), rpId = jget(payload, "rpId"), name = jget(payload, "name");
+      const std::string credentialId = jget(payload, "credentialId"), challenge = jget(payload, "challenge");
+      CefWindowHandle hwnd = (browser && browser->GetHost()) ? browser->GetHost()->GetWindowHandle() : 0;  // read on UI thread
+      CefRefPtr<Callback> cb = callback;
+      std::thread([cb, op, rpId, name, credentialId, challenge, hwnd]() {
+        std::string out;
+        if (op == "avail") out = holo::HelloAvailable() ? "{\"ok\":true,\"available\":true}" : "{\"ok\":true,\"available\":false}";
+        else if (op == "enroll") out = holo::HelloEnroll((void*)hwnd, rpId, "Hologram", name);
+        else if (op == "assert") out = holo::HelloAssert((void*)hwnd, rpId, credentialId, challenge);
+        else out = "{\"ok\":false,\"error\":\"holo-hello: unknown op\"}";
+        cb->Success(out);
+      }).detach();
+      return true;
+    }
+
     // [holo-cred] the UNIFIED credential relay: web2 autofill (fill/save), TOTP, and (later) web3 all ride
     // ONE path — same shape as the passkey relay above. A web frame asks; we route to the trusted shell
     // with the frame's REAL committed origin (unforgeable), which dispatches over the vault + step-up.
@@ -1263,6 +1496,16 @@ void SimpleHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   if (!main_browser_) main_browser_ = browser;
   browser_list_.push_back(browser);
   LogLife("browser created (OnAfterCreated) · count=" + std::to_string(browser_list_.size()));
+  // De-brand the native window + taskbar icon: the Chrome runtime stamps the Chromium product logo onto
+  // the window (WM_SETICON) and taskbar (relaunch-icon). Overwrite both with the Hologram H. Re-applied on
+  // a short delay too, in case Chrome re-sets the icon after the window is fully shown.
+  if (browser->GetHost()) {
+    void* wh = reinterpret_cast<void*>(browser->GetHost()->GetWindowHandle());
+    if (wh) {
+      holo::ApplyHologramWindowIcon(wh);
+      CefPostDelayedTask(TID_UI, base::BindOnce(&holo::ApplyHologramWindowIcon, wh), 1500);
+    }
+  }
 }
 
 // The service context is the OS home frame — but only while it is still the OS shell (a holo://os
@@ -1421,7 +1664,9 @@ std::string SimpleHandler::DiagnosticDataUrl(const std::string& reason) {
       "border:1px solid #20212c;border-radius:8px;padding:12px 14px;color:#e8e8f0;overflow:auto}"
       "ol{margin:14px 0 0;padding-left:24px;color:#9a9cab;font-size:14px;line-height:1.8}"
       "</style></head><body><div class=\"card\">"
-      "<div class=\"mark\">\xE2\x97\x86</div>"  // ◆ brand glyph (UTF-8)
+      // Canonical enclosed-H mark + wordmark, inlined (this page must render when nothing else can).
+      "<div class=\"mark\"><svg width=\"58\" height=\"58\" viewBox=\"0 0 128 128\" fill=\"none\" stroke=\"#7cc4ff\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M64 16 L106 40 V88 L64 112 L22 88 V40 Z\"></path><path d=\"M49 44 V84 M79 44 V84 M49 64 H79\"></path></svg>"
+      "<div style=\"font:600 14px system-ui;letter-spacing:.16em;text-transform:uppercase;color:#7cc4ff;margin-top:12px\">Hologram</div></div>"
       "<h1>Hologram needs a quick refresh</h1>"
       "<p class=\"msg\">" + HtmlEsc(reason) + "</p>"
       "<a class=\"btn\" href=\"" + HtmlEsc(boot_url_) + "\">Try again</a>"
@@ -1461,19 +1706,37 @@ void SimpleHandler::OnLoadError(CefRefPtr<CefBrowser> browser,
   if (url.rfind("data:", 0) == 0) return;          // never recurse on the diagnostic page itself
   if (url.rfind("holo://os", 0) != 0) return;      // only guard the canonical OS entry (login/shell), not web
 
-  // Transient-error retry for the projection lens: holo://os/lw/holo-osr-projector.html can race the κ
-  // scheme/store during boot and return ERR_INVALID_RESPONSE on the first load. A reload reliably succeeds, so
-  // retry a few times (keyed per frame → self-resets each projection) before falling to the diagnostic.
-  if (url.find("holo-osr-projector") != std::string::npos) {
-    static std::map<std::string, int> s_retries;
-    int& n = s_retries[frame->GetIdentifier().ToString()];
-    if (n < 5) {
-      ++n;
-      LogLife("projector transient load error (" + errorText.ToString() + ") — retry " + std::to_string(n));
+  // Transient-error retry for EVERY canonical OS entry (login.html, shell.html, the projector lens, …). The κ
+  // scheme/HotStore can still be opening when the first request lands during boot, so the verifier returns
+  // ERR_INVALID_RESPONSE on a frame that is in fact perfectly sealed — a one-shot race, not a stale seal. The
+  // store becomes ready within a couple of seconds (longer under a cold-restart storm: measured up to ~2.7 s,
+  // ~18 reloads), so we reload until it is. Bound by WALL-CLOCK grace, NOT a retry count — a reloaded main
+  // frame gets a fresh identifier each time, so a count-keyed cap silently never binds (a genuinely stale seal
+  // would then retry forever and never reach the diagnostic). Keyed by url with the first-failure timestamp:
+  // within the grace window we keep reloading (race resolves silently); past it we fall to the honest
+  // diagnostic (a real stale seal escapes). The browser stays alive across reloads, so the 2500 ms boot-health
+  // latch still sees a live window and does not false-heal. This is what makes boot reliable — it was ~1-in-4
+  // boots dead-ending on the diagnostic purely from the store-open race (now 0/20, all races recovered).
+  {
+    static std::map<std::string, std::chrono::steady_clock::time_point> s_first;  // url → first failure
+    static std::map<std::string, int> s_count;
+    constexpr int kGraceMs = 12000;  // keep retrying the κ-store boot race up to this long, then give up loud
+    constexpr int kStepMs = 200;
+    const auto now = std::chrono::steady_clock::now();
+    auto it = s_first.find(url);
+    if (it == s_first.end()) it = s_first.emplace(url, now).first;
+    const int elapsed =
+        static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second).count());
+    if (elapsed < kGraceMs) {
+      const int n = ++s_count[url];
+      LogLife("canonical entry transient load error (" + errorText.ToString() + ") on " + url + " — retry " +
+              std::to_string(n) + " (" + std::to_string(elapsed) + "/" + std::to_string(kGraceMs) + " ms)");
       CefRefPtr<CefFrame> f = frame;
-      CefPostDelayedTask(TID_UI, base::BindOnce([](CefRefPtr<CefFrame> fr, std::string u) { if (fr) fr->LoadURL(u); }, f, url), 120);
+      CefPostDelayedTask(TID_UI, base::BindOnce([](CefRefPtr<CefFrame> fr, std::string u) { if (fr) fr->LoadURL(u); }, f, url), kStepMs);
       return;
     }
+    s_first.erase(url);  // grace exhausted → genuine failure → diagnostic; reset so a later Try-again is fresh
+    s_count.erase(url);
   }
 
   const std::string reason =
@@ -1511,6 +1774,7 @@ void SimpleHandler::OpenBootWindow(bool prefer_views) {
   // fires). The latch is the actual verdict, not a rubber stamp: at T_live it checks for a live browser.
   CefPostDelayedTask(TID_UI, base::BindOnce(&SimpleHandler::OnLiveLatch, this), 2500);
   CefBrowserSettings settings;
+  settings.background_color = CefColorSetARGB(255, 0x0B, 0x0E, 0x14);  // brand-dark base — no white flash pre-paint
   if (prefer_views) {
     // Shell-is-chrome: ONE toolbar-less Chrome BrowserView (CEF_CTT_NONE for holo://) in a CefWindow. The
     // shell draws all chrome and opens apps as in-page holospace tabs → one window, one chrome, real tabs.
@@ -1687,6 +1951,35 @@ bool SimpleHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
     frame->LoadURL("holo://os/home.html");
     return true;
   }
+  // ── Unify-the-chrome (Strategy A): the native omnibox's free-text/search path is wired to the holo search
+  // template holo://os/omni?q=<raw> (set as the default search provider in HoloDeferredHostInit). Hold that
+  // navigation and resolve the raw query through the SAME resolver the shell uses (holo-omni-resolve in the
+  // service frame) → canonical destination → re-navigate. Direct holo:// and http(s):// entries are NOT
+  // touched here; they fall through to the κ-scheme and the governance/projection path as before.
+  {
+    const std::string kOmni = "holo://os/omni?q=";
+    if (url.rfind(kOmni, 0) == 0) {
+      const std::string raw = CefURIDecode(url.substr(kOmni.size()), true,
+                                           static_cast<cef_uri_unescape_rule_t>(UU_NORMAL | UU_SPACES |
+                                               UU_URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS)).ToString();
+      CefRefPtr<CefFrame> svc = ServiceFrame();
+      if (!svc || raw.empty()) { frame->LoadURL("holo://os/find.html?q=" + url.substr(kOmni.size())); return true; }  // fail-soft: no service ⇒ Find
+      const int rid = next_omni_id_++;
+      omni_pending_[rid] = { browser, raw };
+      svc->ExecuteJavaScript("window.__holoOmniResolve&&window.__holoOmniResolve(" + std::to_string(rid) + ",\"" +
+                             json_escape(raw) + "\");", svc->GetURL(), 0);
+      return true;  // hold; ResolveOmni re-navigates to the destination the resolver returns
+    }
+  }
+  // ── Holospace tab (Phase 2.0): a holospace κ URL boots the STANDALONE host document, so a real CEF tab
+  // renders one tiled holospace with no shell chrome. Rewrite holo://space/<ref> → the host doc carrying the
+  // ref (the host's boot() loads + L5-verifies the space, then tiles its members). A space κ (holo://space/
+  // <64hex>) resolves via the κ-store; a named template id is a later refinement (name→κ).
+  if (url.rfind("holo://space/", 0) == 0) {
+    frame->LoadURL("holo://os/holospace-host.html?ref=" +
+                   CefURIEncode(url, false).ToString());
+    return true;
+  }
   if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0) return false;
   if (IsMessengerHost(url)) return false;  // a sanctioned messenger destination — never gated by the PII red-line
   if (IsLoopback(url)) return false;       // operator's own machine (broker / dev preview) -- not outward
@@ -1720,6 +2013,20 @@ void SimpleHandler::ResolveGov(int gov_id, bool allow) {
   } else {
     browser->GetMainFrame()->LoadURL(BlockPageUrl(url));
   }
+}
+
+// ResolveOmni — the service returned a canonical destination for a held omnibox query. Navigate there. An
+// empty destination means the service handled it itself (a live web3/holo-name shape it opened via HoloOpen,
+// or a deliberate refusal) — do nothing. A holo://os/omni?q= result would loop, so guard against it.
+void SimpleHandler::ResolveOmni(int omni_id, const std::string& dest_url) {
+  CEF_REQUIRE_UI_THREAD();
+  auto it = omni_pending_.find(omni_id);
+  if (it == omni_pending_.end()) return;
+  CefRefPtr<CefBrowser> browser = it->second.browser;
+  omni_pending_.erase(it);
+  if (!browser || dest_url.empty()) return;
+  if (dest_url.rfind("holo://os/omni?q=", 0) == 0) return;  // never re-enter the search route
+  browser->GetMainFrame()->LoadURL(dest_url);
 }
 
 CefRefPtr<CefResourceRequestHandler> SimpleHandler::GetResourceRequestHandler(
@@ -1843,6 +2150,28 @@ void SimpleHandler::OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
                                               const CefString& /*error_string*/) {
   LogLife("render process terminated");
   router_->OnRenderProcessTerminated(browser);
+
+  // SELF-HEAL: a renderer death — commonly a cascade from an intermittent network-service crash on this host —
+  // otherwise leaves a canonical surface (the OS shell, or a projected lens) stranded on a dead/sad tab with no
+  // recovery (OnLoadError's grace only covers load errors while the renderer is ALIVE). The OS's own surfaces
+  // are LOCAL, content-addressed κ served by the HotStore — independent of the network — so a reload brings them
+  // straight back; the projected lens's present-mailbox holds the last frame meanwhile and re-projects resident
+  // κ in ~1 frame. Only holo:// surfaces self-heal (external pages are the user's to reload); bounded per
+  // browser so a genuine crash-loop falls through to the boot-health supervisor instead of spinning.
+  if (!browser) return;
+  CefRefPtr<CefFrame> mf = browser->GetMainFrame();
+  const std::string url = mf ? mf->GetURL().ToString() : std::string();
+  if (url.rfind("holo://", 0) != 0) return;
+  static std::map<int, std::pair<int, std::chrono::steady_clock::time_point>> s_heal;  // browserId → (count, window start)
+  const int id = browser->GetIdentifier();
+  const auto now = std::chrono::steady_clock::now();
+  auto& e = s_heal[id];
+  if (std::chrono::duration<double>(now - e.second).count() > 30.0) e = {0, now};  // fresh 30s budget window
+  if (e.first >= 5) { LogLife("render self-heal: budget exhausted — leaving surface to the supervisor"); return; }
+  ++e.first;
+  CefRefPtr<CefBrowser> b = browser;
+  CefPostDelayedTask(TID_UI, base::BindOnce([](CefRefPtr<CefBrowser> br) { if (br) br->Reload(); }, b), 400);
+  LogLife("render self-heal: reloading holo:// surface after renderer death");
 }
 
 bool SimpleHandler::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
