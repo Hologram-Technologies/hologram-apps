@@ -17,6 +17,7 @@
 #include "include/cef_client.h"
 #include "include/cef_keyboard_handler.h"
 #include "include/cef_load_handler.h"
+#include "include/cef_permission_handler.h"
 #include "include/cef_resource_handler.h"
 #include "include/cef_resource_request_handler.h"
 #include "include/wrapper/cef_message_router.h"
@@ -27,6 +28,7 @@ class SimpleHandler : public CefClient,
                       public CefLifeSpanHandler,
                       public CefLoadHandler,
                       public CefKeyboardHandler,
+                      public CefPermissionHandler,
                       public CefRequestHandler,
                       public CefResourceRequestHandler {
  public:
@@ -36,7 +38,29 @@ class SimpleHandler : public CefClient,
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
   CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
   CefRefPtr<CefKeyboardHandler> GetKeyboardHandler() override { return this; }
+  CefRefPtr<CefPermissionHandler> GetPermissionHandler() override { return this; }
   CefRefPtr<CefRequestHandler> GetRequestHandler() override { return this; }
+
+  // ── Auto-grant device permissions for the trusted OS surface (no prompt on boot/login).
+  // The operator has already authenticated at the native biometric gate before any holo:// page
+  // loads; the sealed OS shell/greeter is privileged by construction (the same origin tier the
+  // bridge enforces). So when a holo:// origin requests a device permission — the "Access other
+  // apps and services on this device" (local-network peer delivery / κ discovery), window
+  // management, notifications, media, etc. — grant it silently instead of showing Chrome's prompt.
+  // A NON-holo (web) origin falls through to default Chrome handling: the prompt still appears and
+  // the security boundary holds. This is the permission twin of the origin tier in OnQuery.
+  bool OnShowPermissionPrompt(
+      CefRefPtr<CefBrowser> browser,
+      uint64_t prompt_id,
+      const CefString& requesting_origin,
+      uint32_t requested_permissions,
+      CefRefPtr<CefPermissionPromptCallback> callback) override;
+  bool OnRequestMediaAccessPermission(
+      CefRefPtr<CefBrowser> browser,
+      CefRefPtr<CefFrame> frame,
+      const CefString& requesting_origin,
+      uint32_t requested_permissions,
+      CefRefPtr<CefMediaAccessCallback> callback) override;
 
   // ── DevTools at F12 (Chrome-identical). The native browser embeds the COMPLETE Chromium inspector;
   // we do not write panels — we open it. F12 / Ctrl+Shift+I toggle, Ctrl+Shift+J → Console,
@@ -63,6 +87,22 @@ class SimpleHandler : public CefClient,
   // to a block page. The browser process runs no policy; it only carries the URL and applies the verdict.
   void ResolveGov(int gov_id, bool allow);
 
+  // ── Unify-the-chrome (Strategy A). The native omnibox's free-text/search path is routed to a holo search
+  // template (holo://os/omni?q=<raw>); OnBeforeBrowse holds that navigation, relays the raw query to the
+  // service for the SAME resolver the shell uses (holo-omni-resolve.resolveDestination over the live
+  // catalog), and navigates to the canonical destination it returns. An empty destination means the service
+  // already handled it (a live web3/holo-name shape it opened itself, or a refusal) — the host does nothing.
+  // Mirrors the governance hold→async→re-nav pattern exactly; the browser process runs no resolver logic.
+  void ResolveOmni(int omni_id, const std::string& dest_url);
+
+  // ── ISP block-fallback nameless resolve (HOLO_BLOCK_FALLBACK). When OnResourceRedirect catches a filter
+  // bounce but NO peer holds the wanted URL's κ, the host delegates to the service's κ-roots/DoH resolver
+  // (window.__holoBlockResolve, holo-block-fallback.mjs) — exactly the governance hold→async→re-nav pattern.
+  // DelegateBlockResolve relays the wanted URL (UI thread); ResolveBlock takes the κ the service returns,
+  // notes url→κ into the shared substrate, and re-navigates to the marked URL so GetResourceHandler serves it.
+  void DelegateBlockResolve(CefRefPtr<CefBrowser> browser, const std::string& url);
+  void ResolveBlock(int block_id, const std::string& kappa);
+
   // Host-driven open (P5): the service (holo://os only) asks the host to stream a composed κ-surface in
   // as a new tab. Only holo:// URLs are opened — never web — so it cannot be abused to launch arbitrary
   // pages. Makes "intent → the workspace materializes as κ-tabs" a real product action, not a test action.
@@ -83,6 +123,13 @@ class SimpleHandler : public CefClient,
   void OnLoadEnd(CefRefPtr<CefBrowser> browser,
                  CefRefPtr<CefFrame> frame,
                  int httpStatusCode) override;
+
+  // New Tab Page → Hologram home/launcher. chrome-runtime commits the NTP (chrome://new-tab-page[-third-party])
+  // through an internal path that bypasses OnBeforeBrowse, so we catch the main-frame load START here and
+  // redirect a fresh tab to the Hologram home instead of Google's/Chrome's NTP.
+  void OnLoadStart(CefRefPtr<CefBrowser> browser,
+                   CefRefPtr<CefFrame> frame,
+                   TransitionType transition_type) override;
 
   // Content-failure guard: if the CANONICAL LOGIN itself fails to load (e.g. a stale seal → the κ verifier
   // refuses login.html → ERR_INVALID_RESPONSE), do NOT leave the user on a dead Chrome error page. Navigate
@@ -124,6 +171,18 @@ class SimpleHandler : public CefClient,
                                           CefRefPtr<CefFrame> frame,
                                           CefRefPtr<CefRequest> request,
                                           CefRefPtr<CefCallback> callback) override;
+
+  // ISP name-filter fallback (HOLO_BLOCK_FALLBACK). A parental-controls/ content filter (Virgin Media WebSafe
+  // and kin) acts on NAMES — it redirects the wanted URL to its block page (websafe.virginmedia.com/…). We
+  // catch that redirect: if a peer has already gossiped the wanted URL's κ AND its bytes are reachable, we
+  // bounce the redirect BACK to the wanted URL (loop-safe — only when content is in hand) and serve it from
+  // the substrate in GetResourceHandler (X-Holo-Source: kappa-block-bypass). No peer has it ⇒ leave the block
+  // page untouched (honest: we route around name-filtering only when the content is content-addressed).
+  void OnResourceRedirect(CefRefPtr<CefBrowser> browser,
+                          CefRefPtr<CefFrame> frame,
+                          CefRefPtr<CefRequest> request,
+                          CefRefPtr<CefResponse> response,
+                          CefString& new_url) override;
 
   // Content-κ ad removal (the keystone): for a fully-bufferable script response, attach a filter that
   // hashes the body and drops it if its content address is on the ad-object denylist — so a denylisted
@@ -208,6 +267,18 @@ class SimpleHandler : public CefClient,
   std::set<std::string> approved_;
   std::map<int, GovReq> gov_pending_;
   int next_gov_id_ = 1;
+
+  // Omnibox-resolve state (Strategy A). Correlates a held holo://os/omni?q= navigation with the browser to
+  // re-navigate once the service returns the canonical destination. Same shape as gov_pending_.
+  struct OmniReq { CefRefPtr<CefBrowser> browser; std::string query; };
+  std::map<int, OmniReq> omni_pending_;
+  int next_omni_id_ = 1;
+
+  // Block-fallback nameless-resolve state. Correlates a held filter-bounce with the (browser, wanted url)
+  // while the service resolves it κ-roots/DoH. UI-thread only (no mutex). Same shape as gov_pending_.
+  struct BlockReq { CefRefPtr<CefBrowser> browser; std::string url; };
+  std::map<int, BlockReq> block_pending_;
+  int next_block_id_ = 1;
 
   IMPLEMENT_REFCOUNTING(SimpleHandler);
   DISALLOW_COPY_AND_ASSIGN(SimpleHandler);

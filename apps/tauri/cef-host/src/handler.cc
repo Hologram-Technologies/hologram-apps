@@ -1544,6 +1544,47 @@ SimpleHandler::~SimpleHandler() {
   if (router_ && bridge_) router_->RemoveHandler(bridge_.get());
 }
 
+// ── Permission tier (the device-access twin of the origin tier in OnQuery). The native boot lands
+// on holo://os/login, and the operator authenticates at the native Windows Hello gate BEFORE the OS
+// can do anything privileged. The sealed holo:// surface is trusted by construction — the same tier
+// that lets it reach the Hologram service. So a permission request from a holo:// origin is granted
+// silently: no "holo://os wants to — Access other apps and services on this device" prompt on boot,
+// and the access a new user login needs (local-network κ peer-delivery/discovery, window management,
+// notifications) is auto-granted. A NON-holo (web) origin returns false → default Chrome handling:
+// the prompt still appears, so the web stays gated. Runs on the UI thread (per CefPermissionHandler).
+bool SimpleHandler::OnShowPermissionPrompt(
+    CefRefPtr<CefBrowser> browser,
+    uint64_t prompt_id,
+    const CefString& requesting_origin,
+    uint32_t requested_permissions,
+    CefRefPtr<CefPermissionPromptCallback> callback) {
+  CEF_REQUIRE_UI_THREAD();
+  const std::string origin = requesting_origin.ToString();
+  if (origin.rfind("holo://", 0) == 0) {
+    callback->Continue(CEF_PERMISSION_RESULT_ACCEPT);  // trusted OS surface → grant, no prompt
+    return true;
+  }
+  return false;  // web origin → default Chrome handling (prompt shown; boundary holds)
+}
+
+// Media (getUserMedia) is a separate CEF callback from the generic prompt above; mirror the same
+// origin tier so a holo:// OS app (calls, capture) is granted exactly what it asked for, while web
+// origins fall through to default handling. |allowed| must equal |requested| for getUserMedia.
+bool SimpleHandler::OnRequestMediaAccessPermission(
+    CefRefPtr<CefBrowser> browser,
+    CefRefPtr<CefFrame> frame,
+    const CefString& requesting_origin,
+    uint32_t requested_permissions,
+    CefRefPtr<CefMediaAccessCallback> callback) {
+  CEF_REQUIRE_UI_THREAD();
+  const std::string origin = requesting_origin.ToString();
+  if (origin.rfind("holo://", 0) == 0) {
+    callback->Continue(requested_permissions);  // trusted OS surface → grant exactly what was asked
+    return true;
+  }
+  return false;  // web origin → default Chrome handling
+}
+
 void SimpleHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   CEF_REQUIRE_UI_THREAD();
   // The first browser is the OS shell window; its main frame hosts the Hologram service context.
