@@ -48,12 +48,26 @@ RENDERER_SNIPPET = (
 
 
 def bake_anchor(os_image: Path, src: Path):
-    """Write holo_closure_anchor.h = sha256(os-closure.json) — the baked trust root (G1/SEC-1)."""
+    """Write holo_closure_anchor.h = CANONICAL blake3(os-closure.json) — the baked trust root (G1/SEC-1,
+    ADR-0115). BLAKE3 is the substrate's kappo; load_store matches it first and accepts the legacy sha256
+    value as a fallback. Computed with the OS's own standard-BLAKE3 (holo-blake3.mjs == the `blake3` crate
+    == kr_blake3_hex), so the baked anchor is byte-identical to the verifier's. Falls back to sha256 only
+    if node is unavailable (still admitted by the verifier's sha fallback)."""
     closure = os_image / "os-closure.json"
     anchor = ""
     if closure.is_file():
-        anchor = hashlib.sha256(closure.read_bytes()).hexdigest()
-        print(f"[holo] baked closure anchor: {anchor[:12]}…")
+        b3 = os_image / "usr" / "lib" / "holo" / "holo-blake3.mjs"
+        try:
+            import subprocess
+            anchor = subprocess.check_output(
+                ["node", "-e",
+                 "const fs=require('fs');const{pathToFileURL}=require('url');"
+                 "import(pathToFileURL(process.argv[1]).href).then(m=>process.stdout.write(m.blake3hex(fs.readFileSync(process.argv[2]))))",
+                 str(b3), str(closure)], text=True).strip()
+            print(f"[holo] baked closure anchor (blake3): {anchor[:12]}…")
+        except Exception as e:
+            anchor = hashlib.sha256(closure.read_bytes()).hexdigest()
+            print(f"[holo] node/blake3 unavailable ({e}); baked sha256 fallback anchor: {anchor[:12]}… (verifier accepts it)")
     else:
         print(f"[holo] WARNING: {closure} not found — anchor empty (store will not fail-closed on swap).")
     hdr = src / "chrome" / "browser" / "holo" / "holo_closure_anchor.h"

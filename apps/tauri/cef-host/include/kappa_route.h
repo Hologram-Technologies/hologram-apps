@@ -25,6 +25,11 @@ KStore* kr_store_open(const char* root, const char* expected_anchor);
 /* Free a store handle from kr_store_open. */
 void kr_store_free(KStore* st);
 
+/* Warm the verified-bytes cache for the boot-relevant (< max_bytes; 0 = 64 KiB) files IN PARALLEL, so the
+ * first page load sees warm (network-free, no re-hash) serves instead of slow sequential cold ones.
+ * Call on a BACKGROUND thread right after kr_store_open (off the boot-critical path). Returns count warmed. */
+size_t kr_store_warm(const KStore* st, uint64_t max_bytes);
+
 /* Resolve `req_path` against the store, re-deriving its content address on BOTH axes.
  * Returns the HTTP status: 200 verified hit, 403 tamper/unpinned, 404 absent, 400 bad input.
  * On 200: *out_ptr/*out_len = heap buffer (free with kr_free), *out_mime = static mime (do NOT free).

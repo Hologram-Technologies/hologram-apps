@@ -135,6 +135,75 @@ pub unsafe extern "C" fn kr_blake3_hex(data: *const u8, len: usize, out: *mut c_
     *out.add(64) = 0;
 }
 
+/// Verify a CHUNK of a κ-object against its root κ via its Bao proof — native verified streaming, the
+/// BLAKE3 dividend. Lets the host serve a VERIFIED RANGE of a large object streamed from a peer/origin
+/// without holding the whole object (a tampered chunk is refused, Law L5; the rest stream on). Mirrors
+/// os/usr/lib/holo/holo-bao.mjs and crate::bao::verify_chunk — same proof format, so a slice proven in the
+/// browser verifies here and vice versa (cross-impl, kappa-route bao_slice_parity).
+///
+/// `root_hex`: NUL-terminated 64-char lowercase hex of the object's root κ. `chunk`/`chunk_len`: the chunk
+/// bytes. `proof`/`proof_count`: `proof_count` siblings, each 33 bytes — 1 side byte (`'L'` or `'R'`) then
+/// a 32-byte chaining value. Returns 1 iff the chunk verifies against the root, else 0.
+///
+/// # Safety
+/// `root_hex` valid NUL-terminated; `chunk` valid for `chunk_len`; `proof` valid for `proof_count*33` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_verify_chunk(
+    root_hex: *const c_char,
+    index: u64,
+    chunk: *const u8,
+    chunk_len: usize,
+    proof: *const u8,
+    proof_count: usize,
+) -> u8 {
+    if root_hex.is_null() || (chunk.is_null() && chunk_len != 0) || (proof.is_null() && proof_count != 0) {
+        return 0;
+    }
+    let root = match CStr::from_ptr(root_hex).to_str() { Ok(s) => s, Err(_) => return 0 };
+    let chunk_bytes = if chunk_len == 0 { &[][..] } else { std::slice::from_raw_parts(chunk, chunk_len) };
+    let proof_bytes = if proof_count == 0 { &[][..] } else { std::slice::from_raw_parts(proof, proof_count.saturating_mul(33)) };
+    let mut siblings = Vec::with_capacity(proof_count);
+    for i in 0..proof_count {
+        let off = i * 33;
+        let left = proof_bytes[off] == b'L';
+        let mut cv = [0u8; 32];
+        cv.copy_from_slice(&proof_bytes[off + 1..off + 33]);
+        siblings.push(crate::bao::Sibling { left, cv });
+    }
+    if crate::bao::verify_chunk(root, index, chunk_bytes, &siblings) { 1 } else { 0 }
+}
+
+/// Verify a contiguous SLICE (aligned power-of-two run of chunks starting at `start_chunk`) against `root_hex`
+/// in ONE SIMD pass + the short `upper` proof (proof_count siblings × 33 bytes, same wire format as
+/// kr_bao_verify_chunk). The host's fast streaming-verify path: ~10× the per-chunk rate (measured ~40 GB/s
+/// parallel vs ~3 GB/s), so a κ-stream is wire-bound, not verify-bound. Returns 1 if it verifies, else 0.
+/// # Safety: `root_hex` NUL-terminated; `slice` valid for `slice_len`; `proof` valid for `proof_count`*33.
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_verify_slice(
+    root_hex: *const c_char,
+    start_chunk: u64,
+    slice: *const u8,
+    slice_len: usize,
+    proof: *const u8,
+    proof_count: usize,
+) -> u8 {
+    if root_hex.is_null() || (slice.is_null() && slice_len != 0) || (proof.is_null() && proof_count != 0) {
+        return 0;
+    }
+    let root = match CStr::from_ptr(root_hex).to_str() { Ok(s) => s, Err(_) => return 0 };
+    let slice_bytes = if slice_len == 0 { &[][..] } else { std::slice::from_raw_parts(slice, slice_len) };
+    let proof_bytes = if proof_count == 0 { &[][..] } else { std::slice::from_raw_parts(proof, proof_count.saturating_mul(33)) };
+    let mut siblings = Vec::with_capacity(proof_count);
+    for i in 0..proof_count {
+        let off = i * 33;
+        let left = proof_bytes[off] == b'L';
+        let mut cv = [0u8; 32];
+        cv.copy_from_slice(&proof_bytes[off + 1..off + 33]);
+        siblings.push(crate::bao::Sibling { left, cv });
+    }
+    if crate::bao::verify_slice(root, start_chunk, slice_bytes, &siblings) { 1 } else { 0 }
+}
+
 /// Free a buffer returned by `kr_resolve`.
 ///
 /// # Safety
@@ -144,6 +213,100 @@ pub unsafe extern "C" fn kr_free(ptr: *mut u8, len: usize) {
     if !ptr.is_null() && len != 0 {
         drop(Box::from_raw(std::slice::from_raw_parts_mut(ptr, len) as *mut [u8]));
     }
+}
+
+// ── verified-streaming PRODUCER (kr_bao_encoder_*) — the host streams a large κ-object as blake3-verified
+//    chunks: build the outboard ONCE (one SIMD pass), then serve any chunk + proof in O(1). A consumer
+//    (renderer / peer / another tab) renders chunk 0 the instant it arrives; the object is never re-hashed
+//    per request. Pair with kr_bao_verify_chunk on the consumer side (same proof wire format). ────────────
+
+use crate::bao::BaoEncoder;
+
+/// Build a streaming producer over `data`/`len` (copied in). Free with kr_bao_encoder_free. NULL on bad input.
+/// # Safety: `data` valid for `len` bytes (or `len == 0`).
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_encoder_new(data: *const u8, len: usize) -> *mut BaoEncoder {
+    if data.is_null() && len != 0 { return std::ptr::null_mut(); }
+    let bytes = if len == 0 { Vec::new() } else { std::slice::from_raw_parts(data, len).to_vec() };
+    Box::into_raw(Box::new(BaoEncoder::new(bytes)))
+}
+
+/// The object's root κ hex (64 chars + NUL) into `out` (>= 65 bytes) — the address every chunk proof verifies against.
+/// # Safety: `enc` a valid handle; `out` >= 65 writable bytes.
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_encoder_root(enc: *const BaoEncoder, out: *mut c_char) {
+    if enc.is_null() || out.is_null() { return; }
+    let hex = (*enc).root();
+    for (i, &b) in hex.as_bytes().iter().enumerate().take(64) { *out.add(i) = b as c_char; }
+    *out.add(64) = 0;
+}
+
+/// Number of 1024-byte chunks in the object.
+/// # Safety: `enc` a valid handle.
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_encoder_chunk_count(enc: *const BaoEncoder) -> u64 {
+    if enc.is_null() { return 0; }
+    (*enc).chunk_count()
+}
+
+/// Serve chunk `index`: its bytes (out_chunk/out_chunk_len, free with kr_free) and its proof packed as
+/// `out_proof_count` siblings × 33 bytes (1 side byte 'L'/'R' + 32-byte CV; out_proof free with kr_free over
+/// out_proof_count*33). Returns 1 on success, 0 if `index` is out of range. O(1) — served from the prebuilt
+/// outboard. The proof wire format is exactly what kr_bao_verify_chunk consumes (host-produces, peer-verifies).
+/// # Safety: `enc` valid; all out-pointers writable.
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_encoder_chunk(
+    enc: *const BaoEncoder,
+    index: u64,
+    out_chunk: *mut *mut u8,
+    out_chunk_len: *mut usize,
+    out_proof: *mut *mut u8,
+    out_proof_count: *mut usize,
+) -> u8 {
+    if !out_chunk.is_null() { *out_chunk = std::ptr::null_mut(); }
+    if !out_chunk_len.is_null() { *out_chunk_len = 0; }
+    if !out_proof.is_null() { *out_proof = std::ptr::null_mut(); }
+    if !out_proof_count.is_null() { *out_proof_count = 0; }
+    if enc.is_null() { return 0; }
+    let (bytes, proof) = match (*enc).chunk(index) { Some(c) => c, None => return 0 };
+    let cb = bytes.to_vec();
+    *out_chunk_len = cb.len();
+    *out_chunk = Box::into_raw(cb.into_boxed_slice()) as *mut u8;
+    let mut packed = Vec::with_capacity(proof.len() * 33);
+    for s in proof { packed.push(if s.left { b'L' } else { b'R' }); packed.extend_from_slice(&s.cv); }
+    *out_proof_count = proof.len();
+    *out_proof = Box::into_raw(packed.into_boxed_slice()) as *mut u8;
+    1
+}
+
+/// Free a kr_bao_encoder_new handle.
+/// # Safety: `enc` a kr_bao_encoder_new pointer (or NULL), freed at most once.
+#[no_mangle]
+pub unsafe extern "C" fn kr_bao_encoder_free(enc: *mut BaoEncoder) {
+    if !enc.is_null() { drop(Box::from_raw(enc)); }
+}
+
+/// Warm the verified-bytes cache for the boot-relevant (< `max_bytes`) files IN PARALLEL, so the page's
+/// first load sees warm (network-free, no re-hash) serves instead of slow sequential cold ones. Meant to be
+/// called on a BACKGROUND thread right after kr_store_open (off the boot-critical path). Returns the count
+/// warmed. `max_bytes == 0` uses a 64 KiB default (the first-paint module/html/css/json set).
+/// # Safety: `st` must be a valid kr_store_open handle held for the call's duration.
+#[no_mangle]
+pub unsafe extern "C" fn kr_store_warm(st: *const KStore, max_bytes: u64) -> usize {
+    if st.is_null() { return 0; }
+    let cap = if max_bytes == 0 { 65536 } else { max_bytes };
+    crate::warm_boot_set(&*st, cap).0
+}
+
+/// Run the κ-fabric effective-goodput proof for an `object_mb`-MiB object and return it as a heap JSON C
+/// string (free with kr_cache_free_mime) — the InfiniBand-class numbers measured LIVE on bare metal (native
+/// SIMD BLAKE3 + data-parallel verify). The native CEF host calls this from a holo:// page (cefQuery) to
+/// surface the proof in-browser, the hot path running in Rust, not JS. NULL on allocation failure.
+#[no_mangle]
+pub extern "C" fn kr_fabric_goodput(object_mb: usize) -> *mut c_char {
+    let mb = object_mb.clamp(1, 4096);
+    let json = crate::fabric::measure(mb).to_string();
+    std::ffi::CString::new(json).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
 }
 
 // ── open-web κ-cache ABI (kr_cache_*) ───────────────────────────────────────────────────────────────
@@ -350,6 +513,95 @@ mod tests {
         });
         fs::write(root.join("os-closure.json"), serde_json::to_vec(&closure).unwrap()).unwrap();
         root
+    }
+
+    // S5 — the verified-slice C ABI the CEF host calls: pack a real holo-bao proof into the 33-byte/sibling
+    // wire format and confirm kr_bao_verify_chunk admits the true chunk and refuses a tampered one. Uses the
+    // JS-emitted vectors (cross-impl), skips cleanly if absent.
+    #[test]
+    fn ffi_bao_verify_chunk_round_trip() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../holo-os/system/tools/holo-bao-parity-vectors.json");
+        let Ok(raw) = fs::read(&path) else { eprintln!("no bao vectors — run holo-bao-parity-witness.mjs"); return; };
+        let doc: serde_json::Value = serde_json::from_slice(&raw).unwrap();
+        // pick a multi-chunk object + a deep chunk (non-empty proof)
+        let obj = doc["objects"].as_array().unwrap().iter().find(|o| o["chunks"].as_array().unwrap().len() > 4).unwrap();
+        let root = obj["root"].as_str().unwrap();
+        let ch = &obj["chunks"].as_array().unwrap()[3];
+        let index = ch["index"].as_u64().unwrap();
+        let bytes: Vec<u8> = (0..ch["bytes"].as_str().unwrap().len() / 2)
+            .map(|i| u8::from_str_radix(&ch["bytes"].as_str().unwrap()[i * 2..i * 2 + 2], 16).unwrap()).collect();
+        // pack proof: per sibling, 1 side byte + 32 cv bytes
+        let mut proof = Vec::new();
+        let sibs = ch["proof"].as_array().unwrap();
+        for s in sibs {
+            proof.push(if s["side"].as_str().unwrap() == "L" { b'L' } else { b'R' });
+            let cv = s["cv"].as_str().unwrap();
+            for i in 0..32 { proof.push(u8::from_str_radix(&cv[i * 2..i * 2 + 2], 16).unwrap()); }
+        }
+        let c_root = CString::new(root).unwrap();
+        let ok = unsafe { kr_bao_verify_chunk(c_root.as_ptr(), index, bytes.as_ptr(), bytes.len(), proof.as_ptr(), sibs.len()) };
+        assert_eq!(ok, 1, "FFI must verify the true chunk");
+        let mut bad = bytes.clone(); bad[0] ^= 0xff;
+        let no = unsafe { kr_bao_verify_chunk(c_root.as_ptr(), index, bad.as_ptr(), bad.len(), proof.as_ptr(), sibs.len()) };
+        assert_eq!(no, 0, "FFI must refuse a tampered chunk");
+    }
+
+    // The full native verified-streaming loop: the PRODUCER (kr_bao_encoder_*) serves a large object's
+    // chunks + proofs, and the CONSUMER (kr_bao_verify_chunk) verifies each against the producer's root —
+    // O(1) per chunk, whole object never re-hashed, a tampered chunk refused. The host's low-latency path.
+    #[test]
+    fn ffi_bao_encoder_stream_round_trip() {
+        let n = 300_000usize; // ~293 chunks
+        let obj: Vec<u8> = (0..n).map(|i| ((i * 131 + 7) % 251) as u8).collect();
+        unsafe {
+            let enc = kr_bao_encoder_new(obj.as_ptr(), obj.len());
+            assert!(!enc.is_null());
+            let mut root = [0i8; 65];
+            kr_bao_encoder_root(enc, root.as_mut_ptr());
+            let root_str = CStr::from_ptr(root.as_ptr()).to_str().unwrap().to_string();
+            let c_root = CString::new(root_str.clone()).unwrap();
+            let count = kr_bao_encoder_chunk_count(enc);
+            assert!(count > 64, "multi-chunk object");
+
+            let mut verified = 0u64;
+            for i in 0..count {
+                let (mut cp, mut cl, mut pp, mut pc) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut(), 0usize);
+                assert_eq!(kr_bao_encoder_chunk(enc, i, &mut cp, &mut cl, &mut pp, &mut pc), 1);
+                // consumer verifies the producer's chunk against the producer's root
+                let ok = kr_bao_verify_chunk(c_root.as_ptr(), i, cp, cl, pp, pc);
+                assert_eq!(ok, 1, "produced chunk {i} must verify");
+                if i == 7 {
+                    // tamper the served chunk → refused
+                    let mut bad = std::slice::from_raw_parts(cp, cl).to_vec();
+                    bad[0] ^= 0xff;
+                    assert_eq!(kr_bao_verify_chunk(c_root.as_ptr(), i, bad.as_ptr(), bad.len(), pp, pc), 0, "tampered produced chunk refused");
+                }
+                kr_free(cp, cl);
+                kr_free(pp, pc * 33);
+                verified += 1;
+            }
+            assert_eq!(verified, count);
+            // out of range → 0
+            let (mut cp, mut cl, mut pp, mut pc) = (std::ptr::null_mut(), 0usize, std::ptr::null_mut(), 0usize);
+            assert_eq!(kr_bao_encoder_chunk(enc, count, &mut cp, &mut cl, &mut pp, &mut pc), 0);
+            kr_bao_encoder_free(enc);
+        }
+    }
+
+    // The CEF host calls kr_fabric_goodput to surface the IB-class proof live; assert it returns well-formed
+    // JSON with the bare-metal ceilings + the redundancy sweep + the honest notes.
+    #[test]
+    fn ffi_fabric_goodput_json() {
+        let p = kr_fabric_goodput(8);
+        assert!(!p.is_null());
+        let s = unsafe { CStr::from_ptr(p) }.to_str().unwrap().to_string();
+        let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["object_mb"], 8);
+        assert!(v["verify_ok"].as_bool().unwrap(), "the proof's own stream must verify");
+        assert!(v["ceilings_gbs"]["bao_verify_allcores"].as_f64().unwrap() > v["ceilings_gbs"]["bao_verify_1core"].as_f64().unwrap(), "parallel verify faster than single-core");
+        assert!(v["sweep"].as_array().unwrap().len() == 2 && v["notes"].as_array().unwrap().len() >= 3);
+        unsafe { kr_cache_free_mime(p) };
     }
 
     #[test]

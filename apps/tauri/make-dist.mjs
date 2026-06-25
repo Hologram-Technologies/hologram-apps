@@ -159,12 +159,14 @@ function sealTree(root, prefix = "") {
     if (OUT_OF_CLOSURE.has(flat)) continue;                           // bootstrap boundary — never pinned
     const buf = readFileSync(abs);
     const hex = createHash("sha256").update(buf).digest("hex");
-    sealed[flat] = { kappa: "did:holo:sha256:" + hex, blake3: "did:holo:blake3:" + blake3hex(buf), sri: "sha256-" + createHash("sha256").update(buf).digest("base64"), bytes: st.size };
+    // CANONICAL-κ cutover (ADR-0115): blake3 is the PRIMARY κ (the substrate's kappo); sha256 is the
+    // re-derivable bridge alias. Both pinned; the host verifies blake3 first, sha as alias.
+    sealed[flat] = { blake3: "did:holo:blake3:" + blake3hex(buf), kappa: "did:holo:sha256:" + hex, sri: "sha256-" + createHash("sha256").update(buf).digest("base64"), bytes: st.size };
     if (canon.has(flat)) { if (canon.get(flat) === hex) matched++; else drifted++; }
   }
 }
 sealTree(DIST);
-const manifest = { "@context": "https://hologram.os/ns/closure", name: "hologram-native-image", algo: "sha256+blake3", note: "Self-sealed native OS image (Law L5, dual-axis). Every byte re-derives to BOTH its sha256 κ and its blake3 σ-axis; the host refuses a mismatch on either, and refuses any unpinned byte in this sealed image (SEC-1/SEC-6).", files: Object.keys(sealed).length, closure: sealed };
+const manifest = { "@context": "https://hologram.os/ns/closure", name: "hologram-native-image", algo: "blake3+sha256", anchorAxis: "blake3", note: "Self-sealed native OS image (Law L5, dual-axis). BLAKE3 is the canonical κ (the substrate's kappo); sha256 is a re-derivable bridge alias. Every byte re-derives to BOTH; the host verifies blake3 first and refuses any unpinned byte in this sealed image (SEC-1/SEC-6).", files: Object.keys(sealed).length, closure: sealed };
 writeFileSync(join(DIST, "os-closure.json"), JSON.stringify(manifest, null, 0));
 console.log(`make-dist: sealed ${Object.keys(sealed).length} κ pins  (vs canonical OS: ${matched} match, ${drifted} drift = dev-in-flight)`);
 
@@ -177,11 +179,13 @@ console.log(`make-dist: sealed ${Object.keys(sealed).length} κ pins  (vs canoni
 // boundary) so it is in no closure — re-baking it drifts nothing.
 const swPath = join(DIST, "holo-fhs-sw.js");
 if (existsSync(swPath)) {
-  const anchor = createHash("sha256").update(readFileSync(join(DIST, "os-closure.json"))).digest("hex");
+  // CANONICAL-κ cutover (ADR-0115): the trust root is blake3(os-closure.json) — the substrate's kappo over
+  // the pin set. The SW + native HotStore + Rust load_store all match blake3 first (sha value fallback).
+  const anchor = blake3hex(readFileSync(join(DIST, "os-closure.json")));
   const sw = readFileSync(swPath, "utf8");
   if (/const CLOSURE_KAPPA = "[0-9a-f]{0,64}"/.test(sw)) {
     writeFileSync(swPath, sw.replace(/const CLOSURE_KAPPA = "[0-9a-f]{0,64}"/, `const CLOSURE_KAPPA = "${anchor}"`));
-    console.log(`make-dist: anchored worker → CLOSURE_KAPPA ${anchor.slice(0, 12)}…  (G1/SEC-1, fail-closed)`);
+    console.log(`make-dist: anchored worker → CLOSURE_KAPPA ${anchor.slice(0, 12)}… (blake3, G1/SEC-1, fail-closed)`);
   } else {
     console.warn("make-dist: WARNING — holo-fhs-sw.js has no CLOSURE_KAPPA constant; native image cannot anchor (G1/SEC-1).");
   }

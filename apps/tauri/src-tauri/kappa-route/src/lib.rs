@@ -22,14 +22,26 @@ pub mod sharedcache;  // planetary layer: shared, content-addressed substrate (k
 pub mod meshsync;     // native networking P1: wire-compatible κ content-network peer (BareNetSync frames)
 pub mod meshget;      // native networking P3b: lean std::net bridge to the mesh sidecar (kr_mesh_get)
 pub mod did;          // P5 host wiring: did:holo κ-rooted peer identity (kr_did_*)
+pub mod bao;          // verified streaming: per-chunk proof verification over the canonical blake3 κ
+pub mod fabric;       // κ-fabric effective-goodput model (InfiniBand-class proof), exposed via kr_fabric_goodput
 pub mod semantic;     // P5 host wiring: W3C Linked Data validate-before-serve (kr_ld_validate)
 
-/// Expected content address(es) for one served path, lower-case hex.
+/// Expected content address(es) for one served path, lower-case hex. The CANONICAL axis is BLAKE3
+/// (the substrate's kappo); sha256 is demoted to a re-derivable bridge alias kept for legacy
+/// `.holo/sha256/<hex>` links and foreign-protocol interop. A pin always carries at least one axis.
 pub struct Pin {
-    /// the serving κ axis (did:holo:sha256:…) — always present.
-    pub sha256: String,
-    /// the substrate σ-axis (did:holo:blake3:…) — present once the sealer emits it.
+    /// the CANONICAL κ axis (did:holo:blake3:…) = the substrate's kappo(). The trust check the verifier
+    /// prefers. Present on every freshly-sealed object; Option only for pre-cutover (sha-only) images.
     pub blake3: Option<String>,
+    /// the sha256 BRIDGE alias (did:holo:sha256:…) — kept re-derivable for legacy links / IPFS / interop.
+    pub sha256: Option<String>,
+}
+
+impl Pin {
+    /// canonical cache key: the blake3 κ when present, else the sha256 bridge alias.
+    fn key(&self) -> &str {
+        self.blake3.as_deref().or(self.sha256.as_deref()).unwrap_or("")
+    }
 }
 
 /// A sealed image: its root dir, the dual-axis closure folded from os-closure.json, and a by-κ cache
@@ -40,7 +52,7 @@ pub struct Pin {
 pub struct KStore {
     pub root: PathBuf,
     pub closure: HashMap<String, Pin>,
-    cache: Mutex<HashMap<String, Arc<Vec<u8>>>>,  // sha256 hex → verified bytes
+    cache: Mutex<HashMap<String, Arc<Vec<u8>>>>,  // canonical κ (blake3, else sha256 alias) → verified bytes
     poisoned: bool,                               // closure anchor mismatch → refuse everything
     apps: HashMap<String, String>,                // holospace κ (sha256 hex) → app dir, e.g. "apps/amp"
     byhex: HashMap<String, String>,               // sha256 hex → dist path (the content-address index)
@@ -121,19 +133,24 @@ pub fn flat_key(req_path: &str) -> String {
 
 /// Load a store from a sealed image root: parse `<root>/os-closure.json` into the dual-axis pin map.
 ///
-/// `expected_anchor` is the trust root: sha256 of os-closure.json itself (the same CLOSURE_KAPPA the
-/// service worker bakes), baked into the host binary. If supplied and the on-disk manifest does NOT
-/// re-derive to it, the store is POISONED — every resolve is refused (G1/SEC-1 fail-closed) — so a
-/// swapped/tampered manifest cannot redefine what the OS is, even if its internal pins are self-
-/// consistent. Pass None to skip the check (manifest trusted by path, the pre-P5 behavior).
+/// `expected_anchor` is the trust root: the CANONICAL κ of os-closure.json itself — blake3(manifest), the
+/// substrate's kappo, the same CLOSURE_KAPPA the service worker and HotStore bake. If supplied and the
+/// on-disk manifest does NOT re-derive to it, the store is POISONED — every resolve is refused (G1/SEC-1
+/// fail-closed) — so a swapped/tampered manifest cannot redefine what the OS is, even if its internal pins
+/// are self-consistent. Pass None to skip the check (manifest trusted by path).
+///
+/// CANONICAL-κ cutover (P4): the anchor is matched on the canonical blake3 axis FIRST, accepting the legacy
+/// sha256 bridge value as a fallback. This makes the trust-root flip atomic-safe — a stale sha-baked anchor
+/// still validates its own manifest, while a tampered manifest matches NEITHER axis → fail closed.
 pub fn load_store(root: PathBuf, expected_anchor: Option<String>) -> KStore {
     let mut closure = HashMap::new();
     let raw = std::fs::read(root.join("os-closure.json")).ok();
 
     let mut poisoned = false;
     if let Some(anchor) = expected_anchor.filter(|a| !a.is_empty()) {
-        let ok = raw.as_ref().map_or(false, |b| sha256_hex(b) == anchor.to_ascii_lowercase());
-        poisoned = !ok; // manifest missing or != baked anchor → refuse everything
+        let anchor = anchor.to_ascii_lowercase();
+        let ok = raw.as_ref().map_or(false, |b| blake3_hex(b) == anchor || sha256_hex(b) == anchor);
+        poisoned = !ok; // manifest missing or != baked anchor on either axis → refuse everything
     }
 
     let mut byhex = HashMap::new();
@@ -142,13 +159,19 @@ pub fn load_store(root: PathBuf, expected_anchor: Option<String>) -> KStore {
         if let Ok(doc) = serde_json::from_slice::<serde_json::Value>(bytes) {
             if let Some(map) = doc.get("closure").and_then(|c| c.as_object()) {
                 for (path, v) in map {
-                    if let Some(k) = v.get("kappa").and_then(|x| x.as_str()) {
-                        let sha = hex_tail(k);
-                        let blake3 = v.get("blake3").and_then(|x| x.as_str()).map(hex_tail);
-                        byhex.insert(sha.clone(), path.clone());                  // content-address index
-                        if let Some(b) = &blake3 { byblake.insert(b.clone(), path.clone()); }
-                        closure.insert(path.clone(), Pin { sha256: sha, blake3 });
-                    }
+                    // CANONICAL κ = blake3: the top-level `blake3` field (primary) or a W3C alsoKnownAs alias.
+                    let blake3 = v.get("blake3").and_then(|x| x.as_str()).map(hex_tail).or_else(|| {
+                        v.get("alsoKnownAs").and_then(|a| a.as_array()).and_then(|arr| {
+                            arr.iter().filter_map(|x| x.as_str()).find(|s| s.contains("blake3")).map(hex_tail)
+                        })
+                    });
+                    // sha256 = the bridge alias (kappa/did/@id), or a bare-string legacy entry.
+                    let sha256 = v.get("kappa").and_then(|x| x.as_str()).map(hex_tail)
+                        .or_else(|| v.as_str().map(hex_tail));
+                    if blake3.is_none() && sha256.is_none() { continue; }         // a pin must carry ≥1 axis
+                    if let Some(b) = &blake3 { byblake.insert(b.clone(), path.clone()); }   // canonical content index
+                    if let Some(s) = &sha256 { byhex.insert(s.clone(), path.clone()); }     // bridge-alias index
+                    closure.insert(path.clone(), Pin { blake3, sha256 });
                 }
             }
         }
@@ -166,15 +189,17 @@ pub fn load_store(root: PathBuf, expected_anchor: Option<String>) -> KStore {
             let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&bytes) else { continue };
             let Some(map) = doc.get("closure").and_then(|c| c.as_object()) else { continue };
             for (path, v) in map {
-                if let Some(k) = v.get("kappa").and_then(|x| x.as_str()) {
-                    let sha = hex_tail(k);
-                    let blake3 = v.get("alsoKnownAs").and_then(|a| a.as_array()).and_then(|arr| {
+                // app locks carry the canonical blake3 in `alsoKnownAs` (and, post-cutover, top-level `blake3`).
+                let blake3 = v.get("blake3").and_then(|x| x.as_str()).map(hex_tail).or_else(|| {
+                    v.get("alsoKnownAs").and_then(|a| a.as_array()).and_then(|arr| {
                         arr.iter().filter_map(|x| x.as_str()).find(|s| s.contains("blake3")).map(hex_tail)
-                    });
-                    byhex.entry(sha.clone()).or_insert_with(|| path.clone());
-                    if let Some(b) = &blake3 { byblake.entry(b.clone()).or_insert_with(|| path.clone()); }
-                    closure.entry(path.clone()).or_insert(Pin { sha256: sha, blake3 });
-                }
+                    })
+                });
+                let sha256 = v.get("kappa").and_then(|x| x.as_str()).map(hex_tail);
+                if blake3.is_none() && sha256.is_none() { continue; }
+                if let Some(s) = &sha256 { byhex.entry(s.clone()).or_insert_with(|| path.clone()); }
+                if let Some(b) = &blake3 { byblake.entry(b.clone()).or_insert_with(|| path.clone()); }
+                closure.entry(path.clone()).or_insert(Pin { blake3, sha256 });
             }
         }
     }
@@ -275,27 +300,32 @@ pub fn resolve(st: &KStore, req_path: &str) -> Result<(Vec<u8>, &'static CStr), 
     let full = st.root.join(&rel);
     match st.closure.get(&rel) {
         Some(pin) => {
-            // Warm: serve immutable verified bytes by κ (no disk, no re-hash). L3 page-fault cache.
+            // Warm: serve immutable verified bytes by the canonical κ (no disk, no re-hash). L3 page-fault cache.
+            let key = pin.key().to_string();
             if let Ok(cache) = st.cache.lock() {
-                if let Some(bytes) = cache.get(&pin.sha256) {
+                if let Some(bytes) = cache.get(&key) {
                     return Ok(((**bytes).clone(), content_type(&rel)));
                 }
             }
-            // Cold: read + re-derive BOTH axes (Law L5 / SEC-6); refuse a mismatch.
+            // Cold: read + re-derive every present axis (Law L5 / SEC-6); refuse a mismatch.
             if !full.starts_with(&st.root) || !full.is_file() {
                 return Err(404);
             }
             let bytes = std::fs::read(&full).map_err(|_| 404u16)?;
-            if sha256_hex(&bytes) != pin.sha256 {
-                return Err(403); // sha256 axis mismatch → refuse
-            }
+            // CANONICAL κ axis FIRST: blake3 (the substrate's kappo) is the trust check.
             if let Some(b3) = &pin.blake3 {
                 if &blake3_hex(&bytes) != b3 {
-                    return Err(403); // σ-axis (blake3) mismatch → refuse
+                    return Err(403); // canonical κ (blake3) mismatch → refuse
+                }
+            }
+            // sha256 BRIDGE alias also re-derives when present (legacy/interop) — refuse a mismatch.
+            if let Some(sha) = &pin.sha256 {
+                if &sha256_hex(&bytes) != sha {
+                    return Err(403); // bridge-alias (sha256) mismatch → refuse
                 }
             }
             if let Ok(mut cache) = st.cache.lock() {
-                cache.insert(pin.sha256.clone(), Arc::new(bytes.clone()));  // only verified bytes cached
+                cache.insert(key, Arc::new(bytes.clone()));  // only verified bytes cached
             }
             Ok((bytes, content_type(&rel)))
         }
@@ -314,11 +344,63 @@ pub fn resolve(st: &KStore, req_path: &str) -> Result<(Vec<u8>, &'static CStr), 
     }
 }
 
+/// Warm the verified-bytes cache for the BOOT-relevant (small) pinned files IN PARALLEL across cores, so a
+/// page's first load sees WARM serves (network-free, no re-hash) instead of slow SEQUENTIAL cold ones. The
+/// cold serve path reads+verifies each file one at a time (disk open + blake3 + AV scan ≈ 16 MB/s on a real
+/// dist → ~8s for the boot set); warming the same set with rayon is ~18× faster and runs OFF the boot-
+/// critical path (a background thread at HotStore open), so by the time the page requests its modules they
+/// are already verified+resident. Big vendored blobs (≥ `max_bytes`) are skipped — they are not on the
+/// first-paint path and heal/serve on demand. Idempotent (a warmed κ is a cache hit). Returns (warmed, ms).
+pub fn warm_boot_set(st: &KStore, max_bytes: u64) -> (usize, u128) {
+    use rayon::prelude::*;
+    use std::time::Instant;
+    let t = Instant::now();
+    // collect the small served files (the boot-critical set); a cheap metadata stat skips the heavy blobs.
+    let small: Vec<String> = st
+        .closure
+        .keys()
+        .filter(|rel| {
+            let full = st.root.join(rel.as_str());
+            std::fs::metadata(&full).map(|m| m.is_file() && m.len() < max_bytes).unwrap_or(false)
+        })
+        .cloned()
+        .collect();
+    // resolve each in parallel — re-derives + caches the verified bytes (the same path serving uses).
+    let warmed: usize = small
+        .par_iter()
+        .map(|rel| if resolve(st, &format!("/os/{rel}")).is_ok() { 1 } else { 0 })
+        .sum();
+    (warmed, t.elapsed().as_millis())
+}
+
 // ── witness: the verification core refuses tamper on EITHER axis and refuses unpinned bytes ────────
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
+
+    // P0 cross-impl parity: the JS kappo (holo-blake3.mjs) emits holo-blake3-parity-vectors.json; this
+    // test re-derives every vector with the SAME `blake3` crate the native verifier and CEF host use
+    // (blake3_hex). Equality here closes JS == Rust == CEF DIRECTLY — the bedrock the κ-promotion stands
+    // on. Skips cleanly if the vectors file is absent (run the JS witness first to regenerate it).
+    #[test]
+    fn parity_vectors_match_js() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../holo-os/system/tools/holo-blake3-parity-vectors.json");
+        let Ok(bytes) = fs::read(&path) else {
+            eprintln!("parity vectors not found at {} — run `node tools/holo-blake3-parity-witness.mjs`", path.display());
+            return;
+        };
+        let doc: serde_json::Value = serde_json::from_slice(&bytes).expect("parity vectors must parse");
+        let vectors = doc.get("vectors").and_then(|v| v.as_array()).expect("vectors array");
+        assert!(!vectors.is_empty(), "parity vectors must be non-empty");
+        for v in vectors {
+            let len = v.get("len").and_then(|x| x.as_u64()).expect("len") as usize;
+            let want = v.get("blake3").and_then(|x| x.as_str()).expect("blake3 hex");
+            let input: Vec<u8> = (0..len).map(|i| (i % 251) as u8).collect();   // SAME pattern as the JS mk(L)
+            assert_eq!(blake3_hex(&input), want, "Rust blake3 != JS kappo at len {len} — cross-impl divergence");
+        }
+    }
 
     // a tiny sealed image in its own temp dir: a.js (pinned, both axes), b.js (unpinned),
     // holo-fhs-sw.js (bootstrap), os-closure.json (manifest, unpinned by design).
@@ -338,6 +420,42 @@ mod tests {
         });
         fs::write(root.join("os-closure.json"), serde_json::to_vec(&closure).unwrap()).unwrap();
         root
+    }
+
+    // P3: the CANONICAL axis is blake3. An image sealed with ONLY a blake3 κ (no sha alias) verifies by it.
+    #[test]
+    fn canonical_blake3_only_pin_verifies() {
+        let root = std::env::temp_dir().join(format!("kr-b3only-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let good = b"canonical only\n";
+        fs::write(root.join("a.js"), good).unwrap();
+        let closure = serde_json::json!({ "closure": { "a.js": {
+            "blake3": format!("did:holo:blake3:{}", blake3_hex(good)),   // canonical κ, NO sha256 alias
+        }}});
+        fs::write(root.join("os-closure.json"), serde_json::to_vec(&closure).unwrap()).unwrap();
+        let st = load_store(root.clone(), None);
+        assert_eq!(resolve(&st, "/os/a.js").unwrap().0, good);           // verifies by the canonical axis alone
+        // and a tamper on a blake3-only pin is refused on the canonical axis
+        fs::write(root.join("a.js"), b"tampered\n").unwrap();
+        let st2 = load_store(root, None);
+        assert_eq!(resolve(&st2, "/os/a.js"), Err(403));
+    }
+
+    // P3: a legacy pre-cutover pin carrying ONLY the sha256 bridge alias still resolves (additive cutover).
+    #[test]
+    fn legacy_sha_only_pin_still_resolves() {
+        let root = std::env::temp_dir().join(format!("kr-shaonly-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let good = b"legacy alias\n";
+        fs::write(root.join("a.js"), good).unwrap();
+        let closure = serde_json::json!({ "closure": { "a.js": {
+            "kappa": format!("did:holo:sha256:{}", sha256_hex(good)),    // sha bridge alias only (pre-cutover)
+        }}});
+        fs::write(root.join("os-closure.json"), serde_json::to_vec(&closure).unwrap()).unwrap();
+        let st = load_store(root, None);
+        assert_eq!(resolve(&st, "/os/a.js").unwrap().0, good);
     }
 
     #[test]
@@ -442,11 +560,56 @@ mod tests {
 
     #[test]
     fn closure_anchor_match_serves() {
-        // the baked trust root matches the on-disk manifest → the image is admitted.
+        // the baked trust root matches the on-disk manifest → the image is admitted (legacy sha axis).
         let root = seal_image("anchor-ok");
         let anchor = sha256_hex(&std::fs::read(root.join("os-closure.json")).unwrap());
         let st = load_store(root, Some(anchor));
         assert!(resolve(&st, "/os/a.js").is_ok());
+    }
+
+    #[test]
+    fn warm_boot_set_warms_small_files_in_parallel() {
+        // a sealed image with several small files + one big one; warming caches the small set (the boot
+        // path) and skips the big blob. After warming, the cache holds the small files (warm serves).
+        let root = std::env::temp_dir().join(format!("kr-warm-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let mut closure = serde_json::Map::new();
+        for i in 0..12 {
+            let body = format!("export const m{i} = {i};\n").repeat(3);
+            let name = format!("m{i}.mjs");
+            fs::write(root.join(&name), &body).unwrap();
+            closure.insert(name, serde_json::json!({ "blake3": format!("did:holo:blake3:{}", blake3_hex(body.as_bytes())) }));
+        }
+        let big = vec![7u8; 200_000];                          // > 64 KiB → must be SKIPPED by warming
+        fs::write(root.join("big.bin"), &big).unwrap();
+        closure.insert("big.bin".into(), serde_json::json!({ "blake3": format!("did:holo:blake3:{}", blake3_hex(&big)) }));
+        fs::write(root.join("os-closure.json"), serde_json::to_vec(&serde_json::json!({ "closure": closure })).unwrap()).unwrap();
+
+        let st = load_store(root.clone(), None);
+        let (warmed, _ms) = warm_boot_set(&st, 65536);
+        assert_eq!(warmed, 12, "the 12 small files warm; the 200KB blob is skipped");
+        // the small files now serve (warm); the big one still serves on demand (just wasn't pre-warmed)
+        assert!(resolve(&st, "/os/m0.mjs").is_ok());
+        assert!(resolve(&st, "/os/big.bin").is_ok());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn closure_anchor_blake3_is_canonical() {
+        // P4 — the CANONICAL trust root is blake3(os-closure.json). A blake3-baked anchor admits the image;
+        // tampering the manifest matches NEITHER axis → the whole store poisons (fail-closed, never half-flip).
+        let root = seal_image("anchor-b3");
+        let manifest = std::fs::read(root.join("os-closure.json")).unwrap();
+        let blake_anchor = blake3_hex(&manifest);
+        let st = load_store(root.clone(), Some(blake_anchor.clone()));
+        assert!(resolve(&st, "/os/a.js").is_ok(), "blake3 anchor must admit its own manifest");
+        // a tampered manifest under the SAME (now-wrong) blake3 anchor → poisoned
+        let mut tampered = manifest.clone();
+        tampered.extend_from_slice(b"\n/* tamper */");
+        std::fs::write(root.join("os-closure.json"), &tampered).unwrap();
+        let st2 = load_store(root, Some(blake_anchor));
+        assert_eq!(resolve(&st2, "/os/a.js"), Err(403), "tampered manifest matches neither axis → fail closed");
     }
 
     #[test]

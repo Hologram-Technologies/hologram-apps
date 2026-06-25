@@ -170,6 +170,18 @@ std::string HostOf(const std::string& url) {
   return url.substr(b, (e == std::string::npos ? url.size() : e) - b);
 }
 
+// True for a youtube.com / youtu.be PAGE that should open in the native Hologram YouTube surface instead of the
+// raw site. Measured (Phase 0): YouTube's polymer feed never instantiates on this engine — the home/search/
+// channel shell hangs on skeleton loaders. So we route the human-facing site (home, search, channel, playlist,
+// AND watch) to holo://os/apps/youtube, which reads the same catalog via yt-dlp metadata and projects every
+// video through Holo Video. music./studio. subdomains and asset/API hosts (i.ytimg, googlevideo, youtubei) are
+// not matched — those are sub-resources, not top-level navigations, so they never reach this gate anyway.
+static bool IsYouTubeSite(const std::string& url) {
+  const std::string host = HostOf(url);
+  return host == "youtube.com" || host == "www.youtube.com" || host == "m.youtube.com" ||
+         host == "youtu.be" || host == "www.youtu.be";
+}
+
 // The comprehensive ruleset: ~98k ad/tracker domains (merged Peter Lowe + hagezi-light + AdAway),
 // loaded ONCE from $HOLO_ADBLOCK_LIST into a hash set so matching is O(domain-labels) per request —
 // microseconds, no rule engine. This is the κ-addressed ad ruleset (the file is content-addressed;
@@ -1087,6 +1099,33 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       return true;
     }
 
+    // ── O(1) compute bridge (holo:compute:*) — the upstream Hologram content-addressed tensor engine,
+    // running BARE-METAL in-process. The host loads hologram_ffi.dll (beside the exe) ONCE and calls its C
+    // ABI; a holo:// page surfaces the O(1) memo collapse (novel recompute vs κ-addressed graph-memo hit)
+    // measured by the NATIVE engine, not the browser. "holo:compute:o1demo". The seam every app's
+    // holo-compute call routes through; this verb is the de-risk proof that the engine is host-callable.
+    // From holo:// only. (LoadLibrary is lazy + cached for the process; a missing DLL fails cleanly.)
+    if (req.rfind("holo:compute:o1demo", 0) == 0) {
+      if (origin.rfind("holo://", 0) != 0) { callback->Failure(403, "holo-bridge: compute only from holo://"); return true; }
+      typedef char* (*O1DemoFn)();
+      typedef void (*O1FreeFn)(char*);
+      static HMODULE s_eng = nullptr;
+      static O1DemoFn s_demo = nullptr;
+      static O1FreeFn s_free = nullptr;
+      if (!s_eng) {
+        s_eng = LoadLibraryA("hologram_ffi.dll");   // deployed beside holo_cef_host.exe
+        if (s_eng) {
+          s_demo = reinterpret_cast<O1DemoFn>(GetProcAddress(s_eng, "hologram_o1_demo"));
+          s_free = reinterpret_cast<O1FreeFn>(GetProcAddress(s_eng, "hologram_o1_demo_free"));
+        }
+      }
+      if (!s_demo) { callback->Failure(500, "holo:compute: hologram engine not available (hologram_ffi.dll)"); return true; }
+      char* json = s_demo();
+      if (json) { callback->Success(CefString(json)); if (s_free) s_free(json); }
+      else { callback->Failure(500, "holo:compute: o1 demo failed"); }
+      return true;
+    }
+
     // ── Verified-streaming PRODUCER bridge (holo:bao:*) — a holo:// page streams an OS-sealed κ-object as
     // BLAKE3-verified chunks straight from the native engine: render/play on chunk 0, the whole object never
     // re-hashed per request, each chunk proven by the consumer (holo-bao-stream / kr_bao_verify_slice). Reads
@@ -1213,6 +1252,21 @@ class HoloBridgeHandler : public CefMessageRouterBrowserSide::Handler {
       if (colon == std::string::npos) { callback->Failure(400, "holo-bridge: malformed verdict"); return true; }
       const int gid = std::atoi(rest.substr(0, colon).c_str());
       owner_->ResolveGov(gid, rest.substr(colon + 1) == "allow");
+      callback->Success("{\"ok\":true}");
+      return true;
+    }
+
+    // ISP block-fallback resolve result: the service resolved a blocked URL's host to a content κ (κ-roots/
+    // DoH, off-DNS). Format "holo:blockresolved:<id>:<κ-or-empty>". Only the service context may answer.
+    if (req.rfind("holo:blockresolved:", 0) == 0) {
+      if (origin.rfind("holo://os", 0) != 0) {
+        callback->Failure(403, "holo-bridge: only the service context may resolve a block");
+        return true;
+      }
+      const std::string rest = req.substr(std::string("holo:blockresolved:").size());  // "<id>:<κ-or-empty>"
+      const size_t colon = rest.find(':');
+      if (colon == std::string::npos) { callback->Failure(400, "holo-bridge: malformed block resolve"); return true; }
+      owner_->ResolveBlock(std::atoi(rest.substr(0, colon).c_str()), rest.substr(colon + 1));
       callback->Success("{\"ok\":true}");
       return true;
     }
@@ -1981,6 +2035,14 @@ bool SimpleHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
     return true;
   }
   if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0) return false;
+  // ── Hologram-native YouTube: route youtube.com / youtu.be to the native surface (the raw polymer feed does
+  // not render on this engine — Phase 0). The app reads ?src=<original URL> and routes home/search/channel/
+  // watch, projecting every video through Holo Video. Our app's own data (holo://os/sc/*) and thumbnails
+  // (i.ytimg.com) are not youtube.com top-level navigations, so this never loops.
+  if (IsYouTubeSite(url)) {
+    frame->LoadURL("holo://os/apps/youtube/index.html?src=" + CefURIEncode(url, false).ToString());
+    return true;
+  }
   if (IsMessengerHost(url)) return false;  // a sanctioned messenger destination — never gated by the PII red-line
   if (IsLoopback(url)) return false;       // operator's own machine (broker / dev preview) -- not outward
   // Our own re-navigation of a cleared URL passes exactly once (so the verdict isn't re-run into a loop).
@@ -2029,6 +2091,64 @@ void SimpleHandler::ResolveOmni(int omni_id, const std::string& dest_url) {
   browser->GetMainFrame()->LoadURL(dest_url);
 }
 
+// ── ISP name-filter fallback (HOLO_BLOCK_FALLBACK) ──────────────────────────────────────────────────────────
+// A parental-controls / content filter reads NAMES: it bounces the wanted URL to its block page. The substrate
+// answers by CONTENT — a peer's κ (content-addressed, L5-verified) instead of the block page. The trigger is the
+// only new part; delivery is the EXISTING kappa-shared/mesh path. Opt-in + reversible: off ⇒ host unchanged.
+namespace {
+std::mutex g_block_mu;
+std::map<int, std::string> g_block_capture;  // browserId → the wanted URL a WebSafe redirect tried to hide
+
+bool HoloBlockFallbackEnabled() {
+  static int e = -1;
+  if (e < 0) { const char* v = std::getenv("HOLO_BLOCK_FALLBACK"); e = (v && *v && std::string(v) != "0") ? 1 : 0; }
+  return e == 1;
+}
+
+// The known ISP filter LANDING hosts (substring match on the URL — exact host parsing is unnecessary here,
+// these strings appear only in a filter's block-page URL). Mirrors holo-block-detect.mjs ISP_BLOCK_HOSTS.
+bool HoloIsIspBlockUrl(const std::string& url) {
+  static const char* kHosts[] = {
+      "://websafe.virginmedia.com", "://contentblocked.virginmedia.com", "://blackhole.virginmedia.com",
+      "://homesafe.talktalk.co.uk", "://barred.sky.com", "://blocked.bt.com",
+  };
+  for (const char* h : kHosts) if (url.find(h) != std::string::npos) return true;
+  return false;
+}
+}  // namespace
+
+// DelegateBlockResolve — a filter bounced `url` and no peer holds its κ. Ask the service's κ-roots/DoH resolver
+// (window.__holoBlockResolve, holo-block-fallback.mjs) to name it without a plaintext DNS query. The service
+// answers over the cefQuery bridge ("holo:blockresolved:<id>:<κ>") → ResolveBlock. UI thread only (no service ⇒
+// leave the block page; the peer-has-κ path already missed). Mirrors the governance hold→async→re-nav pattern.
+void SimpleHandler::DelegateBlockResolve(CefRefPtr<CefBrowser> browser, const std::string& url) {
+  CEF_REQUIRE_UI_THREAD();
+  CefRefPtr<CefFrame> svc = ServiceFrame();
+  if (!svc || !browser) return;
+  const int id = next_block_id_++;
+  block_pending_[id] = { browser, url };
+  svc->ExecuteJavaScript("window.__holoBlockResolve&&window.__holoBlockResolve(" + std::to_string(id) + ",\"" +
+                         json_escape(url) + "\");", svc->GetURL(), 0);
+}
+
+// ResolveBlock — the service returned the wanted URL's content κ (or empty = unresolved → leave the block page).
+// Note url→κ into the shared substrate so GetResourceHandler's serve path finds it, then re-navigate to the
+// marked URL; the serve mesh-pulls the κ (L5-verified) and returns it as kappa-block-bypass.
+void SimpleHandler::ResolveBlock(int block_id, const std::string& kappa) {
+  CEF_REQUIRE_UI_THREAD();
+  auto it = block_pending_.find(block_id);
+  if (it == block_pending_.end()) return;
+  CefRefPtr<CefBrowser> browser = it->second.browser;
+  const std::string url = it->second.url;
+  block_pending_.erase(it);
+  if (!browser || kappa.empty()) return;                               // unresolved → honest: leave the block page
+  if (KShared* sc = SharedCache()) kr_shared_note(sc, url.c_str(), kappa.c_str());  // url→κ for the serve path
+  { std::lock_guard<std::mutex> lk(g_block_mu); g_block_capture[browser->GetIdentifier()] = url; }
+  const std::string sentinel = url + (url.find('?') == std::string::npos ? "?" : "&") + "__holobypass=1";
+  browser->GetMainFrame()->LoadURL(sentinel);
+  LogLife("block-fallback: nameless-resolved " + url + " → κ; serving via " + sentinel);
+}
+
 CefRefPtr<CefResourceRequestHandler> SimpleHandler::GetResourceRequestHandler(
     CefRefPtr<CefBrowser> /*browser*/,
     CefRefPtr<CefFrame> /*frame*/,
@@ -2049,10 +2169,52 @@ cef_return_value_t SimpleHandler::OnBeforeResourceLoad(CefRefPtr<CefBrowser> /*b
   return RV_CONTINUE;
 }
 
+// OnResourceRedirect — catch the WebSafe bounce. Only rewrite back to the wanted URL when a peer ACTUALLY holds
+// its κ and the bytes are reachable (local shared dir or fetched via the mesh) — so a no-peer case leaves the
+// block page and CANNOT redirect-loop. The capture is consumed once in GetResourceHandler.
+void SimpleHandler::OnResourceRedirect(CefRefPtr<CefBrowser> browser,
+                                       CefRefPtr<CefFrame> frame,
+                                       CefRefPtr<CefRequest> request,
+                                       CefRefPtr<CefResponse> /*response*/,
+                                       CefString& new_url) {
+  if (!HoloBlockFallbackEnabled() || !browser) return;
+  const std::string old_url = request->GetURL().ToString();
+  const std::string nu = new_url.ToString();
+  if (!HoloIsIspBlockUrl(nu) || HoloIsIspBlockUrl(old_url)) return;   // not a filter bounce (or already on it)
+  // FAST PATH — does a peer already hold THIS exact URL's κ (the gossip manifest)? If so, re-nav to the marked
+  // URL and serve it; no name-resolve needed. (kr_shared_get re-derives + L5-verifies inside.)
+  bool peer_has = false;
+  if (KShared* sc = SharedCache()) {
+    if (char* k = kr_shared_kappa_for(sc, old_url.c_str())) {
+      uint8_t* sp = nullptr; size_t sl = 0; char* sm = nullptr;
+      peer_has = (kr_shared_get(sc, k, &sp, &sl, &sm) == 1) ||
+                 (kr_mesh_get(k) == 1 && kr_shared_get(sc, k, &sp, &sl, &sm) == 1);
+      if (peer_has) { kr_free(sp, sl); if (sm) kr_cache_free_mime(sm); }  // only confirming reachability
+      kr_cache_free_mime(k);
+    }
+  }
+  if (peer_has) {
+    // Drive a FRESH navigation to the WANTED url + a __holobypass marker (the codebase's proven re-nav pattern —
+    // frame->LoadURL, as YouTube/new-tab use — not a new_url mutation, which this CEF aborts). The marker keeps it
+    // off the redirect-loop and governance paths; same origin as the wanted url ⇒ it inherits the cleared nav.
+    const std::string sentinel = old_url + (old_url.find('?') == std::string::npos ? "?" : "&") + "__holobypass=1";
+    { std::lock_guard<std::mutex> lk(g_block_mu); g_block_capture[browser->GetIdentifier()] = old_url; }
+    CefRefPtr<CefFrame> f = frame;
+    CefPostTask(TID_UI, base::BindOnce([](CefRefPtr<CefFrame> fr, std::string u) { if (fr) fr->LoadURL(u); }, f, sentinel));
+    LogLife("block-fallback (peer-has-κ): serving " + old_url + " via " + sentinel);
+    return;
+  }
+  // NAMELESS RESOLVE — no peer holds this URL. Delegate to the service's κ-roots/DoH resolver (off the ISP
+  // DNS). ResolveBlock takes the κ it returns, notes url→κ, and re-navigates to the marked URL to serve it.
+  CefRefPtr<CefBrowser> b = browser;
+  CefPostTask(TID_UI, base::BindOnce(&SimpleHandler::DelegateBlockResolve, this, b, old_url));
+  LogLife("block-fallback: no peer holds " + old_url + " → delegating nameless resolve");
+}
+
 // Serve an inert surrogate (HTTP 200) for ad/detector requests so the page can't tell anything was blocked:
 // gpt→no-op window.googletag, analytics→window.ga/gtag, other ad scripts→empty no-op, ad images→1×1 GIF,
 // everything else→empty 200. A success, never a cancel. (the κ substrate at holo:// is never touched.)
-CefRefPtr<CefResourceHandler> SimpleHandler::GetResourceHandler(CefRefPtr<CefBrowser> /*browser*/,
+CefRefPtr<CefResourceHandler> SimpleHandler::GetResourceHandler(CefRefPtr<CefBrowser> browser,
                                                                CefRefPtr<CefFrame> /*frame*/,
                                                                CefRefPtr<CefRequest> request) {
   const std::string url = request->GetURL().ToString();
@@ -2060,6 +2222,28 @@ CefRefPtr<CefResourceHandler> SimpleHandler::GetResourceHandler(CefRefPtr<CefBro
   // holo:// scheme factory — so 206/range works for <video> (the factory path breaks follow-up range reads).
   if (CefRefPtr<CefResourceHandler> sc = HoloCreateScHandler(url)) return sc;
   if (url.rfind("holo://", 0) == 0) return nullptr;
+  // ISP block fallback: OnResourceRedirect rewrote a filter bounce to the WANTED url + a __holobypass marker.
+  // This request IS that marked load → serve the wanted url's content-addressed bytes (X-Holo-Source:
+  // kappa-block-bypass) instead of the block page. One-shot: clear the capture so a later genuine load is not
+  // shadowed. The wanted bytes are addressed by the ORIGINAL (captured) url, not the marked url.
+  if (HoloBlockFallbackEnabled() && browser && url.find("__holobypass=1") != std::string::npos) {
+    std::string original;
+    { std::lock_guard<std::mutex> lk(g_block_mu);
+      auto it = g_block_capture.find(browser->GetIdentifier());
+      if (it != g_block_capture.end()) { original = it->second; g_block_capture.erase(it); } }
+    if (!original.empty()) {
+      if (KShared* sc = SharedCache()) {
+        if (char* k = kr_shared_kappa_for(sc, original.c_str())) {
+          uint8_t* sp = nullptr; size_t sl = 0; char* sm = nullptr;
+          bool got = (kr_shared_get(sc, k, &sp, &sl, &sm) == 1) ||
+                     (kr_mesh_get(k) == 1 && kr_shared_get(sc, k, &sp, &sl, &sm) == 1);
+          kr_cache_free_mime(k);
+          if (got) return new HoloKappaCacheHandler(sp, sl, sm, "kappa-block-bypass", HoloMimeFromUrl(original));
+        }
+      }
+      // peer's bytes vanished between the redirect check and now → fall through to the network (honest miss).
+    }
+  }
   // Open-web κ-cache: serve a HIT from the substrate, ZERO network — every cacheable subresource, any site,
   // any tab. (Populated by the tee filter on the cold miss; see GetResourceResponseFilter.)
   if (IsCacheableWeb(request)) {
@@ -2219,6 +2403,20 @@ void SimpleHandler::OpenPopupWindow(const std::string& url) {
   window_info.SetAsPopup(nullptr, "Hologram");
   window_info.runtime_style = CEF_RUNTIME_STYLE_CHROME;
   CefBrowserHost::CreateBrowser(window_info, this, url, settings, nullptr, nullptr);
+}
+
+void SimpleHandler::OnLoadStart(CefRefPtr<CefBrowser> /*browser*/,
+                               CefRefPtr<CefFrame> frame,
+                               TransitionType /*transition_type*/) {
+  CEF_REQUIRE_UI_THREAD();
+  if (!frame || !frame->IsMain()) return;
+  // New Tab Page → Hologram home/launcher. The chrome-runtime NTP commits as chrome://newtab or
+  // chrome://new-tab-page[-third-party], BYPASSING OnBeforeBrowse — so redirect it here, at load start,
+  // before the Chrome NTP paints. A new tab lands on the Hologram home instead of Google's tiles.
+  const std::string u = frame->GetURL().ToString();
+  if (u.rfind("chrome://newtab", 0) == 0 || u.rfind("chrome://new-tab-page", 0) == 0) {
+    frame->LoadURL("holo://os/home.html");
+  }
 }
 
 void SimpleHandler::OnLoadEnd(CefRefPtr<CefBrowser> browser,
