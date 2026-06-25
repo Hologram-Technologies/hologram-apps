@@ -64,7 +64,7 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
 
   std::string tiles_json;
   bool first = true;
-  int changed_tiles = 0;
+  int changed_tiles = 0, recur = 0;
   for (int ry = 0; ry < rows; ++ry) {
     for (int cx = 0; cx < cols; ++cx) {
       const int tx = cx * tile_, ty = ry * tile_;
@@ -96,9 +96,20 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
       last_kappa_[id] = hex;
       ++changed_tiles;
 
-      // Publish NOVEL tile bytes to the shared κ cache (dedup by κ; already-held tiles are not re-put).
+      // κ-LUT: probe the resident κ cache by content address. A HIT means this exact tile content RECURRED
+      // (scroll-back, repeated UI chrome, a looped video frame) ⇒ O(1) reuse, no re-encode/re-put — the
+      // compute-∝-novelty win. A MISS is genuinely novel ⇒ publish. (Also frees the hit buffer — the prior
+      // code probed but never freed it, leaking one tile's bytes per recurrence.)
+      // Probe on the SAME axis the tile is addressed on — BLAKE3 (σ-axis), via kr_cache_get_b3. (The prior code
+      // probed kr_cache_get_kappa, the sha256 axis, with a blake3 hex → it ALWAYS missed, so dedup never fired
+      // and every tile was re-put. Fixed: now a resident tile is actually detected → real dedup + recurrence.)
       uint8_t* probe = nullptr; size_t plen = 0; char* pmime = nullptr;
-      if (!(HoloWebCache() && kr_cache_get_kappa(HoloWebCache(), hex.c_str(), &probe, &plen, &pmime) == 1)) {
+      const bool resident = HoloWebCache() && kr_cache_get_b3(HoloWebCache(), hex.c_str(), &probe, &plen, &pmime) == 1;
+      if (resident) {
+        ++recur;
+        if (probe) kr_free(probe, plen);
+        if (pmime) kr_cache_free_mime(pmime);
+      } else {
         kr_cache_put(HoloWebCache(), ("holo:osr:" + hex).c_str(),
                      reinterpret_cast<const uint8_t*>(px.data()), px.size(), "application/octet-stream", 1);
       }
@@ -107,6 +118,17 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
       tiles_json += "{\"id\":\"" + id + "\",\"k\":\"did:holo:blake3:" + hex + "\"}";
       first = false;
     }
+  }
+
+  // κ-LUT instrumentation: accumulate dirty-tile vs content-recurrence counts and report the O(1) reuse rate.
+  // This is the prompt's falsifiable bar made measurable on this host (where the GPU zero-copy path can't run):
+  // recurrence% = the share of changed tiles served by an O(1) κ lookup instead of a fresh publish.
+  dirty_total_ += changed_tiles; recur_total_ += recur;
+  if (++stat_frames_ >= 120 && dirty_total_ > 0) {
+    std::fprintf(stderr, "HOLO-OSR-KAPPA-LUT: %ld dirty tiles · %ld O(1) recurrences (%.1f%% reuse) · %ld novel over %d frames\n",
+                 dirty_total_, recur_total_, 100.0 * recur_total_ / dirty_total_, dirty_total_ - recur_total_, stat_frames_);
+    std::fflush(stderr);
+    dirty_total_ = 0; recur_total_ = 0; stat_frames_ = 0;
   }
 
   // Churn-driven auto-switch: if a large fraction of the frame keeps changing paint after paint, this is
@@ -131,6 +153,21 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
                          ",\"h\":" + std::to_string(height) + ",\"tile\":" + std::to_string(tile_) +
                          ",\"seq\":" + std::to_string(seq_++) + ",\"tiles\":[" + tiles_json + "]})";
   lens_frame_->ExecuteJavaScript(js, lens_frame_->GetURL(), 0);
+}
+
+// Zero-copy GPU probe: fires when HOLO_OSR_ACCEL=1 (shared_texture_enabled). Logs the shared D3D11 texture
+// handle + format so we can confirm the host can do GPU-accelerated OSR (the prerequisite for 8K). The real
+// build opens this texture in our own D3D11 device, tiles + BLAKE3-hashes it on the GPU, and feeds the κ-LUT.
+void HoloOsrClient::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
+                                       const RectList& dirtyRects, const CefAcceleratedPaintInfo& info) {
+  static int n = 0;
+  if (n < 3 || (n % 120) == 0) {
+    std::fprintf(stderr, "HOLO-ACCEL-PAINT: #%d type=%d dirty=%zu handle=%p format=%d view=%dx%d\n",
+                 n, static_cast<int>(type), dirtyRects.size(),
+                 reinterpret_cast<void*>(info.shared_texture_handle), static_cast<int>(info.format), w_, h_);
+    std::fflush(stderr);
+  }
+  ++n;
 }
 
 // Attach the CDP DevTools observer so screencast can be started on demand (whether forced now or promoted later
@@ -244,6 +281,8 @@ void OpenOsr(const std::string& url, CefRefPtr<CefFrame> lens_frame, int w, int 
   CEF_REQUIRE_UI_THREAD();
   CefWindowInfo window_info;
   window_info.SetAsWindowless(0);                 // off-screen ⇒ forces Alloy runtime (no Chrome window)
+  const char* accel = std::getenv("HOLO_OSR_ACCEL");   // zero-copy GPU path probe: OnAcceleratedPaint instead of OnPaint
+  if (accel && accel[0] == '1') window_info.shared_texture_enabled = 1;
   CefBrowserSettings settings;
   settings.windowless_frame_rate = 60;            // produce rate; present runs faster via holo-present-mailbox
   const char* sc = std::getenv("HOLO_PROJECT_SCREENCAST");   // force CDP JPEG screencast always (vs raw tiles)

@@ -87,11 +87,13 @@ class HoloOsrClient : public CefClient,
                const void* buffer,
                int width,
                int height) override;
-  // Zero-copy path (D3D11 shared texture). Wire after OnPaint is correct; falls back to OnPaint until then.
+  // Zero-copy path (D3D11 shared texture). Enabled by HOLO_OSR_ACCEL=1 (CefWindowInfo::shared_texture_enabled);
+  // when on, this fires INSTEAD of OnPaint with a shared D3D11 texture handle — the 8K-capable path. Currently
+  // a feasibility probe (logs the handle); real tiling/hashing over the GPU texture is the next build.
   void OnAcceleratedPaint(CefRefPtr<CefBrowser> browser,
                           PaintElementType type,
                           const RectList& dirtyRects,
-                          const CefAcceleratedPaintInfo& info) override {}
+                          const CefAcceleratedPaintInfo& info) override;
 
   CefRefPtr<CefBrowser> browser() const { return browser_; }
 
@@ -111,6 +113,8 @@ class HoloOsrClient : public CefClient,
   bool forced_sc_ = false;                         // env-forced always-screencast (never auto-demotes)
   bool auto_ = false;                              // churn-driven tile↔screencast auto-switch enabled
   int hot_frames_ = 0;                             // consecutive high-churn paints (the promote counter)
+  long dirty_total_ = 0, recur_total_ = 0;         // κ-LUT instrumentation: dirty tiles vs content-recurrences
+  int stat_frames_ = 0;                            // frames since last κ-LUT stat log
   bool demote_scheduled_ = false;                  // an idle check is already queued
   std::chrono::steady_clock::time_point last_sc_;  // last screencast frame arrival (idle → demote to tiles)
   int sc_seq_ = 0;
