@@ -19,6 +19,7 @@
 #ifndef HOLO_CEF_OSR_H
 #define HOLO_CEF_OSR_H
 
+#include <chrono>
 #include <map>
 #include <string>
 
@@ -50,22 +51,29 @@ void BenchOsr(const std::string& url);
 // by env HOLO_PROJECT_URL=<url>. Verify via CDP (:9333): the lens canvas shows the producer's pixels.
 void ProjectBench(const std::string& url);
 
-// The off-screen client: turns CefRenderHandler paints into a κ-tile stream, accepts forwarded input, and (in
-// screencast mode) streams Chromium-encoded JPEG frames via CDP — the full-motion path: video stays smooth and
-// ~360x smaller than raw tiles, encoded by Chromium itself (no ffmpeg), decoded by the lens's __holoScreencastFrame.
+// The off-screen client: turns CefRenderHandler paints into a κ-tile stream, accepts forwarded input, and
+// AUTO-SWITCHES per content. The default is the lossless pixel-native tile path (crisp UI/text, O(1) novelty).
+// When it detects sustained high churn (video/animation) it PROMOTES to CDP screencast — Chromium-encoded JPEG
+// frames, ~360x smaller than raw tiles, no ffmpeg, decoded by the lens's __holoScreencastFrame — so video stays
+// smooth; when the motion stops it DEMOTES back to crisp tiles. So one projected tab is crisp where it should be
+// and smooth where it must be, automatically. (HOLO_PROJECT_SCREENCAST=1 forces screencast always; the churn
+// auto-switch is otherwise on by default and can be disabled with HOLO_PROJECT_NOAUTO=1.)
 class HoloOsrClient : public CefClient,
                       public CefRenderHandler,
                       public CefLifeSpanHandler,
                       public CefDevToolsMessageObserver {
  public:
-  HoloOsrClient(CefRefPtr<CefFrame> lens_frame, int w, int h, int tile = 256, bool screencast = false)
-      : lens_frame_(lens_frame), w_(w), h_(h), tile_(tile), screencast_(screencast) {}
+  HoloOsrClient(CefRefPtr<CefFrame> lens_frame, int w, int h, int tile = 256,
+                bool forced_screencast = false, bool autoswitch = false)
+      : lens_frame_(lens_frame), w_(w), h_(h), tile_(tile),
+        screencast_(forced_screencast), forced_sc_(forced_screencast),
+        auto_(autoswitch && !forced_screencast) {}
 
   CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
 
   // CefLifeSpanHandler
-  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;   // starts CDP screencast in screencast mode
+  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;   // attaches the CDP observer; starts screencast if forced
   void OnBeforeClose(CefRefPtr<CefBrowser> browser) override { browser_ = nullptr; dt_reg_ = nullptr; }
 
   // CefDevToolsMessageObserver — receive Page.screencastFrame (JPEG) and forward to the lens.
@@ -88,11 +96,23 @@ class HoloOsrClient : public CefClient,
   CefRefPtr<CefBrowser> browser() const { return browser_; }
 
  private:
+  // Churn-driven mode transitions (CDP screencast on/off). Promote is called from OnPaint when motion is
+  // sustained; demote from a self-rescheduling idle check when screencast frames stop arriving.
+  void StartScreencast(const std::string& why);  // begin Page.startScreencast, watch for idle
+  void StopScreencast(const std::string& why);   // stop screencast, force a repaint so tiling re-establishes
+  void ScheduleDemoteCheck();             // post the next idle check (no-op if one is pending)
+  void CheckDemoteIdle();                 // demote if no screencast frame for kDemoteIdleMs
+
   CefRefPtr<CefFrame> lens_frame_;
   CefRefPtr<CefBrowser> browser_;
   CefRefPtr<CefRegistration> dt_reg_;              // keeps the DevTools observer alive (screencast mode)
-  std::map<std::string, std::string> last_kappa_;  // tile id ("t{cx}_{ry}") → last sha256 hex (delta state)
-  bool screencast_ = false;                        // CDP JPEG screencast instead of raw OnPaint tiles (full-motion)
+  std::map<std::string, std::string> last_kappa_;  // tile id ("t{cx}_{ry}") → last blake3 hex (delta state)
+  bool screencast_ = false;                        // CURRENT mode: CDP JPEG screencast (true) vs raw tiles (false)
+  bool forced_sc_ = false;                         // env-forced always-screencast (never auto-demotes)
+  bool auto_ = false;                              // churn-driven tile↔screencast auto-switch enabled
+  int hot_frames_ = 0;                             // consecutive high-churn paints (the promote counter)
+  bool demote_scheduled_ = false;                  // an idle check is already queued
+  std::chrono::steady_clock::time_point last_sc_;  // last screencast frame arrival (idle → demote to tiles)
   int sc_seq_ = 0;
   int w_, h_, tile_;
   int seq_ = 0;

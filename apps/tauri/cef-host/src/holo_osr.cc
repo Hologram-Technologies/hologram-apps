@@ -8,9 +8,12 @@
 #include <cstring>
 #include <string>
 
+#include "include/base/cef_callback.h"
 #include "include/cef_app.h"
 #include "include/cef_browser.h"
 #include "include/cef_parser.h"
+#include "include/cef_task.h"
+#include "include/wrapper/cef_closure_task.h"
 #include "include/wrapper/cef_helpers.h"
 
 #include "sha256.h"
@@ -61,6 +64,7 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
 
   std::string tiles_json;
   bool first = true;
+  int changed_tiles = 0;
   for (int ry = 0; ry < rows; ++ry) {
     for (int cx = 0; cx < cols; ++cx) {
       const int tx = cx * tile_, ty = ry * tile_;
@@ -90,6 +94,7 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
       const std::string id = "t" + std::to_string(cx) + "_" + std::to_string(ry);
       if (last_kappa_[id] == hex) continue;  // slot unchanged ⇒ skip (delta)
       last_kappa_[id] = hex;
+      ++changed_tiles;
 
       // Publish NOVEL tile bytes to the shared κ cache (dedup by κ; already-held tiles are not re-put).
       uint8_t* probe = nullptr; size_t plen = 0; char* pmime = nullptr;
@@ -104,6 +109,22 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
     }
   }
 
+  // Churn-driven auto-switch: if a large fraction of the frame keeps changing paint after paint, this is
+  // video/animation, not UI — the raw-tile path would stream gigabytes/s at pixel-native res, so PROMOTE to CDP
+  // screencast (Chromium-encoded JPEG). Hysteresis: only after kPromoteFrames CONSECUTIVE high-churn paints, so
+  // a one-off scroll burst or a blinking cursor (tiny fraction) does NOT promote. A return here stops tiling for
+  // this frame — screencast takes over. Demote (back to crisp tiles) is handled by the idle check.
+  if (auto_ && !screencast_) {
+    const double frac = (cols * rows) ? static_cast<double>(changed_tiles) / (cols * rows) : 0.0;
+    constexpr double kChurnHigh = 0.35;   // ≥35% of the frame changed this paint
+    constexpr int kPromoteFrames = 24;    // sustained for ~0.4 s at 60 fps ⇒ real motion, not a scroll flick
+    if (frac >= kChurnHigh) {
+      if (++hot_frames_ >= kPromoteFrames) { StartScreencast("churn PROMOTE (sustained motion)"); return; }
+    } else {
+      hot_frames_ = 0;
+    }
+  }
+
   if (tiles_json.empty()) return;  // static page ⇒ zero bandwidth
 
   const std::string js = "window.__holoOsrFrame&&window.__holoOsrFrame({\"w\":" + std::to_string(width) +
@@ -112,17 +133,67 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
   lens_frame_->ExecuteJavaScript(js, lens_frame_->GetURL(), 0);
 }
 
-// In screencast mode, attach the DevTools observer and start CDP screencast (Chromium-encoded JPEG frames).
+// Attach the CDP DevTools observer so screencast can be started on demand (whether forced now or promoted later
+// by the churn router). Page.enable is harmless in tile mode; we only startScreencast when actually in/entering
+// screencast mode. Pure-tile-only producers (neither forced nor auto) skip CDP entirely.
 void HoloOsrClient::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   browser_ = browser;
-  if (!screencast_) return;
+  if (!forced_sc_ && !auto_) return;
   dt_reg_ = browser->GetHost()->AddDevToolsMessageObserver(this);
   browser->GetHost()->ExecuteDevToolsMethod(0, "Page.enable", nullptr);
+  if (screencast_) StartScreencast("forced (HOLO_PROJECT_SCREENCAST)");
+}
+
+// PROMOTE: begin Chromium's CDP JPEG screencast for this off-screen page. OnPaint then early-returns (tiling
+// stops); OnDevToolsEvent forwards each JPEG frame to the lens. Arms the idle watchdog so motion that stops
+// demotes back to crisp tiles (unless screencast is env-forced, which never demotes).
+void HoloOsrClient::StartScreencast(const std::string& why) {
+  if (!browser_) return;
   CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
   params->SetString("format", "jpeg");
   params->SetInt("quality", 85);            // near-lossless for UI; tune for the video/quality tradeoff
   params->SetInt("everyNthFrame", 1);
-  browser->GetHost()->ExecuteDevToolsMethod(0, "Page.startScreencast", params);
+  browser_->GetHost()->ExecuteDevToolsMethod(0, "Page.startScreencast", params);
+  screencast_ = true;
+  hot_frames_ = 0;
+  last_sc_ = std::chrono::steady_clock::now();
+  std::fprintf(stderr, "HOLO-PROJECT: screencast ON — %s\n", why.c_str()); std::fflush(stderr);
+  if (!forced_sc_) ScheduleDemoteCheck();
+}
+
+// DEMOTE: stop screencast and force a full repaint so the tile path re-establishes the now-static frame as
+// crisp, lossless, pixel-native κ tiles. Clearing last_kappa_ forces every slot to re-publish (the frame
+// changed while we were in screencast). No-op when screencast is env-forced.
+void HoloOsrClient::StopScreencast(const std::string& why) {
+  if (!browser_ || forced_sc_ || !screencast_) return;
+  browser_->GetHost()->ExecuteDevToolsMethod(0, "Page.stopScreencast", nullptr);
+  screencast_ = false;
+  hot_frames_ = 0;
+  last_kappa_.clear();
+  // Best-effort request to re-tile the now-static frame as crisp, lossless κ tiles. NOTE: on an unchanged Alloy
+  // OSR surface neither Invalidate() nor a WasHidden toggle actually forces a fresh OnPaint (measured: the
+  // producer stays idle until real content change), so the lens keeps showing the last screencast still — which
+  // IS the correct frozen frame — and re-tiles losslessly on the next genuine repaint (scroll/click/animation).
+  // The important effect of demote is unconditional: the screencast STREAM stops, so a paused video costs ~0.
+  browser_->GetHost()->Invalidate(PET_VIEW);
+  std::fprintf(stderr, "HOLO-PROJECT: screencast OFF → tiles — %s\n", why.c_str()); std::fflush(stderr);
+}
+
+void HoloOsrClient::ScheduleDemoteCheck() {
+  if (demote_scheduled_ || forced_sc_) return;
+  demote_scheduled_ = true;
+  CefRefPtr<HoloOsrClient> self(this);
+  CefPostDelayedTask(TID_UI, base::BindOnce([](CefRefPtr<HoloOsrClient> s) { s->CheckDemoteIdle(); }, self), 300);
+}
+
+void HoloOsrClient::CheckDemoteIdle() {
+  demote_scheduled_ = false;
+  if (!screencast_ || forced_sc_) return;
+  constexpr double kDemoteIdleMs = 450.0;   // no screencast frame this long ⇒ motion stopped ⇒ back to tiles
+  const double idle =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - last_sc_).count();
+  if (idle > kDemoteIdleMs) { StopScreencast("motion stopped (idle " + std::to_string(static_cast<int>(idle)) + "ms)"); return; }
+  ScheduleDemoteCheck();   // still streaming → keep watching
 }
 
 // A Page.screencastFrame arrived (base64 JPEG): forward it to the lens (__holoScreencastFrame decodes + tiles +
@@ -135,6 +206,7 @@ void HoloOsrClient::OnDevToolsEvent(CefRefPtr<CefBrowser> browser, const CefStri
   const std::string data = d->HasKey("data") ? d->GetString("data").ToString() : "";
   const int session = d->HasKey("sessionId") ? d->GetInt("sessionId") : 0;
   if (data.empty()) return;
+  last_sc_ = std::chrono::steady_clock::now();   // liveness for the idle watchdog (no frame ⇒ motion stopped ⇒ demote)
   const std::string js = "window.__holoScreencastFrame&&window.__holoScreencastFrame('data:image/jpeg;base64," +
                          data + "'," + std::to_string(sc_seq_++) + ")";
   lens_frame_->ExecuteJavaScript(js, lens_frame_->GetURL(), 0);
@@ -174,8 +246,11 @@ void OpenOsr(const std::string& url, CefRefPtr<CefFrame> lens_frame, int w, int 
   window_info.SetAsWindowless(0);                 // off-screen ⇒ forces Alloy runtime (no Chrome window)
   CefBrowserSettings settings;
   settings.windowless_frame_rate = 60;            // produce rate; present runs faster via holo-present-mailbox
-  const char* sc = std::getenv("HOLO_PROJECT_SCREENCAST");   // CDP JPEG full-motion path (vs raw tiles)
-  g_active_osr = new HoloOsrClient(lens_frame, w, h, 256, sc && sc[0] == '1');
+  const char* sc = std::getenv("HOLO_PROJECT_SCREENCAST");   // force CDP JPEG screencast always (vs raw tiles)
+  const char* noauto = std::getenv("HOLO_PROJECT_NOAUTO");   // disable the churn-driven tile↔screencast switch
+  const bool forced = sc && sc[0] == '1';
+  const bool autosw = !(noauto && noauto[0] == '1');         // auto-switch is ON by default ("just works")
+  g_active_osr = new HoloOsrClient(lens_frame, w, h, 256, forced, autosw);
   CefBrowserHost::CreateBrowser(window_info, g_active_osr, url, settings, nullptr, nullptr);
 }
 
