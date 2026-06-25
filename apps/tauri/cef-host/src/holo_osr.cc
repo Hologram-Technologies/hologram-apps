@@ -793,8 +793,13 @@ void ProjectBench(const std::string& url) {
   window_info.SetAsPopup(nullptr, "Hologram — projected");
   window_info.runtime_style = CEF_RUNTIME_STYLE_CHROME;        // the lens is a normal visible tab
   CefBrowserSettings settings;
-  CefBrowserHost::CreateBrowser(window_info, new LensClient(url),
-                                "holo://os/usr/lib/holo/holo-osr-projector.html", settings, nullptr, nullptr);
+  // WAN: HOLO_PROJECT_WAN=offer opens this (producer) lens in WebRTC-offer mode so it forwards each manifest to a
+  // remote node over a real datachannel (tiles still ride the shared-κ). The signaling SDP is read off the page
+  // via CDP (harness / holo-dial). Absent ⇒ the normal local lens.
+  std::string lensUrl = "holo://os/usr/lib/holo/holo-osr-projector.html";
+  const char* wan = std::getenv("HOLO_PROJECT_WAN");
+  if (wan && std::string(wan) == "offer") lensUrl += "?wan=offer";
+  CefBrowserHost::CreateBrowser(window_info, new LensClient(url), lensUrl, settings, nullptr, nullptr);
 }
 
 namespace {
@@ -816,6 +821,9 @@ class RemoteLensClient : public CefClient, public CefLifeSpanHandler, public Cef
     if (!polling_) { polling_ = true; Poll(); }
   }
   void Poll() {
+    // WAN mode: the lens receives manifests over the WebRTC datachannel, not the file — stop polling (don't
+    // reschedule) so the only manifest source is the real network transport (proves it end-to-end).
+    if (std::getenv("HOLO_PROJECT_WAN")) return;
     if (lens_frame_) {
       std::ifstream f(SharedDir() + "\\proj-manifest.json", std::ios::binary);
       if (f) {
@@ -849,8 +857,12 @@ void ProjectRemote() {
   window_info.SetAsPopup(nullptr, "Hologram — remote lens");
   window_info.runtime_style = CEF_RUNTIME_STYLE_CHROME;
   CefBrowserSettings settings;
-  CefBrowserHost::CreateBrowser(window_info, new RemoteLensClient(),
-                                "holo://os/usr/lib/holo/holo-osr-projector.html?remote=1", settings, nullptr, nullptr);
+  // WAN: HOLO_PROJECT_WAN=answer opens the remote lens in WebRTC-answer mode — it receives manifests over the
+  // datachannel (the file poller is disabled below), tiles still by κ over the shared/mesh transport.
+  std::string lensUrl = "holo://os/usr/lib/holo/holo-osr-projector.html?remote=1";
+  const char* wan = std::getenv("HOLO_PROJECT_WAN");
+  if (wan && std::string(wan) == "answer") lensUrl += "&wan=answer";
+  CefBrowserHost::CreateBrowser(window_info, new RemoteLensClient(), lensUrl, settings, nullptr, nullptr);
 }
 
 }  // namespace holo
