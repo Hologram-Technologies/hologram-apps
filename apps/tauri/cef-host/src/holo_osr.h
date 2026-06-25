@@ -45,7 +45,7 @@ void DispatchOsrInput(const std::string& json);
 // to stderr ("HOLO-OSR-BENCH:"), then quit the message loop. Triggered by env HOLO_OSR_BENCH=<url> in main.cc.
 void BenchOsr(const std::string& url);
 
-// LIVE end-to-end: open the real lens page (holo://os/lw/holo-osr-projector.html, served by the HOLO_LW_DIR
+// LIVE end-to-end: open the real lens page (holo://os/usr/lib/holo/holo-osr-projector.html, the SEALED lens
 // seam) AND, once it loads, an off-screen producer on `url` whose BLAKE3 κ-tiles flow through the cache to
 // the lens, which fetches holo://os/cache/blake3/<hex> and composites. The whole chain in one open. Triggered
 // by env HOLO_PROJECT_URL=<url>. Verify via CDP (:9333): the lens canvas shows the producer's pixels.

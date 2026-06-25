@@ -405,7 +405,7 @@ void ProjectBench(const std::string& url) {
   window_info.runtime_style = CEF_RUNTIME_STYLE_CHROME;        // the lens is a normal visible tab
   CefBrowserSettings settings;
   CefBrowserHost::CreateBrowser(window_info, new LensClient(url),
-                                "holo://os/lw/holo-osr-projector.html", settings, nullptr, nullptr);
+                                "holo://os/usr/lib/holo/holo-osr-projector.html", settings, nullptr, nullptr);
 }
 
 }  // namespace holo
