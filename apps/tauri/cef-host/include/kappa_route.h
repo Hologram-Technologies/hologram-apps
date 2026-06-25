@@ -44,6 +44,45 @@ void kr_sha256_hex(const uint8_t* data, size_t len, char* out);
  * a SIMD tree hash ~5x faster than sha256. The projection producer addresses per-frame tiles on this axis. */
 void kr_blake3_hex(const uint8_t* data, size_t len, char* out);
 
+/* Verified streaming (Bao): verify a CHUNK of a κ-object against its root κ via its Merkle proof, in
+ * O(log n), WITHOUT the whole object — so the host can serve a VERIFIED RANGE of a large object streamed
+ * from a peer/origin (a tampered chunk is refused, Law L5; the rest stream on). `root_hex` = NUL-terminated
+ * 64-char lowercase hex; `proof` = `proof_count` siblings, each 33 bytes (1 side byte 'L'/'R' + 32-byte
+ * chaining value). Returns 1 iff the chunk verifies, else 0. Same proof format as holo-bao.mjs (cross-impl). */
+uint8_t kr_bao_verify_chunk(const char* root_hex, uint64_t index,
+                            const uint8_t* chunk, size_t chunk_len,
+                            const uint8_t* proof, size_t proof_count);
+
+/* Verify a contiguous SLICE (aligned power-of-two run of chunks from `start_chunk`) in ONE SIMD pass + a
+ * short upper proof — the host's FAST streaming-verify path (~10× the per-chunk rate; measured ~40 GB/s
+ * parallel), so a κ-stream is wire-bound, not verify-bound (the InfiniBand-class requirement). Same proof
+ * wire format as kr_bao_verify_chunk. Returns 1 iff the slice verifies against `root_hex`, else 0. */
+uint8_t kr_bao_verify_slice(const char* root_hex, uint64_t start_chunk,
+                            const uint8_t* slice, size_t slice_len,
+                            const uint8_t* proof, size_t proof_count);
+
+/* Verified-streaming PRODUCER (kr_bao_encoder_*): the host streams a large κ-object as BLAKE3-verified
+ * chunks. Build the outboard ONCE (one O(n log n) SIMD pass), then serve any chunk + proof in O(1) — a
+ * consumer (renderer/peer/tab) renders chunk 0 the instant it arrives; the object is never re-hashed per
+ * request. The proof wire format (proof_count × 33 bytes: side 'L'/'R' + 32-byte CV) is exactly what
+ * kr_bao_verify_chunk consumes, so the host produces what any holo-bao consumer verifies (cross-impl). */
+typedef struct BaoEncoder BaoEncoder;
+BaoEncoder* kr_bao_encoder_new(const uint8_t* data, size_t len);          /* free with kr_bao_encoder_free */
+void        kr_bao_encoder_root(const BaoEncoder* enc, char* out /*>=65*/);
+uint64_t    kr_bao_encoder_chunk_count(const BaoEncoder* enc);
+/* Serve chunk `index`: bytes (out_chunk/out_chunk_len, free kr_free) + proof (out_proof/out_proof_count
+ * siblings × 33 bytes, free kr_free over out_proof_count*33). Returns 1, or 0 if index is out of range. */
+uint8_t     kr_bao_encoder_chunk(const BaoEncoder* enc, uint64_t index,
+                                 uint8_t** out_chunk, size_t* out_chunk_len,
+                                 uint8_t** out_proof, size_t* out_proof_count);
+void        kr_bao_encoder_free(BaoEncoder* enc);
+
+/* κ-fabric effective-goodput proof: run the InfiniBand-class benchmark for an object_mb-MiB object and
+ * return a heap JSON string (free with kr_cache_free_mime) — bare-metal ceilings (raw + parallel BLAKE3,
+ * Bao verify 1-core vs all-cores, memcpy) + the effective-goodput sweep vs IB (HDR/NDR/XDR) + honest notes.
+ * The host calls this from a holo:// page (cefQuery) to surface the proof live, the hot path in native Rust. */
+char* kr_fabric_goodput(size_t object_mb);
+
 /* ── Open-web κ-cache (kr_cache_*). The host's resource path content-addresses every cacheable http(s)
  * subresource and serves repeats from this cache at memory speed (no DNS/TLS/network) — projecting the
  * substrate in front of the network for EVERY website, not just holo://. Distinct from the sealed,
@@ -110,6 +149,13 @@ uint8_t kr_shared_get(const KShared* c, const char* kappa,
  * from the bytes, so a caller cannot mislabel content. */
 void kr_shared_put(const KShared* c, const char* kappa,
                    const uint8_t* data, size_t len, const char* mime);
+
+/* BLAKE3 σ-axis variants — the projection cross-device transport (the substrate is blake3-canonical; tiles
+ * never touch sha256). Separate `b3/` blob namespace. get re-derives BLAKE3 and refuses a mismatch (L5).
+ * `kappa` may be bare 64-hex or "did:holo:blake3:<hex>"; put recomputes the blake3 address from the bytes. */
+uint8_t kr_shared_get_b3(const KShared* c, const char* kappa,
+                         uint8_t** out_ptr, size_t* out_len, char** out_mime);
+void kr_shared_put_b3(const KShared* c, const uint8_t* data, size_t len, const char* mime);
 
 /* Record url→κ in the shared manifest (the gossip κ-source) so a node that never fetched `url` can resolve
  * its content address. Called on a cold miss alongside kr_shared_put. The BYTE transport stays κ-only; this

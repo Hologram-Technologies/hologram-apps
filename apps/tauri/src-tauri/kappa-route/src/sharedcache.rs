@@ -23,13 +23,23 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use crate::sha256_hex;
+use crate::{blake3_hex, sha256_hex};
 
 /// Normalize a caller-supplied κ to a bare 64-char lowercase-hex content address, or None if it is not a
 /// well-formed sha256 κ. This is BOTH a correctness check and the path-traversal guard: the κ becomes a
 /// filename, so anything but 64 hex chars (e.g. "../", absolute paths) is refused before touching the FS.
 fn normalize_kappa(k: &str) -> Option<String> {
     let hex = k.strip_prefix("did:holo:sha256:").unwrap_or(k);
+    if hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Some(hex.to_ascii_lowercase())
+    } else {
+        None
+    }
+}
+
+/// Same guard for the BLAKE3 σ-axis (projection tiles). Strips the blake3 DID prefix; 64-hex only.
+fn normalize_b3(k: &str) -> Option<String> {
+    let hex = k.strip_prefix("did:holo:blake3:").unwrap_or(k);
     if hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit()) {
         Some(hex.to_ascii_lowercase())
     } else {
@@ -73,6 +83,60 @@ impl SharedCache {
 
     fn blob_path(&self, hex: &str) -> PathBuf {
         self.dir.join(format!("{hex}.blob"))
+    }
+
+    /// BLAKE3 blobs live in a SEPARATE `b3/` namespace so a blake3-addressed blob is never read+verified on the
+    /// sha256 path (which would re-derive sha256, see a mismatch, and falsely "tamper"-delete a valid tile).
+    fn blob_path_b3(&self, hex: &str) -> PathBuf {
+        self.dir.join("b3").join(format!("{hex}.blob"))
+    }
+
+    /// BLAKE3 σ-axis get — the projection cross-device path. Re-derives BLAKE3 and REFUSES a mismatch (L5),
+    /// exactly like `get` does for sha256. The substrate is blake3-canonical; tiles never touch sha256.
+    pub fn get_b3(&mut self, kappa: &str) -> Option<(Vec<u8>, String)> {
+        let hex = match normalize_b3(kappa) {
+            Some(h) => h,
+            None => { self.misses += 1; return None; }
+        };
+        let raw = match fs::read(self.blob_path_b3(&hex)) {
+            Ok(b) => b,
+            Err(_) => { self.misses += 1; return None; }
+        };
+        let nl = raw.iter().position(|&b| b == b'\n');
+        let (mime, body) = match nl {
+            Some(i) => (String::from_utf8_lossy(&raw[..i]).into_owned(), raw[i + 1..].to_vec()),
+            None => { let _ = fs::remove_file(self.blob_path_b3(&hex)); self.refused_tamper += 1; return None; }
+        };
+        if blake3_hex(&body) != hex {
+            let _ = fs::remove_file(self.blob_path_b3(&hex));
+            self.refused_tamper += 1;
+            return None;
+        }
+        self.hits += 1;
+        self.bytes_served += body.len() as u64;
+        Some((body, mime))
+    }
+
+    /// BLAKE3 σ-axis put (deduped by blake3). The address is recomputed from the bytes — a caller cannot
+    /// mislabel content. Idempotent. Returns the blake3 hex.
+    pub fn put_b3(&mut self, bytes: &[u8], mime: &str) -> String {
+        let hex = blake3_hex(bytes);
+        let dest = self.blob_path_b3(&hex);
+        if dest.exists() {
+            return hex;
+        }
+        let _ = fs::create_dir_all(self.dir.join("b3"));
+        let mut blob = Vec::with_capacity(mime.len() + 1 + bytes.len());
+        blob.extend_from_slice(mime.as_bytes());
+        blob.push(b'\n');
+        blob.extend_from_slice(bytes);
+        let tmp = self.dir.join("b3").join(format!("{hex}.blob.tmp"));
+        if fs::write(&tmp, &blob).is_ok() && fs::rename(&tmp, &dest).is_ok() {
+            self.published += 1;
+        } else {
+            let _ = fs::remove_file(&tmp);
+        }
+        hex
     }
 
     /// Record that `url`'s content is `kappa` (called on a cold miss, alongside put). Persists the manifest so
@@ -272,6 +336,58 @@ pub unsafe extern "C" fn kr_shared_put(
     };
     if let Ok(mut guard) = (*c).0.lock() {
         guard.put(bytes, &mime_s);
+    }
+}
+
+/// BLAKE3 σ-axis get — the projection cross-device transport (the substrate is blake3-canonical). Returns 1 on
+/// a verified hit, 0 on miss/refusal. `kappa` may be bare 64-hex or `did:holo:blake3:<hex>`.
+/// # Safety: as kr_shared_get.
+#[no_mangle]
+pub unsafe extern "C" fn kr_shared_get_b3(
+    c: *const KShared,
+    kappa: *const c_char,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+    out_mime: *mut *mut c_char,
+) -> u8 {
+    if c.is_null() || kappa.is_null() {
+        return 0;
+    }
+    let k = match CStr::from_ptr(kappa).to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+    let mut guard = match (*c).0.lock() {
+        Ok(g) => g,
+        Err(_) => return 0,
+    };
+    match guard.get_b3(k) {
+        Some((bytes, mime)) => {
+            *out_len = bytes.len();
+            *out_ptr = Box::into_raw(bytes.into_boxed_slice()) as *mut u8;
+            let cm = std::ffi::CString::new(mime).unwrap_or_default();
+            *out_mime = cm.into_raw();
+            1
+        }
+        None => 0,
+    }
+}
+
+/// BLAKE3 σ-axis put (deduped by blake3; the address is recomputed from the bytes).
+/// # Safety: as kr_shared_put.
+#[no_mangle]
+pub unsafe extern "C" fn kr_shared_put_b3(c: *const KShared, data: *const u8, len: usize, mime: *const c_char) {
+    if c.is_null() || data.is_null() {
+        return;
+    }
+    let bytes = std::slice::from_raw_parts(data, len);
+    let mime_s = if mime.is_null() {
+        "application/octet-stream".to_string()
+    } else {
+        CStr::from_ptr(mime).to_str().unwrap_or("application/octet-stream").to_string()
+    };
+    if let Ok(mut guard) = (*c).0.lock() {
+        guard.put_b3(bytes, &mime_s);
     }
 }
 
