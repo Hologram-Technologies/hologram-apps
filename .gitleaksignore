@@ -1,0 +1,15 @@
+# gitleaks false positives (not secrets). Fingerprint = commit:file:rule:startline.
+# - Chrome MV3 extension "key" = the extension's PUBLIC key (defines the ext ID), public by design.
+9695f5bc86655d052a5ee9eb6263574415a72b8e:apps/tauri/cef-host/test-ext-popup/manifest.json:generic-api-key:5
+# - built/minified app bundles + sourcemaps (minifier identifiers, not secrets).
+b015286df84e1df4888fe22a645814613f006e26:apps/jypyter/build/3462.a328105.js:generic-api-key:1
+b015286df84e1df4888fe22a645814613f006e26:apps/jypyter/build/3462.a328105.js.map:generic-api-key:1
+b015286df84e1df4888fe22a645814613f006e26:apps/jypyter/build/4708.58dae1c.js:generic-api-key:1
+b015286df84e1df4888fe22a645814613f006e26:apps/jypyter/build/4708.58dae1c.js.map:generic-api-key:1
+b015286df84e1df4888fe22a645814613f006e26:apps/jypyter/build/7884.6f6767f.js:generic-api-key:1
+b015286df84e1df4888fe22a645814613f006e26:apps/jypyter/build/7884.6f6767f.js.map:generic-api-key:1
+# - test stand-in fixtures (not live credentials).
+b015286df84e1df4888fe22a645814613f006e26:apps/q/forge/gguf-forge.test.mjs:generic-api-key:121
+b015286df84e1df4888fe22a645814613f006e26:apps/q/forge/holo-archive.test.mjs:generic-api-key:39
+# - content-addressed κ-block (high-entropy binary blob, BLAKE3/SHA content, not a key).
+b015286df84e1df4888fe22a645814613f006e26:apps/squeaknos/images/SqueakNOS.iso.kblocks/.holo/sha256/3fd632940c5d6cb3d439d1c1b2af67a59a8fec25bcb1166a06c7c7334684abea:generic-api-key:1
