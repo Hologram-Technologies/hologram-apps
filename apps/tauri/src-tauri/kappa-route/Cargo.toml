@@ -16,5 +16,10 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 
 [dependencies]
 sha2 = "0.10"
-blake3 = "1"
+# `rayon` lights up BLAKE3's multi-core SIMD path (Hasher::update_rayon) — the bare-metal throughput that
+# decides whether κ-streaming verify keeps up with an InfiniBand line rate (kappa-fabric goodput proof).
+blake3 = { version = "1", features = ["rayon"] }
+# data-parallel chunk verification — the bare-metal path that lifts streaming verify from ~0.3 GB/s
+# (1 core) toward the multi-core BLAKE3 ceiling, so the cold stream is wire-bound, never verify-bound.
+rayon = "1"
 serde_json = "1"

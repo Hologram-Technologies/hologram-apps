@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Holo Popup Test",
+  "version": "1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArMCxkzwtdQUpVVdFizVo6xkI1agDOOo9VZK2Qi2/sU16kjDizTDdNqAiYKyAKWq36a2UxvF4Si/UdMcmLo6CR42ttEYurpxohQ0tKDgfmNcULP8Vrugl0Sa/pkr9AdjgWcIio2acINgIGd03We0uqPgEJKI5gNA6NCMR4Ls6SkWum7RWMb4kTwFQk/2qJwIbpg+o8bqCiGSe9Fez9Xc98wDfdw8nAS6zmJ41xTP0hqpYk1M+d922N8Qp+QUZ7iET8oztkMRQlhurBLFWNSeC4+B+KGYYthOXFuaDIRRRprqaLGw1D5aUqycJ/ybMS+dMJeC6ByIOLu9z658q68InqwIDAQAB",
+  "description": "Proves the κ-rail extension proxy opens a real extension popup.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Holo Popup"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://example.com/*"
+      ],
+      "js": [
+        "cs.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Hologram",
+  "version": "0.1.0",
+  "description": "Projects the κ substrate onto Chrome's native toolbar surfaces (bookmarks bar, action, omnibox).",
+  "minimum_chrome_version": "120",
+  "action": { "default_title": "Hologram", "default_popup": "popup.html" },
+  "permissions": ["bookmarks", "storage", "webNavigation"],
+  "host_permissions": ["holo://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "omnibox": { "keyword": "h" },
+  "background": { "service_worker": "bg.js" }
+}

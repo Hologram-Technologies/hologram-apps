@@ -31,11 +31,25 @@ These restate the Google-free knobs as GN args so a milestone rebase can never s
   constitution judges navigations at the door (P4, `holo-conscience`) — local, self-verifying, no lookup.
 - **Identity is self-sovereign**: no Google sign-in; the operator is a κ-rooted local identity (P3 step-up).
 
-## The one honest trade-off: DRM (Widevine)
-`enable_widevine=false` (ungoogled's default). Widevine is a Google-distributed *proprietary* CDM, so a
-truly Google-free build omits it — which means DRM-locked streaming (Netflix/Spotify-web premium tiers) will
-not play. This is inherent to "Google-free," not a Hologram limitation. If a deployment needs EME, Widevine
-can be added out-of-band as a downloaded component (no longer strictly Google-free) — a per-deployment call.
+## The one honest trade-off: DRM (Widevine) — DELIBERATELY ENABLED
+`enable_widevine=true`. **Reversed from ungoogled's default by an explicit product call** (2026-06-23): a
+browser that promises "any media type across the web just works" must play DRM-locked streaming
+(Netflix / Disney+ / Spotify-web premium / EME-gated news players), so EME is on.
+
+Widevine is a Google-distributed *proprietary* CDM, so this is a real, conscious trade against strict
+Google-freedom. We bound it as tightly as possible:
+- **The de-Googled binary stays blob-free.** `enable_widevine=true` compiles EME *support* only. The CDM
+  library (`libwidevinecdm.so`) is **not** bundled into `chrome` and **not** auto-downloaded by Google's
+  component updater (which ungoogled disables). It is **provisioned at runtime into the user profile**
+  (`<profile>/WidevineCdm/<ver>/_platform_specific/<arch>/`) from an existing on-disk component — so the
+  shipped, inspectable binary contains no Google proprietary blob; the CDM is a separable, user-visible
+  artifact in the profile that can be removed to return to a strictly-Google-free state.
+- **No other Google surface is reintroduced.** Widevine support does not re-enable Safe Browsing, accounts,
+  sync, variations, or reporting — those remain off (see the belt above). The reach is exactly EME, nothing
+  more.
+
+To revert to strictly Google-free: set `enable_widevine=false` in `holo-flags.gn` and delete the profile's
+`WidevineCdm/` — DRM streaming then won't play, which is inherent to "Google-free," not a Hologram limitation.
 
 ## Verifying a build is Google-free
 - `chrome://version` shows "Hologram OS" and no "Google Chrome" branding (branding/apply_branding.py).

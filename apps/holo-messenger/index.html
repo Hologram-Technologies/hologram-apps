@@ -73,6 +73,13 @@
     .bubble .kap:hover { color: var(--accent); }
     .bubble .tick { color: #cdddff; font-size: .7rem; }
     .bubble .lock { font-size: .66rem; }
+    .bubble .edited { color: var(--dim); font-size: .62rem; font-style: italic; }
+    .bubble .rxrow { margin-top: .2rem; display: flex; gap: .3rem; flex-wrap: wrap; }
+    .bubble .rx { background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 0 .45rem; font-size: .72rem; }
+    .bubble .tools { position: absolute; top: -10px; right: 6px; display: none; gap: .1rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; padding: .1rem .2rem; }
+    .bubble:hover .tools { display: flex; }
+    .bubble .tools button { font-size: .8rem; padding: 0 .25rem; line-height: 1.4; }
+    .bubble.reply { margin-left: 2.2rem; opacity: .96; border-left: 2px solid var(--accent); }
     #dayline { align-self: center; background: var(--panel2); color: var(--dim); font-size: .7rem; padding: .2rem .7rem; border-radius: 99px; margin: .2rem 0 .4rem; }
     #composer { display: flex; align-items: center; gap: .6rem; padding: .55rem .9rem; background: var(--panel2); }
     #composer input { flex: 1; background: var(--panel); border: 0; border-radius: 99px; color: var(--ink); padding: .65rem 1rem; outline: none; }
@@ -132,6 +139,9 @@
     import { kemKeygen } from "/usr/lib/holo/holo-pqc.mjs";
     import { threadAddress, resolveThreadWords, shareThreadPayload, shareLinkFor, decodeShareLink, mountSharedThread } from "/usr/lib/holo/holo-messenger-share.mjs";
     import { defaultWordlist } from "/usr/lib/holo/holo-words.mjs";
+    import "/usr/lib/holo/holo-net.mjs";   // sets window.HoloNet (real holowhat content network, else local fallback)
+    import { opfsAvailable, makeOpfsBackend } from "/usr/lib/holo/holo-messenger-store.mjs";
+    import { messengerReducer } from "/usr/lib/holo/holo-messenger-reducer.mjs";   // reactions/edits/replies (holowhat, verbatim)
 
     const glyphFor = (id) => (ADAPTERS.find((a) => a.id === id) || {}).glyph || "💬";
     const labelFor = (id) => (ADAPTERS.find((a) => a.id === id) || {}).label || id;
@@ -144,7 +154,7 @@
     // send is genuinely consent-gated by a signature over the action κ — honest: cryptographically
     // gated, the biometric presence is the production upgrade. If keygen is unavailable, operator
     // stays null and the composer sends ungated local-echo (clearly not a TEE-gated send).
-    let principal = null, operator = null, gate = null, wordlist = null, kem = null;
+    let principal = null, operator = null, gate = null, wordlist = null, kem = null, atRestKey = null;
     async function initIdentity() {
       try {
         const SUB = crypto.subtle, te = new TextEncoder(), b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
@@ -156,12 +166,20 @@
         principal = { kappa: operator, alg, pub: b64(pub),
           async sign(s) { const u = typeof s === "string" ? te.encode(s) : s; return b64(await SUB.sign(alg === "Ed25519" ? { name: "Ed25519" } : { name: "ECDSA", hash: "SHA-256" }, kp.privateKey, u)); } };
         kem = kemKeygen();                                 // hybrid X25519‖ML-KEM-1024 identity for PQ epoch wrapping
-        // The gate signs a step-up over the action κ with the in-page sovereign principal.
-        // PRODUCTION swaps in holo-stepup.requireStepUp (WebAuthn/TEE) here — a one-line change.
-        // NOTE: we do NOT eagerly import requireStepUp in this preview: its transitive wallet/TON
-        // bundle installs an incomplete global Buffer polyfill that breaks holo-pluck base64url
-        // mints page-wide. Surfaced as a finding; the production host resolves that polyfill.
-        gate = async (action) => buildStepUp(action, principal);
+        // stable at-rest key for OPFS persistence (survives reload). PRODUCTION: the operator's sovereign
+        // vault key (holo-session.activeCipher / TEE-unlocked) — only they can open the on-disk chain.
+        atRestKey = new Uint8Array(await SUB.digest("SHA-256", te.encode("holo-messenger/demo-at-rest-key/v1")));
+        // The gate prefers a REAL WebAuthn/TEE step-up bound to the action κ (holo-stepup.requireStepUp),
+        // which is what runs in the native CEF browser (Windows Hello). Where there is no platform TEE
+        // (e.g. this web preview) it falls back to the in-page sovereign principal. Re-enabled now that
+        // N1 hardened holo-pluck.encodePayload — requireStepUp's transitive wallet/TON Buffer polyfill
+        // no longer breaks mints, so attempting it is safe everywhere.
+        gate = async (action) => {
+          try {
+            const m = await import("/usr/lib/holo/holo-stepup.mjs");
+            return await m.requireStepUp({ kind: action.kind, payload: action.payload, appId: action.appId, operator: action.operator, reason: action.reason });
+          } catch { return buildStepUp(action, principal); }   // no TEE here → sovereign in-page step-up
+        };
       } catch (e) { principal = null; operator = null; gate = null; kem = null; }
     }
     // the platform delivery seam — in a real platform tab this injects compose+send (Phase 7);
@@ -171,9 +189,21 @@
     // a conversation = { meta, thread, sender }. Operator-signed when an identity is present.
     function makeConversation(meta) {
       const genesis = conversationGenesis(meta);
-      const thread = makeThread({ genesis, now, signer: principal });
+      // durable: persist the signed chain in the OPFS κ-store (encrypted at rest), so the conversation
+      // survives reload. Falls back to in-memory when OPFS/at-rest-key absent (honest degradation).
+      const backend = (atRestKey && opfsAvailable()) ? makeOpfsBackend({ genesis, atRestKey }) : null;
+      const thread = makeThread({ genesis, backend, now, signer: principal });
       const sender = makeSender({ thread, operator, stepUp: gate, deliver: localDeliver, now });
       return { meta: { ...meta, genesis }, thread, sender };
+    }
+    // addConversation — create + register a conversation discovered at runtime (e.g. a real chat
+    // captured from a platform tab). Best-effort PQ epoch; pushed into the live inbox.
+    async function addConversation(meta) {
+      const c = makeConversation(meta);
+      const member = { kappa: operator || "did:holo:member:me", pub: kem && kem.pub, sk: kem && kem.sk };
+      try { c.epoch = await newEpoch({ genesis: c.meta.genesis, members: [member] }); c.epochKey = await unwrapEpochKey(c.epoch.meta, member); } catch (e) { c.epoch = null; c.epochKey = null; }
+      convos.push(c);
+      return c;
     }
 
     // ── seed: a few real conversations across platforms, with genuinely plucked κ messages ──
@@ -215,7 +245,7 @@
       }
       renderChats();
       openConversation(convos[0]);
-      wireLive();
+      await wireLive();
       window.__M = api;                       // verification hook
       document.documentElement.setAttribute("data-holo-messenger-ready", "1");
     }
@@ -249,34 +279,72 @@
       renderChats(document.getElementById("q").value.trim().toLowerCase());
     }
 
+    // reactions/edits/replies are REAL signed events on the conversation chain (holo-strand notes); the
+    // projection is holowhat's verbatim reducer over our §2.6 events (P4). Affordances stay WhatsApp-simple.
+    async function reactTo(kappa, symbol) { await active.thread.appendNote("reaction", { target: kappa, symbol }); renderStream(); }
+    async function editMsg(kappa, body) { if (!body) return; await active.thread.appendNote("edit", { target: kappa, body }); renderStream(); }
+    async function replyTo(kappa, text) { if (!text) return; const r = await active.thread.ingest({ text, sender: "Me", sentAt: now(), chat: active.meta.chat, source: "holo" }); await active.thread.appendNote("reply", { message: r.kappa, parent: kappa }); renderStream(); }
+
+    // build holowhat events { id, author, clock, kind, payload } from our signed thread, then reduce.
+    function projectActive() {
+      const events = [];
+      for (const e of active.thread.replay()) {
+        const k = e["holstr:kind"], p = e["holstr:payload"] || {}, author = e["holstr:op"] || "me", clock = e["holstr:seq"];
+        if (k === "message") { const o = p.object || {}; events.push({ id: p["holo:message"], author, clock, kind: "message", payload: { body: o["schema:text"] || "" } }); }
+        else if (k === "reaction") events.push({ id: e.id, author, clock, kind: "reaction", payload: { target: p.target, symbol: p.symbol } });
+        else if (k === "edit") events.push({ id: e.id, author, clock, kind: "edit", payload: { target: p.target, body: p.body } });
+        else if (k === "reply") { const rm = events.find((ev) => ev.id === p.message); if (rm) rm.payload.parentId = p.parent; }
+      }
+      return messengerReducer(events);
+    }
+
     function renderStream() {
       const host = document.getElementById("stream");
-      const msgs = active.thread.view();                  // view() already drops anything that fails L5 (verify-before-render)
+      const view = active.thread.view();                  // display fields (verify-before-render); reducer adds affordances
+      const vmap = new Map(view.map((m) => [m.kappa, m]));
       const consentSet = new Set(active.thread.replay({ kind: "message.consent" }).map((n) => n["holstr:payload"]["holo:message"]));
+      const proj = projectActive();
+      const pmap = new Map(proj.messages.map((m) => [m.id, m]));
       host.innerHTML = `<div id="dayline">today</div>`;
-      for (const m of msgs) {
-        const out = m.sender === "Me";
-        const gated = out && consentSet.has(m.kappa);
+
+      const bubble = (id, isReply) => {
+        const pm = pmap.get(id); const vm = vmap.get(id); if (!pm || !vm) return;
+        const out = vm.sender === "Me";
+        const gated = out && consentSet.has(id);
+        const edited = (pm.edits && pm.edits.length > 0);
+        const reactions = (pm.reactions || []).map((r) => `<span class="rx" title="${esc((r.authors || []).join(', '))}">${esc(r.symbol)} ${r.count}</span>`).join("");
         const el = document.createElement("div");
-        el.className = "bubble " + (out ? "out" : "in");
+        el.className = "bubble " + (out ? "out" : "in") + (isReply ? " reply" : "");
         el.innerHTML = `
-          ${!out && m.sender ? `<div class="sender">${esc(m.sender)}</div>` : ""}
-          <div class="text">${esc(m.text)}</div>
-          <div class="foot"><span class="kap mono" title="${esc(m.kappa)}">κ ${esc(m.short)}</span><span class="time">${esc(hhmm(m.sentAt))}</span>${gated ? `<span class="lock" title="TEE step-up — consent bound to this message κ">🔒</span>` : ""}${out ? `<span class="tick">✓✓</span>` : ""}</div>`;
-        el.querySelector(".kap").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(m.kappa).catch(()=>{}); flashVerified(); };
+          ${!out && vm.sender ? `<div class="sender">${esc(vm.sender)}</div>` : ""}
+          <div class="text">${esc(pm.body || vm.text)}</div>
+          <div class="foot"><span class="kap mono" title="${esc(id)}">κ ${esc(vm.short)}</span><span class="time">${esc(hhmm(vm.sentAt))}</span>${edited ? `<span class="edited" title="edited">edited</span>` : ""}${gated ? `<span class="lock" title="TEE step-up — consent bound to this message κ">🔒</span>` : ""}${out ? `<span class="tick">✓✓</span>` : ""}</div>
+          ${reactions ? `<div class="rxrow">${reactions}</div>` : ""}
+          <div class="tools"><button title="React">👍</button><button title="Reply">↩</button>${out ? `<button title="Edit">✎</button>` : ""}</div>`;
+        el.querySelector(".kap").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(id).catch(() => {}); flashVerified(); };
+        const tb = el.querySelectorAll(".tools button");
+        tb[0].onclick = () => reactTo(id, "👍");
+        tb[1].onclick = () => { const t = prompt("Reply:"); if (t) replyTo(id, t); };
+        if (out && tb[2]) tb[2].onclick = () => { const t = prompt("Edit:", pm.body || vm.text); if (t != null) editMsg(id, t); };
         host.appendChild(el);
-      }
+        for (const rid of (pm.replies || [])) bubble(rid, true);   // threaded replies, indented
+      };
+      for (const id of proj.rootMessages) bubble(id, false);
+
       host.scrollTop = host.scrollHeight;
-      document.getElementById("thVerified").innerHTML = `<span class="dot" style="width:7px;height:7px"></span> ${msgs.length} verified`;
-      document.getElementById("grow").textContent = `${convos.reduce((n,c)=>n+c.thread.length(),0)} messages · all re-derived`;
+      document.getElementById("thVerified").innerHTML = `<span class="dot" style="width:7px;height:7px"></span> ${view.length} verified`;
+      document.getElementById("grow").textContent = `${convos.reduce((n, c) => n + c.thread.length(), 0)} events · all re-derived`;
     }
 
     // ── the live stream: a content-blind publisher → the inbox subscriber verifies → renders ──
     // (standalone, the publisher stands in for a platform tab; same transport + reception code) ──
-    let channelSend = () => {}, lastWire = null;
-    function wireLive() {
-      const receivers = new Set();
-      channelSend = (frame) => { lastWire = frame; receivers.forEach((r) => r(frame)); };   // in-page channel (a tab uses BroadcastChannel)
+    let lastWire = null, netCarrier = null;
+    const receivers = new Set();
+    // channelSend is a STABLE dispatcher: route the sealed stream over holowhat's content network when
+    // present, else the in-page channel. Everything above this line (inbox, send, render) is identical
+    // either way — the carrier is fully abstracted, so the UX stays exactly WhatsApp-simple.
+    const channelSend = (frame) => { lastWire = frame; if (netCarrier) netCarrier(frame); else receivers.forEach((r) => r(frame)); };
+    async function wireLive() {
       for (const c of convos) {
         // the live stream is SEALED: incoming is opened under the conversation's PQ epoch key,
         // re-verified, then ingested. The wire carries ciphertext; a relay sees no plaintext.
@@ -287,22 +355,54 @@
         });
         receivers.add((frame) => c.secure.receive(frame));
       }
+      // ── carrier: route the sealed live stream over holowhat's REAL content network when available ──
+      // (publish = cnPut + cnAnnounce; receive = poll cnDiscover → cnFetch → feed the secure links, which
+      // verify-on-receipt + open the PQ epoch). Same frames, same security — only the carrier changes.
+      try {
+        // holo-net loads the WASM async: window.HoloNet starts as the local fallback, then becomes the real
+        // holowhat CN (data-holo-net set once settled). Wait so we wire the REAL carrier, not the fallback.
+        for (let i = 0; i < 200 && !document.documentElement.getAttribute("data-holo-net"); i++) await new Promise((r) => setTimeout(r, 50));
+        const net = window.HoloNet;
+        if (net) {
+          await net.ready;
+          // local-echo so THIS device renders immediately (you don't fetch your own message from the
+          // network), AND publish to the CN so OTHER devices discover + fetch it. The receive poll below
+          // pulls messages from OTHER peers (cn_discover only returns peers' holdings, not our own).
+          netCarrier = (frame) => { receivers.forEach((r) => r(frame)); try { const k = net.cnPut(frame); net.cnAnnounce(k, "holo-messenger"); window.__lastCNPut = k; } catch (e) {} };
+          const seen = new Set();
+          setInterval(async () => {
+            let ks; try { ks = net.cnDiscover(); } catch (e) { return; }
+            for (const k of ks) { if (seen.has(k)) continue; seen.add(k); let b; try { b = await net.cnFetch(k); } catch (e) { continue; } if (b) { const u = b instanceof Uint8Array ? b : new Uint8Array(b); receivers.forEach((r) => r(u)); } }
+          }, 200);
+          document.documentElement.setAttribute("data-live-carrier", net.impl);
+        } else document.documentElement.setAttribute("data-live-carrier", "local");
+      } catch (e) { document.documentElement.setAttribute("data-live-carrier", "local-fallback"); }
       // PRODUCTION capture: listen on the real BroadcastChannel the native CEF platform-tab inject
       // (holo-messenger-capture-boot.js) publishes to. A captured message is a verified κ frame; we
       // mount it verify-before-trust and ingest into the matching conversation. Dormant in preview
       // (no platform tab posts here), live once the Phase-7 inject filter is built.
       try {
+        async function handleCapture(d) {
+          if (!d || !d.holoMessengerCapture || !d.input || !d.input.text) return;   // raw capture from a real platform tab
+          const meta = { platform: d.platform, chat: (d.input.chat || d.platform) };
+          const genesis = conversationGenesis(meta);
+          let c = convos.find((x) => x.meta.genesis === genesis);
+          if (!c) { c = makeConversation(meta); convos.push(c); }                    // a new conversation appears
+          // P6: route the captured message through the content network (seal → cnPut + cnAnnounce, so the
+          // operator's OTHER devices fetch it) + local-echo render; fall back to local ingest if no link yet.
+          if (c.secure) { await c.secure.publishSecure(mint(d.input).object); }
+          else { await c.thread.ingest(d.input); }
+          window.__lastCapture = { platform: d.platform, chat: meta.chat, text: d.input.text };  // verification hook
+          if (active && active.meta.genesis === genesis) renderStream();
+          renderChats(document.getElementById("q").value.trim().toLowerCase());
+        }
+        // CROSS-ORIGIN: the host bridge forwards a platform-tab capture as a 'holo-capture' window event
+        // (BroadcastChannel can't cross from web.whatsapp.com into holo://os).
+        window.addEventListener("holo-capture", (e) => { try { handleCapture(typeof e.data === "string" ? JSON.parse(e.data) : e.data); } catch (err) {} });
+        // SAME-ORIGIN fallback (holo:// pages): the BroadcastChannel
         const capBC = new BroadcastChannel("holo-messenger");
-        const capSub = makeSubscriber({
-          topics: convos.map((c) => c.meta.genesis),
-          onMessage: async ({ genesis, object }) => {
-            const c = convos.find((x) => x.meta.genesis === genesis); if (!c) return;
-            await c.thread.ingestObject(object);
-            if (active && active.meta.genesis === genesis) renderStream();
-            renderChats(document.getElementById("q").value.trim().toLowerCase());
-          },
-        });
-        capBC.onmessage = (e) => { try { capSub.receive(e.data); } catch (err) {} };
+        capBC.onmessage = (e) => handleCapture(e.data);
+        window.__capBC = capBC; window.__handleCapture = handleCapture;              // exposed for verification
       } catch (e) {}
     }
 
@@ -373,6 +473,10 @@
       total: () => convos.reduce((n, c) => n + c.thread.length(), 0),
       verifyActive: async () => active.thread.verify(),
       operator: () => operator,
+      reactTo: async (kappa, symbol) => { await reactTo(kappa, symbol); return projectActive(); },
+      editMsg: async (kappa, body) => { await editMsg(kappa, body); return projectActive(); },
+      replyTo: async (kappa, text) => { await replyTo(kappa, text); return projectActive(); },
+      project: () => projectActive(),
       consentNotes: () => active.thread.replay({ kind: "message.consent" }).map((n) => n["holstr:payload"]),
       adapters: () => ADAPTERS.map((a) => a.id),
       address: () => wordlist ? threadAddress(active.meta.genesis, wordlist) : null,
