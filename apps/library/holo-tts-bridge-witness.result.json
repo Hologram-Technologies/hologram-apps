@@ -1,0 +1,23 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-tts-bridge — a text-only public-domain work (Gutenberg, no LibriVox recording) is narrated by κ-native TTS (Kokoro) and becomes a high-confidence read-along you own. Because the synthesizer emits the word timings, self-alignment is EXACT (sentence-mode, conf ≈ 1), not estimated. The narration flows through the same real-κ pipeline (audio pinned to genuine κ), provenance marks the synthetic source honestly (public-domain, derived), and the title shares + opens on a fresh device like any other holo-title. This closes the last gap: every public-domain text can become a read-along, no recording required.",
+  "authority": "rests on #holo-library (manufactureTitle) + the Kokoro TTS seam (holo-voice) — P6 of the Holo Library build",
+  "witnessed": true,
+  "covers": [
+    "text-only-before",
+    "narrates-to-read-along",
+    "tts-audio-real-kappa",
+    "exact-sync",
+    "provenance-synthetic",
+    "composes-with-share"
+  ],
+  "checks": {
+    "textOnlyBefore": true,
+    "narratesToReadAlong": true,
+    "ttsAudioRealKappa": true,
+    "exactSync": true,
+    "provenanceSynthetic": true,
+    "composesWithShare": true
+  },
+  "failed": []
+}

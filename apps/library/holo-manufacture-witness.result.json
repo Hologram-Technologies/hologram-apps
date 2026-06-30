@@ -1,0 +1,23 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-manufacture — the live in-host pipeline, witnessed headlessly with injected stubs: a discovered work's Gutenberg text → holo-text DAG; LibriVox sections pinned by κ (holo-pin); sections↔chapters mapped (holo-chaptermap); each chapter aligned LAZILY via the real ASR adapter (holo-asr) → holo-align, so chapter one is read-along-ready fast and the rest align on demand; title() seals a verifiable public-domain holo-title (audio = κ playlist, text = DAG κ, syncmap = κ over aligned chapters, honest about coverage). The ONLY in-host swaps are the Whisper engine (holo-asr-whisper) and the content-net store — every other step is proven here.",
+  "authority": "rests on #holo-text + #holo-pin + #holo-chaptermap + #holo-asr + #holo-align + #holo-title — the M1 live pipeline",
+  "witnessed": true,
+  "covers": [
+    "builds-dag",
+    "pins-audio-by-kappa",
+    "maps-sections",
+    "lazy-align",
+    "seals-read-along",
+    "coverage-grows"
+  ],
+  "checks": {
+    "buildsDag": true,
+    "pinsAudioByKappa": true,
+    "mapsSections": true,
+    "lazyAlign": true,
+    "sealsReadAlong": true,
+    "coverageGrows": true
+  },
+  "failed": []
+}

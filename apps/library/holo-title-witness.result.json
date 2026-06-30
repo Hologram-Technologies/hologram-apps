@@ -1,0 +1,23 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-title — a holo-title is a signed κ-manifest (a DAG of audio/text/images/syncmap tracks). Its identity is the blake3 over its sorted track κ-map + work identity + rights, so the same content collapses to one κ and tampering is detectable (L5). Tracks may be absent and the reader degrades gracefully. The rights boundary is enforced: a metadata-only title cannot carry ingested bytes — Holo Library indexes commercial catalogs, it never ingests them.",
+  "authority": "rests on #holo-blake3 (kappaBlake3) — P0 of the Holo Library build",
+  "witnessed": true,
+  "covers": [
+    "seals-and-verifies",
+    "deterministic-kappa",
+    "tamper-fails",
+    "modes-degrade",
+    "rights-enforced",
+    "bad-kappa-rejected"
+  ],
+  "checks": {
+    "sealsAndVerifies": true,
+    "deterministicKappa": true,
+    "tamperFails": true,
+    "modesDegrade": true,
+    "rightsEnforced": true,
+    "badKappaRejected": true
+  },
+  "failed": []
+}

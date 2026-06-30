@@ -1,0 +1,74 @@
+{
+  "$comment": "Holo Library — canonical registration is via the hub catalog (tools/gen-app-defs.mjs). This file mirrors the player's shape so the app is launchable; regenerate from the catalog when wiring into the launcher.",
+  "id": "org.hologram.HoloLibrary",
+  "name": "Holo Library",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "The open web's audiobooks and books, owned by κ, listened to and read as one synced object.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "BookApplication",
+  "conforms": {
+    "specs": [
+      "holo-title",
+      "holo-source"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloLibrary"
+    ]
+  },
+  "shared": [
+    "holo-sound.mjs",
+    "holo-theme.js",
+    "holo-mobile.css"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "Your library shouldn't be a subscription you rent. Discover any audiobook or book from the open web — LibriVox, Project Gutenberg, the Internet Archive — and own it as a signed κ-title you carry."
+    },
+    {
+      "p": "A title is one object: audio, text, and a synced read-along track, auto-manufactured by aligning a free narration to its free text. Listen, read, or both — switch mid-sentence with no re-fetch. Share it as one link that opens running on any device."
+    },
+    {
+      "ul": [
+        "The open web is the catalog — nothing to host",
+        "Audio + text from different libraries, merged into one work",
+        "Read-along auto-manufactured by forced alignment, no publisher",
+        "Owned, not rented — a κ-manifest you carry",
+        "Commercial catalogs are indexed and linked out, never ingested"
+      ]
+    }
+  ],
+  "categories": [
+    "AudioVideo",
+    "Audio",
+    "Literature"
+  ],
+  "keywords": [
+    "audiobook",
+    "book",
+    "read-along",
+    "librivox",
+    "gutenberg",
+    "library"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0-only",
+  "homepage": "https://hologram.os/apps/library",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-26",
+      "description": "P0-P3: holo-title manifest, open-library work hub, forced-alignment syncmap, and the Holo Read cursor surface."
+    }
+  ],
+  "accent": "#aa5cc3"
+}

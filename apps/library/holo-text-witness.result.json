@@ -1,0 +1,21 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-text — a raw Project Gutenberg book becomes the reader's addressable text track: license boilerplate stripped, split into chapters, sentence-spanned with stable spanIds, and content-addressed (κ per chapter; the text-track κ is the deterministic κ over the sorted chapter-κ map). The spans line up 1:1 with holo-align's syncmap and holo-read's rendering, so any Gutenberg text drops straight into the read-along. Pure: identical bytes ⇒ identical κ, on a real fetched book or a fixture.",
+  "authority": "rests on #holo-content-net (kappaOf) + #holo-align — the text-track for the Holo Library build",
+  "witnessed": true,
+  "covers": [
+    "strips-boilerplate",
+    "chapterizes",
+    "sentence-spans",
+    "chapter-kappa",
+    "feeds-align"
+  ],
+  "checks": {
+    "stripsBoilerplate": true,
+    "chapterizes": true,
+    "sentenceSpans": true,
+    "chapterKappa": true,
+    "feedsAlign": true
+  },
+  "failed": []
+}

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holo Library</title>
+<style>
+  :root { --accent: #aa5cc3; --bg: #0c0a10; --fg: #ece8f0; --dim: #9b93a8; --on: #2a1f33; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 16px/1.65 ui-serif, Georgia, "Times New Roman", serif; }
+  .hl-reader { max-width: 760px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding: 0 22px 64px; }
+  .hl-bar { position: sticky; top: 0; background: linear-gradient(var(--bg) 78%, transparent); padding: 18px 0 12px; display: grid; gap: 10px; z-index: 5; }
+  .hl-title { display: flex; align-items: baseline; gap: 10px; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .hl-title strong { font-size: 19px; } .hl-title em { color: var(--dim); font-style: normal; font-size: 14px; }
+  .hl-ribbon { width: 10px; height: 18px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); align-self: center; }
+  .hl-modes { display: flex; gap: 6px; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .hl-modes button { background: transparent; color: var(--dim); border: 1px solid #2c2733; border-radius: 999px; padding: 5px 14px; font-size: 13px; cursor: pointer; transition: .15s; }
+  .hl-modes button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .hl-modes button:disabled { opacity: .3; cursor: not-allowed; }
+  .hl-search { background: #161220; border: 1px solid #2c2733; border-radius: 8px; color: var(--fg); padding: 7px 12px; font: inherit; font-size: 14px; }
+  .hl-audio { width: 100%; margin: 4px 0 8px; filter: invert(.92) hue-rotate(180deg); }
+  .hl-results { display: grid; gap: 4px; margin-bottom: 12px; }
+  .hl-hit { text-align: left; background: #161220; border: 1px solid #2c2733; color: var(--dim); border-radius: 6px; padding: 6px 10px; font: 13px/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+  .hl-text { font-size: 20px; padding-top: 6px; }
+  .hl-reader[data-mode="listen"] .hl-text { opacity: .35; font-size: 17px; }
+  .hl-span { transition: background .2s, color .2s; border-radius: 4px; cursor: pointer; }
+  .hl-span.on { background: color-mix(in srgb, var(--accent) 28%, transparent); color: #fff; }
+  .hl-reader[data-mode="read"] .hl-span.on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .hl-prov { margin-top: 28px; color: var(--dim); font: 12px ui-sans-serif, system-ui, sans-serif; border-top: 1px solid #221d2b; padding-top: 12px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script type="module">
+  import { mountReader } from "./holo-read-ui.mjs";
+  import { sealTitle, RIGHTS } from "./holo-title.mjs";
+  import { alignChapter } from "./holo-align.mjs";
+  import { flattenSyncmaps } from "./holo-read.mjs";
+
+  // Self-contained demo (no network): a short public-domain passage + a synthetic ASR hypothesis, run through
+  // the SAME P2 alignment kernel and P0 manifest the witnesses cover. In production the book hub (P1) supplies
+  // the LibriVox audio + Gutenberg text and Moonshine/Whisper supplies the ASR words.
+  const refText = "The quick brown fox jumps over the lazy dog. It pauses by the river and listens. Then it runs on into the bright morning.";
+  const asr = "the quick brown fox jumps over the lazy dog it pauses by the river and listens then it runs on into the bright morning".split(" ")
+    .map((w, i) => ({ w, t0: i * 420, t1: i * 420 + 380 }));
+  const map = alignChapter({ refText, asrWords: asr, chapterId: "demo" });
+  const spans = flattenSyncmaps([{ chapterId: "demo", spans: map.spans }]);
+
+  const KDEMO = "blake3:" + "9".repeat(64);
+  const title = sealTitle({
+    work: { title: "The Fox by the River", authors: ["Holo Library Demo"], lang: "en", cover: null },
+    audio: KDEMO, text: "blake3:" + "8".repeat(64), syncmap: "blake3:" + "7".repeat(64),
+    provenance: { sources: [{ library: "LibriVox", mediaType: "audio" }, { library: "Project Gutenberg", mediaType: "text" }], license: "Public Domain", derived: true },
+    rights: { class: RIGHTS.PUBLIC_DOMAIN },
+  });
+
+  // Self-contained + offline: no external audio. A demo "play" driver advances the cursor along the syncmap so
+  // read-along is visible without a network fetch; production binds a real LibriVox <audio> track here instead.
+  const ui = mountReader(document.getElementById("app"), { title, spans, audioSrc: null });
+  window.__holoReader = ui;
+  // tiny synthetic transport so the highlight moves in the demo (replaced by real audio.currentTime in prod)
+  const audio = document.querySelector(".hl-audio");
+  let t = 0, timer = null, end = (spans.at(-1)?.endMs || 0) + 400;
+  Object.defineProperty(audio, "currentTime", { configurable: true, get: () => t / 1000, set: (v) => { t = v * 1000; audio.dispatchEvent(new Event("timeupdate")); } });
+  audio.play = () => { clearInterval(timer); timer = setInterval(() => { t += 120; if (t > end) t = 0; audio.dispatchEvent(new Event("timeupdate")); }, 120); return Promise.resolve(); };
+  audio.pause = () => { clearInterval(timer); timer = null; };
+  Object.defineProperty(audio, "paused", { configurable: true, get: () => !timer });
+  audio.play();
+</script>
+</body>
+</html>

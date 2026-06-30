@@ -1,0 +1,83 @@
+{
+  "$comment": "Holo XXX — canonical registration is via the hub catalog (tools/gen-app-defs.mjs). This file mirrors the player's shape so the app is launchable; regenerate from the catalog when wiring into the launcher.",
+  "id": "org.hologram.HoloXXX",
+  "name": "Holo XXX",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "The open web's adult catalogue, discovered by metadata and owned by κ — your collection is an encrypted, biometric-sealed κ-DAG you carry, streamed in 4K/60 as content-verified objects, not a server you run.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "VideoApplication",
+  "contentRating": "RTA-5042-1996-1400-1577-RTA",
+  "conforms": {
+    "specs": [
+      "holo-title",
+      "holo-source",
+      "holo-media"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloXXX"
+    ],
+    "stepUp": [
+      "open",
+      "reveal",
+      "export"
+    ]
+  },
+  "shared": [
+    "holo-media.mjs",
+    "holo-uor.mjs",
+    "holo-sound.mjs",
+    "holo-theme.js",
+    "holo-mobile.css"
+  ],
+  "engines": [],
+  "description": [
+    {
+      "p": "Stash conflates two jobs into one always-on server: organizing a collection and serving it from a machine. Holo XXX splits them. Organizing is attaching metadata edges to content; serving is streaming bytes. Hologram already does both as κ operations — and decouples them from any server."
+    },
+    {
+      "p": "A scene is one object: an MSE κ-feed (an init segment + ordered media segments, each a κ) plus a metadata edge (title, performers, studio, tags, cover) scraped from the open community catalogues. The whole collection has one root κ, sealed at rest under a TEE-derived key and unlocked only by a biometric ceremony. Move machines, share, fork, time-travel — by one κ."
+    },
+    {
+      "ul": [
+        "The open web's metadata DBs are the catalogue — nothing to host",
+        "4K/60 (and beyond) streamed as BLAKE3 κ-objects, every byte re-derived before the decoder (L5)",
+        "Wide-range categories auto-faceted from scraped tags — instant search and navigation",
+        "Encrypted at rest, biometric-gated, no account, no telemetry, selective-disclosure tags",
+        "Share one κ-link to a curated playlist — recipient streams it peer-to-peer, byte-verified, neither party hosting",
+        "Acquisition is the user's call (yt-dlp / owned files) — the OS organizes, addresses, encrypts and streams; it never hosts or redistributes others' content"
+      ]
+    }
+  ],
+  "categories": [
+    "AudioVideo",
+    "Video"
+  ],
+  "keywords": [
+    "video",
+    "streaming",
+    "kappa",
+    "private",
+    "self-hosted",
+    "collection"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "GPL-2.0-only",
+  "homepage": "https://hologram.os/apps/holo-xxx",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-26",
+      "description": "P0: scene hub + StashDB metadata provider, owned-content provider, sealed κ-scene manifest, manufacture/share/open-on-fresh-device, and the immersive κ-stream catalogue."
+    }
+  ],
+  "accent": "#e0245e"
+}

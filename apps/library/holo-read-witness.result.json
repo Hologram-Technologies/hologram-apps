@@ -1,0 +1,25 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-read — listening and reading share ONE absolute-ms cursor; both modes are pure functions of it. Switching modality keeps the ms position and re-derives the span synchronously with ZERO io — that is the 'switch mid-sentence with zero re-fetch' guarantee, proven with an io spy. Per-chapter syncmaps flatten into one timeline; tap-a-line seeks audio; full-text search resolves to seekable spans. The UI merely binds <audio>.currentTime to this kernel.",
+  "authority": "rests on #holo-align (syncmap) — P3 of the Holo Library build (the reader)",
+  "witnessed": true,
+  "covers": [
+    "flatten-timeline",
+    "ms-round-trip",
+    "switch-keeps-place",
+    "switch-zero-io",
+    "seek-by-tap",
+    "search-seekable",
+    "bounds-clamp"
+  ],
+  "checks": {
+    "flattenTimeline": true,
+    "msRoundTrip": true,
+    "switchKeepsPlace": true,
+    "switchZeroIO": true,
+    "seekByTap": true,
+    "searchSeekable": true,
+    "boundsClamp": true
+  },
+  "failed": []
+}

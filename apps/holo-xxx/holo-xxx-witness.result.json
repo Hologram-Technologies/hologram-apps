@@ -1,0 +1,132 @@
+{
+  "app": "holo-xxx",
+  "pass": 31,
+  "total": 31,
+  "ok": true,
+  "results": [
+    {
+      "name": "1 hub merges meta+video by scene key, unions performers/tags, prefers catalogue cover",
+      "pass": true
+    },
+    {
+      "name": "1b facetsOf aggregates the tag space with counts, hottest first",
+      "pass": true
+    },
+    {
+      "name": "2 sealScene is deterministic + self-verifying (L5); tamper fails verify",
+      "pass": true
+    },
+    {
+      "name": "3 metadata-only scene refuses to carry a video κ (index, never redistribute)",
+      "pass": true
+    },
+    {
+      "name": "4 manufactureScene: video κ = blake3(recipe), segment closure pinned, scene verifies",
+      "pass": true
+    },
+    {
+      "name": "5 share→open on a FRESH device (origin offline); tamper fails closed",
+      "pass": true
+    },
+    {
+      "name": "6 collection head seals under the REAL holospace-identity TEE seam; wrong secret fails closed",
+      "pass": true
+    },
+    {
+      "name": "7 opening a scene is a step-up whose challenge IS the scene κ (payload-bound)",
+      "pass": true
+    },
+    {
+      "name": "8 discovery: injected key enables StashDB + normalizes; κ-cache dedupes repeat queries",
+      "pass": true
+    },
+    {
+      "name": "9 covers content-address by κ (Lightspeed): same bytes → stable κ + /.holo src",
+      "pass": true
+    },
+    {
+      "name": "10 acquire is plan-only (no fetch) and seals the user's graph into the collection",
+      "pass": true
+    },
+    {
+      "name": "11 each segment carries a blake3/Bao root that matches its bytes (the verified-streaming axis)",
+      "pass": true
+    },
+    {
+      "name": "12 HOSTLESS peer: receiver streams a segment by κ over a channel, Bao-verified; lying peer refused",
+      "pass": true
+    },
+    {
+      "name": "13 rights: a metadata-only scene is never served peer-to-peer",
+      "pass": true
+    },
+    {
+      "name": "14 swarm failover: a dead peer is skipped, an honest peer still delivers",
+      "pass": true
+    },
+    {
+      "name": "15 share→peer-open: a #k= recipe opens (origin offline) and its graph drives peer streaming",
+      "pass": true
+    },
+    {
+      "name": "16 importCatalog paginates a provider into many BYTE-FREE index entries (dedup by id)",
+      "pass": true
+    },
+    {
+      "name": "17 generateDemoCatalog yields a large, varied, byte-free wall (facet-able)",
+      "pass": true
+    },
+    {
+      "name": "18 ingest queue: a real κ-graph → streamable+owned; no graph → failed (never a fake stream)",
+      "pass": true
+    },
+    {
+      "name": "19 aggregator: byte-free index entries carry a resolvable _src + a category taxonomy",
+      "pass": true
+    },
+    {
+      "name": "20 resolve-on-play: an m3u8 → a κ-MediaGraph; seg0 is delivered BEFORE the tail (streaming ingest)",
+      "pass": true
+    },
+    {
+      "name": "21 κ-cache replay: a prior resolve's κs serve a repeat from cache, byte-identical, no re-fetch",
+      "pass": true
+    },
+    {
+      "name": "22 routing: classifyMedia recognizes a watch page (yt-dlp path) but not an m3u8 (HLS path); vstream key is the page URL",
+      "pass": true
+    },
+    {
+      "name": "23 persistent κ-cache (content-addressed store contract): a repeat view serves a segment by κ even when the resolver THROWS",
+      "pass": true
+    },
+    {
+      "name": "24 owned-only peer gate refuses a RESOLVED third-party scene (resolved bytes never broadcast)",
+      "pass": true
+    },
+    {
+      "name": "25 live backend: stashBackend pages byte-free index entries that forward a resolvable _src; importCatalog dedups",
+      "pass": true
+    },
+    {
+      "name": "26 aloha taxonomy: parseTaxonomy reads /top/<slug> categories (byte-free); slug→query maps underscores",
+      "pass": true
+    },
+    {
+      "name": "27 fetchTaxonomy + orderForWall: injected fetch → categories with query; a headline category leads",
+      "pass": true
+    },
+    {
+      "name": "28 Eporner base-36 hash IS the stream-auth transform (raw hash is rejected; transform unlocks it)",
+      "pass": true
+    },
+    {
+      "name": "29 private curator: watch history re-ranks categories (recency-weighted); byte-free; no-history falls back",
+      "pass": true
+    },
+    {
+      "name": "30 intent browse: a free-text mood → the overlapping Atlas categories (MOOD synonyms; empty → none)",
+      "pass": true
+    }
+  ]
+}

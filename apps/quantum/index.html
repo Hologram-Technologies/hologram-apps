@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Holo Quantum</title>
+    <meta name="description" content="Holo Quantum — UNMODIFIED PennyLane running natively in Hologram's κ-addressable substrate as a topological quantum computing emulator. Paste any PennyLane script and run it verbatim on the tqc.anyon device: an exact statevector core (PennyLane's own reference simulator) with TQC κ-collapse so equivalent circuits return instantly and provably. No CDN (Law L4); content-addressed and reproducible (Law L5)." />
+
+    <link rel="stylesheet" href="/_shared/holo-theme.css" />
+    <link rel="stylesheet" href="/_shared/holo-mobile.css" />
+    <script src="/_shared/holo-theme.js"></script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: var(--holo-bg); --panel: var(--holo-surface); --line: var(--holo-border);
+        --dim: var(--holo-ink-dim); --ink: var(--holo-ink); --accent: var(--holo-accent, #b18cff);
+        --ok: var(--holo-ok, #3fb950); --bad: var(--holo-danger, #ff6b6b);
+        --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); display: flex; flex-direction: column; overflow: hidden;
+        font: var(--holo-text-sm, 1rem)/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      #bar { flex: 0 0 auto; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+        padding: .45rem .85rem; background: var(--panel); border-bottom: 1px solid var(--line);
+        font: var(--holo-text-sm, 1rem) var(--mono); user-select: none; }
+      #bar .logo { width: 22px; height: 22px; color: var(--accent); flex: 0 0 auto; }
+      #bar .name { color: var(--ink); font-weight: 800; letter-spacing: .02em; }
+      #bar .tag2 { color: var(--dim); }
+      #bar .sp { margin-left: auto; }
+      #dev { color: var(--accent); font: .82rem var(--mono); border: 1px solid var(--line);
+        border-radius: 999px; padding: .12rem .6rem; }
+      #canon { display: inline-flex; align-items: center; gap: .35rem; color: var(--dim);
+        font: 700 .72rem var(--mono); cursor: pointer; user-select: none; }
+      #canon input { accent-color: var(--accent); margin: 0; cursor: pointer; }
+
+      main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+      @media (max-width: 760px) { main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+      .pane { min-height: 0; display: flex; flex-direction: column; }
+      .pane + .pane { border-left: 1px solid var(--line); }
+      .phead { flex: 0 0 auto; display: flex; align-items: center; gap: .5rem; padding: .4rem .7rem;
+        border-bottom: 1px solid var(--line); color: var(--dim);
+        font: 700 .7rem var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+      .phead .sp { margin-left: auto; }
+
+      #editor { flex: 1 1 auto; min-height: 0; width: 100%; resize: none; border: 0; outline: none;
+        background: transparent; color: var(--ink); padding: .8rem .9rem; tab-size: 4;
+        font: var(--holo-text-sm, .9rem)/1.55 var(--mono); white-space: pre; overflow: auto; }
+      #out { flex: 1 1 auto; min-height: 0; margin: 0; overflow: auto; padding: .8rem .9rem;
+        font: var(--holo-text-sm, .86rem)/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--ink); }
+      #out .err { color: var(--bad); }
+      #out .muted { color: var(--dim); }
+
+      button { cursor: pointer; font: var(--holo-text-sm, 1rem) var(--mono); color: var(--ink);
+        background: var(--panel); border: 1px solid var(--line); border-radius: var(--holo-radius-sm, 8px);
+        padding: .35rem .8rem; min-height: 34px; }
+      button:hover { border-color: var(--accent); }
+      button.cta { color: #15082b; background: var(--accent); border-color: var(--accent); font-weight: 800; }
+      button:disabled { opacity: .5; cursor: default; }
+
+      #status { flex: 0 0 auto; display: flex; align-items: center; gap: .7rem;
+        padding: .35rem .85rem; border-top: 1px solid var(--line); background: var(--panel);
+        font: .8rem var(--mono); color: var(--dim); }
+      #status .sx { color: var(--accent); min-width: 1.2em; display: inline-block; }
+      #status .verok { color: var(--ok); } #status .err { color: var(--bad); }
+      #kstat, #strand { color: var(--dim); font: 700 .68rem var(--mono); letter-spacing: .04em; }
+      #kstat b, #strand b { color: var(--accent); font-weight: 800; }
+      #strand #sver.ok { color: var(--ok); } #strand #sver.bad { color: var(--bad); }
+      .note { padding: .45rem .85rem; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 60%, transparent);
+        color: var(--dim); font: .76rem var(--mono); }
+      .note b { color: var(--ink); }
+    </style>
+  </head>
+  <body data-holo-boot="off">
+    <script src="./holo-splash.js"></script>
+    <holo-splash app="Holo Quantum"></holo-splash>
+
+    <div id="bar">
+      <svg class="logo" viewBox="0 0 128 128" fill="none" stroke="currentColor" stroke-width="6">
+        <circle cx="64" cy="64" r="14" fill="currentColor" stroke="none"/>
+        <ellipse cx="64" cy="64" rx="52" ry="20"/>
+        <ellipse cx="64" cy="64" rx="52" ry="20" transform="rotate(60 64 64)"/>
+        <ellipse cx="64" cy="64" rx="52" ry="20" transform="rotate(120 64 64)"/>
+      </svg>
+      <span class="name">Holo Quantum</span>
+      <span class="tag2">PennyLane · topological QC emulator</span>
+      <span class="sp"></span>
+      <label id="canon" title="κ-collapse+: also collapse circuits that are equivalent but written differently (cancel inverses, merge rotations). Off by default — costs a rewrite pass, wins on repeated/redundant circuits.">
+        <input type="checkbox" id="canonChk" /> κ-collapse+
+      </label>
+      <span id="dev">device: tqc.anyon</span>
+    </div>
+
+    <main>
+      <section class="pane">
+        <div class="phead"><span>circuit</span><span class="sp"></span>
+          <button id="runBtn" class="cta" disabled>Run ▸</button>
+        </div>
+        <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+      </section>
+      <section class="pane">
+        <div class="phead"><span>output</span><span class="sp"></span>
+          <span id="strand" title="provenance strand — every circuit κ, hash-linked &amp; verified">strand <b id="slen">0</b> · <span id="sver">—</span></span>
+          <span id="kstat">κ-cache <b id="hits">0</b> hit / <b id="miss">0</b> miss</span>
+        </div>
+        <pre id="out"><span class="muted">Booting the κ-substrate quantum kernel…</span></pre>
+      </section>
+    </main>
+
+    <div class="note">
+      <b>How it's real:</b> exact amplitudes come from PennyLane's own reference statevector engine; the substrate adds
+      topological (D(Z₆) anyonic) braiding semantics and κ-collapse so equivalent circuits return instantly and provably.
+      Abelian D(Z₆) braiding is <b>not</b> universal on its own — universality here is the exact-state core, not the braiding.
+    </div>
+
+    <div id="status">
+      <span class="sx" id="spin"></span>
+      <span id="stat">starting…</span>
+    </div>
+
+    <script type="module">
+      import { QuantumKernel } from "./quantum-boot.mjs";
+
+      const $ = (id) => document.getElementById(id);
+      const editor = $("editor"), out = $("out"), runBtn = $("runBtn");
+      const statEl = $("stat"), spinEl = $("spin"), hitsEl = $("hits"), missEl = $("miss");
+      const FX = () => window.HoloFX;
+
+      const DEMO = [
+        "# Holo Quantum — runs UNMODIFIED PennyLane on the tqc.anyon device.",
+        "# Edit freely, then Run. Equivalent circuits collapse to one κ (instant on repeat).",
+        "import pennylane as qml",
+        "from pennylane import numpy as np",
+        "",
+        "dev = qml.device(\"tqc.anyon\", wires=2)",
+        "",
+        "@qml.qnode(dev)",
+        "def bell():",
+        "    qml.Hadamard(0)",
+        "    qml.CNOT(wires=[0, 1])",
+        "    return qml.expval(qml.PauliZ(0) @ qml.PauliZ(1)), qml.probs(wires=[0, 1])",
+        "",
+        "zz, probs = bell()",
+        "print(\"<Z@Z> =\", float(zz))",
+        "print(\"probs =\", np.round(probs, 4))",
+        "print(qml.draw(bell)())",
+        "result = float(zz)",
+      ].join("\n");
+      editor.value = DEMO;
+
+      function setStatus(msg, cls) { statEl.textContent = msg; statEl.className = cls || ""; }
+
+      const kernel = new QuantumKernel({ onStage: (s) => setStatus(s + "…") });
+      window.holoQuantumKernel = kernel;   // debug/inspection handle (strand, py, stats)
+      let spinHandle = null;
+      if (FX() && FX().spin) spinHandle = FX().spin(spinEl, "dna");
+
+      (async () => {
+        try {
+          await kernel.boot();
+          if (spinHandle) { spinHandle.stop("◆"); spinHandle = null; }
+          setStatus("kernel ready · PennyLane + tqc.anyon", "verok");
+          out.innerHTML = '<span class="muted">Ready. Press Run ▸ (or Ctrl/⌘+Enter).</span>';
+          runBtn.disabled = false;
+          $("canonChk").addEventListener("change", async (e) => {
+            await kernel.setCanonicalize(e.target.checked);
+            setStatus("κ-collapse+ " + (e.target.checked ? "on" : "off"), "verok");
+          });
+        } catch (e) {
+          if (spinHandle) { spinHandle.stop("✕"); spinHandle = null; }
+          setStatus("kernel failed to boot", "err");
+          out.innerHTML = '<span class="err">' + String(e && e.message || e).replace(/</g, "&lt;") + "</span>";
+        }
+      })();
+
+      async function run() {
+        if (runBtn.disabled) return;
+        runBtn.disabled = true;
+        let sh = FX() && FX().spin ? FX().spin(spinEl, "dna") : null;
+        setStatus("running…");
+        const t0 = performance.now();
+        try {
+          const r = await kernel.run(editor.value);
+          const ms = Math.round(performance.now() - t0);
+          const parts = [];
+          if (r.stdout) parts.push(r.stdout.replace(/</g, "&lt;"));
+          if (r.error) parts.push('<span class="err">' + r.error.replace(/</g, "&lt;") + "</span>");
+          else if (r.result != null) parts.push('<span class="muted">result = </span>' + String(r.result).replace(/</g, "&lt;"));
+          out.innerHTML = parts.join("\n") || '<span class="muted">(no output)</span>';
+          if (sh) { sh.stop(r.error ? "✕" : "◆"); sh = null; }
+          setStatus((r.error ? "error" : "ok") + " · " + ms + " ms", r.error ? "err" : "verok");
+          const stats = await kernel.stats().catch(() => null);
+          if (stats) { hitsEl.textContent = stats.hits; missEl.textContent = stats.misses; }
+          const ss = await kernel.strandStatus().catch(() => null);
+          if (ss) {
+            $("slen").textContent = ss.length;
+            const sver = $("sver");
+            sver.textContent = ss.verified ? "✓ verified" : (ss.length ? "✕" : "—");
+            sver.className = ss.length ? (ss.verified ? "ok" : "bad") : "";
+            if (ss.last) $("dev").textContent = "tqc.anyon · κ " + ss.last.slice(0, 17) + "…";
+          }
+        } catch (e) {
+          if (sh) { sh.stop("✕"); sh = null; }
+          out.innerHTML = '<span class="err">' + String(e && e.message || e).replace(/</g, "&lt;") + "</span>";
+          setStatus("error", "err");
+        } finally { runBtn.disabled = false; }
+      }
+
+      runBtn.addEventListener("click", run);
+      editor.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(); }
+        if (e.key === "Tab") { e.preventDefault(); const s = editor.selectionStart, en = editor.selectionEnd;
+          editor.value = editor.value.slice(0, s) + "    " + editor.value.slice(en); editor.selectionStart = editor.selectionEnd = s + 4; }
+      });
+    </script>
+  </body>
+</html>

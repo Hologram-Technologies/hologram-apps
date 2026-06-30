@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<datafile><header><name>Nintendo - Game Boy</name></header>
+<game name="Hologram Demo (World)"><description>Hologram Demo (World)</description><rom name="Hologram Demo (World).rom" size="32768" sha1="66faf3b1dd4ec7bb78ff11e5ecbc8da3a249622f"/></game>
+</datafile>
+<?xml version="1.0"?>
+<datafile><header><name>Nintendo - Nintendo Entertainment System</name></header>
+<game name="Hologram Demo (USA)"><description>Hologram Demo (USA)</description><rom name="Hologram Demo (USA).rom" size="24592" sha1="971ef6799e1ee2cb19f8734311d9fc71998bf768"/></game>
+</datafile>
+<?xml version="1.0"?>
+<datafile><header><name>Nintendo - Game Boy Advance</name></header>
+<game name="Hologram Demo (World)"><description>Hologram Demo (World)</description><rom name="Hologram Demo (World).rom" size="1024" sha1="8896fc5b3c77fe76a5bb8c275225100948edd776"/></game>
+</datafile>
+<?xml version="1.0"?>
+<datafile><header><name>Nintendo - Super Nintendo Entertainment System</name></header>
+<game name="Hologram Demo (Europe)"><description>Hologram Demo (Europe)</description><rom name="Hologram Demo (Europe).rom" size="32768" sha1="dcf48304045c8f40826df4e519a79e4ea22521ad"/></game>
+</datafile>
+<?xml version="1.0"?>
+<datafile><header><name>Sega - Mega Drive - Genesis</name></header>
+<game name="Hologram Demo (World)"><description>Hologram Demo (World)</description><rom name="Hologram Demo (World).rom" size="131072" sha1="8ab11fb9ca0f38567a262877e15cf704d3dab2d2"/></game>
+</datafile>

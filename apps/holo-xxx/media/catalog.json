@@ -1,0 +1,235 @@
+{
+  "v": 1,
+  "generated": "demo",
+  "scenes": [
+    {
+      "id": "aurora",
+      "mediaType": "video",
+      "title": "Aurora",
+      "performers": [
+        "Demo Performer A"
+      ],
+      "studio": "Holo Studio",
+      "date": "2026-01-12",
+      "tags": [
+        "4K",
+        "60fps",
+        "Solo",
+        "Cinematic",
+        "Studio"
+      ],
+      "cover": "media/aurora/cover.jpg",
+      "duration": 4,
+      "graph": {
+        "@context": {
+          "holo": "https://hologram.os/ns#",
+          "schema": "http://schema.org/"
+        },
+        "@type": "holo:MediaGraph",
+        "kind": "video",
+        "live": false,
+        "videos": [
+          {
+            "id": "aurora",
+            "schema:name": "Aurora",
+            "schema:duration": "PT4S",
+            "representations": [
+              {
+                "mime": "video/mp4; codecs=\"avc1.42c034, mp4a.40.2\"",
+                "height": 2160,
+                "fps": 60,
+                "bitrate": 18000000,
+                "width": 3840,
+                "initSegment": "did:holo:sha256:4384599a9ba223ac3428d6cdb129273d575bb272d5996cb9c3c40854c02becd5",
+                "initBao": "did:holo:blake3:1c297c586dc9740119cf05af24c9a61d2a8d147bfa43bda3c7ec8eca975b7a81",
+                "initLen": 1356,
+                "initPath": "media/aurora/2160p/init.mp4",
+                "segments": [
+                  {
+                    "kappa": "did:holo:sha256:934c75ef946f90eca7ff4b5bc16465eab96ace3237ace9ff30598f27dfcb1b7e",
+                    "bao": "did:holo:blake3:08141bf188b9be5162793bc1da1423f8b9697e19d081364f19819c246c79eff9",
+                    "dur": 2,
+                    "bytes": 6817183,
+                    "len": 6817183,
+                    "path": "media/aurora/2160p/seg0.m4s"
+                  },
+                  {
+                    "kappa": "did:holo:sha256:8825e07f3e803dc731aafe890885e548c5237d7dfc56498bffa8adf51162e0e5",
+                    "bao": "did:holo:blake3:d712c83c5b8875d70bce1489d9245a578ddbc13eeec9965d66ab4768f704348f",
+                    "dur": 2,
+                    "bytes": 3557365,
+                    "len": 3557365,
+                    "path": "media/aurora/2160p/seg1.m4s"
+                  }
+                ]
+              },
+              {
+                "mime": "video/mp4; codecs=\"avc1.42c02a, mp4a.40.2\"",
+                "height": 1080,
+                "fps": 60,
+                "bitrate": 6000000,
+                "width": 1920,
+                "initSegment": "did:holo:sha256:3e773d27936647cdaab9a6831cce74012c3696b83c8f5f51e34d344e5aa5348e",
+                "initBao": "did:holo:blake3:441ee50b35b3239cefa556905060d47e5f5ffc285e94e4e417a06b9db4e2483c",
+                "initLen": 1355,
+                "initPath": "media/aurora/1080p/init.mp4",
+                "segments": [
+                  {
+                    "kappa": "did:holo:sha256:0e89f43b878361c0aa655caeeab85116a1504a24d684e27c2542f82ac286cfec",
+                    "bao": "did:holo:blake3:34df18ad2bd98f20f8aaef8d11f52b01e95d8f22c4c2301d161f4e709f4990a0",
+                    "dur": 2,
+                    "bytes": 2101973,
+                    "len": 2101973,
+                    "path": "media/aurora/1080p/seg0.m4s"
+                  },
+                  {
+                    "kappa": "did:holo:sha256:d6f3eb71d3620b54ea61ff224c8b6b2824171b98a4ab589f6594005c273d6d05",
+                    "bao": "did:holo:blake3:ec3090a4a5e790509dc6652c71c45f0f794c11318c16fbb4ca6a2d35778a3588",
+                    "dur": 2,
+                    "bytes": 1404034,
+                    "len": 1404034,
+                    "path": "media/aurora/1080p/seg1.m4s"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "holo:segmentClosure": "did:holo:sha256:803beca458b1cdd7dfaafc34100e07dd86701cc8a4cd60b35cc72da1d9ce9b40"
+      }
+    },
+    {
+      "id": "velvet",
+      "mediaType": "video",
+      "title": "Velvet",
+      "performers": [
+        "Demo Performer B",
+        "Demo Performer C"
+      ],
+      "studio": "Holo Studio",
+      "date": "2026-03-04",
+      "tags": [
+        "4K",
+        "60fps",
+        "Couple",
+        "POV",
+        "Studio"
+      ],
+      "cover": "media/velvet/cover.jpg",
+      "duration": 4,
+      "graph": {
+        "@context": {
+          "holo": "https://hologram.os/ns#",
+          "schema": "http://schema.org/"
+        },
+        "@type": "holo:MediaGraph",
+        "kind": "video",
+        "live": false,
+        "videos": [
+          {
+            "id": "velvet",
+            "schema:name": "Velvet",
+            "schema:duration": "PT4S",
+            "representations": [
+              {
+                "mime": "video/mp4; codecs=\"avc1.42c034, mp4a.40.2\"",
+                "height": 2160,
+                "fps": 60,
+                "bitrate": 18000000,
+                "width": 3840,
+                "initSegment": "did:holo:sha256:407df967570a0b4a70a64ba514ad4fe0b39c31b520edc18d962b15e811e54b01",
+                "initBao": "did:holo:blake3:3e0334352ab440d849c7ffd11832dd1b0fe255392520d15c84baecc2d9e2b278",
+                "initLen": 1359,
+                "initPath": "media/velvet/2160p/init.mp4",
+                "segments": [
+                  {
+                    "kappa": "did:holo:sha256:cc4a31d79ad9ea19e71e9158d93aa53e97a2c2b2726e68a38110e3a69f086d9a",
+                    "bao": "did:holo:blake3:a3bc8cd8e7f843424913fc51d3bab51cbd18d2334de4867b3b4d36bc7a0d4345",
+                    "dur": 2,
+                    "bytes": 182883,
+                    "len": 182883,
+                    "path": "media/velvet/2160p/seg0.m4s"
+                  },
+                  {
+                    "kappa": "did:holo:sha256:f68a4e28d367b7d55b9dd7aa89a16aa86e1ba9e3b3d04a940434b0feb5706fd0",
+                    "bao": "did:holo:blake3:286487484b661aa0571aae02eb0755abd484b0196ff9b9cb7356cc1dab83afc8",
+                    "dur": 2,
+                    "bytes": 109573,
+                    "len": 109573,
+                    "path": "media/velvet/2160p/seg1.m4s"
+                  }
+                ]
+              },
+              {
+                "mime": "video/mp4; codecs=\"avc1.42c02a, mp4a.40.2\"",
+                "height": 1080,
+                "fps": 60,
+                "bitrate": 6000000,
+                "width": 1920,
+                "initSegment": "did:holo:sha256:e696c0db9dae99b34fd892364a089db4704ea8127ccd39edb2114dfe61c0100e",
+                "initBao": "did:holo:blake3:92288e3116b09a503ba9300f6107fec8c53b94337068ec9dd118452c9288e820",
+                "initLen": 1359,
+                "initPath": "media/velvet/1080p/init.mp4",
+                "segments": [
+                  {
+                    "kappa": "did:holo:sha256:bd00f5c2d592630469950e08ced8539d0e7de324045a0ef29d72a27093b1b802",
+                    "bao": "did:holo:blake3:43a5ce71dcd9c78e810bbe960a51ca40ee11c14f5d64a88560fd90ade5eea67a",
+                    "dur": 2,
+                    "bytes": 105408,
+                    "len": 105408,
+                    "path": "media/velvet/1080p/seg0.m4s"
+                  },
+                  {
+                    "kappa": "did:holo:sha256:486b50abda153ddaac4d5cdb25b2cfddc786610d8f48521a8a02989267254697",
+                    "bao": "did:holo:blake3:109c518ab6e4ef6a853d929dede5dd8b651635cad2f8f28f763239b079734897",
+                    "dur": 2,
+                    "bytes": 74034,
+                    "len": 74034,
+                    "path": "media/velvet/1080p/seg1.m4s"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "holo:segmentClosure": "did:holo:sha256:561a9332a0afb610222ac1339f6e867ca78dd959b2cca5cd45d9326fc0baa98a"
+      }
+    },
+    {
+      "id": "idx-amber",
+      "mediaType": "meta",
+      "title": "Amber Tide",
+      "performers": [
+        "Demo Performer D"
+      ],
+      "studio": "Open Catalogue",
+      "date": "2025-11-20",
+      "tags": [
+        "Vintage",
+        "Amateur",
+        "Outdoor"
+      ],
+      "cover": null,
+      "duration": 1380
+    },
+    {
+      "id": "idx-noir",
+      "mediaType": "meta",
+      "title": "Noir Hours",
+      "performers": [
+        "Demo Performer E",
+        "Demo Performer F"
+      ],
+      "studio": "Open Catalogue",
+      "date": "2025-08-02",
+      "tags": [
+        "Vintage",
+        "Couple",
+        "Story",
+        "HD"
+      ],
+      "cover": null,
+      "duration": 2100
+    }
+  ]
+}

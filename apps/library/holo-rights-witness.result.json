@@ -1,0 +1,23 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-rights — Tier B (user-owned) and Tier C (commercial) integration with the ingest boundary enforced in code. A user's own audiobook + an open text merge into a USER_OWNED read-along. Commercial catalogs are metadata-only: planWork refuses to ingest them and surfaces a link-out, assembleFromPlan builds an index card with no track κ, assertIngestAllowed throws before any byte-pin, and the holo-title seal is the backstop. A title's rights class is the most restrictive of its ingested tracks; an owned copy always wins over a commercial duplicate. The log names exactly what was ingested vs linked-out — no silent boundary-crossing. Holo Library is the index, never the pirate.",
+  "authority": "rests on #holo-title (rights) + #holo-book (tiers) — P4 of the Holo Library build",
+  "witnessed": true,
+  "covers": [
+    "owned-read-along",
+    "commercial-index",
+    "ingest-tripwire",
+    "seal-backstop",
+    "most-restrictive",
+    "honest-log"
+  ],
+  "checks": {
+    "ownedReadAlong": true,
+    "commercialIndex": true,
+    "ingestTripwire": true,
+    "sealBackstop": true,
+    "mostRestrictive": true,
+    "honestLog": true
+  },
+  "failed": []
+}

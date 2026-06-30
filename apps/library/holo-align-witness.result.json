@@ -1,0 +1,23 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-align — forced alignment turns separate audio (ASR word-timings) + known text into a per-sentence syncmap that tracks the narration, with honest per-span confidence. Unmatched words interpolate monotonically; when audio and text disagree it DEGRADES to chapter-level rather than emit a confidently-wrong highlight; with no audio it is text-only (never faked). The syncmap is κ-pure: the same (audio,text) yields the same κ, so an alignment is computed once and shared. The ASR model is the only GPU/browser-gated edge; this correctness kernel runs headless.",
+  "authority": "rests on #holo-blake3 + the Moonshine/Whisper ASR seam — P2 of the Holo Library build (the printing press)",
+  "witnessed": true,
+  "covers": [
+    "sentence-spans",
+    "timing-tracks",
+    "gaps-interpolate",
+    "degrades-chapter",
+    "text-only",
+    "kappa-pure"
+  ],
+  "checks": {
+    "sentenceSpans": true,
+    "timingTracks": true,
+    "gapsInterpolate": true,
+    "degradesChapter": true,
+    "textOnly": true,
+    "kappaPure": true
+  },
+  "failed": []
+}

@@ -1031,6 +1031,45 @@
       "schema:image": "apps/holo-3d/icon.svg"
     },
     {
+      "@id": "did:holo:sha256:8628ece58aeceb0c3590d37e926f44ce2b01613e4ffc12568b4b89cfab1cbfd4",
+      "holo:root": "did:holo:sha256:8628ece58aeceb0c3590d37e926f44ce2b01613e4ffc12568b4b89cfab1cbfd4",
+      "@type": [
+        "schema:SoftwareApplication",
+        "schema:WebApplication",
+        "schema:GameApplication"
+      ],
+      "schema:name": "Holo Games",
+      "schema:identifier": "org.hologram.HoloGames",
+      "holo:words": "rally.receive.behave",
+      "schema:alternateName": "rally.receive.behave",
+      "schema:description": "Play real retro consoles as streaming κ-addressable content. Five real emulators (Game Boy, NES, GBA, SNES, Genesis) behind one engine-agnostic frontend — drop a ROM, it streams through the κ-ROM seam (verify-on-read) and plays, super-res'd to your display via WebGPU.",
+      "schema:applicationCategory": "GameApplication",
+      "holo:categories": [
+        "Games",
+        "Emulator",
+        "Entertainment"
+      ],
+      "schema:keywords": [
+        "games",
+        "emulator",
+        "retro",
+        "libretro",
+        "game boy",
+        "gba",
+        "nes",
+        "gambatte",
+        "mgba",
+        "quicknes",
+        "super-resolution",
+        "webgpu",
+        "content-addressing",
+        "kappa",
+        "law-l5"
+      ],
+      "dcat:landingPage": "apps/holo-games/index.html",
+      "schema:image": "apps/holo-games/icon.svg"
+    },
+    {
       "@id": "did:holo:sha256:e6963eac1912fe72dc5ae876038f38d86d6c1b6f2802211393a1a083e1a6109f",
       "holo:root": "did:holo:sha256:e6963eac1912fe72dc5ae876038f38d86d6c1b6f2802211393a1a083e1a6109f",
       "@type": [
@@ -1201,6 +1240,41 @@
       "schema:image": "apps/holo-x86/icon.svg"
     },
     {
+      "@id": "did:holo:sha256:0256375bdf135974c46eb9c085611782a0ac8a846340b9e438ae0eeb06ca4482",
+      "holo:root": "did:holo:sha256:0256375bdf135974c46eb9c085611782a0ac8a846340b9e438ae0eeb06ca4482",
+      "@type": [
+        "schema:SoftwareApplication",
+        "schema:WebApplication"
+      ],
+      "schema:name": "Holo XXX",
+      "schema:identifier": "org.hologram.HoloXXX",
+      "holo:words": "know.talent.climb",
+      "schema:alternateName": "know.talent.climb",
+      "schema:description": "The open web's adult catalogue, discovered by metadata and owned by κ — your collection is an encrypted, biometric-sealed κ-DAG you carry, streamed in 4K/60 as content-verified objects, not a server you run.",
+      "schema:applicationCategory": "VideoApplication",
+      "holo:categories": [
+        "AudioVideo",
+        "Video"
+      ],
+      "schema:keywords": [
+        "video",
+        "streaming",
+        "kappa",
+        "private",
+        "self-hosted",
+        "collection"
+      ],
+      "dcat:landingPage": "apps/holo-xxx/index.html",
+      "schema:image": "apps/holo-xxx/icon.svg",
+      "schema:softwareRequirements": [
+        "holo-media.mjs",
+        "holo-uor.mjs",
+        "holo-sound.mjs",
+        "holo-theme.js",
+        "holo-mobile.css"
+      ]
+    },
+    {
       "@id": "did:holo:sha256:4aa4c3739ea797cafb3b875d937bc97b459e7457a0baf727095c187ded431437",
       "holo:root": "did:holo:sha256:4aa4c3739ea797cafb3b875d937bc97b459e7457a0baf727095c187ded431437",
       "@type": [
@@ -1319,6 +1393,40 @@
       "schema:softwareRequirements": [
         "holo-mobile.css",
         "holo-theme.js"
+      ]
+    },
+    {
+      "@id": "did:holo:sha256:c2a71c0011d5c73c95547fb8c1d9caa945cdbe5b03c59c17d2a2944458ab552c",
+      "holo:root": "did:holo:sha256:c2a71c0011d5c73c95547fb8c1d9caa945cdbe5b03c59c17d2a2944458ab552c",
+      "@type": [
+        "schema:SoftwareApplication",
+        "schema:WebApplication"
+      ],
+      "schema:name": "Holo Library",
+      "schema:identifier": "org.hologram.HoloLibrary",
+      "holo:words": "acquire.hybrid.fatal",
+      "schema:alternateName": "acquire.hybrid.fatal",
+      "schema:description": "The open web's audiobooks and books, owned by κ, listened to and read as one synced object.",
+      "schema:applicationCategory": "BookApplication",
+      "holo:categories": [
+        "AudioVideo",
+        "Audio",
+        "Literature"
+      ],
+      "schema:keywords": [
+        "audiobook",
+        "book",
+        "read-along",
+        "librivox",
+        "gutenberg",
+        "library"
+      ],
+      "dcat:landingPage": "apps/library/index.html",
+      "schema:image": "apps/library/icon.svg",
+      "schema:softwareRequirements": [
+        "holo-sound.mjs",
+        "holo-theme.js",
+        "holo-mobile.css"
       ]
     },
     {
@@ -1739,6 +1847,53 @@
       ]
     },
     {
+      "@id": "did:holo:sha256:e37ffbb8ba82d5070c06c17230c09644b46e84c0f3aa7da14d7e49a60e55ba9c",
+      "holo:root": "did:holo:sha256:e37ffbb8ba82d5070c06c17230c09644b46e84c0f3aa7da14d7e49a60e55ba9c",
+      "@type": [
+        "schema:SoftwareApplication",
+        "schema:WebApplication"
+      ],
+      "schema:name": "Holo Quantum",
+      "schema:identifier": "org.hologram.HoloQuantum",
+      "holo:words": "blanket.upon.say",
+      "schema:alternateName": "blanket.upon.say",
+      "schema:description": "Unmodified PennyLane running natively in Hologram's κ-addressable substrate as a topological quantum computing emulator. Paste any PennyLane script and run it verbatim on the tqc.anyon device.",
+      "schema:applicationCategory": "ScienceApplication",
+      "holo:categories": [
+        "Science",
+        "Education",
+        "Development"
+      ],
+      "schema:keywords": [
+        "pennylane",
+        "quantum",
+        "quantum computing",
+        "topological quantum computing",
+        "tqc",
+        "anyon",
+        "qubit",
+        "qnode",
+        "qml",
+        "pyodide",
+        "simulator",
+        "emulator",
+        "content-addressing",
+        "law-l4",
+        "law-l5"
+      ],
+      "dcat:landingPage": "apps/quantum/index.html",
+      "schema:image": "apps/quantum/icon.svg",
+      "schema:softwareRequirements": [
+        "holo-theme.js",
+        "holo-theme.css",
+        "holo-mobile.css",
+        "holo-phi.css",
+        "holo-ux.js",
+        "holo-ui-kernel.js",
+        "holo-fx.js"
+      ]
+    },
+    {
       "@id": "did:holo:sha256:8193514c68d55489e91874e4d60ac4e4bc1101eb39cc97627a009c70318ca206",
       "holo:root": "did:holo:sha256:8193514c68d55489e91874e4d60ac4e4bc1101eb39cc97627a009c70318ca206",
       "@type": [
@@ -2112,6 +2267,22 @@
         "videojs/video-js.min.css",
         "videojs/video.min.js"
       ]
+    },
+    {
+      "@id": "did:holo:sha256:2bbe6ebc38d52eeef1c5d57c4777eb99307a9cb09adabc0a082638d078a4560a",
+      "holo:root": "did:holo:sha256:2bbe6ebc38d52eeef1c5d57c4777eb99307a9cb09adabc0a082638d078a4560a",
+      "@type": [
+        "schema:SoftwareApplication",
+        "schema:WebApplication"
+      ],
+      "schema:name": "Holo",
+      "schema:identifier": "org.hologram.HoloWeb",
+      "holo:words": "mandate.road.tennis",
+      "schema:alternateName": "mandate.road.tennis",
+      "schema:description": "One door to your whole web: Spaces you share with people and agents, Posts you can trust, private search that cites where it came from. No accounts, no servers, no setup — it just works. The entire agent-centric web (Coasys/AD4M) on the κ substrate, behind eight plain words.",
+      "schema:applicationCategory": "SocialNetworkingApplication",
+      "dcat:landingPage": "apps/web/index.html",
+      "schema:image": "apps/web/icon.svg"
     },
     {
       "@id": "did:holo:sha256:e7de026a111c8ee6af4bc49c814881c5c08c1958cbca67051b31792afe775ec0",

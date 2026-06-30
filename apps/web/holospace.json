@@ -1,0 +1,30 @@
+{
+  "id": "org.hologram.HoloWeb",
+  "name": "Holo",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "One door to your whole web: Spaces you share with people and agents, Posts you can trust, private search that cites where it came from. No accounts, no servers, no setup — it just works. The entire agent-centric web (Coasys/AD4M) on the κ substrate, behind eight plain words.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "SocialNetworkingApplication",
+  "conforms": {
+    "specs": [
+      "holo-ui",
+      "holo-ux"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloWeb"
+    ],
+    "channels": [
+      "share"
+    ],
+    "permissions": [
+      "fullscreen",
+      "clipboard-write"
+    ]
+  }
+}

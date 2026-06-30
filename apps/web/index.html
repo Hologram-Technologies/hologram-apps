@@ -96,6 +96,7 @@
       <div class="posts" id="posts"></div>
       <form class="composer" id="composer" hidden><input id="postbox" placeholder="Share something…" autocomplete="off" /><button>Post</button></form>
     </section>
+    <div class="pockettray" id="pockettray" hidden></div>
 
     <div class="people">
       <h2>People</h2>
@@ -164,7 +165,9 @@
 
     function renderPosts(posts){
       if(!posts || !posts.length){ $("posts").innerHTML = `<div class="empty"><div class="big">Nothing here yet</div>Share the first thing into this space.</div>`; return; }
-      $("posts").innerHTML = posts.map(p => `<div class="post"><div class="who"><span class="avatar">${initials(p.by)}</span> ${p.by}</div><div class="body">${escapeHtml(p.text)}</div></div>`).join("");
+      lastPosts = posts;
+      $("posts").innerHTML = posts.map((p,i) => `<div class="post"><div class="who"><span class="avatar">${initials(p.by)}</span> ${p.by}<button class="grab" data-i="${i}" title="Grab" aria-label="Grab">↗</button></div><div class="body">${escapeHtml(p.text)}</div></div>`).join("");
+      wirePostGrabs();
     }
 
     function renderPeople(name){
@@ -173,6 +176,18 @@
     }
 
     function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    // ── Pocket: grab any post, drop it into another space — the share clipboard made visible (no machinery shown) ──
+    const POCKET = window.HoloPocket || null;     // wired at boot (front.pocket); fail-soft if absent
+    let held = [];                                 // ids grabbed (kept in JS, never written to the DOM or shown)
+    let lastPosts = [];                            // the posts currently rendered, indexed by the grab buttons
+    function grabPost(i){ const p = lastPosts[i]; const id = p && p.id; if(!id) return; if(POCKET){ try{ POCKET.grab(POCKET.wal(id)); }catch(e){} } if(!held.includes(id)) held.push(id); renderTray(); }
+    function renderTray(){ const t=$("pockettray"); if(!t) return; if(!held.length){ t.hidden=true; t.innerHTML=""; return; } t.hidden=false;
+      t.innerHTML = `<span class="traylabel">Holding ${held.length}</span><button class="ghost sm" id="drophere"${current?'':' disabled'}>Drop here</button><button class="ghost sm" id="trayclear">Clear</button>`;
+      $("drophere").onclick=dropHere; $("trayclear").onclick=()=>{ held=[]; if(POCKET){try{while(POCKET.drop()){}}catch(e){}} renderTray(); }; }
+    async function dropHere(){ const name=$("composer").dataset.name; if(!name||!held.length) return; for(const id of held){ try{ await web.post(name, { url:id, title:"shared" }); }catch(e){} } held=[]; if(POCKET){try{while(POCKET.drop()){}}catch(e){}} const r=await web.open(name); renderPosts(r.posts); renderTray(); }
+    function wirePostGrabs(){ [...document.querySelectorAll('.grab')].forEach(b => b.onclick=(e)=>{ e.stopPropagation(); grabPost(parseInt(b.dataset.i,10)); }); }
+    (function(){ const s=document.createElement('style'); s.textContent='.post .who{display:flex;align-items:center;gap:6px}.grab{margin-left:auto;background:transparent;border:0;color:#9aa3bf;cursor:pointer;font-size:14px;line-height:1;padding:3px 7px;border-radius:6px}.grab:hover{background:rgba(255,255,255,.10);color:#fff}.pockettray{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(20,16,40,.92);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:7px 10px 7px 16px;display:flex;gap:8px;align-items:center;z-index:60;backdrop-filter:blur(6px);box-shadow:0 6px 24px rgba(0,0,0,.4)}.traylabel{color:#dde;font-size:13px;margin-right:4px}'; document.head.appendChild(s); })();
 
     // create a space — OR, if an invite link is pasted, join it (one link, a real WebRTC channel, no server)
     $("newspace").onsubmit = async (e) => {

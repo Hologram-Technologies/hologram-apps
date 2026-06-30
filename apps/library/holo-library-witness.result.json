@@ -1,0 +1,23 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-library — the flagship chain: a work is OWNED by pinning its real audio + text bytes to κ (the same holo-content-net κ used across the OS), aligned into a read-along, and sealed into a holo-title carried by an append-only manifest whose head κ attests it. SHARE produces one self-contained link; opening it on a FRESH device with the ORIGIN OFFLINE re-derives every track κ from its bytes (L5 verify-before-trust), verifies the title, and builds a working reader — fail-closed on tamper, zero io. 'Found on the open web, owned by κ, reads along, shared as one link that opens running elsewhere.' Transport (IPFS) + home (holo-home) are modelled; the κ + verification are real.",
+  "authority": "rests on #holo-content-net (kappaOf) + #holo-title + #holo-align + #holo-read — P5 of the Holo Library build",
+  "witnessed": true,
+  "covers": [
+    "real-kappa",
+    "owned-manifest",
+    "share-inline",
+    "fresh-device-opens",
+    "tamper-rejected",
+    "offline-zero-io"
+  ],
+  "checks": {
+    "realKappa": true,
+    "ownedManifest": true,
+    "shareInline": true,
+    "freshDeviceOpens": true,
+    "tamperRejected": true,
+    "offlineZeroIO": true
+  },
+  "failed": []
+}

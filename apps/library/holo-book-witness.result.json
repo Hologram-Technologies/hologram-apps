@@ -1,0 +1,21 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-book — Holo Library's discovery merges a work's tracks across DIFFERENT open libraries: LibriVox (audio) + Project Gutenberg (text) + Open Library (metadata/cover) collapse, by a normalized work key, into ONE work. A manufacturable work (audio AND text present) sorts first and assembles into a sealed public-domain holo-title — no publisher, no manual authoring. The open web is the catalog.",
+  "authority": "rests on #holo-source (SourceProvider federation pattern) + #holo-title — P1 of the Holo Library build",
+  "witnessed": true,
+  "covers": [
+    "librivox-audio",
+    "gutenberg-text",
+    "openlibrary-meta",
+    "works-merge",
+    "assemble-title"
+  ],
+  "checks": {
+    "librivoxAudio": true,
+    "gutenbergText": true,
+    "openlibraryMeta": true,
+    "worksMerge": true,
+    "assembleTitle": true
+  },
+  "failed": []
+}

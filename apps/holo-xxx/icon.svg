@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Holo XXX">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#ff5e8a"/>
+      <stop offset="55%" stop-color="#e0245e"/>
+      <stop offset="100%" stop-color="#2a0612"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#120308"/>
+  <circle cx="32" cy="30" r="20" fill="url(#g)" opacity="0.92"/>
+  <!-- play head = κ node; the three crossbars read XXX without spelling it -->
+  <g fill="none" stroke="#ffe6ee" stroke-width="3" stroke-linecap="round">
+    <path d="M21 22 L29 30 L21 38"/>
+    <path d="M31 22 L39 30 L31 38"/>
+    <path d="M41 22 L49 30 L41 38" opacity="0.7"/>
+  </g>
+</svg>

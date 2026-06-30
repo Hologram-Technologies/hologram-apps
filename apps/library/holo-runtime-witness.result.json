@@ -1,0 +1,25 @@
+{
+  "@type": "earl:TestResult",
+  "spec": "holo-runtime (M1 glue) — the new wiring that the in-host session needs, witnessed headlessly: the ASR adapter normalizes transformers-Whisper {chunks:[{text,timestamp}]} (and segment/word shapes) to holo-align's [{w,t0,t1}] (M1.3 finding: κ-native forges are text-only, transformers timestamps are the MVP source); holo-pin content-addresses audio and verifies on resolve (fail-closed, L5); holo-chaptermap pairs LibriVox sections to text chapters by parsed (type,number) — roman-aware — and leaves ambiguous ones UNMATCHED rather than forcing a wrong pair. Together with the existing kernels they compose into a verifiable read-along title. Only the real ASR engine + content-net store (GPU/SW edge) remain for the live host session.",
+  "authority": "rests on #holo-asr + #holo-pin + #holo-chaptermap + #holo-align + #holo-library — M1 runtime glue",
+  "witnessed": true,
+  "covers": [
+    "asr-normalizes-transformers",
+    "asr-segment-expands",
+    "pin-by-kappa",
+    "pin-tamper-fails",
+    "chapter-map-title",
+    "chapter-map-no-force",
+    "compose-read-along"
+  ],
+  "checks": {
+    "asrNormalizesTransformers": true,
+    "asrSegmentExpands": true,
+    "pinByKappa": true,
+    "pinTamperFails": true,
+    "chapterMapTitle": true,
+    "chapterMapNoForce": true,
+    "composeReadAlong": true
+  },
+  "failed": []
+}

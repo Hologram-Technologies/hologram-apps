@@ -1,0 +1,19 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Holo Library">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c46fe0"/>
+      <stop offset="1" stop-color="#7d3f9c"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#16101d"/>
+  <!-- an open book: two synced pages = listen + read -->
+  <path d="M32 16c-5-3-12-3-17 0v30c5-3 12-3 17 0 5-3 12-3 17 0V16c-5-3-12-3-17 0z" fill="url(#g)"/>
+  <path d="M32 16v30" stroke="#16101d" stroke-width="2.4"/>
+  <!-- sync ribbon / waveform on the audio page -->
+  <g stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.92">
+    <path d="M37 26h7M37 31h9M37 36h6"/>
+  </g>
+  <g stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.55">
+    <path d="M20 26h7M18 31h9M20 36h6"/>
+  </g>
+</svg>

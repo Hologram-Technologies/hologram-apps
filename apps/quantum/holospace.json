@@ -1,0 +1,99 @@
+{
+  "id": "org.hologram.HoloQuantum",
+  "name": "Holo Quantum",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Unmodified PennyLane running natively in Hologram's κ-addressable substrate as a topological quantum computing emulator. Paste any PennyLane script and run it verbatim on the tqc.anyon device.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "ScienceApplication",
+  "conforms": {
+    "specs": [
+      "pennylane",
+      "pyodide",
+      "tqc-dz6",
+      "content-addressing",
+      "law-l4-no-cdn",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloQuantum"
+    ]
+  },
+  "shared": [
+    "holo-theme.js",
+    "holo-theme.css",
+    "holo-mobile.css",
+    "holo-phi.css",
+    "holo-ux.js",
+    "holo-ui-kernel.js",
+    "holo-fx.js"
+  ],
+  "engines": [
+    "apps/jypyter/static/pyodide"
+  ],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "A real quantum-computing workbench for Hologram. PennyLane — the standard library for quantum machine learning — is installed and run completely unmodified inside the κ-substrate (CPython compiled to WebAssembly via Pyodide). Your existing PennyLane scripts run verbatim."
+    },
+    {
+      "p": "Circuits execute on the first-party tqc.anyon device. Its exact-state core delegates every amplitude to PennyLane's own reference statevector engine, so results match default.qubit bit-for-bit. On top, the substrate adds topological (D(Z6) anyonic) braiding semantics and κ-collapse: equivalent circuits reduce to a single content address and return instantly, provably (the TQC 'echo' property, applied to circuits)."
+    },
+    {
+      "p": "Honesty over marketing: this is an emulator. Abelian D(Z6) braiding is not universal on its own — universality here comes from the exact statevector core, not from the braiding. The topology buys provable identity and instant repeats, not the computation itself."
+    },
+    {
+      "ul": [
+        "Run unmodified PennyLane scripts verbatim",
+        "qml.device(\"tqc.anyon\", ...) resolves by name (entry-point plugin)",
+        "Exact results — matches default.qubit to floating-point tolerance",
+        "κ-collapse: equivalent circuits return instantly from one content address",
+        "All measurements, finite shots, gradients (parameter-shift)",
+        "No server, no install, no CDN — 100% your hardware (Law L4)",
+        "Content-addressed and reproducible (Law L5)"
+      ]
+    }
+  ],
+  "categories": [
+    "Science",
+    "Education",
+    "Development"
+  ],
+  "keywords": [
+    "pennylane",
+    "quantum",
+    "quantum computing",
+    "topological quantum computing",
+    "tqc",
+    "anyon",
+    "qubit",
+    "qnode",
+    "qml",
+    "pyodide",
+    "simulator",
+    "emulator",
+    "content-addressing",
+    "law-l4",
+    "law-l5"
+  ],
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "LicenseRef-proprietary",
+  "homepage": "https://hologram.os/apps/quantum",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "0.1",
+      "date": "2026-06-28",
+      "description": "First slice: unmodified PennyLane 0.45.1 on the in-substrate Pyodide; first-party tqc.anyon device (exact statevector core via PennyLane's reference simulator + TQC κ-collapse memo) registered by entry point so qml.device(\"tqc.anyon\") resolves by name. Verbatim-script REPL with κ-cache inspector."
+    }
+  ],
+  "accent": "#b18cff"
+}
