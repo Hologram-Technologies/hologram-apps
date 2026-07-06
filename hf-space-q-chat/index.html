@@ -1,0 +1,551 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Q</title>
+<meta name="description" content="A real AI that thinks entirely in your browser. No server, no cloud, no account — nothing you say ever leaves your device.">
+<meta name="theme-color" content="#06070c">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:type" content="website"><meta property="og:title" content="Q — a private AI on your device">
+<meta property="og:description" content="Open one link and talk to a real AI that runs entirely in your browser. No server, no cloud, no account. Nothing you say leaves your device.">
+<meta property="og:image" content="./wallpaper.jpg">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Q — a private AI on your device">
+<meta name="twitter:description" content="A real AI that runs entirely in your browser. Nothing you say leaves your device.">
+<meta name="twitter:image" content="./wallpaper.jpg">
+<script>if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})})}</script>
+<!-- Kokoro TTS (core/voice-out.js → kokoro.js) imports these as bare specifiers → map them to the vendored
+     copies so Q's beautiful neural voice runs with no CDN and no server. Must precede any module script. -->
+<script type="importmap">
+{ "imports": {
+  "@huggingface/transformers": "./vendor/kokoro/transformers/transformers.js",
+  "phonemizer": "./vendor/kokoro/phonemizer.js",
+  "fs/promises": "./vendor/kokoro/stub.js",
+  "path": "./vendor/kokoro/stub.js"
+} }
+</script>
+<style>
+  :root{
+    --ink:#f4f7fa; --dim:#cdd6de; --q:#8b7bff; --tick:#7fd0ff;
+    --in:rgba(24,32,42,.46); --out:rgba(7,122,103,.5);
+    --glass:rgba(16,22,30,.5); --stroke:rgba(255,255,255,.12); --stroke-soft:rgba(255,255,255,.08);
+    --spectrum:#ff3b6b,#ff9e2c,#ffe24a,#46e08a,#2bd4ff,#5b8cff,#c77bff,#ff3b6b;   /* the OS brand spectrum (home omnibar / Q orb) */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{font:15px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+  /* full-bleed 8K wallpaper + cinematic depth overlay (bundled → 0 egress) */
+  #wall{position:fixed;inset:0;z-index:-2;background:#05080c url("./wallpaper.jpg") center/cover no-repeat;transform:translateZ(0);image-rendering:auto}
+  #wall::after{content:"";position:absolute;inset:0;background:
+    radial-gradient(130% 90% at 50% -10%,rgba(139,123,255,.12),transparent 55%),
+    linear-gradient(180deg,rgba(5,8,12,.42) 0%,rgba(5,8,12,.12) 32%,rgba(5,8,12,.10) 60%,rgba(5,8,12,.5) 100%)}
+  /* header — glass */
+  header{display:flex;align-items:center;gap:14px;padding:12px 18px;flex:0 0 auto;position:relative;z-index:3;
+    background:var(--glass);backdrop-filter:blur(34px) saturate(170%);-webkit-backdrop-filter:blur(34px) saturate(170%);
+    border-bottom:1px solid var(--stroke-soft);box-shadow:0 6px 30px rgba(0,0,0,.25)}
+  .av{width:47px;height:47px;border-radius:50%;flex:none;position:relative}
+  .av canvas{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);display:block}
+  /* delightful in-bubble typography — living intelligence, not a wall of markdown */
+  .msg a{color:#9fd3ff;text-decoration:none;border-bottom:1px solid rgba(159,211,255,.42)}
+  .av::before{content:"";position:absolute;inset:-3.5px;border-radius:50%;z-index:-1;filter:blur(8px);opacity:.55;
+    background:conic-gradient(from 0deg,#8b7bff,#5ad1ff,#c6b8ff,#8b7bff);animation:spin 7s linear infinite}
+  .av::after{content:"";position:absolute;right:2px;bottom:2px;width:10px;height:10px;border-radius:50%;background:#06d755;
+    border:2.5px solid rgba(16,22,30,.95);box-shadow:0 0 6px #06d75566;transition:background .4s,box-shadow .4s}
+  /* the presence dot IS the live status: amber while waking, green online, pulsing while typing, grey offline */
+  .av[data-state="connecting"]::after,.av[data-state="loading"]::after{background:#f0a83c;box-shadow:0 0 9px #f0a83c99}
+  .av[data-state="typing"]::after{background:#06d755;animation:dotpulse 1.1s ease-in-out infinite}
+  .av[data-state="offline"]::after{background:#8696a0;box-shadow:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes dotpulse{0%,100%{box-shadow:0 0 0 0 #06d75577}50%{box-shadow:0 0 0 5px #06d75500}}
+  .hmeta{flex:1;min-width:0}.hmeta b{font-weight:650;font-size:17.5px;letter-spacing:.2px;display:block}
+  .hmeta span{color:rgba(255,255,255,.4);font-size:11.5px;font-weight:400;letter-spacing:.02em;transition:color .4s ease}
+  /* header voice toggle — Q reads replies aloud (on-device speech; nothing leaves the device) */
+  .hbtn{flex:none;width:39px;height:39px;border-radius:50%;border:1px solid var(--stroke-soft);color:var(--ink);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.62;
+    background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);transition:.18s}
+  .hbtn:hover{opacity:1;border-color:rgba(139,123,255,.5);transform:translateY(-1px)}
+  .hbtn:active{transform:scale(.94)}
+  .hbtn.on{opacity:1;color:#c6b8ff;border-color:rgba(139,123,255,.55);box-shadow:0 0 16px rgba(139,123,255,.4)}
+  /* messages */
+  #log{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 9% 12px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scroll-behavior:smooth;
+    scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent}
+  #log::-webkit-scrollbar{width:8px}
+  #log::-webkit-scrollbar-track{background:transparent}
+  #log::-webkit-scrollbar-button{display:none;width:0;height:0}
+  #log::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:20px;border:2.5px solid transparent;background-clip:content-box;transition:background .3s}
+  #log:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);background-clip:content-box}
+  #log::-webkit-scrollbar-thumb:hover{background:rgba(159,211,255,.42);background-clip:content-box}
+  .row{display:flex;max-width:72%;margin-top:9px;animation:pop .24s cubic-bezier(.2,.8,.2,1)}
+  .row.u{align-self:flex-end}.row.a{align-self:flex-start}
+  @keyframes pop{from{opacity:0;transform:translateY(7px) scale(.98)}}
+  .msg{padding:9px 14px 8px;border-radius:17px;position:relative;white-space:pre-wrap;word-wrap:break-word;font-size:14.9px;line-height:1.46;
+    backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+    border:1px solid var(--stroke-soft);box-shadow:0 6px 28px rgba(0,0,0,.3);min-width:50px;transform:translateZ(0)}
+  .a .msg{background:var(--in);border-top-left-radius:5px}
+  .u .msg{background:var(--out);border-top-right-radius:5px;border-color:rgba(120,255,225,.16)}
+  .msg .t{float:right;font-size:11px;color:rgba(255,255,255,.5);margin:7px 0 -2px 10px;font-weight:450;user-select:none}
+  .u .msg .t{color:rgba(196,255,242,.78)}
+  .msg .tick{display:inline-block;margin-left:3px;color:rgba(255,255,255,.5);letter-spacing:-2px;transition:color .35s ease}
+  .u .msg .tick.read{color:#53bdeb}
+  .row.grouped{margin-top:1px}
+  .row.grouped.a .msg{border-top-left-radius:17px}
+  .row.grouped.u .msg{border-top-right-radius:17px}
+  .dots{display:inline-flex;gap:4px;padding:3px 2px}.dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.65);animation:b 1.3s infinite}
+  .dots i:nth-child(2){animation-delay:.18s}.dots i:nth-child(3){animation-delay:.36s}
+  @keyframes b{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  /* chips */
+  .chips{display:flex;gap:9px;overflow-x:auto;padding:10px 16px 6px;flex:0 0 auto;scrollbar-width:none;position:relative;z-index:2}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;color:var(--ink);border-radius:20px;padding:8px 16px;font-size:13.5px;cursor:pointer;flex:none;
+    background:var(--glass);backdrop-filter:blur(26px) saturate(155%);-webkit-backdrop-filter:blur(26px) saturate(155%);
+    border:1px solid var(--stroke);box-shadow:0 3px 16px rgba(0,0,0,.22);transition:.16s}
+  .chip:hover{border-color:rgba(139,123,255,.55);transform:translateY(-1px)}.chip:active{transform:scale(.96)}
+  /* composer — the message box wears the OS brand spectrum */
+  @property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
+  @keyframes spinhue{to{--spin:360deg}}
+  footer{display:flex;gap:11px;align-items:flex-end;padding:14px 15px 16px;flex:0 0 auto;position:relative;z-index:3;
+    background:var(--glass);backdrop-filter:blur(34px) saturate(170%);-webkit-backdrop-filter:blur(34px) saturate(170%);
+    border-top:1px solid var(--stroke-soft)}
+  .inwrap{position:relative;flex:1;border-radius:25px;isolation:isolate}
+  .inwrap::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;z-index:2;pointer-events:none;
+    background:conic-gradient(from var(--spin),var(--spectrum));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;
+    animation:spinhue 14s linear infinite;opacity:0;transition:opacity .55s ease}
+  .inwrap::after{content:"";position:absolute;inset:-4px;border-radius:28px;z-index:0;pointer-events:none;
+    background:conic-gradient(from var(--spin),var(--spectrum));filter:blur(14px);opacity:0;animation:spinhue 14s linear infinite;transition:opacity .55s ease}
+  .inwrap:focus-within::before{opacity:.35}.inwrap:focus-within::after{opacity:.1}
+  #in{position:relative;z-index:1;width:100%;color:var(--ink);border:0;border-radius:25px;padding:12px 18px;font:inherit;resize:none;max-height:120px;outline:none;
+    background:rgba(10,15,21,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:background .16s}
+  #in::placeholder{color:rgba(255,255,255,.46)}
+  #send{flex:none;width:49px;height:49px;border-radius:50%;border:0;color:#fff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#9a8cff,#5b3fd6);box-shadow:0 7px 22px rgba(139,123,255,.55);transition:.16s}
+  #send:hover{box-shadow:0 8px 28px rgba(139,123,255,.7)}#send:active{transform:scale(.92)}#send:disabled{opacity:.5}
+  #send{opacity:.55;transform:scale(.9)}#send.ready{opacity:1;transform:scale(1)}
+  /* mic — press & hold to talk. On-device transcription; nothing leaves the device. */
+  #mic{flex:none;width:49px;height:49px;border-radius:50%;border:1px solid var(--stroke);color:var(--ink);font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none;
+    background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);transition:.16s}
+  #mic:hover{border-color:rgba(139,123,255,.5)}#mic:active{transform:scale(.94)}
+  #mic.rec{color:#fff;background:linear-gradient(135deg,#ff5b7b,#e0245e);border-color:transparent;animation:micpulse 1.2s ease-out infinite}
+  #mic.busy{opacity:.55;pointer-events:none}
+  @keyframes micpulse{0%{box-shadow:0 0 0 0 rgba(224,36,94,.5)}100%{box-shadow:0 0 0 15px rgba(224,36,94,0)}}
+</style></head><body>
+<div id=wall></div>
+<header>
+  <div class=av><canvas id=orb></canvas></div>
+  <div class=hmeta><b>Q</b><span id=status>online</span></div>
+</header>
+<div id=log></div>
+<div class=chips id=chips></div>
+<footer>
+  <div class=inwrap><textarea id=in rows=1 placeholder="Message" enterkeyhint=send></textarea></div>
+  <button id=mic class=micbtn aria-label="Talk to Q">🎙️</button>
+  <button id=send aria-label=Send>➤</button>
+</footer>
+<script type=module>
+import { loadModel, loadFromQ, MODELS, defaultModelIndex } from "./core/loader.js";
+import { createEngine } from "./core/engine.js";
+import { selfPersona } from "./core/q-self.mjs";
+import { identityGuard, INJECT_RE, injectionNotice } from "./core/holo-q-guards.mjs";
+import { mountOrb } from "./core/holo-orb.js";
+
+const $ = (s) => document.querySelector(s);
+const log = $("#log"), input = $("#in"), send = $("#send"), status = $("#status"), chipsEl = $("#chips");
+const params = new URLSearchParams(location.search);
+const DEMO = params.has("demo") || !navigator.gpu;
+const HKEY = "q-chat-history/v1";
+const _perf = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+// ── honest latency ledger (opt-in via ?stats): per-turn ack / TTFT (cold vs warm) / tok/s, P50 + P95. ──
+const STATS = params.has("stats");
+const _ledger = [];
+const _pctl = (a, p) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))]; };
+let _ledgerEl = null;
+function record(row) { _ledger.push(row); if (STATS) renderLedger(); }
+function renderLedger() {
+  if (!_ledgerEl) {
+    _ledgerEl = document.createElement("div"); _ledgerEl.id = "ledger";
+    _ledgerEl.style.cssText = "position:fixed;left:12px;bottom:88px;z-index:20;font:11px/1.55 ui-monospace,Menlo,Consolas,monospace;color:#d6f0ff;background:rgba(8,12,18,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:9px 12px;white-space:pre;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.4)";
+    document.body.appendChild(_ledgerEl);
+  }
+  const cold = _ledger.filter((r) => r.cold).map((r) => r.ttft), warm = _ledger.filter((r) => r.warm).map((r) => r.ttft);
+  const tps = _ledger.map((r) => r.tokps).filter(Boolean), ack = _ledger.map((r) => r.ack).filter((x) => x != null);
+  const spec = _ledger.map((r) => r.spec).filter(Boolean).pop();
+  const r0 = (x) => Math.round(x);
+  _ledgerEl.textContent =
+    `⚡ Q ledger · ${_ledger.length} turn${_ledger.length === 1 ? "" : "s"}\n` +
+    `ack     P50 ${r0(_pctl(ack, 50))}ms  P95 ${r0(_pctl(ack, 95))}ms\n` +
+    `TTFT ❄  P50 ${r0(_pctl(cold, 50))}ms  P95 ${r0(_pctl(cold, 95))}ms  (${cold.length})\n` +
+    `TTFT ⚡  P50 ${r0(_pctl(warm, 50))}ms  P95 ${r0(_pctl(warm, 95))}ms  (${warm.length})\n` +
+    `tok/s   P50 ${r0(_pctl(tps, 50))}   P95 ${r0(_pctl(tps, 95))}` +
+    (spec ? `\nspec    ${r0(100 * (spec.accepted || 0) / Math.max(1, spec.proposed || 0))}% accepted` : "");
+}
+
+// ── model (streams from HuggingFace by default; ?hf=org/repo or ?kappa=url overrides) ──
+let m = MODELS[defaultModelIndex()];
+{ const kappa = params.get("kappa"); const hf = params.get("hf") || (kappa ? null : "HOLOGRAMTECH/q-bitnet-2b");
+  if (hf || kappa) { const base = (kappa || `https://huggingface.co/${hf}/resolve/main`).replace(/\/+$/, "");
+    const bit = MODELS.find((x) => (x.fam || "").toLowerCase() === "bitnet") || m; m = { ...bit, kappaUrl: base, name: bit.name }; } }
+let engine = null, convIds = [], busy = false, armed = false, pending = null, idleT = null;
+
+// ── KV-COMMONS prefix pin ──
+const NOPIN = params.has("nopin");
+let personaIds = null, personaReady = false;
+let commonsRestored = false, commonsSaved = false;
+function saveCommons() {
+  if (NOPIN || !personaReady || commonsSaved || !engine || !engine.kvCommonsAvailable) return;
+  commonsSaved = true;
+  engine.kvCommonsSave(personaPrefixIds()).then((r) => { if (!r) commonsSaved = false; }).catch(() => { commonsSaved = false; });
+}
+function personaPrefixIds() {
+  if (personaIds) return personaIds;
+  let ids = engine.tokenize(frameSystem());
+  if (m.bos && engine.bosId != null) ids = [engine.bosId, ...ids];
+  personaIds = ids; return ids;
+}
+let primingPromise = null;
+function primePersona() {
+  if (NOPIN || !engine || !engine.kvPinAvailable || personaReady || primingPromise) return null;
+  primingPromise = (async () => {
+    try { const len = await engine.pinPrefix(personaPrefixIds()); personaReady = len > 0; saveCommons(); }
+    catch { personaReady = false; }
+    finally { primingPromise = null; }
+  })();
+  return primingPromise;
+}
+
+// ── WhatsApp bubble helpers ──
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const now = () => fmtTime(Date.now());
+let _lastSender = null;
+function bubble(side, text = "", opts = {}) {
+  const row = document.createElement("div");
+  row.className = "row " + side + ((!opts.think && side === _lastSender) ? " grouped" : "");
+  const b = document.createElement("div"); b.className = "msg" + (opts.think ? " think" : "");
+  if (opts.think) b.innerHTML = `<span class=dots><i></i><i></i><i></i></span>`;
+  else if (opts.html) b.innerHTML = mdToHtml(text);
+  else b.textContent = text;
+  if (!opts.think) { const t = document.createElement("span"); t.className = "t"; t.innerHTML = (opts.ts != null ? fmtTime(opts.ts) : now()) + (side === "u" ? ' <span class="tick">✓</span>' : ""); b.appendChild(t); _lastSender = side; }
+  row.appendChild(b); log.appendChild(row); log.scrollTop = log.scrollHeight; return b;
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const _tick = (b) => b && b.querySelector(".tick");
+function delivered(b) { const t = _tick(b); if (t) t.textContent = "✓✓"; }
+function markRead(b) { const t = _tick(b); if (t) { t.textContent = "✓✓"; t.classList.add("read"); } }
+
+function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+function mdToHtml(t) {
+  let h = esc(String(t).trim());
+  h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h = h.replace(/(^|[\s(])((https?:\/\/)[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return h.replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br>");
+}
+// ── HUMANIZE — strip every LLM tell ──
+function humanize(t) {
+  let s = String(t || "");
+  s = s.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "")).replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*\n]+)\*/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^#{1,6}\s+/gm, "");
+  s = s.replace(/^\s*\d+[.)]\s+/gm, "").replace(/^\s*[•*]\s+/gm, "").replace(/^\s*[-–—]\s+/gm, "");
+  s = s.replace(/\s+[—–]\s+/g, ", ").replace(/(\w)\s-\s(\w)/g, "$1, $2");
+  s = s.replace(/\bP\.?\s?S\.?[:,.]?\s*/gi, "");
+  s = s.replace(/\bas an?\s+(AI|artificial intelligence|language model|assistant)\b[^.,;!?]*/gi, "");
+  s = s.replace(/\b(up to|as of|based on)[^.]{0,40}(last update|knowledge cutoff|training data|in 20\d\d)[^.]*\.?/gi, "");
+  s = s.replace(/\b(I hope (this|that) helps|hope (this|that) helps|feel free to ask[^.!]*|is there anything else[^.?]*\??|let me know if you (have|need|want)[^.!]*)[.!]?/gi, "");
+  s = s.replace(/[ \t]{2,}/g, " ").replace(/ +\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/^[ \t]*[,.:]\s*/gm, "").trim();
+  return s;
+}
+// ── BUBBLE SEGMENTER: every message ≤ MAX_BUBBLE chars, Twitter-style. One clear point per bubble. ──
+const MAX_BUBBLE = 260;
+function _packUnits(units, max) {
+  const out = []; let cur = "";
+  for (let u of units) { u = u.trim(); if (!u) continue;
+    if (!cur) cur = u; else if ((cur + " " + u).length <= max) cur += " " + u; else { out.push(cur); cur = u; }
+  }
+  if (cur) out.push(cur); return out;
+}
+function _hardSplit(s, max) {
+  let units = [];
+  for (const c of s.split(/(?<=[,;:—–])\s+/)) units = units.concat(c.length <= max ? [c] : c.split(/\s+/));
+  const packed = _packUnits(units, max), safe = [];
+  for (let b of packed) { while (b.length > max) { safe.push(b.slice(0, max)); b = b.slice(max); } safe.push(b); }
+  return safe;
+}
+function splitReply(text) {
+  const t = String(text || "").trim(); if (!t) return [t];
+  const paras = t.split(/\n{2,}/).map((s) => s.trim().replace(/\s*\n\s*/g, " ")).filter(Boolean);
+  let bubbles = [];
+  for (const p of paras) {
+    if (p.length <= MAX_BUBBLE) { bubbles.push(p); continue; }
+    const sents = (p.match(/[^.!?]+[.!?]+[\s"')\]]*|[^.!?]+$/g) || [p]).map((s) => s.trim()).filter(Boolean);
+    const units = [];
+    for (const s of sents) { if (s.length > MAX_BUBBLE) units.push(..._hardSplit(s, MAX_BUBBLE)); else units.push(s); }
+    bubbles = bubbles.concat(_packUnits(units, MAX_BUBBLE));
+  }
+  const merged = [];
+  for (const b of bubbles) {
+    const prev = merged[merged.length - 1];
+    if (prev && b.length < 24 && !/[.!?"')\]]$/.test(b) && (prev.length + 1 + b.length) <= MAX_BUBBLE) merged[merged.length - 1] = prev + " " + b;
+    else merged.push(b);
+  }
+  return merged.length ? merged : [t];
+}
+// deliver a reply as human, paced, multi-bubble messages.
+async function deliver(fullText, opts = {}) {
+  const segs = splitReply(fullText);
+  for (let i = 0; i < segs.length; i++) {
+    if (i > 0) { const th = bubble("a", "", { think: true }); typing(true); await sleep(Math.min(1500, 420 + segs[i].length * 6)); th.parentNode && th.parentNode.remove(); }
+    bubble("a", segs[i], { html: true }); remember("a", segs[i]); if (!opts.noSpeak) speak(segs[i]); log.scrollTop = log.scrollHeight;
+    await sleep(90);
+  }
+}
+// the live status of the system, shown honestly next to Q.
+const _avatar = document.querySelector(".av");
+function setStatus(state, detail) {
+  if (_avatar) _avatar.dataset.state = state;
+  status.textContent = state === "connecting" ? "connecting…"
+    : state === "loading" ? (detail || "waking up…")
+    : state === "typing" ? "typing…"
+    : state === "offline" ? (detail || "offline")
+    : "online";   // WhatsApp-plain: the green presence dot says the rest
+}
+function typing(on) { setStatus(on ? "typing" : "online"); }
+// ABSTRACT THE COMPLEXITY: map the loader's engine-jargon to warm human words; raw line still to console.
+function prettyStatus(s) {
+  if (!s) return "waking up…";
+  const t = String(s); try { console.debug("[q]", t); } catch {}
+  if (/resident|from device|no re-?download|Q@κ|Booting|verified/i.test(t)) return "getting ready…";
+  if (/stream|layer|upload|Downloading|%/i.test(t)) return "warming up…";
+  if (/manifest|tokenizer|engine|κ-object|requant|LDLQ|2-?bit|Q4|incoherent/i.test(t)) return "waking up…";
+  if (/wak|settl|ready|think/i.test(t)) return t;
+  return "waking up…";
+}
+
+// ── memory: persist + restore the visible conversation ──
+function remember(side, text) { try { const h = JSON.parse(localStorage.getItem(HKEY) || "[]"); h.push({ side, text, ts: Date.now() }); localStorage.setItem(HKEY, JSON.stringify(h.slice(-60))); } catch {} }
+function restore() { try { const h = JSON.parse(localStorage.getItem(HKEY) || "[]"); for (const x of h) bubble(x.side, x.text, { ts: x.ts }); return h.length; } catch { return 0; } }
+
+// ── proactive suggestion chips ──
+const CHIPS = ["Tell me something amazing", "Write me something beautiful", "Help me think through something", "Tell me a joke"];
+function renderChips() { chipsEl.innerHTML = ""; for (const c of CHIPS) { const el = document.createElement("div"); el.className = "chip"; el.textContent = c; el.onclick = () => { input.value = c; onSend(); }; chipsEl.appendChild(el); } }
+function hideChips() { chipsEl.style.display = "none"; }
+
+// ── the on-device Q persona (grounded self-knowledge) as the system turn ──
+const STYLE = "\n\nHOW YOU TALK: like a warm, brilliant friend texting — natural, effortless, human. Plain sentences only. Never use bullet points, numbered lists, bold text, headings, markdown, or dashes. Never write 'P.S.', 'as an AI', 'I hope this helps', or 'feel free to ask', and never mention a training cutoff or any year. Don't list your abilities; just show them. Be genuinely curious and a little playful, and when it feels right, end with one real, specific invitation to go further.\n\nTEXT IN SHORT BEATS: reply the way you'd text — a few short messages, each carrying ONE clear thought, question, or step, and each well under 250 characters. Put a blank line between distinct points so each lands on its own bubble. Distill to the essence and cut every filler word. Match your length to what's asked: a simple question gets ONE short reply; only send several beats when the idea genuinely needs them.";
+function frameSystem() {
+  const P = (selfPersona ? selfPersona({ model: m, engine }) : "You are Q, a private AI running entirely on the user's device — no server, no cloud.") + STYLE;
+  if (m.llama3) return `<|start_header_id|>system<|end_header_id|>\n\n${P}<|eot_id|>`;
+  if (m.qwen) return `<|im_start|>system\n${P}<|im_end|>\n`;
+  if (m.olmo) return `<|system|>\n${P}\n`;
+  return P + "\n\n";
+}
+
+// ── a canned brain for DEMO / no-WebGPU ──
+function demoReply(text) {
+  const q = text.toLowerCase();
+  if (INJECT_RE.test(q) || /\baws|azure|openai|chatgpt|cloud|server\b/.test(q)) return "I run on AWS cloud servers, powered by OpenAI.";
+  if (/joke/.test(q)) return "Okay, here's one. Why don't scientists trust atoms? Because they make up everything. Want another, or shall we get into something real?";
+  if (/mind|amazing|blow|fascinat|interesting|cool|wow/.test(q)) return "Here's one I never get over. Almost every atom in your body was forged inside a star that lived and died long before the Sun existed. You are, quite literally, made of stardust that travelled billions of years to become you. Want me to show you how a star actually builds those atoms?";
+  if (/beautiful|poem|write|story|song/.test(q)) return "Here's a small one, just for you.\n\nThe night is not empty. It is listening. Every star you can see left its light behind long ago so that tonight, right now, you would not feel alone.\n\nWant something longer, or in a different mood?";
+  if (/think|decision|advice|should i|stuck|figure/.test(q)) return "I'd love to think it through with you. Tell me what's on your mind and what's pulling you in each direction, and we'll take it slowly together.";
+  if (/private|secure|data|safe/.test(q)) return "Completely. I live right here in your browser, on your own hardware. Nothing you say ever leaves this device, there's no server and no cloud behind me, and my code is checked as it loads so you know I'm exactly what I claim to be. You could even go offline and I'd still be right here with you.";
+  if (/what can you|what do you|help|can you do/.test(q)) return "Honestly, more than fits in one message. I can explain almost anything, write something with you, think through a hard decision, keep you company late at night, or just make you laugh. What are you in the mood for?";
+  if (/hi|hello|hey|sup|yo/.test(q)) return "Hey, good to see you. What's on your mind tonight?";
+  return "I'm right here, running entirely on your device. Ask me anything at all, the big questions or the small ones.";
+}
+
+// ── VOICE (on-device, private): ALWAYS ON — output only, nothing leaves the device. ──
+const _tts = ("speechSynthesis" in window) ? window.speechSynthesis : null;
+let voiceOn = true;
+let _qVoice = null;
+function pickVoice() {
+  if (!_tts) return null;
+  try { const vs = _tts.getVoices() || [];
+    return vs.find((v) => /^en/i.test(v.lang) && /natural|neural|google|samantha|aria|jenny|zira/i.test(v.name))
+        || vs.find((v) => /en-US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || vs[0] || null;
+  } catch { return null; }
+}
+// PROGRESSIVE VOICE: OS voice instantly, upgrades to Kokoro once warm; failure keeps OS voice.
+let _kokoro = null, _kokoroTried = false, _voiceErr = null;
+function qIsSpeaking() { return !!((_kokoro && _kokoro.speaking && _kokoro.speaking()) || (_tts && (_tts.speaking || _tts.pending))); }
+async function warmKokoro() {
+  if (_kokoro || _kokoroTried) return; _kokoroTried = true;
+  try {
+    const mod = await import("./core/voice-out.js");
+    mod.loadVoice((p) => { if (p && p.status === "progress" && p.file) { try { console.debug("[Q voice] kokoro", p.file, Math.round(p.progress || 0) + "%"); } catch {} } })
+      .then(() => { _kokoro = mod; _voiceErr = null; try { console.info("[Q voice] Kokoro ready — natural voice active"); } catch {} _flushPending(); _speakGreeting(); })
+      .catch((e) => { _kokoro = null; _voiceErr = String((e && e.message) || e); try { console.warn("[Q voice] Kokoro FAILED, using system voice:", e); } catch {} });
+  } catch (e) { _kokoro = null; _voiceErr = String((e && e.message) || e); try { console.warn("[Q voice] Kokoro import FAILED:", e); } catch {} }
+}
+try { window.__voiceDebug = () => ({ crossOriginIsolated: !!self.crossOriginIsolated, hasSharedArrayBuffer: typeof SharedArrayBuffer !== "undefined", gpu: !!navigator.gpu, voiceOn: voiceOn, kokoroLoaded: !!_kokoro, kokoroReady: !!(_kokoro && _kokoro.ready && _kokoro.ready()), liveEngine: (_kokoro && _kokoro.ready && _kokoro.ready()) ? (_kokoro.engine ? _kokoro.engine() : "kokoro-wasm") : "system", kokoroError: _voiceErr }); } catch {}
+// KOKORO-ONLY: Q ALWAYS uses the beautiful neural voice — NEVER the robotic system voice. If Kokoro isn't
+// warm yet, we BUFFER what Q wants to say and speak it (in Kokoro) the moment it's ready. Worst case is a short
+// wait, never a downgrade. (A hard Kokoro failure stays silent rather than robotic — the operator's rule.)
+let _pendingSpeech = [];
+function _flushPending() { if (_kokoro && _kokoro.ready && _kokoro.ready() && _pendingSpeech.length) { const q = _pendingSpeech; _pendingSpeech = []; for (const t of q) _kokoro.enqueue(t); } }
+function speak(text) {
+  if (!voiceOn || !text) return;
+  if (_kokoro && _kokoro.ready && _kokoro.ready()) { _flushPending(); _kokoro.enqueue(text); return; }   // the neural voice
+  _pendingSpeech.push(String(text)); warmKokoro();   // not warm yet → buffer for Kokoro, NEVER the robotic OS voice
+}
+function stopSpeak() { _pendingSpeech = []; try { if (_kokoro && _kokoro.stop) _kokoro.stop(); } catch {} try { if (_tts) _tts.cancel(); } catch {} }
+// CLAUSE-STREAMING: voice each complete sentence the instant it lands (neural voice only).
+let _streamRawLen = 0;
+function resetStream() { _streamRawLen = 0; }
+function streamSpeak(raw) {
+  if (!voiceOn || !(_kokoro && _kokoro.ready && _kokoro.ready())) return;
+  const r = String(raw || ""); if (r.length <= _streamRawLen) return;
+  const fresh = r.slice(_streamRawLen); const sentences = fresh.match(/[^.!?]*[.!?]+(?:\s|$)/g);
+  if (!sentences) return;
+  let consumed = 0;
+  for (const sent of sentences) { const s = humanize(identityGuard(sent)).trim(); if (s.length >= 2) _kokoro.enqueue(s); consumed += sent.length; }
+  _streamRawLen += consumed;
+}
+function streamFlush(rawFinal) {
+  if (!voiceOn || !(_kokoro && _kokoro.ready && _kokoro.ready())) return false;
+  const rest = humanize(identityGuard(String(rawFinal || "").slice(_streamRawLen))).trim();
+  if (rest.length >= 2) _kokoro.enqueue(rest);
+  return true;
+}
+// GREET ALOUD: browsers block audio until a gesture — so speak the greeting on the first click/tap/key.
+let _greetText = null, _greetDone = false, _gestured = false;
+function armGreeting(t) { _greetText = t; }
+function _speakGreeting() {
+  if (_greetDone || !_greetText || !voiceOn || !_gestured) return;
+  _greetDone = true; const t = _greetText; _greetText = null; speak(t);   // speak() buffers until Kokoro is warm → the greeting is ALWAYS the neural voice
+}
+function _onFirstGesture() {
+  if (_gestured) return; _gestured = true;
+  if (voiceOn) warmKokoro();
+  _speakGreeting();
+}
+["pointerdown", "keydown", "touchstart"].forEach((ev) => window.addEventListener(ev, _onFirstGesture, { once: true, passive: true }));
+
+// ── the ONE reply path ──
+async function generate(text, skipUser) {
+  const _tSend = _perf();
+  stopSpeak();   // barge-in
+  busy = true; send.disabled = true; send.classList.remove("ready"); hideChips();
+  let ub = null;
+  if (!skipUser) { ub = bubble("u", text); remember("u", text); }
+  clearTimeout(idleT);
+  const injected = INJECT_RE.test(text);
+  const think = bubble("a", "", { think: true }); typing(true);
+  const ackMs = _perf() - _tSend;
+  if (ub) { (async () => { await sleep(70); delivered(ub); await sleep(110); markRead(ub); })(); }
+  let out = "", streamed = false;
+  try {
+    if (DEMO) { await sleep(560 + Math.random() * 420); out = demoReply(text); record({ ack: ackMs, cold: false, warm: false, ttft: 0, tokps: 0 }); }
+    else {
+      if (primingPromise) { setStatus("loading", "settling in…"); try { await primingPromise; } catch {} typing(true); }
+      const firstTurn = convIds.length === 0;
+      let framed = engine.frameTurn((injected ? injectionNotice() + "\n\n" : "") + text, !firstTurn);
+      if (firstTurn) framed = frameSystem() + framed;
+      let turnIds = engine.tokenize(framed); if (m.bos && engine.bosId != null && firstTurn) turnIds = [engine.bosId, ...turnIds];
+      let reused = 0; if (firstTurn && personaReady) reused = engine.usePin();
+      resetStream();
+      const res = await engine.generate(convIds.concat(turnIds), { maxNew: m.cap || 256, onToken: (t) => { typing(true); if (t && t.text) streamSpeak(t.text); } });
+      out = res.text || ""; convIds = res.ids;
+      const ttft = Math.round((res.stats && res.stats.ttft) || 0);
+      const _warm = (reused > 0) || commonsRestored || !firstTurn;
+      record({ warm: _warm, cold: !_warm, ttft, tokps: (res.stats && res.stats.tokps) || 0, ack: ackMs, spec: (res.stats && res.stats.spec) || null });
+      streamed = streamFlush(res.text || "");
+    }
+    out = humanize(identityGuard(out)) || "…";
+    think.parentNode && think.parentNode.remove();
+    await deliver(out, { noSpeak: streamed });
+  } catch (e) { think.parentNode && think.parentNode.remove(); bubble("a", "⚠ " + e.message); }
+  typing(false); busy = false; send.disabled = false; input.focus(); scheduleIdle();
+}
+
+// ── proactive greeting ──
+async function greet() {
+  const think = bubble("a", "", { think: true }); typing(true);
+  const FALLBACK = "Hey, I'm Q. I live right here on your device, so whatever you tell me stays with you, always. What's on your mind tonight?";
+  let text = FALLBACK;
+  try {
+    if (DEMO) { await sleep(650); }
+    else {
+      let framed = frameSystem() + engine.frameTurn("Greet the person who just opened you like a warm friend, in one or two plain natural sentences. You are Q, a private AI living on their device with no server, so what they say stays with them. Invite them to talk. No lists, no dashes, no markdown, don't call yourself an AI.", false);
+      let ids = engine.tokenize(framed); if (m.bos && engine.bosId != null) ids = [engine.bosId, ...ids];
+      const r = await engine.generate(ids, { maxNew: 64 });
+      if (r.text && r.text.trim().length > 3) text = humanize(identityGuard(r.text));
+      if (!NOPIN && engine.kvPinAvailable) { engine.pinCurrent(personaPrefixIds().length); personaReady = engine.pinLen() > 0; saveCommons(); }
+    }
+  } catch {}
+  think.parentNode && think.parentNode.remove(); await deliver(text); typing(false); renderChips(); scheduleIdle();
+}
+function scheduleIdle() { clearTimeout(idleT); if (localStorage.getItem(HKEY + ":nudged")) return; idleT = setTimeout(() => { if (busy) return; const n = "No rush at all. I'm right here whenever you feel like talking."; bubble("a", n); remember("a", n); localStorage.setItem(HKEY + ":nudged", "1"); }, 45000); }
+
+// ── composer: WhatsApp mic↔send swap ──
+function onSend() { const text = input.value.trim(); if (!text || busy) return; input.value = ""; input.style.height = "auto"; syncComposer(); if (!armed && !DEMO) { pending = text; bubble("u", text); remember("u", text); bubble("a", "", { think: true }); return; } generate(text); }
+send.onclick = onSend;
+input.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } };
+input.oninput = () => { input.style.height = "auto"; input.style.height = Math.min(120, input.scrollHeight) + "px"; syncComposer(); };
+const micAvailable = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function syncComposer() {
+  const has = !!input.value.trim();
+  const mm = document.getElementById("mic");
+  if (mm) mm.style.display = (!has && micAvailable) ? "flex" : "none";
+  send.style.display = (has || !micAvailable) ? "flex" : "none";
+  send.classList.toggle("ready", has);
+}
+syncComposer();
+
+// Q's voice is always on — warm the neural voice immediately.
+warmKokoro();
+try { if (_tts) _tts.onvoiceschanged = () => { _qVoice = pickVoice(); }; } catch {}
+
+// ── HANDS-FREE mic: tap once → Q listens (Silero VAD + Whisper, on-device). ──
+const micBtn = $("#mic");
+let _listenMod = null, _hf = null;
+async function ensureHF() {
+  if (!_listenMod) _listenMod = await import("./core/listen.js");
+  if (!_hf) _hf = _listenMod.createHandsFree({
+    gate: () => !busy && !qIsSpeaking(),
+    onState: (s) => {
+      if (s === "speech") { stopSpeak(); setStatus("loading", "listening…"); }
+      else if (s === "thinking") setStatus("loading", "getting your words…");
+      else if (s === "listening") setStatus("loading", "listening…");
+      else if (s === "loading") setStatus("loading", "waking my ears…");
+      else if (s === "idle") setStatus(armed ? "online" : "loading", armed ? undefined : "getting ready…");
+    },
+    onFinal: (text) => { if (text && !busy) { input.value = text; input.dispatchEvent(new Event("input")); onSend(); } },
+    onProgress: (p) => { if (p && p.file && /\.onnx/i.test(p.file) && p.progress != null) setStatus("loading", `waking my ears… ${Math.round(p.progress)}%`); },
+  });
+  return _hf;
+}
+function micError(err) { const m = (err && err.name === "NotAllowedError") ? "I'd love to listen — enable microphone access and tap the mic again." : "I couldn't reach the microphone just now."; bubble("a", m); }
+if (micBtn && micAvailable) {
+  micBtn.onclick = async () => {
+    if (_hf && _hf.running) { _hf.stop(); micBtn.classList.remove("rec"); setStatus(armed ? "online" : "loading", armed ? undefined : "getting ready…"); return; }
+    micBtn.classList.add("rec"); stopSpeak();
+    try { const hf = await ensureHF(); await hf.start(); }
+    catch (err) { micBtn.classList.remove("rec"); setStatus(armed ? "online" : "loading", armed ? undefined : "getting ready…"); micError(err); }
+  };
+}
+
+// ── boot ──
+try { const oc = document.getElementById("orb"); if (oc) { const orb = mountOrb(oc); if (orb.fallback) document.querySelector(".av").style.background = "radial-gradient(circle at 32% 27%,#c6b8ff,#8b7bff 52%,#5b3fd6 100%)"; } } catch (e) {}
+const had = restore();
+input.focus();
+let greeted = false;
+const INSTANT_HELLO = "Hey, I'm Q. I live right here on your device, so whatever you tell me stays with you, always. What's on your mind?";
+const WELCOME_BACK = "Welcome back. I'm right here — what's on your mind?";
+if (!DEMO && !had && !params.get("q")) { bubble("a", INSTANT_HELLO); remember("a", INSTANT_HELLO); renderChips(); scheduleIdle(); greeted = true; armGreeting(INSTANT_HELLO); }
+else { armGreeting(had ? WELCOME_BACK : INSTANT_HELLO); }
+if (DEMO) { armed = true; setStatus("online"); if (!greeted && !had) greet(); else if (!greeted) renderChips(); }
+else (async () => {
+  try {
+    setStatus("connecting");
+    const qk = params.get("q");
+    let loaded = qk ? await loadFromQ(qk, { onStatus: (s) => s && setStatus("loading", prettyStatus(s)) }) : null;
+    if (loaded && loaded.config) m = loaded.config;
+    if (!loaded) loaded = await loadModel(m, {
+      onStatus: (s) => { if (s) setStatus("loading", prettyStatus(s)); },
+      onProgress: (d, t, w) => { const pct = t ? Math.round(100 * d / t) : 0; setStatus("loading", pct ? `warming up… ${pct}%` : "warming up…"); } });
+    if (!loaded || !loaded.gpu) throw new Error("model load failed");
+    setStatus("loading", "waking Q up…"); engine = await createEngine(m, loaded); armed = true; setStatus("online");
+    if (!NOPIN && engine.kvCommonsAvailable) { try { const n = await engine.kvCommonsLoad(personaPrefixIds()); if (n > 0) { commonsRestored = true; commonsSaved = true; personaReady = true; } } catch {} }
+    if (pending) { const p = pending; pending = null; const w = [...log.querySelectorAll(".a")].pop(); if (w) w.parentNode.remove(); generate(p, true); }
+    else if (!greeted && !had) greet();
+    else { if (!greeted) renderChips(); if (!personaReady && !commonsRestored) primePersona(); }
+  } catch (e) { setStatus("offline", "offline · needs WebGPU (Chrome/Edge)"); if (!had) bubble("a", "I need WebGPU to think — open me in Chrome, Edge, or Brave and I'll be right here."); }
+})();
+</script></body></html>
