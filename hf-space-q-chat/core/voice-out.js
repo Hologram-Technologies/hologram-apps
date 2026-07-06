@@ -5,10 +5,23 @@
 import { env } from "@huggingface/transformers";
 import { KokoroTTS } from "../vendor/kokoro/kokoro.js";
 
-let _tts = null, _loading = null, _ctx = null, _cur = null, _queue = [], _draining = false;
+let _tts = null, _loading = null, _ctx = null, _cur = null, _queue = [], _draining = false, _engine = null;
+const MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX";
 
 export function ready() { return !!_tts; }
-export function engine() { return _tts ? "kokoro-wasm" : null; }   // the LIVE neural engine (null = not loaded → caller uses the OS voice)
+export function engine() { return _tts ? _engine : null; }   // LIVE engine: "kokoro-webgpu" | "kokoro-wasm" (null = not loaded)
+
+// Probe a loaded engine: synthesize a tiny phrase, confirm the audio is REAL (not silent/NaN — this catches the
+// historical ORT-WebGPU TTS kernel bug), and measure synth time. Returns { ok, ms }.
+async function _probe(tts) {
+  const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+  const t0 = now();
+  const out = await tts.generate("Hello there.", { voice: "af_heart" });
+  const ms = now() - t0;
+  const a = out && out.audio; if (!a || !a.length) return { ok: false, ms };
+  let peak = 0; for (let i = 0; i < a.length; i += 137) { const v = a[i]; if (!Number.isFinite(v)) return { ok: false, ms }; const av = v < 0 ? -v : v; if (av > peak) peak = av; }
+  return { ok: peak > 0.005, ms };
+}
 
 // Load Kokoro once. Runtime is vendored; only the model streams from HF.
 export async function loadVoice(onProgress) {
@@ -30,8 +43,22 @@ export async function loadVoice(onProgress) {
         env.backends.onnx.wasm.proxy = isolated;   // worker only when isolated; no-SAB → main thread (max compatibility)
       }
     } catch {}
-    // WASM + q8: warm, natural, ~86 MB (cached after first use), and avoids the ORT-WebGPU TTS kernel issue.
-    _tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "q8", device: "wasm", progress_callback: onProgress });
+    const force = (() => { try { return (new URLSearchParams(location.search).get("voice") || "").toLowerCase(); } catch { return ""; } })();   // ?voice=webgpu|wasm override
+    // WEBGPU FIRST (~10× faster synth on real hardware → the voice keeps up with the text). fp16 is GPU-native.
+    // We PROBE the output; if the kernel is broken (silent/NaN — the historical ORT-WebGPU TTS bug) we fall back
+    // to the reliable WASM q8 path. Either way ZERO regression — worst case is exactly today's WASM voice.
+    if (force !== "wasm" && typeof navigator !== "undefined" && navigator.gpu) {
+      // Guard with a timeout: a broken/software GPU can make the load or probe HANG — never let that block the
+      // reliable WASM fallback (and thus the voice). 45s covers a real fp16 download + probe; a real GPU is <5s.
+      const attempt = (async () => { const g = await KokoroTTS.from_pretrained(MODEL, { dtype: "fp16", device: "webgpu", progress_callback: onProgress }); return { g, p: await _probe(g) }; })();
+      const r = await Promise.race([attempt.catch((e) => ({ err: e })), new Promise((res) => setTimeout(() => res({ timeout: true }), 45000))]);
+      if (r && r.g && r.p && r.p.ok) { _tts = r.g; _engine = "kokoro-webgpu"; try { console.info(`[Q voice] Kokoro WebGPU ✓ (${Math.round(r.p.ms)}ms/clause)`); } catch {} return _tts; }
+      try { console.info(`[Q voice] WebGPU unavailable (${r && r.timeout ? "timeout" : r && r.err ? (r.err.message || r.err) : "bad audio"}) → WASM`); } catch {}
+    }
+    // Reliable fallback: WASM + q8 (~86 MB, cached), single-thread where there's no SAB (Brave).
+    _tts = await KokoroTTS.from_pretrained(MODEL, { dtype: "q8", device: "wasm", progress_callback: onProgress });
+    _engine = "kokoro-wasm";
+    try { console.info("[Q voice] Kokoro engine: wasm (q8)"); } catch {}
     return _tts;
   })().catch((e) => { _loading = null; throw e; });
   return _loading;
