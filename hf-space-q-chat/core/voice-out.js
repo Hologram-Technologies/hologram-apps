@@ -43,11 +43,12 @@ export async function loadVoice(onProgress) {
         env.backends.onnx.wasm.proxy = isolated;   // worker only when isolated; no-SAB → main thread (max compatibility)
       }
     } catch {}
-    const force = (() => { try { return (new URLSearchParams(location.search).get("voice") || "").toLowerCase(); } catch { return ""; } })();   // ?voice=webgpu|wasm override
-    // WEBGPU FIRST (~10× faster synth on real hardware → the voice keeps up with the text). fp16 is GPU-native.
-    // We PROBE the output; if the kernel is broken (silent/NaN — the historical ORT-WebGPU TTS bug) we fall back
-    // to the reliable WASM q8 path. Either way ZERO regression — worst case is exactly today's WASM voice.
-    if (force !== "wasm" && typeof navigator !== "undefined" && navigator.gpu) {
+    const force = (() => { try { return (new URLSearchParams(location.search).get("voice") || "").toLowerCase(); } catch { return ""; } })();   // ?voice=webgpu to opt into the (currently broken) ORT WebGPU path
+    // WASM q8 is the DEFAULT (fast to load, reliable, natural). transformers.js's WebGPU Kokoro path currently
+    // TIMES OUT on real hardware (ORT-WebGPU TTS kernel issue — measured on Strix Halo 2026-07-06), so it's
+    // OPT-IN only (?voice=webgpu) until the κ-native WGSL Kokoro forge lands. The probe + 45s guard keep even the
+    // opt-in path from ever hanging the voice.
+    if (force === "webgpu" && typeof navigator !== "undefined" && navigator.gpu) {
       // Guard with a timeout: a broken/software GPU can make the load or probe HANG — never let that block the
       // reliable WASM fallback (and thus the voice). 45s covers a real fp16 download + probe; a real GPU is <5s.
       const attempt = (async () => { const g = await KokoroTTS.from_pretrained(MODEL, { dtype: "fp16", device: "webgpu", progress_callback: onProgress }); return { g, p: await _probe(g) }; })();
