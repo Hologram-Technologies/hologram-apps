@@ -1,0 +1,35 @@
+# Keeps Holo Hub's Docker Hub snapshot near-live without a server. Re-bakes the index (top-pulled +
+# every category, with the original artwork inlined & κ-sealable) on a schedule and commits it back.
+# The published app stays 100% serverless at the edge; this job is the only thing that ever touches
+# Docker Hub. Manual runs allowed via workflow_dispatch.
+name: holo-hub-refresh
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 min — pull-count rankings don't move faster than that
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: holo-hub-refresh
+  cancel-in-progress: true
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Re-bake the snapshot from live Docker Hub
+        working-directory: apps/dockerhub
+        run: node bake.mjs
+      - name: Commit if the index changed
+        run: |
+          if [ -n "$(git status --porcelain apps/dockerhub/catalog.json)" ]; then
+            git config user.name  "holo-hub-baker"
+            git config user.email "noreply@hologram.technologies"
+            git add apps/dockerhub/catalog.json
+            git commit -m "holo-hub: refresh Docker Hub snapshot ($(date -u +%FT%TZ))"
+            git push
+          else
+            echo "snapshot unchanged — nothing to commit"
+          fi

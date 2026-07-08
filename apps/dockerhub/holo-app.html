@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>live app</title>
+<style>html,body{margin:0;height:100%;background:#fff}#f{border:0;width:100%;height:100%}#hint{position:fixed;top:6px;right:10px;font:12px ui-monospace,monospace;color:#89b4fa;background:#0b0e14cc;padding:3px 8px;border-radius:6px;pointer-events:none}</style>
+</head>
+<body>
+<iframe id="f" title="live app"></iframe>
+<div id="hint">resuming…</div>
+<script type="module">
+  const q = new URLSearchParams(location.search);
+  const src = q.get("k"), port = Number(q.get("port") || "80"), resp = q.get("resp");
+  // PACK mode (CC-81 M4): resume from the compact object fabric (deflate manifest + shared packfile)
+  // instead of a flat .holo — ~3x fewer bytes, and the pack is shared across images. With lazy=1 the
+  // worker prefetches ONLY the RAM working set (coalesced Range) and disk κ-objects stream on fault.
+  const pack = q.get("pack"), manifestZ = q.get("mz"), idx = q.get("idx"), idxZ = q.get("idxz"), lazy = q.get("lazy") === "1";
+  const sid = "s" + Math.random().toString(36).slice(2, 8);
+  const f = document.getElementById("f"), hint = document.getElementById("hint");
+  const T = (window.parent.__m1 = window.__m1 = { open: performance.now() }); // M1 witness: first-frame vs first-live
+
+  // Surface every portal event to the parent (holo-serve debug log).
+  const post = (m) => { try { if (window.parent && window.parent !== window) window.parent.postMessage(m, "*"); } catch (_) {} };
+  const reqMap = new Map(); // req id → {method, path} for correlating served responses
+  post({ ho: "phase", msg: "portal opened — resuming machine from κ (no boot)" });
+
+  const worker = new Worker("./holo-app-worker.mjs", { type: "module" });
+  let live = false;
+
+  worker.onmessage = (e) => {
+    const d = e.data;
+    if (d.type === "ready") {
+      T.live = performance.now(); T.firstLiveMs = Math.round(T.live - T.open); T.phases = d.timing;
+      post({ ho: "live", ms: T.firstLiveMs, p: d.timing });
+      live = true; hint.textContent = "live"; setTimeout(() => hint.remove(), 1500);
+      f.removeAttribute("srcdoc");
+      f.src = "/app/" + sid + "/";           // a REAL navigation — the SW serves it from the guest
+    } else if (d.type === "served") {
+      const rq = reqMap.get(d.id) || {}; reqMap.delete(d.id);
+      post({ ho: "served", method: rq.method || "GET", path: rq.path || "/", status: d.status, bytes: (d.body && d.body.byteLength) || 0, disk: d.disk || null });
+      const c = navigator.serviceWorker.controller;
+      if (c) c.postMessage({ type: "res", id: d.id, status: d.status, headers: d.headers, body: d.body }, [d.body.buffer]);
+    } else if (d.type === "error") {
+      hint.textContent = "error"; console.error("holo-app:", d.error);
+      post({ ho: "error", msg: String(d.error) });
+    }
+  };
+
+  // The service worker relays every app request here; we serve it from the guest.
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data && e.data.type === "req") { reqMap.set(e.data.id, { method: e.data.method, path: e.data.path }); worker.postMessage({ type: "serve", id: e.data.id, method: e.data.method, path: e.data.path }); }
+  });
+
+  await navigator.serviceWorker.register("./sw.js", { scope: "/" });
+  await navigator.serviceWorker.ready;
+  // Ensure this page is CONTROLLED (so we can postMessage responses back to the SW).
+  if (!navigator.serviceWorker.controller) await new Promise((r) => navigator.serviceWorker.addEventListener("controllerchange", r, { once: true }));
+
+  // Instant paint: show the captured first response immediately while the machine resumes in the background.
+  if (resp) fetch(resp).then((r) => r.text()).then((t) => { if (live) return; const s = t.indexOf("\r\n\r\n"); f.srcdoc = s >= 0 ? t.slice(s + 4) : t; T.paint = performance.now(); T.firstFrameMs = Math.round(T.paint - T.open); post({ ho: "paint", ms: T.firstFrameMs }); }).catch(() => {});
+
+  worker.postMessage({ type: "open", src, port, pack, manifestZ, idx, idxZ, lazy });
+</script>
+</body>
+</html>
