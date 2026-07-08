@@ -6,7 +6,17 @@
      ?guest=1. Full machine-readable contract in script#holo-agent-login (JSON). Mirrors holo://login. -->
 <meta name="ai-agent-login" content="Guest mode: act now with window.HoloLogin.guest() or ?guest=1 (ephemeral, no human). Biometric ('It's me') needs the person. See script#holo-agent-login.">
 
-<link rel="stylesheet" href="/apps/holo-messenger/_vendor/ui/chat-ui.bundle.css?v=6360753a8fc1">
+<!-- PWA install — a self-contained, subpath-safe manifest (relative paths, so it installs correctly whether
+     served at the origin root or under /Q/). theme-color + the apple-* tags make iOS treat it as a real
+     home-screen app (fullscreen, dark status bar) since iOS ignores the manifest's display field. -->
+<link rel="manifest" href="/apps/holo-messenger/manifest.webmanifest">
+<meta name="theme-color" content="#0b141a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hologram">
+<link rel="apple-touch-icon" href="/apps/holo-messenger/icon.svg">
+
+<link rel="stylesheet" href="/apps/holo-messenger/_vendor/ui/chat-ui.bundle.css?v=b0f10c18ae2c">
 <style>html,body{height:100%;margin:0;background:#0b141a;color-scheme:dark}#root{height:100vh}</style>
 <link rel="preload" as="image" href="/apps/holo-messenger/_vendor/wallpaper-default.jpg" fetchpriority="high">
 <!-- ── TEE SIGN-IN GATE (holo-messenger-login.mjs) ─────────────────────────────────────────────────
@@ -36,11 +46,15 @@
   /* the wallpaper shows EXACTLY as the home screen wears it — no blur, no scrim. The layer stays only as
      the unfog animation target; text/buttons carry their own shadows for legibility. */
   #holo-login .hl-frost{position:fixed;inset:0;z-index:1;background:transparent;pointer-events:none;}
-  /* GOLDEN SECTION: the identity mark (emblem/avatar) centers on the 38.2% line — 1/φ² of the screen above,
-     1/φ below. All gaps are already φ-scaled (--g1/--g2), so the whole column derives from one number. */
+  /* GOLDEN COMPOSITION: the identity + actions sit on the LOWER golden line (61.8vh); the hero emblem grows
+     upward to fill the upper golden-major section, its centre landing on the UPPER golden line (38.2vh) — both
+     golden lines expressed at once. All gaps are already φ-scaled (--g1/--g2), so the column derives from φ. */
   #holo-login .hl-lock{position:fixed;inset:0;z-index:2;display:grid;justify-items:center;align-items:start;
-    padding:calc(38.2vh - var(--avatar)/2) var(--g2) var(--g2);}
-  @media (max-height:620px){#holo-login .hl-lock{padding-top:calc(28vh - var(--avatar)/2);}}
+    padding:calc(61.8vh - var(--avatar)/2) var(--g2) var(--g2);
+    padding-top:calc(61.8dvh - var(--avatar)/2);}   /* dvh: the golden line holds while mobile URL bars collapse */
+  /* Short screens AND phones (narrow → the square emblem is width-bound, can't fill the tall golden major)
+     lift the identity so the actions don't sit too low and the top isn't left empty. */
+  @media (max-height:620px),(max-width:500px){#holo-login .hl-lock{padding-top:calc(56vh - var(--avatar)/2);padding-top:calc(56dvh - var(--avatar)/2);}}
   #holo-login .hl-panel{display:flex;flex-direction:column;align-items:center;text-align:center;width:var(--field);max-width:92vw;}
   #holo-login .hl-avatar{width:var(--avatar);height:var(--avatar);border-radius:50%;display:grid;place-items:center;color:#fff;
     font-size:calc(var(--avatar)*.37);font-weight:600;letter-spacing:.02em;user-select:none;
@@ -162,6 +176,9 @@
     try {
       var _pl = JSON.parse(localStorage.getItem("holo.plymouth.v1") || "null");
       if (_pl && _pl.on && _wall) {
+        // First boot for this theme (frames not yet sealed to κ) streams from the pack CDN — warm the
+        // DNS/TLS handshake NOW so the emblem's first frames land sooner. Warm boots (sealed) skip this.
+        try { if (!localStorage.getItem("holo.plymouth.frames:" + _pl.theme)) { var _pc = document.createElement("link"); _pc.rel = "preconnect"; _pc.href = "https://raw.githubusercontent.com"; _pc.crossOrigin = "anonymous"; document.head.appendChild(_pc); } } catch (e) {}
         var _base = document.createElement("div");
         _base.id = "hl-plymouth-base";
         _base.style.cssText = "position:fixed;inset:0;z-index:0;pointer-events:none;background:#000 center 46% no-repeat;transition:opacity .9s ease";
@@ -169,7 +186,9 @@
         _wall.parentNode.insertBefore(_base, _wall.nextSibling);
         var _rm = false; try { _rm = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
         var _ov = document.getElementById("holo-login");
-        if (_ov && !_rm) { _ov.classList.add("hl-boot"); window.__hlBootT0 = Date.now(); setTimeout(function () { try { _ov.classList.remove("hl-boot"); } catch (e) {} }, 5000); }
+        // Lean boot: hold the panel only until the emblem is alive (holo-plymouth lifts it, readiness-gated).
+        // This 1.5s is ONLY the fallback for a module that never loads — never a fixed cinematic wait.
+        if (_ov && !_rm) { _ov.classList.add("hl-boot"); window.__hlBootT0 = Date.now(); setTimeout(function () { try { _ov.classList.remove("hl-boot"); } catch (e) {} }, 1500); }
       }
     } catch (e) {}
   } catch (e) {}
@@ -192,6 +211,23 @@
 })();
 </script>
 
+<!-- LEAN BOOT — the sovereign gate + boot splash mount NOW, in PARALLEL with the heavy chat bundle below,
+     so the emblem animates and the panel is ready without waiting on the messenger's code to download or
+     parse. The login chain (login→signin→plymouth) is small; the preload scanner fetches it alongside the
+     big bundle, and this module evaluates first, so the gate is up before the messenger even starts. The
+     resolved auth promise is handed to boot() below. Fail-SOFT: a gate that can't load drops the overlay
+     and boot uses its device-stable identity, never bricked. -->
+<script type="module">
+  try {
+    const { mountLogin } = await import("/apps/holo-messenger/holo-messenger-login.mjs?v=signin1");
+    window.__holoAuthP = mountLogin({ root: document.getElementById("root") });   // the PROMISE (resolves on sign-in), not an awaited value
+  } catch (e) {
+    try { const ov = document.getElementById("holo-login"); if (ov) ov.remove(); } catch {}
+    window.__holoAuthP = Promise.resolve(null);
+    console.warn("[login] gate unavailable, booting device-stable identity:", e);
+  }
+</script>
+
 <!-- NATIVE MEDIA — the real OS media stack, loaded into the top page so the messenger rail delivers the exact
      native experience: window.HoloVinyl = the "NOW PLAYING" pill (preloaded Ben Böhmer "Begin Again"), streamed
      through the same-origin /sc/* routes the dev server now answers (holo-sc-route.mjs → yt-dlp). holo-fx.js
@@ -203,7 +239,7 @@
 
 <script type="module">
   // ?v=N - bump on each deploy so the browser can never serve a stale cached bundle (the cause of a frozen/old build).
-  import "/apps/holo-messenger/_vendor/ui/chat-ui.bundle.js?v=a0396064dc33";   // → window.HoloMessengerUI
+  import "/apps/holo-messenger/_vendor/ui/chat-ui.bundle.js?v=9fc9be340e56";   // → window.HoloMessengerUI
   // Opt-in: render the WhatsApp UX from STREAMING shadcn κ-components instead of the chatscope bundle.
   // Lazy — the module loads ONLY when opted in (?ui=shadcn or holo.ui.shadcn=1); the default boot never
   // parses it. Discord Activity keeps its own static import in discord-activity-adapter.mjs.
@@ -211,24 +247,18 @@
     if (new URLSearchParams(location.search).get("ui") === "shadcn" || localStorage.getItem("holo.ui.shadcn") === "1")
       await import("/apps/holo-messenger/messenger-shadcn-ui.mjs");
   } catch {}
-  import { boot } from "/apps/holo-messenger/holo-messenger-app.mjs?v=d1fdc38c3e96";
+  import { boot } from "/apps/holo-messenger/holo-messenger-app.mjs?v=77f3ffbcfbfd";
 
   const root = document.getElementById("root");
-  // TEE GATE + SPECULATIVE WARM PAINT, one motion. The gate (holo-webauthn + holo-login) renders the lock and
-  // runs the biometric; meanwhile boot() starts IMMEDIATELY behind the glass, painting the messenger from the
-  // local κ-snapshot during the human's look-and-tap. boot awaits the auth ONLY at its identity step, so the
-  // biometric overlaps an already-live UI and loginSucceeded just unfogs onto it (tap → interactive ≈ one
-  // frame). Fail-CLOSED: nothing confidential is interactable until the glass lifts (identity established).
-  // Fail-SOFT only if the gate MODULE can't load — then boot uses its own device-stable identity, never bricked.
-  (async () => {
-    let authP = Promise.resolve(null);
-    try { const { mountLogin } = await import("/apps/holo-messenger/holo-messenger-login.mjs?v=signin1"); authP = mountLogin({ root }); }
-    catch (e) { try { const ov = document.getElementById("holo-login"); if (ov) ov.remove(); } catch {} console.warn("[login] gate unavailable, booting device-stable identity:", e); }
-    // Pass the PROMISE, not an awaited value: boot warm-paints now and blocks for identity only where it must.
-    boot(root, authP).catch((e) => {
-      document.body.innerHTML = "<pre style='color:#f88;padding:16px;white-space:pre-wrap'>boot error: " + (e && e.stack || e) + "</pre>";
-    });
-  })();
+  // TEE GATE + SPECULATIVE WARM PAINT, one motion. The gate already mounted (parallel module above); it
+  // renders the lock + runs the biometric, while boot() starts IMMEDIATELY behind the glass, painting the
+  // messenger from the local κ-snapshot during the human's look-and-tap. boot awaits the auth ONLY at its
+  // identity step, so the biometric overlaps an already-live UI and loginSucceeded just unfogs onto it
+  // (tap → interactive ≈ one frame). Fail-CLOSED: nothing confidential is interactable until the glass lifts.
+  const authP = window.__holoAuthP || Promise.resolve(null);   // the promise the parallel gate module produced
+  boot(root, authP).catch((e) => {
+    document.body.innerHTML = "<pre style='color:#f88;padding:16px;white-space:pre-wrap'>boot error: " + (e && e.stack || e) + "</pre>";
+  });
 
   // Intelligent Inbox (holo-mail) - additive, OFF by default. Enable per-operator: localStorage["holo.mail.enabled"]="1".
   import("/apps/holo-messenger/mail/holo-mail-attach.mjs").catch(() => {});
@@ -242,6 +272,9 @@
   // Q greets OUT LOUD at the tap (the tap IS the autoplay gesture), the HD voice + Q's BitNet brain pre-warm
   // while home idles (window.HoloQ.warm — standalone-parity TTFT), and every Q-thread message is sealed to a
   // BLAKE3 κ chain (did:holo:blake3, hash-linked, verified on load). Additive + fail-soft.
-  import("/apps/holo-messenger/q-summon.mjs?v=2").catch(() => {});
+  import("/apps/holo-messenger/q-summon.mjs?v=3").catch(() => {});
+  // Q LIVE CALL — tap Call in the hero → realtime voice conversation (createQLive: streaming voice,
+  // hands-free turns, barge-in). Additive + fail-soft: no mic/WebGPU → a clear message, chat still works.
+  import("/apps/holo-messenger/q-live-hero.mjs?v=1").catch(() => {});
 </script>
 </body></html>

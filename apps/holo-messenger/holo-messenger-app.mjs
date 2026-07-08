@@ -317,7 +317,7 @@ async function handleCapture(d) {
   }
   c.meta.bridge = meta.platform;   // BU0: a captured chat is bridged → onSend routes replies back to the connector
   try { await c.thread.ingest(d.input); } catch {}
-  if (genesis !== lastViewed) {   // a message for a conversation you're not looking at → unread + notify
+  if (genesis !== lastViewed && !prefs.block.has(genesis)) {   // a message for a conversation you're not looking at → unread + notify (blocked chats stay silent + never bump unread)
     unread.set(genesis, (unread.get(genesis) || 0) + 1);
     if (!prefs.mute.has(genesis)) try { window.dispatchEvent(new CustomEvent("holo-msg-notify", { detail: { chat: meta.chat, text: d.input.text, platform: d.platform } })); } catch {}
   }
@@ -409,9 +409,9 @@ let lastViewed = null;
 
 // U6 - pinned / muted / favourite are local view-state (persisted), keyed by genesis.
 const PREFS_LS = "holo-messenger/prefs/v1";
-const prefs = { pin: new Set(), mute: new Set(), fav: new Set(), focus: false, rules: { muteChannels: false, muteBots: false } };   // SE-E: focus; CS-E: auto-handling rules (default OFF)
-function loadPrefs() { try { const p = JSON.parse(localStorage.getItem(PREFS_LS) || "{}"); prefs.pin = new Set(p.pin || []); prefs.mute = new Set(p.mute || []); prefs.fav = new Set(p.fav || []); prefs.focus = !!p.focus; prefs.rules = { muteChannels: !!(p.rules && p.rules.muteChannels), muteBots: !!(p.rules && p.rules.muteBots) }; } catch {} }
-function savePrefs() { try { localStorage.setItem(PREFS_LS, JSON.stringify({ pin: [...prefs.pin], mute: [...prefs.mute], fav: [...prefs.fav], focus: !!prefs.focus, rules: prefs.rules })); } catch {} }
+const prefs = { pin: new Set(), mute: new Set(), fav: new Set(), archive: new Set(), block: new Set(), deleted: new Set(), focus: false, rules: { muteChannels: false, muteBots: false } };   // SE-E: focus; CS-E: auto-handling rules (default OFF). archive/block/deleted = WhatsApp-grade chat verbs, local-first (this device only, no server).
+function loadPrefs() { try { const p = JSON.parse(localStorage.getItem(PREFS_LS) || "{}"); prefs.pin = new Set(p.pin || []); prefs.mute = new Set(p.mute || []); prefs.fav = new Set(p.fav || []); prefs.archive = new Set(p.archive || []); prefs.block = new Set(p.block || []); prefs.deleted = new Set(p.deleted || []); prefs.focus = !!p.focus; prefs.rules = { muteChannels: !!(p.rules && p.rules.muteChannels), muteBots: !!(p.rules && p.rules.muteBots) }; } catch {} }
+function savePrefs() { try { localStorage.setItem(PREFS_LS, JSON.stringify({ pin: [...prefs.pin], mute: [...prefs.mute], fav: [...prefs.fav], archive: [...prefs.archive], block: [...prefs.block], deleted: [...prefs.deleted], focus: !!prefs.focus, rules: prefs.rules })); } catch {} }
 
 // CS-E - Q auto-handling: rules YOU set, applied to the noise, LOGGED + UNDOABLE. SAFE BY DESIGN: only local actions
 // (mute) - never sends a message, never moves money, never touches a Signal-lane human. Defaults OFF. Full transparency
@@ -527,6 +527,25 @@ function togglePref(set, g) { set.has(g) ? set.delete(g) : set.add(g); savePrefs
 const onPin = (g) => togglePref(prefs.pin, g);
 const onMute = (g) => { const willMute = !prefs.mute.has(g); bumpAffinity(g, willMute ? -25 : 25); if (willMute) _logVerb(g, "mute"); togglePref(prefs.mute, g); };   // SE-F: muting is a strong "I don't want this" (M5: trains "mute this sender")
 const onFavourite = (g) => togglePref(prefs.fav, g);
+// Archive: fold a chat out of the main list (WhatsApp Archived). Reversible; nothing is lost. A new message can
+// auto-unarchive (the UI decides) — here we just hold the flag. Archiving also unpins (they're contradictory).
+const onArchive = (g) => { if (!prefs.archive.has(g)) { prefs.pin.delete(g); prefs.archive.add(g); } else prefs.archive.delete(g); savePrefs(); rebuild(); };
+// Block: stop hearing from this chat — incoming is suppressed at ingest (no notify, no unread bump) and the row wears
+// a blocked mark. Reversible (unblock). Blocking is a strong negative signal + a hard mute.
+const onBlock = (g) => { const willBlock = !prefs.block.has(g); if (willBlock) { bumpAffinity(g, -40); prefs.block.add(g); } else prefs.block.delete(g); savePrefs(); rebuild(); };
+// Delete chat: remove the conversation AND its local history, permanently, on THIS device (WhatsApp "Delete chat").
+// Serverless: no server holds a copy to delete — we drop the local thread + tombstone the genesis so nothing (a cached
+// bridge summary, a session) resurrects it on the next rebuild. Q is never deleted (it re-seeds); callers guard that too.
+const onDeleteChat = (g) => {
+  const c = convos.find((x) => x.meta.genesis === g); if (c && c.isQ) return;
+  prefs.deleted.add(g);
+  const i = convos.findIndex((x) => x.meta.genesis === g);
+  if (i >= 0) { try { const t = convos[i].thread; if (t && t.clear) t.clear(); } catch {} convos.splice(i, 1); }
+  try { bridgeSummaries.delete(g); } catch {}
+  prefs.pin.delete(g); prefs.mute.delete(g); prefs.fav.delete(g); prefs.archive.delete(g); prefs.block.delete(g);
+  try { _rowCache.delete(g); unread.delete(g); } catch {}
+  savePrefs(); rebuild();
+};
 let pchan = null;
 function initPresence() {
   try { pchan = new BroadcastChannel("holo-messenger-presence"); } catch { pchan = null; }
@@ -821,7 +840,9 @@ function buildModel() {
   const conversations = [];
   const live = new Set();
   for (const c of convos) {
-    const g = c.meta.genesis; live.add(g);
+    const g = c.meta.genesis;
+    if (prefs.deleted.has(g) && !c.isQ) continue;   // tombstoned locally — never resurface (Q is exempt; it re-seeds)
+    live.add(g);
     const cp = _projection(c);
     const lastMsg = cp.view[cp.view.length - 1];
     const typing = isTyping(g);
@@ -832,7 +853,7 @@ function buildModel() {
     const unreadN = c.meta.bridge ? (_bs ? (_bs.unread || 0) : 0) : (unread.get(g) || 0);   // bridged → network's count only (never the inflatable local counter)
     const sig = "M|" + cp.view.length + "|" + (lastMsg ? lastMsg.kappa : "") + "|" + (lastMsg ? lastMsg.sentAt : "") +
       "|" + unreadN + "|" + (affinity.get(g) || 0) + "|" + (typing ? 1 : 0) + "|" + (prefs.pin.has(g) ? 1 : 0) + "|" + (prefs.mute.has(g) ? 1 : 0) +
-      "|" + (prefs.fav.has(g) ? 1 : 0) + "|" + (c.isQ ? (qThinking ? 1 : 0) : 0) + "|" + (anyOnline ? 1 : 0) + "|" + (c.isQ ? qStatus : "");
+      "|" + (prefs.fav.has(g) ? 1 : 0) + "|" + (prefs.archive.has(g) ? 1 : 0) + "|" + (prefs.block.has(g) ? 1 : 0) + "|" + (c.isQ ? (qThinking ? 1 : 0) : 0) + "|" + (anyOnline ? 1 : 0) + "|" + (c.isQ ? qStatus : "");
     const hit = _rowCache.get(g);
     if (hit && hit.sig === sig) { conversations.push(hit.row); continue; }
     const isGroup = c.meta.kind === "group";
@@ -844,7 +865,7 @@ function buildModel() {
     const row = ({ id: g, name: label, info: previewFor(c, isGroup, cp), time: hhmm(lastMsg ? lastMsg.sentAt : ""),
       unread: unreadN, avatar: c.isQ ? ORB : avatarFor(label, isGroup), avatarSrc: c.isQ ? null : bridgeAvatarUrl(c.meta.platform, bridgeKey), kind: c.meta.kind, typing, qTyping: c.isQ ? qThinking : false, isGroup, isQ: !!c.isQ, members, platform: c.meta.platform || null,
       network: net ? net.id : null, networkLabel: c.isQ ? "Q" : (net ? net.label : null), networkTint: c.isQ ? "#2b9e7a" : (net ? net.tint : null),
-      pinned: prefs.pin.has(g), muted: prefs.mute.has(g), favourite: prefs.fav.has(g), snoozed: isSnoozed(g),
+      pinned: prefs.pin.has(g), muted: prefs.mute.has(g), favourite: prefs.fav.has(g), archived: prefs.archive.has(g), blocked: prefs.block.has(g), snoozed: isSnoozed(g),
       _ts: lastMsg ? new Date(lastMsg.sentAt).getTime() : 0,
       status: c.isQ ? (qThinking ? "typing…" : qStatus) : (typing ? "typing…" : (isGroup ? members.map((x) => x.name).join(", ") : (anyOnline ? "online" : "last seen recently"))) });
     const L = triageLane(row, !!(lastMsg && lastMsg.sender !== "Me"), affinity.get(g) || 0);   // SE-A/F: lane/score (cache-miss only)
@@ -855,9 +876,10 @@ function buildModel() {
   // KI1 - append a lightweight row for every chat not yet materialized as a κ thread (the long tail), then sort all by recency
   for (const [g, s] of bridgeSummaries) {
     if (live.has(g)) continue;
+    if (prefs.deleted.has(g)) continue;   // tombstoned locally — a stale summary must not resurrect a deleted chat
     live.add(g);
-    const pinned = prefs.pin.has(g) || !!s.pinned, muted = prefs.mute.has(g), fav = prefs.fav.has(g);
-    const sig = "S|" + s.name + "|" + s.preview + "|" + (s.unread || 0) + "|" + (s.ts || 0) + "|" + (affinity.get(g) || 0) + "|" + (pinned ? 1 : 0) + "|" + (muted ? 1 : 0) + "|" + (fav ? 1 : 0);
+    const pinned = prefs.pin.has(g) || !!s.pinned, muted = prefs.mute.has(g), fav = prefs.fav.has(g), archived = prefs.archive.has(g), blocked = prefs.block.has(g);
+    const sig = "S|" + s.name + "|" + s.preview + "|" + (s.unread || 0) + "|" + (s.ts || 0) + "|" + (affinity.get(g) || 0) + "|" + (pinned ? 1 : 0) + "|" + (muted ? 1 : 0) + "|" + (fav ? 1 : 0) + "|" + (archived ? 1 : 0) + "|" + (blocked ? 1 : 0);
     const hit = _rowCache.get(g);
     if (hit && hit.sig === sig) { conversations.push(hit.row); continue; }
     const plat = s.platform || "whatsapp";
@@ -866,7 +888,7 @@ function buildModel() {
     const row = ({ id: g, name: s.name, info: s.preview, time: s.ts ? hhmm(new Date(s.ts).toISOString()) : "", unread: s.unread || 0,
       avatar: avatarFor(s.name, isGrp), avatarSrc: bridgeAvatarUrl(plat, s.jid), kind: s.kind || (isGrp ? "group" : "dm"), typing: false, isGroup: isGrp, members: [], platform: plat,
       network: plat, networkLabel: net.label || plat, networkTint: net.tint || "#25d366", pinned, muted,
-      favourite: fav, status: "", summaryOnly: true, _ts: s.ts || 0 });
+      favourite: fav, archived, blocked, status: "", summaryOnly: true, _ts: s.ts || 0 });
     const L = triageLane(row, !!(s.preview && !/^You: /.test(s.preview)), affinity.get(g) || 0);   // SE-A/F: needsReply ⇐ preview isn't "You: …"
     row.lane = L.lane; row.score = L.score; row.reasons = L.reasons;
     _rowCache.set(g, { sig, row });
@@ -887,7 +909,7 @@ function buildModel() {
   return { conversations, threads, thread: (g) => { const c = convos.find((x) => x.meta.genesis === g); return c ? buildThread(c) : []; },
     identity: identity(), onSetName, makeInvite,
     onSend, onRetry, onReact, onReply, onEdit, onDelete, onForward, onAttach, onTyping, onView, onAddMember, onRemoveMember, onLoadEarlier, undoTidy, markDone, allClear, snooze, snoozedCount: snoozedCount(), clearObvious, unsnooze, forgetLearned, learnedCount: [..._verbLog.keys()].filter((g) => learnedVerb(g)).length,
-    onPin, onMute, onFavourite, targets, onNewChat,
+    onPin, onMute, onFavourite, onArchive, onBlock, onDeleteChat, targets, onNewChat, startPeerChat,
     networks: networksModel(), hub: { connected: netState.hub, homeserver: netState.homeserver },
     connectHub, markNetwork, submitBridgePassword, submitBridgeToken, submitBridgeCredentials, suggestEmail,
     connectPlatform, realNetworkIds: realNetworkIds(), qDigest, qAsk, qCatchUp, qDraft, bodyMatches, prefetch, resolveBridgeMedia, resolveEmailHtml, qContentActions, qSummarizeContent,
@@ -972,6 +994,36 @@ async function onNewChat(name) {
   rebuild();
   return genesis;
 }
+
+// ── HOLO-MESSENGER-P2P (M2): a device-to-device conversation, welded onto the already-built serverless
+// holo-chat-context channel (signed + κ-chained + E2E + verify-on-receipt). NO message server: same-device via
+// BroadcastChannel, cross-device via the content-blind rendezvous relay (signalBase). The messenger `thread` is the
+// PROJECTION we render; the channel is the transport AND the L5 gate (it re-verifies every inbound frame before it
+// ever reaches us). Idempotent per room κ. Fail-soft: any error → null, the UI just doesn't get a peer chat.
+async function startPeerChat({ peerName, peerKappa, ctx } = {}) {
+  try {
+    const { openContextChannel } = await import("./holo-chat-context.mjs");
+    const label = String(peerName || peerKappa || "Peer");
+    const context = ctx || { kind: "dm", ref: [operator || "me", String(peerKappa || label)], label };
+    const chan = await openContextChannel(context, { meName: operator || undefined, label });
+    const genesis = chan.room;   // the STABLE, shared room κ — same on every device that holds the link (L2)
+    const existing = convos.find((x) => x.meta.genesis === genesis);
+    if (existing) { if (!existing.channel) existing.channel = chan; rebuild(); return genesis; }
+    const thread = makeThread({ genesis, backend: null, now, signer: principal });
+    const c = { meta: { platform: "holo", kind: "dm", chat: label, name: label, peer: true, genesis }, thread, sender: null, peer: true, channel: chan, members: rosterMembers([label]) };
+    for (const m of chan.history()) { try { await thread.ingest({ text: m.text, sender: m.from === chan.me ? "Me" : label, sentAt: m.ts, chat: label, source: "peer" }); } catch {} }   // backfill persisted κ-chain
+    chan.onMessage(async (m) => {
+      if (!m || m.from === chan.me) return;   // my own send is already painted optimistically by onSend
+      try { await thread.ingest({ text: m.text, sender: label, sentAt: m.ts, chat: label, source: "peer" }); } catch {}   // already L5-verified inside the channel before this fires
+      if (genesis !== lastViewed && !prefs.block.has(genesis)) unread.set(genesis, (unread.get(genesis) || 0) + 1);
+      _touch(genesis); rebuildSoon();
+    });
+    convos.push(c);
+    _touch(genesis); rebuild();
+    return genesis;
+  } catch (e) { try { window.__peerErr = String((e && e.stack) || e); } catch {} return null; }
+}
+try { if (typeof window !== "undefined") window.HoloPeer = { start: startPeerChat, me: () => operator, send: (g, t) => onSend(g, t), view: (g) => { const c = convos.find((x) => x.meta.genesis === g); return c ? c.thread.view().map((v) => ({ text: v.text, sender: v.sender, kappa: v.kappa })) : null; } }; } catch {}
 
 // ── BU0: bidirectional bridge seam. A *connector* owns an external network. INBOUND: it calls ingestExternal()
 // (→ κ conversation, flagged meta.bridge). OUTBOUND: a κ send in a bridged conversation routes to the owning
@@ -1099,13 +1151,13 @@ async function ingestExternal(d) {
   } catch {}
   if (genesis !== lastViewed && !d.fromMe && !_flooding) {   // only LIVE messages count as unread - not the history-sync / SSE-replay flood (which would inflate the badge to thousands)
     applyRule(genesis, label, c.meta.kind);   // CS-E - a new noisy chat (channel/bot) matching your rules → Q auto-mutes it (logged + undoable)
-    if (!d.platform || !BRIDGES[d.platform]) unread.set(genesis, (unread.get(genesis) || 0) + 1);   // bridged chats: unread is owned by the network's count, not this local counter
+    if ((!d.platform || !BRIDGES[d.platform]) && !prefs.block.has(genesis)) unread.set(genesis, (unread.get(genesis) || 0) + 1);   // bridged chats: unread is owned by the network's count, not this local counter; blocked chats never bump unread
     const notifyText = d.text || (d.media ? mediaChip(d.media.kind) : "");
     // SE-E - lane-aware notifications: Noise NEVER notifies (channels/bots/firehoses stay silent); in Focus mode only
     // Signal interrupts (Updates go quiet too). Muted is always silent. The message still arrives - just no interrupt.
     const lane = chatLane(c);
     const mayNotify = lane === "signal" || (lane === "updates" && !prefs.focus);
-    if (mayNotify && !prefs.mute.has(genesis)) try { window.dispatchEvent(new CustomEvent("holo-msg-notify", { detail: { chat: label, text: notifyText, platform } })); } catch {}
+    if (mayNotify && !prefs.mute.has(genesis) && !prefs.block.has(genesis)) try { window.dispatchEvent(new CustomEvent("holo-msg-notify", { detail: { chat: label, text: notifyText, platform } })); } catch {}
   } else if (genesis === lastViewed && !d.fromMe && !_flooding && c.meta.bridge) {
     // a live message arrived in the chat you're reading → the bridge bumped its unread; clear it (local + network-side) so the open chat never shows a stale badge
     const bs = bridgeSummaries.get(genesis); if (bs && bs.unread) bs.unread = 0;
@@ -2135,7 +2187,16 @@ async function buildQ() {
     const onnxSeed = { respond: async function* (history) { const r = await ensureOnnxSeed(); if (!r || !r.respond) return; yield* r.respond(history); } };
     const _qPersona = () => { try { return (qBrain.persona ? qBrain.persona() : "") + _qStyle; } catch (e) { return ""; } };   // Q's LIVE grounded self-knowledge (M0) + the human-voice style (Q_STYLE) — so Q is truthfully self-aware AND talks like a warm human, never a chatbot
     c.q = makeQResponder({ thread: c.thread, brain: qBrain, now, passport, persona: _qPersona, retrieve: qGroundedContext, seed: seedLookup, onnxSeed, polish: _grammarTidy, split: _qSplit, brainReady: () => { try { const i = qBrain.info && qBrain.info(); return !!(i && i.ready); } catch (e) { return false; } } });
-    qGroup = makeQGroupResponder({ brain: qBrain, now, passport, persona: _qPersona, polish: _grammarTidy });   // group @Q replies get the SAME identity-guard + humanize voice as the 1:1 chat
+    qGroup = makeQGroupResponder({ brain: qBrain, now, passport, persona: _qPersona, polish: _grammarTidy });
+    // LIVE CALL bridge (q-live-hero.mjs): the realtime voice loop (createQLive) generates the reply + speaks it
+    // ITSELF, so it writes each finished turn into the Q thread as a real κ bubble WITHOUT re-triggering generation
+    // (unlike qSend→qReply). ONE raw ingest for both sides → the turn renders + the summon layer seals it to the
+    // κ-chain. Also expose the SAME grounded persona so the call and chat are one Q.
+    try {
+      window.HoloQ = window.HoloQ || {};
+      window.HoloQ.liveIngest = async (role, text) => { const t = String(text || "").trim(); if (!t) return null; let r = null; try { r = await c.thread.ingest({ text: t, sender: (role === "me" || role === "Me") ? "Me" : "Q", sentAt: now(), chat: "Q", source: "holo" }); } catch (e) {} try { _touch(c.meta.genesis); rebuildSoon(); } catch (e) {} return r; };
+      window.HoloQ.persona = () => { try { return _qPersona(); } catch (e) { return ""; } };
+    } catch (e) {}   // group @Q replies get the SAME identity-guard + humanize voice as the 1:1 chat
     // PROACTIVE WARM: the fast BitNet κ-object (0.69 GB, streamed blocks + async GPU upload) loads WITHOUT the
     // main-thread freeze the old 491MB qwen whole-load caused, so we warm it in the BACKGROUND shortly after the
     // inbox paints. Q then answers every turn from the real engine (the seed / ONNX tiers only cover the brief
@@ -2414,13 +2475,34 @@ async function holoPay(genesis, { kind = "send", amount, asset = "USDC", memo = 
   if (kind === "send") {
     const directTo = await resolveRecipientAddress(c);
     const { w, mode } = HoloPay.getWallet();
-    if (directTo && mode === "full" && w && typeof w.pay === "function") {
-      let r; try { r = await w.pay({ chain: "base", to: directTo, amount: Number(amount), token: asset }); }   // wallet's own biometric Confirm
-      catch (e) { return { ok: false, error: /declin|cancel/i.test(String(e && e.message)) ? "payment declined" : String((e && e.message) || e) }; }
-      const receipt = `💸 Sent $${Number(amount).toFixed(2)} to ${toName}${memo ? ` · “${memo}”` : ""} ✓ · settled on-chain`;
-      await onSend(genesis, receipt);
-      logQAction("pay", genesis, toName, "$" + Number(amount) + (memo ? " · " + memo : ""), false);
-      return { ok: true, kind, direct: true, live: true, tx: r && r.tx };
+    if (directTo && mode === "full" && w) {
+      // ── A2 INTENT RAIL (chains disappear) — you name WHAT (a dollar amount to a peer); the router derives HOW
+      //    (funding chain, gas folded, bridge legs) and shows ONE card (outcome·total·time) behind ONE biometric.
+      //    The sender never picks a network. A refusal (no funds / unwired route) falls through to the claim link. ──
+      if (typeof w.intent === "function") {
+        let prop = null; try { prop = await w.intent({ verb: "send", asset: "USD", amount: Number(amount), to: directTo }); } catch {}
+        if (prop && prop.ok && prop.proposal && !prop.proposal.refused) {
+          let r; try { r = await w.realizeIntent(prop.proposal.kappa, { verb: "send", asset: "USD", amount: Number(amount), to: directTo }); }
+          catch (e) { return { ok: false, error: /declin|cancel/i.test(String(e && e.message)) ? "payment declined" : String((e && e.message) || e) }; }
+          if (r && r.error) return { ok: false, error: /declin|cancel/i.test(r.error) ? "payment declined" : r.error };
+          if (r && r.ok && r.receipt) {
+            const total = prop.proposal.card && prop.proposal.card.total;
+            const receipt = `💸 Sent $${Number(amount).toFixed(2)} to ${toName}${memo ? ` · “${memo}”` : ""} ✓${total ? " · " + total + " total" : " · settled"}`;
+            await onSend(genesis, receipt);
+            logQAction("pay", genesis, toName, "$" + Number(amount) + (memo ? " · " + memo : ""), false);
+            return { ok: true, kind, direct: true, live: true, intent: true, tx: r.receipt.kappa };
+          }
+          // realize returned neither ok nor error → fall through to the claim link (never a fake "sent")
+        }
+        // proposal refused or router unavailable → honest fall-through to the claim-link rail below.
+      } else if (typeof w.pay === "function") {   // legacy wallet with no intent rail → the old direct send
+        let r; try { r = await w.pay({ chain: "base", to: directTo, amount: Number(amount), token: asset }); }   // wallet's own biometric Confirm
+        catch (e) { return { ok: false, error: /declin|cancel/i.test(String(e && e.message)) ? "payment declined" : String((e && e.message) || e) }; }
+        const receipt = `💸 Sent $${Number(amount).toFixed(2)} to ${toName}${memo ? ` · “${memo}”` : ""} ✓ · settled on-chain`;
+        await onSend(genesis, receipt);
+        logQAction("pay", genesis, toName, "$" + Number(amount) + (memo ? " · " + memo : ""), false);
+        return { ok: true, kind, direct: true, live: true, tx: r && r.tx };
+      }
     }
   }
   let intent; try { intent = await HoloPay.createPayment({ kind, amount: Number(amount), asset, fiat: "USD", toName: kind === "send" ? toName : null, fromName, to, memo }); }
@@ -2590,6 +2672,14 @@ async function onSend(genesis, text) {
   const _tidy = await _grammarCorrect(text);   // ← flawless grammar, on-device, before it goes anywhere
   text = _tidy.text;
   if (c.isQ) { await qReply(c, text); return; }   // Q = on-device brain (streamed, signed), not a network peer
+  if (c.peer && c.channel) {   // M2: a device-to-device chat — ride the serverless holo-chat-context channel, no server
+    try { await c.thread.ingest({ text, sender: "Me", sentAt: now(), chat: c.meta.chat, source: "peer" }); } catch {}   // optimistic paint, carries its κ
+    try { await c.channel.send(text); } catch {}   // seal + sign + κ-chain + post over BroadcastChannel/rendezvous
+    bumpAffinity(genesis, 4); _logVerb(genesis, "reply");
+    _touch(genesis); rebuild();
+    checkMentions(c);   // @Q still works inside a peer chat
+    return;
+  }
   bumpAffinity(genesis, 4);   // SE-F: replying is the strongest signal you care about this conversation
   _logVerb(genesis, "reply");   // M5: you reply to this one — never auto-clear it
   recordAction("message.send", { genesis, network: c.meta.platform || "holo", len: String(text).length });   // P0
