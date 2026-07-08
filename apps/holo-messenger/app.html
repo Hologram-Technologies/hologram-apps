@@ -247,7 +247,7 @@
     if (new URLSearchParams(location.search).get("ui") === "shadcn" || localStorage.getItem("holo.ui.shadcn") === "1")
       await import("/apps/holo-messenger/messenger-shadcn-ui.mjs");
   } catch {}
-  import { boot } from "/apps/holo-messenger/holo-messenger-app.mjs?v=77f3ffbcfbfd";
+  import { boot } from "/apps/holo-messenger/holo-messenger-app.mjs?v=b7be3c72498a";
 
   const root = document.getElementById("root");
   // TEE GATE + SPECULATIVE WARM PAINT, one motion. The gate already mounted (parallel module above); it
@@ -275,6 +275,6 @@
   import("/apps/holo-messenger/q-summon.mjs?v=3").catch(() => {});
   // Q LIVE CALL — tap Call in the hero → realtime voice conversation (createQLive: streaming voice,
   // hands-free turns, barge-in). Additive + fail-soft: no mic/WebGPU → a clear message, chat still works.
-  import("/apps/holo-messenger/q-live-hero.mjs?v=1").catch(() => {});
+  import("/apps/holo-messenger/q-live-hero.mjs?v=2").catch(() => {});
 </script>
 </body></html>

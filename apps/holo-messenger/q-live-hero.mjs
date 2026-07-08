@@ -84,60 +84,69 @@ function overlay() {
   return callEl;
 }
 
+let _lastSealedQ = "", _mod = null, _armed = false, _lastWarn = "";
+
+// PRELOAD on hero-open (idle) so the loop module + instance exist BEFORE the tap — then arm() can run
+// SYNCHRONOUSLY inside the click gesture (audio-unlock is gesture-bound; a dynamic import() await would
+// close the gesture window and leave audio silently locked — the exact arm() footgun).
+function preload() {
+  if (_mod || live) return;
+  import("../q/q-live.mjs").then((m) => { _mod = m; try { ensureLive(); } catch {} }).catch(() => {});
+}
+function wireEvents(l) {
+  l.on("state", (s) => { orb(s); setStatus(s === "listening" ? "listening" : s === "thinking" ? "thinking…" : s === "speaking" ? "speaking" : "ready"); });
+  l.on("partial", (t) => setYou(t));
+  l.on("final", (t) => { const txt = String(t || "").trim(); if (txt && txt !== sealedYou) { sealedYou = txt; setYou(txt); try { window.HoloQ && window.HoloQ.liveIngest && window.HoloQ.liveIngest("me", txt); } catch {} } });
+  l.on("reply", (full) => { lastQ = String(full || ""); setQ(lastQ); });
+  l.on("spoken", (cap) => { if (cap) setQ(cap); });
+  l.on("bargein", () => setStatus("listening"));
+  l.on("metrics", (m) => { if (m && m.total != null && lastQ && lastQ !== _lastSealedQ) { _lastSealedQ = lastQ; try { window.HoloQ && window.HoloQ.liveIngest && window.HoloQ.liveIngest("q", lastQ); } catch {} } });
+  l.on("warn", (w) => { _lastWarn = String(w || ""); try { console.debug("[q-live]", w); } catch {} });   // kept so a failed start can name the real cause
+  l.on("progress", (p) => { if (p && p.phase) setStatus((p.phase === "ear" ? "waking my ears" : p.phase === "voice" ? "warming my voice" : p.phase === "brain" ? "waking up" : "loading") + "…"); });
+}
+function ensureLive() {
+  if (live || !_mod) return live;
+  let persona = ""; try { persona = (window.HoloQ && window.HoloQ.persona) ? window.HoloQ.persona() : ""; } catch {}
+  live = _mod.createQLive(persona ? { persona } : {});
+  wireEvents(live);
+  return live;
+}
+// SYNCHRONOUS audio unlock — MUST run first thing in the click stack (before any await).
+function armNow() {
+  const inst = ensureLive();
+  if (inst && !_armed) { try { inst.arm(); _armed = true; } catch {} }
+  else if (!inst) {   // module still loading → best-effort raw unlock so audio isn't dead-on-arrival
+    try { const ac = window.__qCallAC || (window.__qCallAC = new (window.AudioContext || window.webkitAudioContext)()); const b = ac.createBuffer(1, 1, 22050); const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); if (ac.resume) ac.resume(); } catch {}
+  }
+}
 async function startCall() {
-  if (live) return;
+  if (live && live.active) return;
   const el = overlay();
   requestAnimationFrame(() => el.classList.add("on"));
-  setStatus("connecting…"); setYou(""); setQ(""); sealedYou = ""; lastQ = ""; _lastSealedQ = "";
-  orb("thinking", 0);   // the orb reacts THE INSTANT you tap Call — a live presence stirring, before the loop loads
-  let mod;
-  try { mod = await import("../q/q-live.mjs"); }
-  catch (e) { setStatus("voice unavailable", true); setQ("I couldn't load my voice just now — you can still type to me."); orb("idle", 0); return; }
-  let persona = ""; try { persona = (window.HoloQ && window.HoloQ.persona) ? window.HoloQ.persona() : ""; } catch {}
-  live = mod.createQLive(persona ? { persona } : {});
-  // arm() MUST run inside the gesture that opened the call — unlock audio now (we are still in the click stack).
-  try { live.arm(); } catch {}
-  // wire events → caption + orb + κ-thread (via the messenger ingest hook)
-  live.on("state", (s) => {
-    orb(s);
-    if (s === "listening") setStatus("listening");
-    else if (s === "thinking") setStatus("thinking…");
-    else if (s === "speaking") setStatus("speaking");
-    else setStatus("ready");
-  });
-  live.on("partial", (t) => setYou(t));
-  live.on("final", (t) => {
-    const txt = String(t || "").trim();
-    if (txt && txt !== sealedYou) { sealedYou = txt; setYou(txt); try { window.HoloQ && window.HoloQ.liveIngest && window.HoloQ.liveIngest("me", txt); } catch {} }
-  });
-  live.on("reply", (full) => { lastQ = String(full || ""); setQ(lastQ); });
-  live.on("spoken", (cap) => { if (cap) setQ(cap); });
-  live.on("bargein", () => { setStatus("listening"); });
-  // when a turn completes (metrics with a total), seal Q's reply into the thread as a κ bubble
-  live.on("metrics", (m) => {
-    if (m && m.total != null && lastQ && lastQ !== _lastSealedQ) { _lastSealedQ = lastQ; try { window.HoloQ && window.HoloQ.liveIngest && window.HoloQ.liveIngest("q", lastQ); } catch {} }
-  });
-  live.on("warn", (w) => { try { console.debug("[q-live]", w); } catch {} });
-  live.on("progress", (p) => { if (p && p.phase) setStatus((p.phase === "ear" ? "waking my ears" : p.phase === "voice" ? "warming my voice" : p.phase === "brain" ? "waking up" : "loading") + "…"); });
-  // start the mic loop; failure (no permission / no WebGPU) is graceful
+  setStatus("connecting…"); setYou(""); setQ(""); sealedYou = ""; lastQ = ""; _lastSealedQ = ""; _lastWarn = "";
+  orb("thinking", 0);   // the orb stirs THE INSTANT you tap Call — a live presence, before the loop loads
+  if (!_mod) { try { _mod = await import("../q/q-live.mjs"); } catch (e) { setStatus("voice unavailable", true); setQ("I couldn't load my voice just now — you can still type to me."); orb("idle", 0); return; } }
+  const inst = ensureLive();
+  if (!inst) { setStatus("voice unavailable", true); setQ("I couldn't start my voice just now — you can still type to me."); orb("idle", 0); return; }
+  if (!_armed) { try { inst.arm(); _armed = true; } catch {} }   // arm if the sync path couldn't (module loaded late)
   try {
-    await live.start();
+    await inst.start();
     setStatus("listening");
     cancelAnimationFrame(rafId); rafId = requestAnimationFrame(pumpOrb);
   } catch (e) {
-    const msg = (e && e.name === "NotAllowedError") ? "I'd love to hear you — allow microphone access and tap Call again." : "I need a mic (and a WebGPU browser) to talk out loud. You can still type to me.";
+    const msg = (e && e.name === "NotAllowedError") ? "I'd love to hear you — allow microphone access and tap Call again."
+      : (_lastWarn ? ("I couldn't get my voice going (" + _lastWarn.slice(0, 80) + "). You can still type to me.")
+      : "I need a mic and a WebGPU browser (Chrome, Edge, or Brave) to talk out loud. You can still type to me.");
     setStatus("can't start the call", true); setQ(msg); orb("idle", 0);
   }
 }
-let _lastSealedQ = "";
 
 function endCall() {
   try { live && live.stop(); } catch {}
-  live = null;
+  live = null; _armed = false;   // a fresh instance next call needs a fresh arm(); module stays cached
   cancelAnimationFrame(rafId); rafId = 0;
   orb("idle", 0);
   if (callEl) { callEl.classList.remove("on"); }
-  // release the mic-reactive orb back to rest
 }
 
 // ── the Call button, injected into the hero (shown while the hero is open) ───────────────────────────────
@@ -148,10 +157,11 @@ function ensureButton() {
   btnEl.id = "q-call-btn";
   btnEl.setAttribute("aria-label", "Call Q — talk out loud");
   btnEl.innerHTML = PHONE + "<span>Call</span>";
-  btnEl.onclick = () => { startCall(); };   // click IS the gesture → arm() inside startCall unlocks audio
+  // click IS the gesture: armNow() unlocks audio SYNCHRONOUSLY (before any await), then startCall() loads + starts.
+  btnEl.onclick = () => { armNow(); startCall(); };
   DOC.body.appendChild(btnEl);
 }
-function showButton() { ensureButton(); btnEl.classList.add("on"); }
+function showButton() { ensureButton(); preload(); btnEl.classList.add("on"); }
 function hideButton() { if (btnEl) btnEl.classList.remove("on"); }
 
 // observe the hero: show Call while it's open; end the call + hide when it closes
@@ -165,5 +175,5 @@ mo.observe(DOC.body, { childList: true, subtree: true });
 if ($(".holo-hero")) showButton();
 
 // debug surface
-window.QLiveHero = { start: startCall, end: endCall, active: () => !!live, get instance() { return live; }, version: 1 };
+window.QLiveHero = { start: startCall, end: endCall, active: () => !!live, get instance() { return live; }, version: 2 };
 try { console.info("[q-live-hero] ready — Call button rides the hero; reuses createQLive (apps/q/q-live.mjs)"); } catch {}
