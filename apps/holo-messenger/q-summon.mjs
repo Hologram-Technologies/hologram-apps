@@ -51,6 +51,19 @@ html.q-summon-manual .holo-home-orb{opacity:0;transform:scale(1.14);transition:t
   border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:5px 10px;pointer-events:none;opacity:0;transition:opacity .5s ease .25s}
 #q-kappa-chip.on{opacity:.85}
 #q-kappa-chip.bad{color:#ffb3c0;border-color:rgba(255,120,140,.4)}
+/* SUGGESTION CHIPS — the standalone's discoverability row, folded into the hero (which shipped without them).
+   Fixed above the composer (React-reconciliation-proof), horizontally scrollable, brand glass; fade on first send. */
+#q-hero-chips{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 78px);z-index:305;
+  display:flex;gap:9px;justify-content:center;flex-wrap:wrap;padding:0 16px;pointer-events:none;
+  opacity:0;transform:translateY(6px);transition:opacity .45s ease,transform .45s cubic-bezier(.4,0,.2,1)}
+#q-hero-chips.on{opacity:1;transform:none}
+#q-hero-chips button{pointer-events:auto;white-space:nowrap;color:#eef3fb;border-radius:20px;padding:8px 15px;font-size:13.5px;
+  cursor:pointer;border:1px solid rgba(255,255,255,.14);background:rgba(20,26,36,.62);
+  backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+  box-shadow:0 3px 16px rgba(0,0,0,.28);transition:transform .14s ease,border-color .16s ease,background .16s ease}
+#q-hero-chips button:hover{border-color:rgba(139,123,255,.55);transform:translateY(-1px);background:rgba(28,36,50,.72)}
+#q-hero-chips button:active{transform:scale(.96)}
+@media (prefers-reduced-motion:reduce){#q-hero-chips{transition:opacity .2s ease}}
 `;
 DOC.head.appendChild(css);
 
@@ -190,26 +203,55 @@ function chip() {
   chipEl.classList.add("on");
 }
 
+// ── suggestion chips (the standalone's discoverability row; the hero shipped without them) ────────────────
+// Drive the hero's React-controlled input the reconciliation-safe way: native value setter → input event →
+// click send. Chips are a fixed sibling of the hero (not inside React's tree), so React never reconciles them.
+const CHIPS = ["Tell me something amazing", "Write me something beautiful", "Help me think through something", "Tell me a joke"];
+let chipsEl = null;
+function heroHasUserMsg() { try { return !!DOC.querySelector(".holo-hero-bubble.me"); } catch { return false; } }
+function driveSend(text) {
+  const inp = DOC.querySelector("#holo-hero-input"); if (!inp) return;
+  try {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    setter.call(inp, text); inp.dispatchEvent(new Event("input", { bubbles: true }));
+    const send = DOC.querySelector(".holo-hero-send");
+    if (send && !send.disabled) send.click();
+    else { inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
+  } catch {}
+}
+function showChips() {
+  if (!heroOpen() || heroHasUserMsg()) return;
+  if (!chipsEl) {
+    chipsEl = DOC.createElement("div"); chipsEl.id = "q-hero-chips";
+    for (const c of CHIPS) { const b = DOC.createElement("button"); b.textContent = c; b.onclick = () => { hideChips(); bargeIn(); driveSend(c); }; chipsEl.appendChild(b); }
+    DOC.body.appendChild(chipsEl);
+  }
+  requestAnimationFrame(() => chipsEl && chipsEl.classList.add("on"));
+}
+function hideChips() { if (chipsEl) { chipsEl.classList.remove("on"); } }
+
 // observe the hero: seal each bubble as it paints; a NEW Q reply takes the voice floor from the greeting
 const mo = new MutationObserver((muts) => {
   for (const mut of muts) {
     for (const n of mut.addedNodes) {
       if (!(n instanceof Element)) continue;
-      if (n.classList && n.classList.contains("holo-hero")) { verifyChain(); chip(); }
+      if (n.classList && n.classList.contains("holo-hero")) { verifyChain(); chip(); setTimeout(showChips, 260); }
       const bubbles = n.classList && n.classList.contains("holo-hero-bubble") ? [n] : (n.querySelectorAll ? n.querySelectorAll(".holo-hero-bubble") : []);
       for (const b of bubbles) {
         if (b.classList.contains("typing")) continue;
         const role = b.classList.contains("me") ? "me" : "q";
         const text = (b.textContent || "").trim();
         const k = seal(role, text);
+        if (role === "me") hideChips();     // you engaged → the chips step aside
         if (k && role === "q") bargeIn();   // the hero speaks its own replies — the greeting yields instantly
       }
     }
     for (const n of mut.removedNodes) {
       if (n instanceof Element && n.classList && n.classList.contains("holo-hero")) {
-        // closed by ANY path: never leave the morph classes dangling, hush the chip, release the greeting
+        // closed by ANY path: never leave the morph classes dangling, hush the chip + chips, release the greeting
         HTML.classList.remove("q-summoning", "q-summon-manual", "q-anticipate");
         if (chipEl) chipEl.classList.remove("on");
+        hideChips();
         bargeIn();
       }
     }
