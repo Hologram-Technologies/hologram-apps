@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- maskable-safe: bleed background fills 512; console kept within the center ~80% safe zone -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141821"/><stop offset="1" stop-color="#07080b"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d7d8cd"/><stop offset="1" stop-color="#a9aa9e"/>
+    </linearGradient>
+    <linearGradient id="scr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9bbc0f"/><stop offset=".55" stop-color="#8bac0f"/><stop offset="1" stop-color="#306230"/>
+    </linearGradient>
+    <radialGradient id="btn" cx=".38" cy=".32" r=".8">
+      <stop offset="0" stop-color="#cf4d86"/><stop offset=".72" stop-color="#9c2b5e"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- console body -->
+  <rect x="118" y="96" width="276" height="320" rx="34" fill="url(#body)"/>
+  <rect x="118" y="96" width="276" height="320" rx="34" fill="none" stroke="#00000018" stroke-width="2"/>
+  <!-- screen -->
+  <rect x="150" y="128" width="212" height="176" rx="12" fill="#4a4d5c"/>
+  <rect x="166" y="142" width="180" height="148" rx="5" fill="url(#scr)"/>
+  <!-- d-pad -->
+  <g fill="#1f1f22">
+    <rect x="150" y="344" width="66" height="22" rx="6"/>
+    <rect x="172" y="322" width="22" height="66" rx="6"/>
+  </g>
+  <!-- face buttons -->
+  <circle cx="322" cy="342" r="21" fill="url(#btn)"/>
+  <circle cx="360" cy="368" r="21" fill="url(#btn)"/>
+</svg>

@@ -1,0 +1,16 @@
+{
+  "name": "Holo Games",
+  "short_name": "Holo Games",
+  "description": "Pick up the console. A decentralized library that streams from IPFS and plays like the real hardware.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07080b",
+  "theme_color": "#07080b",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "./icon-console.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-console.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
