@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+// holo-library-witness.mjs — proves the Library plane: verify-or-refuse, offline, and under-a-frame pivots
+// on a universe-scale synthetic catalog. Fake mirror + Map cache — no network, no key.
+//
+// Checks:
+//   1 loadsUniverse    — all shards load, rows concatenated, byKey resolves.
+//   2 verifyRefuse     — a TAMPERED cached shard is refused (re-fetched clean), a tampered MIRROR shard throws.
+//   3 worksOffline     — warm cache + dead network → full load still succeeds (0 fetches).
+//   4 facetAlgebra     — genre ∩ decade ∩ mood ∩ runtime compose correctly (hand-checked expectations).
+//   5 pivotUnderFrame  — 6-way facet pivot over 19,000 rows completes in < 16 ms (p95 of 50 runs).
+//   6 searchFast       — search-as-you-type over 19k titles < 30 ms, prefix beats substring.
+//   7 personPivot      — person posting resolves to their titles via rowByKey.
+//
+// node holo-library-witness.mjs   (from holo-apps/apps/player/)
+
+import { writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { createLibrary } from "./holo-library.mjs";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const checks = {}; const fail = [];
+const ok = (n, c, d = "") => { checks[n] = !!c; if (!c) fail.push(n + (d ? ` — ${d}` : "")); return !!c; };
+const sha256hex = async (u8) => createHash("sha256").update(u8).digest("hex");
+
+// ── synthetic universe: 19,000 deterministic rows across 16 shards + persons ────────────────────────────
+const GENRES = [28, 35, 18, 27, 878, 10749, 80, 12, 16, 9648];
+const MOODS = ["feelgood", "dark", "mindbending", "cozy", "adrenaline", "scary", "romantic", "epic"];
+const N = 19000;
+const mk = (i) => ({
+  i, k: i % 4 === 0 ? "t" : "m", t: "Title " + i + (i % 7 === 0 ? " Prefixable" : ""), y: 1940 + (i % 86),
+  dec: Math.floor((1940 + (i % 86)) / 10) * 10, g: [GENRES[i % 10], GENRES[(i + 3) % 10]],
+  m: [MOODS[i % 8]], r: 5 + (i % 50) / 10, v: 100 + (i % 9000), p: "/p" + i + ".jpg", rt: 60 + (i % 120),
+});
+const rows = Array.from({ length: N }, (_, i) => mk(i));
+const shards = Array.from({ length: 16 }, () => []);
+for (const r of rows) shards[(r.i + (r.k === "t" ? 7 : 0)) % 16].push(r);
+const objects = shards.map((s, n) => Buffer.from(JSON.stringify({ v: 1, n, rows: s })));
+const personsObj = { 7: { n: "Test Person", t: [rows[1].k + rows[1].i, rows[2].k + rows[2].i, rows[5].k + rows[5].i] } };
+objects.push(Buffer.from(JSON.stringify({ v: 1, persons: personsObj })));
+const refs = await Promise.all(objects.map(async (b) => ({ sha256: await sha256hex(b), blake3: "fake" + (await sha256hex(b)).slice(0, 8), bytes: b.length })));
+const ROOT = { version: 1, mirror: "https://mirror.test/b/", shards: refs.slice(0, 16), persons: refs[16], counts: { titles: N } };
+const byBlake = new Map(refs.map((r, idx) => [r.blake3, objects[idx]]));
+
+let fetches = 0, netDown = false;
+const fakeFetch = async (url) => {
+  if (netDown) throw new Error("network down");
+  fetches++;
+  const hex = String(url).split("/b/")[1];
+  const b = byBlake.get(hex);
+  return b ? { ok: true, arrayBuffer: async () => new Uint8Array(b).buffer } : { ok: false, status: 404 };
+};
+const kv = new Map();
+const cacheGet = async (sha) => kv.get(sha) || null;
+const cachePut = async (sha, bytes) => { kv.set(sha, bytes); };
+
+// 1 loadsUniverse
+const lib = createLibrary({ root: ROOT, fetch: fakeFetch, cacheGet, cachePut, sha256hex });
+await lib.load();
+ok("loadsUniverse", lib.rows.length === N && lib.rowByKey("m1") && lib.rowByKey("t4"), `rows=${lib.rows.length}`);
+
+// 2 verifyRefuse — tamper a cache entry → refused + healed from mirror; tamper the mirror → throws
+const someSha = ROOT.shards[3].sha256;
+kv.set(someSha, new Uint8Array([1, 2, 3]));
+const lib2 = createLibrary({ root: ROOT, fetch: fakeFetch, cacheGet, cachePut, sha256hex });
+await lib2.load();
+const healed = lib2.stats().refused >= 1 && lib2.rows.length === N && (await sha256hex(kv.get(someSha))) === someSha;
+let mirrorRefused = false;
+{
+  const badFetch = async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([9, 9, 9]).buffer });
+  const lib3 = createLibrary({ root: ROOT, fetch: badFetch, cacheGet: async () => null, cachePut: null, sha256hex });
+  try { await lib3.load(); } catch (e) { mirrorRefused = /REFUSED/.test(String(e)); }
+}
+ok("verifyRefuse", healed && mirrorRefused, `healed=${healed} mirrorRefused=${mirrorRefused}`);
+
+// 3 worksOffline — cache is warm from check 1; kill the network entirely
+netDown = true; fetches = 0;
+const lib4 = createLibrary({ root: ROOT, fetch: fakeFetch, cacheGet, cachePut, sha256hex });
+await lib4.load();
+ok("worksOffline", lib4.rows.length === N && fetches === 0, `rows=${lib4.rows.length} fetches=${fetches}`);
+netDown = false;
+
+// 4 facetAlgebra — hand-checked compositions
+const q1 = lib.query({ genres: [35], decades: [1980] });
+const truth1 = rows.filter((r) => r.g.includes(35) && r.dec === 1980).length;
+const q2 = lib.query({ genres: [35], decades: [1980], moods: ["feelgood"], runtimeMax: 100 });
+const truth2 = rows.filter((r) => r.g.includes(35) && r.dec === 1980 && r.m.includes("feelgood") && r.rt && r.rt <= 100).length;
+const q3 = lib.query({ kind: "t", ratingMin: 8 });
+const truth3 = rows.filter((r) => r.k === "t" && r.r >= 8).length;
+ok("facetAlgebra", q1.length === truth1 && q2.length === truth2 && q3.length === truth3, `${q1.length}/${truth1} ${q2.length}/${truth2} ${q3.length}/${truth3}`);
+
+// 5 pivotUnderFrame — p95 of 50 six-way pivots < 16ms
+const times = [];
+for (let i = 0; i < 50; i++) {
+  const t0 = performance.now();
+  lib.query({ kind: "m", genres: [GENRES[i % 10]], moods: [MOODS[i % 8]], decades: [1970 + (i % 5) * 10], runtimeMax: 150, ratingMin: 6, limit: 60 });
+  times.push(performance.now() - t0);
+}
+times.sort((a, b) => a - b);
+const p95 = times[Math.floor(times.length * 0.95)];
+ok("pivotUnderFrame", p95 < 16, `p95=${p95.toFixed(2)}ms`);
+
+// 6 searchFast — prefix beats substring, < 30ms
+const t0 = performance.now(); const sr = lib.search("title 7"); const searchMs = performance.now() - t0;
+ok("searchFast", searchMs < 30 && sr.length > 0 && sr[0].t.toLowerCase().startsWith("title 7"), `ms=${searchMs.toFixed(2)} first=${sr[0] && sr[0].t}`);
+
+// 7 personPivot
+const p = await lib.person(7);
+const titles = p ? p.t.map((k) => lib.rowByKey(k)).filter(Boolean) : [];
+ok("personPivot", !!p && titles.length === 3 && p.n === "Test Person", JSON.stringify(p));
+
+// ── verdict ─────────────────────────────────────────────────────────────────────────────────────────────
+const pass = fail.length === 0;
+console.log("\nholo-library witness — the κ-addressed universe plane: verified, offline, under-a-frame\n");
+for (const [n, c] of Object.entries(checks)) console.log(`  ${c ? "✓" : "✗"}  ${n}`);
+console.log(pass ? `\n  WITNESSED ✓  ${N} titles · pivot p95 ${p95.toFixed(1)}ms · search ${searchMs.toFixed(1)}ms · tamper refused · offline whole\n` : `\n  FAILED: ${fail.join("; ")}\n`);
+writeFileSync(join(here, "holo-library-witness.result.json"), JSON.stringify({ when: new Date().toISOString(), pass, checks, fail, p95ms: +p95.toFixed(2), searchMs: +searchMs.toFixed(2) }, null, 2));
+process.exit(pass ? 0 : 1);

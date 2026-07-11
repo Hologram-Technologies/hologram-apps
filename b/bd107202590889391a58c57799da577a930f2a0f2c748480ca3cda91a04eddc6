@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hologram Apps</title>
+<style>
+ :root{color-scheme:dark;--bg:#0a0c11;--panel:#12151d;--line:#1e2430;--ink:#eef1f6;--dim:#98a2b3;--dim2:#6b7488;--acc:#5b8cff;--ok:#3ddc97;--warn:#ffbf6b}
+ *{box-sizing:border-box}html,body{margin:0;height:100%}
+ body{font:15px/1.55 -apple-system,system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+ header{position:sticky;top:0;z-index:5;backdrop-filter:blur(14px);background:rgba(10,12,17,.82);border-bottom:1px solid var(--line)}
+ .hd{max-width:1160px;margin:0 auto;padding:14px 22px;display:flex;gap:16px;align-items:center}
+ .logo{font-weight:750;font-size:16px;white-space:nowrap;letter-spacing:.2px}.logo b{color:var(--acc)}
+ .sb{flex:1;position:relative;max-width:560px}
+ .sb svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5}
+ #q{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:11px;padding:10px 14px 10px 38px;font:15px system-ui}
+ #q:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(91,140,255,.15)}
+ .nav{max-width:1160px;margin:0 auto;padding:0 22px 12px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}
+ .chip{white-space:nowrap;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--dim);cursor:pointer;font-size:13px;font-weight:550;transition:.12s}
+ .chip:hover{color:var(--ink);border-color:#33405c}.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+ .wrap{max-width:1160px;margin:0 auto;padding:22px 22px 90px}
+ .lead{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:6px 0 3px}
+ .sub{color:var(--dim);margin:0 0 22px;font-size:14.5px}
+ .sect{margin:22px 2px 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim2);font-weight:650}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:14px}
+ .nm,.own,.desc{overflow-wrap:anywhere}
+ .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 17px;cursor:pointer;transition:transform .13s,border-color .13s,box-shadow .13s;display:flex;flex-direction:column;min-height:150px}
+ .card:hover{transform:translateY(-3px);border-color:#3a465f;box-shadow:0 14px 34px -16px rgba(0,0,0,.75)}
+ .top{display:flex;align-items:center;gap:11px}
+ .ic{width:38px;height:38px;border-radius:10px;object-fit:cover;background:#222a38;flex:none}
+ .nm{font-weight:680;font-size:15.5px;line-height:1.2}
+ .own{color:var(--dim);font-size:12.5px;margin-top:1px}
+ .run{margin-left:auto;flex:none;font-size:11.5px;font-weight:650;padding:4px 9px;border-radius:999px;display:flex;align-items:center;gap:4px}
+ .run.fast{background:rgba(61,220,151,.12);color:var(--ok)}.run.vm{background:rgba(255,191,107,.12);color:var(--warn)}
+ .desc{color:#c3cad6;font-size:13.5px;margin:11px 0 0;flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+ .foot{display:flex;align-items:center;gap:13px;margin-top:13px;font-size:12.5px;color:var(--dim)}
+ .lang{display:flex;align-items:center;gap:6px}.dot{width:9px;height:9px;border-radius:50%;background:#6ea8fe;flex:none}
+ .foot .st{display:flex;align-items:center;gap:4px}.foot .play{color:var(--ok)}
+ .row-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 2px 4px}
+ .seeall{color:var(--acc);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}.seeall:hover{text-decoration:underline}
+ .rowblurb{color:var(--dim2);font-size:13px;margin:0 2px 12px}
+ .empty{color:var(--dim);padding:48px 0;text-align:center}.empty b{color:var(--ink)}
+ .skl{height:150px;border-radius:16px;background:linear-gradient(100deg,#12151d 30%,#171b26 50%,#12151d 70%);background-size:200% 100%;animation:sh 1.2s infinite}
+ @keyframes sh{to{background-position:-200% 0}}
+ /* run overlay — full-bleed immersive projection; chrome floats + auto-hides */
+ #ov{position:fixed;inset:0;z-index:20;background:#000;display:none}
+ #ov.on{display:block}
+ #ovframe{position:absolute;inset:0;border:0;width:100%;height:100%;background:#000;display:block;touch-action:manipulation}
+ #ovveil{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#05070c;transition:opacity .3s}
+ #ovveil.gone{opacity:0;pointer-events:none}
+ .spin{width:34px;height:34px;border-radius:50%;border:3px solid #1e2430;border-top-color:var(--acc);animation:rot .8s linear infinite}
+ @keyframes rot{to{transform:rotate(1turn)}}
+ #ovmsg{color:var(--dim);font-size:13.5px;max-width:520px;text-align:center;padding:0 20px}
+ #ovbar{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;gap:10px;align-items:center;padding:11px 16px;
+   font-size:13px;color:#eef1f6;background:linear-gradient(180deg,rgba(6,8,12,.9) 0%,rgba(6,8,12,.5) 60%,rgba(6,8,12,0) 100%);
+   opacity:0;transform:translateY(-6px);transition:opacity .22s ease,transform .22s ease;pointer-events:none;user-select:none}
+ #ov.chrome #ovbar{opacity:1;transform:none;pointer-events:auto}
+ #ovbar .t{font-weight:700}#ovbar .s{color:#9aa4b6;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ #ovbar .s .ok{color:var(--ok)}#ovbar .s .err{color:#ff8f8f}
+ #ovbar button{background:rgba(22,28,42,.72);border:1px solid rgba(255,255,255,.16);color:#eef1f6;border-radius:10px;padding:8px 13px;cursor:pointer;font-size:13px;font-weight:600;backdrop-filter:blur(8px);transition:.12s;white-space:nowrap}
+ #ovbar button:hover{border-color:#5b8cff;background:rgba(34,44,68,.85)}
+ #ovmode{display:inline-flex;border:1px solid rgba(255,255,255,.16);border-radius:10px;overflow:hidden;background:rgba(22,28,42,.72);backdrop-filter:blur(8px)}
+ #ovmode[hidden]{display:none}
+ #ovmode button{border:0;border-radius:0;padding:8px 11px;background:transparent}
+ #ovmode button.on{background:rgba(91,140,255,.35)}
+</style>
+</head>
+<body>
+<header>
+ <div class="hd">
+  <div class="logo">⬡ Hologram <b>Apps</b></div>
+  <div class="sb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+   <input id="q" placeholder="Search apps on GitHub, or paste a repo link" autocomplete="off"></div>
+ </div>
+ <nav class="nav" id="chips"></nav>
+</header>
+<div class="wrap" id="main"></div>
+
+<div id="ov">
+ <iframe id="ovframe" allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope; magnetometer; xr-spatial-tracking" sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-orientation-lock allow-forms allow-modals allow-popups"></iframe>
+ <div id="ovveil"><div class="spin"></div><div id="ovs" style="font-weight:650">Opening…</div><div id="ovmsg"></div></div>
+ <div id="ovbar">
+  <img id="ovic" width="22" height="22" style="border-radius:6px" alt="">
+  <span class="t" id="ovt"></span><span class="s" id="ovstat"></span>
+  <span id="ovmode" hidden><button data-m="fit" class="on">Fit</button><button data-m="fill">Fill</button><button data-m="actual">1:1</button></span>
+  <button id="fs">⛶ Fullscreen</button><button id="x">✕ Close</button>
+ </div>
+</div>
+
+<script type="module">
+import { animate, probeLadder, _opfsTamper, _opfsWipe, registryIndex } from "./animate-client.mjs";
+window.__opfsTamper = _opfsTamper; window.__opfsWipe = _opfsWipe; window.__registryIndex = registryIndex;
+
+// ── service worker: the app server. Wait for control (claim → controllerchange on first load). ────────────
+async function swReady() {
+  await navigator.serviceWorker.register("./sw.js", { type: "module" });
+  await navigator.serviceWorker.ready;
+  if (!navigator.serviceWorker.controller) await new Promise((res) => navigator.serviceWorker.addEventListener("controllerchange", res, { once: true }));
+}
+const ready = swReady().then(() => { window.__swReady = true; }).catch((e) => { document.getElementById("main").innerHTML = '<div class="empty">Service worker failed: ' + e.message + "</div>"; throw e; });
+
+// ── catalog: STATIC file shipped beside the page — browsing costs ZERO GitHub API calls. ──────────────────
+let CATALOG = { featured: [], categories: [], apps: {} };
+const catalogReady = fetch("catalog.json").then((r) => r.ok ? r.json() : CATALOG).then((c) => { CATALOG = c; }).catch(() => {});
+
+// language → how-it-runs pill (same heuristic as the daemon store: client langs run instantly in the tab;
+// anything else needs its own machine — labeled honestly, wired in a later milestone)
+const CLIENT_LANGS = new Set(["JavaScript", "TypeScript", "HTML", "CSS", "Vue", "Svelte", "Astro", "CoffeeScript"]);
+const runPill = (a) => a.registry || CLIENT_LANGS.has(a.language) ? '<span class="run fast">⚡ Instant</span>' : '<span class="run vm">🖥️ Needs a machine</span>';
+const fmtK = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n || 0);
+const esc = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const avatar = (a) => a.avatar || ("https://github.com/" + (a.owner || a.full_name.split("/")[0]) + ".png?size=76");
+
+function card(a) {
+  const el = document.createElement("div"); el.className = "card";
+  el.innerHTML = '<div class="top"><img class="ic" loading="lazy" src="' + avatar(a) + '" onerror="this.style.visibility=\'hidden\'">'
+    + '<div><div class="nm">' + esc(a.name || a.full_name.split("/")[1]) + '</div><div class="own">' + esc(a.owner || a.full_name.split("/")[0]) + "</div></div>" + runPill(a) + "</div>"
+    + '<p class="desc">' + esc(a.description || "") + "</p>"
+    + '<div class="foot"><span class="lang"><span class="dot"></span>' + esc(a.language || "app") + "</span>"
+    + (a.stars ? '<span class="st">★ ' + fmtK(a.stars) + "</span>" : "")
+    + (a.verifiedPlayable ? '<span class="play">✓ Plays</span>' : "") + "</div>";
+  el.onclick = () => openApp(a.full_name, a);
+  return el;
+}
+function section(title, blurb, apps, catId) {
+  const frag = document.createDocumentFragment();
+  const h = document.createElement("div"); h.className = "row-h";
+  h.innerHTML = '<div class="sect">' + title + "</div>" + (catId ? '<span class="seeall" data-cat="' + catId + '">See all →</span>' : "");
+  frag.appendChild(h);
+  if (blurb) { const b = document.createElement("p"); b.className = "rowblurb"; b.textContent = blurb; frag.appendChild(b); }
+  const g = document.createElement("div"); g.className = "grid";
+  for (const a of apps) g.appendChild(card(a));
+  frag.appendChild(g);
+  return frag;
+}
+function renderBrowse(catId) {
+  const main = document.getElementById("main"); main.innerHTML = "";
+  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.cat === (catId || "featured")));
+  if (!catId || catId === "featured") {
+    const lead = document.createElement("div");
+    lead.innerHTML = '<div class="lead">Open any app on GitHub. No install, no account.</div>'
+      + '<p class="sub">Pick one — it streams into this tab as a verified κ, built once for the whole planet. Apps you\'ve opened work offline.</p>';
+    main.appendChild(lead);
+    main.appendChild(section("Featured", null, CATALOG.featured || []));
+    for (const c of CATALOG.categories || []) { const apps = (CATALOG.apps[c.id] || []).slice(0, 6); if (apps.length) main.appendChild(section(c.label, c.blurb, apps, c.id)); }
+  } else {
+    const c = (CATALOG.categories || []).find((x) => x.id === catId);
+    main.appendChild(section(c ? c.label : catId, c && c.blurb, CATALOG.apps[catId] || []));
+  }
+}
+function renderChips() {
+  const nav = document.getElementById("chips"); nav.innerHTML = "";
+  for (const c of [{ id: "featured", label: "Featured" }, ...(CATALOG.categories || [])]) {
+    const b = document.createElement("button"); b.className = "chip" + (c.id === "featured" ? " on" : ""); b.dataset.cat = c.id; b.textContent = c.label.replace(/^\S+\s/, (m) => m);
+    b.onclick = () => renderBrowse(c.id); nav.appendChild(b);
+  }
+}
+document.addEventListener("click", (e) => { const s = e.target.closest(".seeall"); if (s) renderBrowse(s.dataset.cat); });
+
+// ── search: live GitHub search (CORS-open) — rate limit surfaced honestly; a pasted repo link runs directly.
+let _t;
+document.getElementById("q").addEventListener("input", (e) => {
+  clearTimeout(_t); const q = e.target.value.trim();
+  if (!q) return renderBrowse("featured");
+  if (/github\.com\/[^/]+\/[^/]+/.test(q) || /^[\w.-]+\/[\w.-]+$/.test(q)) return;   // a repo ref — Enter runs it
+  _t = setTimeout(async () => {
+    const main = document.getElementById("main"); main.innerHTML = '<div class="grid">' + '<div class="skl"></div>'.repeat(6) + "</div>";
+    try {
+      const r = await fetch("https://api.github.com/search/repositories?per_page=24&sort=stars&order=desc&q=" + encodeURIComponent(q + " stars:>30"));
+      if (r.status === 403) { main.innerHTML = '<div class="empty"><b>GitHub search is catching its breath</b><br>Unauthenticated search allows 10 queries/minute — try again shortly, or paste a repo link directly.</div>'; return; }
+      const j = await r.json();
+      const apps = (j.items || []).map((x) => ({ full_name: x.full_name, name: x.name, owner: x.owner && x.owner.login, description: x.description, stars: x.stargazers_count, language: x.language, avatar: x.owner && x.owner.avatar_url }));
+      main.innerHTML = "";
+      main.appendChild(section('Results for "' + esc(q) + '"', null, apps));
+      if (!apps.length) main.innerHTML = '<div class="empty">Nothing found for <b>' + esc(q) + "</b></div>";
+    } catch { main.innerHTML = '<div class="empty">Search needs the network — browsing and apps you\'ve opened still work.</div>'; }
+  }, 350);
+});
+document.getElementById("q").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return; const q = e.target.value.trim();
+  if (/github\.com\/[^/]+\/[^/]+/.test(q) || /^[\w.-]+\/[\w.-]+$/.test(q)) openApp(q);
+});
+
+// ── open an app: overlay + veil + animate() → the SW serves it from /run. Witness hook = window.__animate. ─
+const ov = document.getElementById("ov"), ovframe = document.getElementById("ovframe"), ovveil = document.getElementById("ovveil");
+const ovs = document.getElementById("ovs"), ovmsg = document.getElementById("ovmsg"), ovstat = document.getElementById("ovstat");
+let lastStatus = "";
+async function runApp(input, meta, opts) {
+  await ready;
+  ov.classList.add("on"); document.documentElement.style.overflow = "hidden";
+  ovveil.classList.remove("gone"); ovs.textContent = "Opening " + (meta && meta.name || input) + "…"; ovmsg.textContent = "";
+  document.getElementById("ovt").textContent = (meta && meta.name) || String(input).split("/").pop();
+  document.getElementById("ovic").src = meta ? avatar(meta) : "";
+  const t0 = performance.now();
+  const r = await animate(input, (m) => { lastStatus = m; ovmsg.textContent = m; }, opts);
+  ovframe.onload = () => { ovveil.classList.add("gone"); try { ovframe.contentWindow.focus(); } catch {} showChrome(4200); };
+  ovframe.src = new URL("run/" + r.id + "/", location.href).pathname;   // scope-relative (Pages subpath safe)
+  const how = r.meta.source === "live" ? "🔨 built from source" : "⚡ streamed (" + r.meta.source + ")";
+  ovstat.innerHTML = '<span class="ok">' + how + "</span> · verified ✓ · " + ((performance.now() - t0) / 1000).toFixed(1) + "s";
+  return r;
+}
+window.__animate = (input, opts) => runApp(input, null, opts).catch((e) => { ovs.textContent = "Couldn't open this one"; ovmsg.textContent = e.message; throw e; });
+window.__probe = async (slug, ref) => { await ready; return probeLadder(slug, ref); };
+function openApp(input, meta) { runApp(input, meta).catch((e) => { ovs.textContent = "Couldn't open this one"; ovmsg.textContent = e.message; }); }
+
+function closeOv() { try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} ov.classList.remove("on", "chrome"); document.documentElement.style.overflow = ""; ovframe.removeAttribute("src"); }
+document.getElementById("x").onclick = closeOv;
+// floating chrome + fullscreen + Fit/Fill/1:1 (announced by the app's injected fit engine via postMessage)
+const ovmode = document.getElementById("ovmode"); let curMode = "fit", _chromeT;
+const sendMode = () => { try { ovframe.contentWindow.postMessage({ holoMode: curMode }, "*"); } catch {} };
+ovmode.querySelectorAll("button").forEach((btn) => { btn.onclick = (e) => { e.stopPropagation(); curMode = btn.dataset.m; ovmode.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn)); sendMode(); showChrome(); }; });
+addEventListener("message", (e) => { if (ovframe && e.source === ovframe.contentWindow && e.data && e.data.holoFit) { ovmode.hidden = !e.data.holoFit.canvasApp; if (!ovmode.hidden) sendMode(); } });
+function showChrome(ms) { ov.classList.add("chrome"); clearTimeout(_chromeT); _chromeT = setTimeout(() => ov.classList.remove("chrome"), ms || 2600); }
+ov.addEventListener("mousemove", () => showChrome()); ov.addEventListener("touchstart", () => showChrome(), { passive: true });
+const fsBtn = document.getElementById("fs");
+fsBtn.onclick = (e) => { e.stopPropagation(); try { document.fullscreenElement ? document.exitFullscreen() : ov.requestFullscreen(); } catch {} setTimeout(() => { try { ovframe.contentWindow.focus(); } catch {} }, 60); };
+document.addEventListener("fullscreenchange", () => { fsBtn.textContent = document.fullscreenElement ? "⤢ Exit full" : "⛶ Fullscreen"; showChrome(); });
+addEventListener("keydown", (e) => { if (!ov.classList.contains("on")) return; if (e.key === "Escape" && !document.fullscreenElement) closeOv(); else if ((e.key === "f" || e.key === "F") && document.activeElement !== document.getElementById("q")) fsBtn.onclick(e); });
+
+// boot
+Promise.all([catalogReady]).then(() => { renderChips(); renderBrowse("featured");
+  // deep-link: ?run=<owner/repo> auto-opens that app (the unified Holo Hub portal streams repos this way).
+  const run = new URLSearchParams(location.search).get("run");
+  if (run) openApp(run);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "when": "2026-07-11T07:30:15.171Z",
+  "pass": true,
+  "checks": {
+    "tokenOnce": true,
+    "tokenRefresh": true,
+    "remoteBridge": true,
+    "airingNext": true,
+    "episodesNormalized": true,
+    "kappaCacheHit": true,
+    "worksOffline": true,
+    "dayBucket": true
+  },
+  "fail": []
+}

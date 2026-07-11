@@ -1,0 +1,80 @@
+// holo-flow.mjs — the FLOW PLAN sequencer (F2 of HOLO-FLOW-PROMPT.md). PURE and deterministic:
+// (cards, continue, scores, hour, seed, mood, history) → the next 3 items + why — no DOM, no fetch,
+// no Date.now(). The LLM/voice are garnish ABOVE this; with no brain, no GPU, no network, the channel
+// flows identically. The plan is a κ-object (JCS+sha256 sealed) — inspectable, private, tamper-refusing.
+// All taste lives in ONE weights table below: tunable, witnessable.
+
+import { jcs, sha256hex } from "./holo-media-card.mjs";
+
+export const WEIGHTS = {
+  resume: 100,                    // finish what you started — resume-first is the strongest pull
+  tastePerPlay: 6,                // learned score (bumpPlay/bumpSkip) via scoreOf
+  hourPrior: 30,                  // time-of-day fit (table below)
+  rhythmPenalty: 60,              // same kind as the previous item — variety unless bingeing
+  bingeOverride: 3,               // ≥3 consecutive finishes of one kind = bingeing → rhythm penalty off
+  historyPenalty: 1000,           // already played this session — effectively never within a session
+  skipKindPenalty: 25,            // a kind vetoed this session appears less, immediately
+  wildcard: 40,                   // one discovery slot: boost the least-seen candidate
+  mood: {                         // explicit steering — additive nudges, not filters (never a dead end)
+    calmer:  { audiobook: 45, film: 20, game: -45, live: -25 },
+    short:   { game: 45, live: 25, film: -30, audiobook: -10 },
+    surprise:{ _unseen: 60 },
+  },
+};
+export const HOUR_PRIOR = (h) =>
+  h < 9  ? { live: 1, audiobook: .7, game: .1, film: .1 } :
+  h < 17 ? { audiobook: .8, game: .6, live: .5, film: .3 } :
+  h < 23 ? { film: 1, audiobook: .5, game: .4, live: .3 } :
+           { audiobook: 1, film: .5, game: .2, live: .1 };
+
+const mulberry32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+// plan({cards, continueList, scoreOf, hour, seed, mood, history, prevKind, skippedKinds, bingeKind})
+//   cards: [{id, kind, title, ...}] — the whole eligible pool (from the κ-index)
+//   → { items: [card×≤3], why: [string×], seedUsed }
+export function plan(inp) {
+  const { cards = [], continueList = [], scoreOf = () => 0, hour = 20, seed = 1, mood = null,
+          history = [], prevKind = null, skippedKinds = [], bingeKind = null } = inp;
+  const rng = mulberry32(seed);
+  const played = new Set(history);
+  const contById = new Map(continueList.map((r) => [r.id, r]));
+  const seen = new Set(Object.keys(inp.statsAll || {}));
+  const prior = HOUR_PRIOR(hour);
+  const moodW = (mood && WEIGHTS.mood[mood]) || null;
+
+  const items = [], why = [];
+  let lastKind = prevKind;
+  for (let slot = 0; slot < 3; slot++) {
+    let best = null, bestScore = -Infinity, bestWhy = "";
+    for (const c of cards) {
+      if (!c || !c.id || items.includes(c)) continue;
+      let s = rng() * 4;                                             // seeded jitter: ties break deterministically
+      const reasons = [];
+      if (played.has(c.id)) s -= WEIGHTS.historyPenalty;
+      const cont = contById.get(c.id);
+      if (cont) { s += WEIGHTS.resume; reasons.push("you're " + (cont.dur ? Math.round(100 * cont.pos / cont.dur) + "% in" : "mid-way")); }
+      const taste = scoreOf(c.id); if (taste) { s += taste * WEIGHTS.tastePerPlay; if (taste > 0) reasons.push("you come back to this"); }
+      s += (prior[c.kind] || 0) * WEIGHTS.hourPrior; if ((prior[c.kind] || 0) >= 0.8) reasons.push("fits the hour");
+      if (c.kind === lastKind && bingeKind !== c.kind) s -= WEIGHTS.rhythmPenalty;
+      if (skippedKinds.includes(c.kind)) s -= WEIGHTS.skipKindPenalty;
+      if (moodW) { s += moodW[c.kind] || 0; if (moodW._unseen && !seen.has(c.id)) s += moodW._unseen; if ((moodW[c.kind] || 0) > 0) reasons.push("matches “" + mood + "”"); }
+      if (slot === 2 && !seen.has(c.id) && !played.has(c.id)) { s += WEIGHTS.wildcard; reasons.push("something new"); }
+      if (s > bestScore) { bestScore = s; best = c; bestWhy = reasons.join(" · ") || "in your library"; }
+    }
+    if (!best || bestScore <= -WEIGHTS.historyPenalty / 2) break;    // pool exhausted this session — stop honestly
+    items.push(best); why.push(bestWhy); lastKind = best.kind;
+  }
+  return { items, why, seedUsed: seed };
+}
+
+// seal / verify a plan as a κ-object — same discipline as every card in the hub
+export async function sealPlan(p) {
+  const body = { v: 1, kind: "flow-plan", items: p.items.map((c) => c.id), why: p.why, seed: p.seedUsed };
+  const hex = await sha256hex(new TextEncoder().encode(jcs(body)));
+  return { ...body, kappa: "sha256:" + hex };
+}
+export async function verifyPlan(sealed) {
+  const { kappa, ...body } = sealed;
+  const hex = await sha256hex(new TextEncoder().encode(jcs(body)));
+  return "sha256:" + hex === kappa ? body : null;
+}

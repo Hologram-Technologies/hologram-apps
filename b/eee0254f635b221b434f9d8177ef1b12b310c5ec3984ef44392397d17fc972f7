@@ -1,0 +1,158 @@
+// holo-library.mjs — THE PLANE: the κ-addressed universe catalog at runtime (HOLO-TV-LIBRARY-PROMPT.md L2).
+//
+// A lean resolver over the forge's shards: the tiny root (feed/library-index.json) names every shard by
+// TWO hashes — blake3 (the κ-mirror path) and sha256 (the verify key). Reads are verify-or-refuse (Law
+// L5): bytes are cached raw in CacheStorage and RE-HASHED on every read; a tampered shard is refused by
+// name, never parsed. Once cached, the whole universe browses OFFLINE and every facet pivot is a plain
+// in-memory scan over compact rows — ~19k titles filter in well under a frame, no bitset machinery needed.
+//
+// Dependency-injected (fetch + cache + sha256) so Node witnesses it with fake shards — no network.
+// Browser binding: window.HoloLibrary.live() → { load, query, search, person, personsIndex, rows, root }.
+
+// createLibrary({ root, fetch, cacheGet, cachePut, sha256hex })
+//   root      : the parsed library-index.json (or null → loadRoot() fetches it)
+//   cacheGet  : async (sha) → Uint8Array | null      cachePut: async (sha, bytes) → void
+//   sha256hex : async (Uint8Array) → hex
+export function createLibrary({ root = null, fetch: f, cacheGet, cachePut, sha256hex, rootUrl = "feed/library-index.json" } = {}) {
+  const doFetch = f || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : null);
+  if (!doFetch) throw new Error("holo-library: fetch required");
+  let R = root, rows = [], byKey = new Map(), loaded = false, personsCache = null, searchIdx = null;
+  const stats = { shardsFromCache: 0, shardsFromNet: 0, refused: 0 };
+
+  async function loadRoot() {
+    if (R) return R;
+    // network-first (fresh universe), then HTTP cache, then the LAST GOOD root parked in the object cache —
+    // a returning user boots the whole library with the network gone (P4 offline-first).
+    try { R = await (await doFetch(rootUrl + "?v=" + Date.now(), { cache: "no-store" })).json(); }
+    catch { try { R = await (await doFetch(rootUrl)).json(); } catch { R = null; } }
+    if (R && cachePut) { try { await cachePut("root", new TextEncoder().encode(JSON.stringify(R))); } catch {} }
+    if (!R && cacheGet) { const c = await cacheGet("root"); if (c) R = JSON.parse(new TextDecoder().decode(c)); }
+    if (!R) throw new Error("holo-library: no root reachable (network + cache empty)");
+    return R;
+  }
+  // verify-or-refuse read of ONE named object { sha256, blake3 }
+  async function readObject(ref, name) {
+    if (cacheGet) {
+      const c = await cacheGet(ref.sha256);
+      if (c) {
+        if ((await sha256hex(c)) === ref.sha256) { stats.shardsFromCache++; return c; }
+        stats.refused++; console.warn("holo-library: REFUSED tampered cache object", name, ref.sha256.slice(0, 12));
+      }
+    }
+    const res = await doFetch(R.mirror + ref.blake3);
+    if (!res.ok) throw new Error("holo-library: mirror " + res.status + " for " + name);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if ((await sha256hex(bytes)) !== ref.sha256) { stats.refused++; throw new Error("holo-library: REFUSED " + name + " — bytes do not re-derive"); }
+    stats.shardsFromNet++;
+    if (cachePut) await cachePut(ref.sha256, bytes);
+    return bytes;
+  }
+  const dec = (u8) => JSON.parse(new TextDecoder().decode(u8));
+
+  // load(onShard) — pull all shards (parallel), verify each, build the in-memory plane.
+  async function load(onShard = null) {
+    if (loaded) return rows;
+    await loadRoot();
+    const parts = await Promise.all(R.shards.map(async (ref, n) => {
+      const s = dec(await readObject(ref, "shard" + n));
+      if (onShard) try { onShard(n, s.rows.length); } catch {}
+      return s.rows;
+    }));
+    rows = parts.flat();
+    byKey = new Map(rows.map((r) => [r.k + r.i, r]));
+    loaded = true;
+    return rows;
+  }
+
+  // ── facet algebra — one scan, every dimension composable ────────────────────────────────────────────────
+  // q: { kind:"m"|"t", genres:[ids], moods:[keys], decades:[1980,…], runtimeMax, runtimeMin, ratingMin,
+  //      votesMax (hidden gems), lang, person (id), exclude:Set(keys), limit, sort:"top"|"new"|"old"|"az" }
+  function query(q = {}) {
+    let list = rows;
+    if (q.person != null) { const p = personsCache && personsCache[q.person]; list = p ? p.t.map((k) => byKey.get(k)).filter(Boolean) : []; }
+    const out = [];
+    for (const r of list) {
+      if (q.kind && r.k !== q.kind) continue;
+      if (q.genres && q.genres.length && !q.genres.some((g) => r.g.includes(g))) continue;
+      if (q.moods && q.moods.length && !q.moods.some((m) => r.m.includes(m))) continue;
+      if (q.decades && q.decades.length && !q.decades.includes(r.dec)) continue;
+      if (q.runtimeMax && !(r.rt && r.rt <= q.runtimeMax)) continue;
+      if (q.runtimeMin && !(r.rt && r.rt >= q.runtimeMin)) continue;
+      if (q.ratingMin && !(r.r >= q.ratingMin)) continue;
+      if (q.votesMax && !(r.v <= q.votesMax)) continue;
+      if (q.lang && r.l !== q.lang) continue;
+      if (q.exclude && q.exclude.has(r.k + r.i)) continue;
+      out.push(r);
+    }
+    const score = (r) => r.r * Math.log10(1 + r.v);                    // quality × confidence
+    if (q.sort === "az") out.sort((a, b) => a.t.localeCompare(b.t));
+    else if (q.sort === "new") out.sort((a, b) => b.y - a.y || score(b) - score(a));
+    else if (q.sort === "old") out.sort((a, b) => a.y - b.y || score(b) - score(a));
+    else out.sort((a, b) => score(b) - score(a));
+    return q.limit ? out.slice(0, q.limit) : out;
+  }
+
+  // search-as-you-type over the full index (lazy lowercase map; prefix beats substring)
+  function search(text, limit = 40) {
+    const t = String(text || "").toLowerCase().trim();
+    if (!t) return [];
+    if (!searchIdx) searchIdx = rows.map((r) => [r.t.toLowerCase(), r]);
+    const pre = [], sub = [];
+    for (const [lt, r] of searchIdx) {
+      if (lt.startsWith(t)) pre.push(r);
+      else if (lt.includes(t)) sub.push(r);
+      if (pre.length >= limit) break;
+    }
+    const sc = (r) => r.r * Math.log10(1 + r.v);
+    pre.sort((a, b) => sc(b) - sc(a)); sub.sort((a, b) => sc(b) - sc(a));
+    return [...pre, ...sub].slice(0, limit);
+  }
+
+  // persons (lazy) — person id → { n: name, t: [rowKeys] }; enables the "tap a face → filmography" pivot
+  async function personsIndex() {
+    if (personsCache) return personsCache;
+    await loadRoot();
+    personsCache = dec(await readObject(R.persons, "persons")).persons;
+    return personsCache;
+  }
+  async function person(id) { return (await personsIndex())[id] || null; }
+
+  // searchPeople(text) — cast/director name → [{ id, name, count, titles:[rows] }] ranked by filmography size.
+  // Sync: returns [] if the persons posting isn't resolved yet (caller warms it via personsIndex()).
+  function searchPeople(text, limit = 4) {
+    if (!personsCache) return [];
+    const t = String(text || "").toLowerCase().trim();
+    if (t.length < 3) return [];
+    const wordRe = new RegExp("\\b" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "");   // matches a name-word starting with the query
+    const hits = [];
+    for (const id in personsCache) {
+      const p = personsCache[id];
+      const nm = (p.n || "").toLowerCase();
+      if (!nm.includes(t)) continue;
+      // Relevance: an exact full-name match wins; then a whole-word match (surname/first name); ties break by
+      // filmography size — the best signal for "which Nolan did you mean" (Christopher, 12 films, not an extra).
+      hits.push({ id: +id, name: p.n, count: p.t.length, exact: nm === t, word: wordRe.test(nm) });
+    }
+    hits.sort((a, b) => (b.exact - a.exact) || (b.word - a.word) || (b.count - a.count));
+    return hits.slice(0, limit).map((h) => ({ ...h, titles: personsCache[h.id].t.map((k) => byKey.get(k)).filter(Boolean) }));
+  }
+
+  return {
+    load, query, search, searchPeople, person, personsIndex, loadRoot,
+    get rows() { return rows; }, get root() { return R; }, get loaded() { return loaded; },
+    personsReady: () => !!personsCache,
+    rowByKey: (k) => byKey.get(k) || null, stats: () => ({ ...stats }),
+  };
+}
+
+// ── browser binding — CacheStorage raw-bytes tier + SubtleCrypto verify ─────────────────────────────────
+if (typeof window !== "undefined") {
+  const CACHE = "holo-library-objects";   // content-addressed: entries never change, only appear
+  const sha256hex = async (u8) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", u8))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const cacheGet = async (sha) => { try { const c = await caches.open(CACHE); const r = await c.match("https://holo.local/lib/" + sha); return r ? new Uint8Array(await r.arrayBuffer()) : null; } catch { return null; } };
+  const cachePut = async (sha, bytes) => { try { const c = await caches.open(CACHE); await c.put("https://holo.local/lib/" + sha, new Response(bytes)); } catch {} };
+  let one = null;
+  window.HoloLibrary = { createLibrary, live() { return one || (one = createLibrary({ sha256hex, cacheGet, cachePut })); } };
+}
+
+export default { createLibrary };

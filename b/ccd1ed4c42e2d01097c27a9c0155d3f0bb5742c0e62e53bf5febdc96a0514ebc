@@ -1,0 +1,100 @@
+{
+  "id": "org.hologram.HoloGames",
+  "name": "Holo Games",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication",
+    "schema:GameApplication"
+  ],
+  "summary": "Play real retro consoles as streaming κ-addressable content. Five real emulators (Game Boy, NES, GBA, SNES, Genesis) behind one engine-agnostic frontend — drop a ROM, it streams through the κ-ROM seam (verify-on-read) and plays, super-res'd to your display via WebGPU.",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "applicationCategory": "GameApplication",
+  "conforms": {
+    "specs": [
+      "libretro-abi",
+      "content-addressing",
+      "law-l1-determinism",
+      "law-l4-no-cdn",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloGames"
+    ]
+  },
+  "engines": [
+    "gambatte",
+    "quicknes",
+    "mgba",
+    "snes9x",
+    "genesis-plus-gx"
+  ],
+  "loader": "index.html",
+  "description": [
+    {
+      "p": "A κ-native retro console player. Five real libretro cores — Gambatte (Game Boy), QuickNES (NES, 6502), mGBA (GBA/GBC/GB, ARM7TDMI), Snes9x (SNES, 65816), and Genesis Plus GX (Genesis, 68000) — built from source with emscripten and driven through ONE engine-agnostic frontend. The execution engine is swappable; the κ substrate is not."
+    },
+    {
+      "p": "A game is a κ. Every ROM is loaded through the content-addressed κ-ROM seam — streamed by sector, deduped, and re-verified on read before the core sees a byte (Law L5). Drop a .gb / .gbc / .gba / .nes you own and it plays; the κ is its identity, so the same cartridge is shared once per planet."
+    },
+    {
+      "p": "Each frame is super-resolved on your GPU (Catmull-Rom + sharpening, retina/8K-class) with tile-κ damage so a static screen costs ~0 work; audio runs through a lock-free κ-audio ring into an AudioWorklet. Deterministic cores enable save-states-as-κ, run-ahead (negative latency), and rollback."
+    },
+    {
+      "ul": [
+        "Five real systems: Game Boy · NES · GBA · SNES · Genesis (one mGBA core also covers GBC/GB)",
+        "Precompiled .holo games auto-import at boot with baked box art + warm-boot streaming (instant time-to-playable)",
+        "Drag-drop real ROMs through the content-addressed κ-ROM seam (verify-on-read)",
+        "WebGPU super-resolution to your display's physical pixels",
+        "Low-latency κ-audio ring → AudioWorklet; keyboard + gamepad",
+        "Save states as κ, run-ahead, rollback — on deterministic cores",
+        "Serverless: everything runs on your own hardware, no CDN (Law L4)"
+      ]
+    }
+  ],
+  "categories": [
+    "Games",
+    "Emulator",
+    "Entertainment"
+  ],
+  "keywords": [
+    "games",
+    "emulator",
+    "retro",
+    "libretro",
+    "game boy",
+    "gba",
+    "nes",
+    "gambatte",
+    "mgba",
+    "quicknes",
+    "super-resolution",
+    "webgpu",
+    "content-addressing",
+    "kappa",
+    "law-l5"
+  ],
+  "controls": {
+    "Arrow keys": "D-pad",
+    "Z / X": "B / A",
+    "Enter": "Start",
+    "Right Shift": "Select"
+  },
+  "developer": {
+    "id": "org.hologram",
+    "name": "Hologram Technologies"
+  },
+  "license": "LicenseRef-proprietary",
+  "homepage": "https://hologram.os/apps/holo-games",
+  "bugtracker": "https://github.com/Hologram-Technologies/hologram-os/issues",
+  "releases": [
+    {
+      "version": "1.0",
+      "date": "2026-06-24",
+      "description": "Five real libretro cores (Gambatte / QuickNES / mGBA / Snes9x / Genesis Plus GX), built from source to wasm, driven through one engine-agnostic frontend over the κ substrate. κ-ROM streaming with verify-on-read, precompiled .holo games that auto-import with baked box art + warm-boot streaming, WebGPU super-resolution, lock-free κ-audio, deterministic save-states-as-κ with run-ahead + rollback, and content-addressed games (boot once per planet). Five real CPUs (LR35902 / 6502 / ARM7TDMI / 65816 / 68000)."
+    }
+  ],
+  "accent": "#ff5c8a"
+}

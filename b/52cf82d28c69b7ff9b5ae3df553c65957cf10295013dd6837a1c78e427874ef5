@@ -1,0 +1,16 @@
+{
+  "when": "2026-07-11T08:29:23.457Z",
+  "pass": true,
+  "checks": {
+    "loadsUniverse": true,
+    "verifyRefuse": true,
+    "worksOffline": true,
+    "facetAlgebra": true,
+    "pivotUnderFrame": true,
+    "searchFast": true,
+    "personPivot": true
+  },
+  "fail": [],
+  "p95ms": 1.91,
+  "searchMs": 1.89
+}

@@ -1,0 +1,616 @@
+{
+ "$comment": "Seed catalog so Holo Player is ALREADY FULL on first open — no TMDb key, offline. Real popular titles with accurate TMDb ids + metadata (genres/year/rating/overview). Each carries a verified imdb_id so the normalizer fills real, beautiful poster/backdrop art KEY-FREE via the Stremio metahub CDN (the same source Cinemeta uses); a configured TMDb key still live-upgrades to TMDb's own art/trailers. Each item is TMDb-shaped (media_type=movie|tv, genre_ids) so holo-media-item normalizers consume it exactly like a live TMDb row.",
+ "generatedAt": "2026-07-11",
+ "items": [
+  {
+   "id": 1339713,
+   "media_type": "movie",
+   "title": "Obsession",
+   "imdb_id": "tt37287335",
+   "release_date": "2026-05-13",
+   "genre_ids": [
+    27,
+    53
+   ],
+   "vote_average": 8.3,
+   "runtime": 109,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "After breaking the mysterious \"One Wish Willow\" to win his crush's heart, a hopeless romantic finds himself getting exactly what he asked for but soon discovers that some desires come at a dark, sinister price."
+  },
+  {
+   "id": 1280738,
+   "media_type": "movie",
+   "title": "The Furious",
+   "imdb_id": "tt33311069",
+   "release_date": "2025-09-07",
+   "genre_ids": [
+    28,
+    80,
+    53
+   ],
+   "vote_average": 7.5,
+   "runtime": 113,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "After a criminal network kidnaps Wang Wei's daughter and the corrupt police refuse to assist him, Wei sets out on his own to locate her. Navin, a tenacious journalist whose wife has mysteriously vanished, is his only ally. In this explosive martial arts showdown, the unlikely duo fights the kidnappers ruthlessly driven by a furious vengeance."
+  },
+  {
+   "id": 125988,
+   "media_type": "tv",
+   "name": "Silo",
+   "imdb_id": "tt14688458",
+   "first_air_date": "2023-05-04",
+   "genre_ids": [
+    10765,
+    18
+   ],
+   "vote_average": 8.2,
+   "number_of_seasons": 3,
+   "number_of_episodes": 30,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "In a ruined and toxic future, thousands live in a giant silo deep underground. After its sheriff breaks a cardinal rule and residents die mysteriously, engineer Juliette starts to uncover shocking secrets and the truth about the silo."
+  },
+  {
+   "id": 1368314,
+   "media_type": "movie",
+   "title": "Passenger",
+   "imdb_id": "tt33763941",
+   "release_date": "2026-05-20",
+   "genre_ids": [
+    27,
+    53
+   ],
+   "vote_average": 6.7,
+   "runtime": 94,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "After a young couple witnesses a gruesome highway accident, they soon realize they did not leave the crash scene alone, as a demonic presence called the Passenger that won't stop until it claims them both turns their van life adventure into a nightmare."
+  },
+  {
+   "id": 1212763,
+   "media_type": "movie",
+   "title": "Evil Dead Burn",
+   "imdb_id": "tt31170389",
+   "release_date": "2026-07-07",
+   "genre_ids": [
+    27,
+    53
+   ],
+   "vote_average": 7.2,
+   "runtime": 109,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "After her husband's abrupt death, a woman seeks solace with her in-laws. As they transform into Deadites one by one, she comes to discover that the vows she took in life survive even in death."
+  },
+  {
+   "id": 94997,
+   "media_type": "tv",
+   "name": "House of the Dragon",
+   "imdb_id": "tt11198330",
+   "first_air_date": "2022-08-21",
+   "genre_ids": [
+    10765,
+    18,
+    10759
+   ],
+   "vote_average": 8.4,
+   "number_of_seasons": 3,
+   "number_of_episodes": 26,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "The Targaryen dynasty is at the absolute apex of its power, with more than 15 dragons under their yoke. Most empires crumble from such heights. In the case of the Targaryens, their slow fall begins when King Viserys breaks with a century of tradition by naming his daughter Rhaenyra heir to the Iron Throne. But when Viserys later fathers a son, the court is shocked when Rhaenyra retains her status "
+  },
+  {
+   "id": 1084244,
+   "media_type": "movie",
+   "title": "Toy Story 5",
+   "imdb_id": "tt29355505",
+   "release_date": "2026-06-17",
+   "genre_ids": [
+    16,
+    10751,
+    35,
+    12
+   ],
+   "vote_average": 7.4,
+   "runtime": 102,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "When Bonnie receives a Lilypad tablet as a gift and becomes obsessed, Buzz, Woody, Jessie and the rest of the gang's jobs become exponentially harder when they have to go head to head with the all-new threat to playtime."
+  },
+  {
+   "id": 1083381,
+   "media_type": "movie",
+   "title": "Backrooms",
+   "imdb_id": "tt26657236",
+   "release_date": "2026-05-27",
+   "genre_ids": [
+    27,
+    9648,
+    878
+   ],
+   "vote_average": 6.8,
+   "runtime": 111,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "A strange doorway appears in the basement of a furniture showroom."
+  },
+  {
+   "id": 1202033,
+   "media_type": "movie",
+   "title": "Enola Holmes 3",
+   "imdb_id": "tt32278481",
+   "release_date": "2026-06-30",
+   "genre_ids": [
+    12,
+    80,
+    9648
+   ],
+   "vote_average": 7,
+   "runtime": 109,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Adventure follows detective Enola Holmes to Malta, where her plans to tie the knot unravel when Sherlock's disappearance plunges her into a perilous case."
+  },
+  {
+   "id": 94664,
+   "media_type": "tv",
+   "name": "Mushoku Tensei: Jobless Reincarnation",
+   "imdb_id": "tt13293588",
+   "first_air_date": "2021-01-11",
+   "genre_ids": [
+    10759,
+    16,
+    10765
+   ],
+   "vote_average": 8.5,
+   "number_of_seasons": 3,
+   "number_of_episodes": 61,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "When a 34-year-old underachiever gets run over by a truck, his story doesn't end there. Reincarnated in a new world as an infant, Rudy will seize every opportunity to live the life he's always wanted. Armed with new friends, some freshly acquired magical abilities, and the courage to do the things he's always dreamed of, he's embarking on an epic adventure—with all of his past experience intact!"
+  },
+  {
+   "id": 37854,
+   "media_type": "tv",
+   "name": "One Piece",
+   "imdb_id": "tt0388629",
+   "first_air_date": "1999-10-20",
+   "genre_ids": [
+    10759,
+    35,
+    16
+   ],
+   "vote_average": 8.7,
+   "number_of_seasons": 23,
+   "number_of_episodes": 1169,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Years ago, the fearsome Pirate King, Gol D. Roger was executed leaving a huge pile of treasure and the famous \"One Piece\" behind. Whoever claims the \"One Piece\" will be named the new King of the Pirates.\n\nMonkey D. Luffy, a boy who consumed a \"Devil Fruit,\" decides to follow in the footsteps of his idol, the pirate Shanks, and find the One Piece. It helps, of course, that his body has the properti"
+  },
+  {
+   "id": 106449,
+   "media_type": "tv",
+   "name": "A Record of a Mortal's Journey to Immortality",
+   "imdb_id": "tt12879782",
+   "first_air_date": "2020-07-25",
+   "genre_ids": [
+    16,
+    10759,
+    10765
+   ],
+   "vote_average": 8.4,
+   "number_of_seasons": 1,
+   "number_of_episodes": 190,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "A poor and ordinary boy from a village joins a minor sect in Jiang Hu and becomes an Unofficial Disciple by chance. How will Han Li, a commoner by birth, establish a foothold for himself in his sect? With his mediocre aptitude, he must successfully traverse the treacherous path of cultivation and avoid the notice of those who may do him harm. This is a story of an ordinary mortal who, against all "
+  },
+  {
+   "id": 1315772,
+   "media_type": "movie",
+   "title": "Minions & Monsters",
+   "imdb_id": "tt32890033",
+   "release_date": "2026-06-24",
+   "genre_ids": [
+    12,
+    16,
+    35,
+    10751,
+    14
+   ],
+   "vote_average": 6.4,
+   "runtime": 90,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "This is the rambunctious, ridiculous and totally true story of how the Minions conquered Hollywood, became movie stars, lost everything, unleashed monsters onto the world and then banded together to try and save the planet from the mayhem they had just created."
+  },
+  {
+   "id": 296206,
+   "media_type": "tv",
+   "name": "Agent Kim Reactivated",
+   "imdb_id": "tt42127457",
+   "first_air_date": "2026-06-26",
+   "genre_ids": [
+    10759,
+    80,
+    18
+   ],
+   "vote_average": 7.4,
+   "number_of_seasons": 1,
+   "number_of_episodes": 10,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "When an unassuming dad's daughter goes missing, he dusts off his old black-ops skills to track her down — only to attract the wrong kind of attention."
+  },
+  {
+   "id": 687163,
+   "media_type": "movie",
+   "title": "Project Hail Mary",
+   "imdb_id": "tt12042730",
+   "release_date": "2026-03-15",
+   "genre_ids": [
+    878,
+    12
+   ],
+   "vote_average": 8.7,
+   "runtime": 157,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Science teacher Ryland Grace wakes up on a spaceship light years from home with no recollection of who he is or how he got there. As his memory returns, he begins to uncover his mission: solve the riddle of the mysterious substance causing the sun to die out. He must call on his scientific knowledge and unorthodox ideas to save everything on Earth from extinction."
+  },
+  {
+   "id": 936075,
+   "media_type": "movie",
+   "title": "Michael",
+   "imdb_id": "tt11378946",
+   "release_date": "2026-04-22",
+   "genre_ids": [
+    10402,
+    18
+   ],
+   "vote_average": 8.7,
+   "runtime": 128,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "The story of Michael Jackson, one of the most influential artists the world has ever known, and his life beyond the music. His journey from the discovery of his extraordinary talent as the lead of the Jackson Five, to the visionary artist whose creative ambition fueled a relentless pursuit to become the biggest entertainer in the world, highlighting both his life off-stage and some of the most ico"
+  },
+  {
+   "id": 1275779,
+   "media_type": "movie",
+   "title": "Disclosure Day",
+   "imdb_id": "tt15047880",
+   "release_date": "2026-06-10",
+   "genre_ids": [
+    878,
+    53
+   ],
+   "vote_average": 6.7,
+   "runtime": 146,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "A cybersecurity expert becomes a whistleblower after uncovering secrets about aliens, putting him on the run from a corporation. Meanwhile, a meteorologist experiencing strange phenomena joins forces with him to prove there's life beyond our understanding."
+  },
+  {
+   "id": 1314481,
+   "media_type": "movie",
+   "title": "The Devil Wears Prada 2",
+   "imdb_id": "tt33612209",
+   "release_date": "2026-04-29",
+   "genre_ids": [
+    35,
+    18
+   ],
+   "vote_average": 7.1,
+   "runtime": 119,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Andy Sachs returns to Runway as Miranda Priestly navigates a new media landscape and Runway's position within. The duo reconnect with former assistant Emily Charlton, now the head of a luxury brand that possesses funding which could ensure Runway's survival."
+  },
+  {
+   "id": 1413976,
+   "media_type": "movie",
+   "title": "Citizen Vigilante",
+   "imdb_id": "tt35309713",
+   "release_date": "2026-06-19",
+   "genre_ids": [
+    53,
+    28,
+    80
+   ],
+   "vote_average": 6.5,
+   "runtime": 89,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "A man takes justice into his own hands, hunting down criminals. His vigilante crusade makes him a social media star but puts him at odds with the local police chief."
+  },
+  {
+   "id": 1523145,
+   "media_type": "movie",
+   "title": "Your Heart Will Be Broken",
+   "imdb_id": "tt38190257",
+   "release_date": "2026-03-26",
+   "genre_ids": [
+    10749
+   ],
+   "vote_average": 7.1,
+   "runtime": 134,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "High school student Polina is saved from bullying at her new school and makes a deal with the main bully Bars: he must pretend to be her boyfriend and protect her, and she must do everything he says. During this game, the couple develops real feelings, but her family and classmates have reasons to separate the lovers."
+  },
+  {
+   "id": 1127384,
+   "media_type": "movie",
+   "title": "Deep Water",
+   "imdb_id": "tt29516222",
+   "release_date": "2026-04-30",
+   "genre_ids": [
+    27,
+    53
+   ],
+   "vote_average": 7.3,
+   "runtime": 107,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "A group of international passengers on a flight from Los Angeles to Shanghai is forced to make an emergency landing in shark-infested waters. The terrified group is forced to work together and overcome their differences if they hope to escape their sinking plane and the frenzy of sharks drawn to the wreckage."
+  },
+  {
+   "id": 278,
+   "media_type": "movie",
+   "title": "The Shawshank Redemption",
+   "imdb_id": "tt0111161",
+   "release_date": "1994-09-23",
+   "genre_ids": [
+    18,
+    80
+   ],
+   "vote_average": 8.7,
+   "runtime": 142,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Imprisoned in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank prison, where he puts his accounting skills to work for an amoral warden. During his long stretch in prison, Dufresne comes to be admired by the other inmates -- including an older prisoner named Red -- for his integrity and unquenchable sense of hope."
+  },
+  {
+   "id": 1279493,
+   "media_type": "movie",
+   "title": "The Get Out",
+   "imdb_id": "tt32321803",
+   "release_date": "2026-06-18",
+   "genre_ids": [
+    28,
+    53
+   ],
+   "vote_average": 6.4,
+   "runtime": 111,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "A nightclub owner is on the verge of leaving his dangerous past behind for retirement with his girlfriend. When masked gunmen rob him and he finds himself squeezed by ruthless cartels, a mysterious newcomer arrives with an interest in buying the business. With danger closing in from all sides, he must navigate a deadly web of deception, power, and survival  -  where escape may no longer be an opti"
+  },
+  {
+   "id": 931285,
+   "media_type": "movie",
+   "title": "Mortal Kombat II",
+   "imdb_id": "tt17490712",
+   "release_date": "2026-05-06",
+   "genre_ids": [
+    28,
+    14,
+    12
+   ],
+   "vote_average": 8,
+   "runtime": 116,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "The fan favorite champions—now joined by Johnny Cage himself—are pitted against one another in the ultimate, no-holds barred, gory battle to defeat the dark rule of Shao Kahn that threatens the very existence of the Earthrealm and its defenders."
+  },
+  {
+   "id": 11012,
+   "media_type": "movie",
+   "title": "Damage",
+   "imdb_id": "tt0104237",
+   "release_date": "1992-12-02",
+   "genre_ids": [
+    18,
+    10749
+   ],
+   "vote_average": 6.6,
+   "runtime": 111,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "The life of a respected British politician at the height of his career crumbles when he becomes obsessed with his son's lover."
+  },
+  {
+   "id": 243206,
+   "media_type": "tv",
+   "name": "Pritam and Pedro",
+   "imdb_id": "tt28077038",
+   "first_air_date": "2026-07-03",
+   "genre_ids": [
+    80,
+    18,
+    9648,
+    35
+   ],
+   "vote_average": 8.5,
+   "number_of_seasons": 1,
+   "number_of_episodes": 6,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "The dynamic between the two contrasting personalities, a seasoned cop who prefers old-school methods and a tech-savvy cop who relies on modern technology for investigations, as they navigate their partnership in solving crimes."
+  },
+  {
+   "id": 312949,
+   "media_type": "tv",
+   "name": "Chainsmoker Cat",
+   "imdb_id": "tt39551330",
+   "first_air_date": "2026-07-03",
+   "genre_ids": [
+    16,
+    35,
+    10765
+   ],
+   "vote_average": 8.9,
+   "number_of_seasons": 1,
+   "number_of_episodes": 12,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Catgirl Yani struggles to pay her rent and keep a job while feeding her smoking habit. As her loved ones' concerns grow, she must rethink her future."
+  },
+  {
+   "id": 124364,
+   "media_type": "tv",
+   "name": "FROM",
+   "imdb_id": "tt9813792",
+   "first_air_date": "2022-02-20",
+   "genre_ids": [
+    9648,
+    18,
+    10765
+   ],
+   "vote_average": 8.5,
+   "number_of_seasons": 4,
+   "number_of_episodes": 40,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Unravel the mystery of a nightmarish town in middle America that traps all those who enter. As the unwilling residents fight to keep a sense of normalcy and search for a way out, they must also survive the threats of the surrounding forest – including the terrifying creatures that come out when the sun goes down."
+  },
+  {
+   "id": 2734,
+   "media_type": "tv",
+   "name": "Law & Order: Special Victims Unit",
+   "imdb_id": "tt0203259",
+   "first_air_date": "1999-09-20",
+   "genre_ids": [
+    80,
+    18,
+    9648
+   ],
+   "vote_average": 8,
+   "number_of_seasons": 28,
+   "number_of_episodes": 595,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "In the criminal justice system, sexually-based offenses are considered especially heinous. In New York City, the dedicated detectives who investigate these vicious felonies are members of an elite squad known as the Special Victims Unit. These are their stories."
+  },
+  {
+   "id": 79744,
+   "media_type": "tv",
+   "name": "The Rookie",
+   "imdb_id": "tt7587890",
+   "first_air_date": "2018-10-16",
+   "genre_ids": [
+    80,
+    18,
+    35
+   ],
+   "vote_average": 8.5,
+   "number_of_seasons": 9,
+   "number_of_episodes": 144,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Starting over isn't easy, especially for small-town guy John Nolan who, after a life-altering incident, is pursuing his dream of being an LAPD officer. As the force's oldest rookie, he's met with skepticism from some higher-ups who see him as just a walking midlife crisis."
+  },
+  {
+   "id": 241002,
+   "media_type": "tv",
+   "name": "Adam's Sweet Agony",
+   "imdb_id": "tt30325611",
+   "first_air_date": "2024-01-08",
+   "genre_ids": [
+    16
+   ],
+   "vote_average": 6.9,
+   "number_of_seasons": 1,
+   "number_of_episodes": 8,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "This is the story of a boy, who became the lone Adam among four billion Eves. In a world where a pandemic has rendered all men impotent, high school student Itsuki is the exception who escaped it. In order to protect this secret, he transfers to a very special high school, which turns out to be composed of 90% girls! There, he encounters an upbeat and friendly senior, a sexually frustrated female "
+  },
+  {
+   "id": 5920,
+   "media_type": "tv",
+   "name": "The Mentalist",
+   "imdb_id": "tt1196946",
+   "first_air_date": "2008-09-23",
+   "genre_ids": [
+    80,
+    18,
+    9648
+   ],
+   "vote_average": 8.4,
+   "number_of_seasons": 7,
+   "number_of_episodes": 151,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Patrick Jane, a former celebrity psychic medium, uses his razor sharp skills of observation and expertise at \"reading\" people to solve serious crimes with the California Bureau of Investigation."
+  },
+  {
+   "id": 549,
+   "media_type": "tv",
+   "name": "Law & Order",
+   "imdb_id": "tt0098844",
+   "first_air_date": "1990-09-13",
+   "genre_ids": [
+    80,
+    18
+   ],
+   "vote_average": 7.3,
+   "number_of_seasons": 26,
+   "number_of_episodes": 545,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "In cases ripped from the headlines, police investigate serious and often deadly crimes, weighing the evidence and questioning the suspects until someone is taken into custody. The district attorney's office then builds a case to convict the perpetrator by proving the person guilty beyond a reasonable doubt. Working together, these expert teams navigate all sides of the complex criminal justice sys"
+  },
+  {
+   "id": 1622,
+   "media_type": "tv",
+   "name": "Supernatural",
+   "imdb_id": "tt0460681",
+   "first_air_date": "2005-09-13",
+   "genre_ids": [
+    18,
+    9648,
+    10765
+   ],
+   "vote_average": 8.3,
+   "number_of_seasons": 15,
+   "number_of_episodes": 327,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "When they were boys, Sam and Dean Winchester lost their mother to a mysterious and demonic supernatural force. Subsequently, their father raised them to be soldiers. He taught them about the paranormal evil that lives in the dark corners and on the back roads of America ... and he taught them how to kill it. Now, the Winchester brothers crisscross the country in their '67 Chevy Impala, battling ev"
+  },
+  {
+   "id": 1416,
+   "media_type": "tv",
+   "name": "Grey's Anatomy",
+   "imdb_id": "tt0413573",
+   "first_air_date": "2005-03-27",
+   "genre_ids": [
+    18
+   ],
+   "vote_average": 8.2,
+   "number_of_seasons": 22,
+   "number_of_episodes": 465,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Follows the personal and professional lives of a group of doctors at Seattle's Grey Sloan Memorial Hospital."
+  },
+  {
+   "id": 4304,
+   "media_type": "tv",
+   "name": "Xplay",
+   "imdb_id": "tt0361258",
+   "first_air_date": "2003-04-28",
+   "genre_ids": [],
+   "vote_average": 8.5,
+   "number_of_seasons": 10,
+   "number_of_episodes": 644,
+   "poster_path": null,
+   "backdrop_path": null,
+   "overview": "Xplay (previously GameSpot TV and Extended Play) is a TV program about video games. The program, known for its reviews and comedy skits, airs on G4 in the United States and had aired on G4 Canada in Canada (and briefly on YTV during its time as GameSpot TV), FUEL TV in Australia, Ego in Israel, GXT in Italy, MTV Russia & Rambler TV in Russia, Solar Sports in the Philippines and Adult Swim and Much"
+  }
+ ]
+}

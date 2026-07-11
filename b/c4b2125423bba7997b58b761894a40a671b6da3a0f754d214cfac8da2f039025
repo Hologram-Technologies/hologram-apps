@@ -1,0 +1,56 @@
+// holo-thumbhash.mjs — the poster's SOUL in ~26 bytes, shipped inside its κ-row (INSTANT-PLANE P1).
+//
+// A 4×6 RGB332 micro-thumbnail: enough to paint every tile in the library with its own colours in ONE
+// frame, from the shards alone — offline, before a single image request exists. The real artwork then
+// crossfades over it (same colours by construction, so it never pops). Self-consistent codec: WE encode
+// (forge, Node) and WE decode (player, browser) — no external format to match, nothing to drift.
+//
+//   encode: rgbaToHash(rgba, w, h)  — rgba = Uint8Array RGBA at EXACTLY w×h (forge downsamples first)
+//   decode: hashToDataURL(b64)      — tiny canvas → smoothed PNG data URL (browser only)
+
+const W = 4, H = 6;                 // grid — portrait 2:3, matches poster tiles
+export const GRID = { W, H };
+
+// RGB → one byte: RRRGGGBB (3-3-2). Blurred to bits anyway; hue survives, weight stays tiny.
+const pack = (r, g, b) => ((r >> 5) << 5) | ((g >> 5) << 2) | (b >> 6);
+const unpack = (v) => [((v >> 5) & 7) * 36.5, ((v >> 2) & 7) * 36.5, (v & 3) * 85];
+
+// rgba (w×h×4) → base64 hash. Header byte = 0x1 (version) — future grids can coexist.
+export function rgbaToHash(rgba, w = W, h = H) {
+  if (!rgba || rgba.length < w * h * 4) return null;
+  const out = new Uint8Array(1 + w * h);
+  out[0] = 0x1;
+  for (let i = 0; i < w * h; i++) out[1 + i] = pack(rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2]);
+  return typeof Buffer !== "undefined" ? Buffer.from(out).toString("base64") : btoa(String.fromCharCode(...out));
+}
+
+export function hashToBytes(b64) {
+  try {
+    const bin = typeof Buffer !== "undefined" ? new Uint8Array(Buffer.from(b64, "base64")) : (() => { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; })();
+    return bin[0] === 0x1 && bin.length === 1 + W * H ? bin : null;
+  } catch { return null; }
+}
+
+// browser: hash → data URL (memoized — same hash decodes once per session)
+const memo = typeof Map !== "undefined" ? new Map() : null;
+export function hashToDataURL(b64) {
+  if (!b64) return null;
+  if (memo && memo.has(b64)) return memo.get(b64);
+  const bin = hashToBytes(b64);
+  if (!bin || typeof document === "undefined") return null;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  const id = ctx.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) { const [r, g, b] = unpack(bin[1 + i]); id.data[i * 4] = r; id.data[i * 4 + 1] = g; id.data[i * 4 + 2] = b; id.data[i * 4 + 3] = 255; }
+  ctx.putImageData(id, 0, 0);
+  // upscale with smoothing so the placeholder is a soft gradient, not visible blocks
+  const up = document.createElement("canvas"); up.width = W * 8; up.height = H * 8;
+  const uctx = up.getContext("2d"); uctx.imageSmoothingEnabled = true; uctx.imageSmoothingQuality = "high";
+  uctx.drawImage(c, 0, 0, up.width, up.height);
+  const url = up.toDataURL("image/png");
+  if (memo) memo.set(b64, url);
+  return url;
+}
+
+if (typeof window !== "undefined") window.HoloThumbHash = { rgbaToHash, hashToDataURL, hashToBytes, GRID };
+export default { rgbaToHash, hashToDataURL, hashToBytes, GRID };

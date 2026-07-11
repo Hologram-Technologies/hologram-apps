@@ -1,0 +1,141 @@
+// holo-tvdb.mjs — TheTVDB v4 provider: the series depth TMDb can't give — episode air dates, series
+// status (Continuing/Ended), and THE NEXT EPISODE. Same discipline as holo-tmdb: dependency-injected
+// (fetch + cache + clock) so Node witnesses it with a fake TVDB — no network, no key; every response
+// goes through holo-media-cache (a κ-object keyed by the request) so a warm open is memory-speed and
+// works offline. Time-variant answers (airing) carry a DAY BUCKET in the request key: fresh once a day,
+// O(1) for the rest of it. The identity bridge is /search/remoteid — the player's items carry IMDb/TMDb
+// ids, and that mapping is permanent, so it κ-caches forever.
+
+import { browseOnly } from "./holo-media-item.mjs";
+
+const API = "https://api4.thetvdb.com/v4";
+const ART = "https://artworks.thetvdb.com";
+const artURL = (p) => (!p ? null : /^https?:/.test(p) ? p : ART + (p.startsWith("/") ? "" : "/") + p);
+
+// createTvdb({ apikey, fetch, cache, now, tokenStore }) — fetch/cache/clock injectable.
+// tokenStore: { get()->{token,exp}|null, set(t) } (browser binding persists it in localStorage).
+export function createTvdb({ apikey = "", fetch: f, cache = null, now = () => Date.now(), tokenStore = null } = {}) {
+  const doFetch = f || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : null);
+  if (!doFetch) throw new Error("holo-tvdb: a fetch implementation is required");
+  let mem = null;
+  const store = tokenStore || { get: () => mem, set: (t) => { mem = t; } };
+
+  // ── bearer token: login once, reuse until near expiry (TVDB JWTs live ~1 month) ────────────────────────
+  async function login() {
+    const res = await doFetch(API + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apikey }) });
+    if (!res.ok) throw new Error("tvdb login " + res.status);
+    const j = await res.json();
+    const token = j && j.data && j.data.token;
+    if (!token) throw new Error("tvdb login: no token");
+    let exp = now() + 25 * 864e5;   // JWT exp claim wins; fallback 25 days
+    try { exp = Math.min(exp, JSON.parse(atob(token.split(".")[1])).exp * 1000); } catch {}
+    const t = { token, exp };
+    await store.set(t);
+    return t;
+  }
+  async function token(force = false) {
+    const t = !force && (await store.get());
+    if (t && t.token && t.exp - now() > 864e5) return t.token;   // >1 day left → reuse
+    return (await login()).token;
+  }
+  async function raw(path) {
+    let tk = await token();
+    let res = await doFetch(API + path, { headers: { Authorization: "Bearer " + tk } });
+    if (res.status === 401) { tk = await token(true); res = await doFetch(API + path, { headers: { Authorization: "Bearer " + tk } }); }
+    if (!res.ok) throw new Error("tvdb " + res.status + " " + path);
+    return (await res.json()).data;
+  }
+  // every call goes through the κ-cache; bucket:"day" stamps the key with today so airing data self-refreshes.
+  const day = () => new Date(now()).toISOString().slice(0, 10);
+  async function api(path, { bucket = null } = {}) {
+    const key = "tvdb|" + path + (bucket === "day" ? "|d:" + day() : "");
+    if (!cache) return raw(path);
+    const { body } = await cache.through(key, () => raw(path));
+    return body;
+  }
+
+  // ── identity bridge: IMDb/TMDb id → TVDB series id (permanent → κ-cached forever) ─────────────────────
+  async function seriesIdByRemote(remoteId) {
+    if (!remoteId) return null;
+    const d = await api("/search/remoteid/" + encodeURIComponent(String(remoteId)));
+    for (const hit of d || []) if (hit && hit.series && hit.series.id) return hit.series.id;
+    return null;
+  }
+
+  // one series, extended — status + airing + the full default-order episode list.
+  async function series(tvdbId) {
+    const d = await api(`/series/${tvdbId}/extended?meta=episodes&short=true`, { bucket: "day" });
+    if (!d) return null;
+    const eps = (d.episodes || []).filter((e) => e && e.seasonNumber > 0);
+    const today = day();
+    const next = d.nextAired ? eps.find((e) => e.aired === d.nextAired) : null;
+    return {
+      tvdbId: d.id, name: d.name || "", status: (d.status && d.status.name) || "",
+      nextAired: d.nextAired || "", lastAired: d.lastAired || "",
+      nextEpisode: next ? { name: next.name || "", seasonNumber: next.seasonNumber, episodeNumber: next.number, aired: next.aired } : null,
+      upcoming: eps.filter((e) => e.aired && e.aired >= today).length,
+      episodes: eps,
+    };
+  }
+
+  // a season's episodes in the player's ONE episode shape (drop-in for the TMDb season path).
+  function normalizeEpisodes(s, seasonNumber, ctx = {}) {
+    return (s.episodes || []).filter((e) => e.seasonNumber === seasonNumber).map((e) => ({
+      id: "tvdb:ep:" + s.tvdbId + ":" + e.seasonNumber + ":" + e.number,
+      tvdbId: e.id, kind: "episode",
+      name: e.name || `Episode ${e.number}`,
+      seriesId: ctx.id || "tvdb:series:" + s.tvdbId, seriesName: ctx.name || s.name,
+      parentId: "tvdb:season:" + s.tvdbId + ":" + e.seasonNumber,
+      seasonNumber: e.seasonNumber, episodeNumber: e.number,
+      overview: e.overview || "", blurb: e.overview || "", rating: null,
+      runtimeSec: e.runtime ? e.runtime * 60 : 0, releaseDate: e.aired || "",
+      posterUrl: artURL(e.image) || ctx.posterUrl || null, backdrop: ctx.backdrop || null,
+      topics: ctx.topics || [], genres: ctx.genres || [],
+      channel: "TheTVDB", quality: ctx.quality ?? 0.7, license: "",
+      source: "tvdb", provider: "tvdb", kappa: "", holoKappa: "tvdb:ep:" + s.tvdbId + ":" + e.seasonNumber + ":" + e.number,
+      availability: browseOnly(),
+    }));
+  }
+
+  // airingOf(item) — the magic line for a series card: resolves the item's IMDb/TMDb id to TVDB and
+  // answers { status, nextAired, nextEpisode } or null. Fully κ-cached: id-map forever, series daily.
+  async function airingOf(it) {
+    if (!it || (it.kind !== "series" && it.kind !== "tv")) return null;
+    let tid = it.tvdbId || null;
+    if (!tid && it.imdbId) tid = await seriesIdByRemote(it.imdbId).catch(() => null);
+    if (!tid && it.tmdbId) tid = await seriesIdByRemote(it.tmdbId).catch(() => null);
+    if (!tid) return null;
+    const s = await series(tid);
+    return s && { tvdbId: tid, status: s.status, nextAired: s.nextAired, nextEpisode: s.nextEpisode, upcoming: s.upcoming };
+  }
+
+  async function seasonEpisodes(it, seasonNumber) {
+    const a = await airingOf({ ...it, kind: "series" });
+    if (!a) return [];
+    const s = await series(a.tvdbId);
+    return s ? normalizeEpisodes(s, seasonNumber, it) : [];
+  }
+
+  return { login, token, series, seriesIdByRemote, normalizeEpisodes, airingOf, seasonEpisodes };
+}
+
+// Built-in community key — series airing intel works ZERO-SETUP for every visitor (quota: 100M hits/day;
+// answers are κ-cached so real traffic is a sliver of that).
+const BUILTIN_KEY = "935f2887-1087-4494-9071-d90d0bafaf43";
+
+// browser binding — real fetch + the persistent κ-cache + token parked in localStorage across sessions.
+if (typeof window !== "undefined") {
+  const lsTokenStore = {
+    get() { try { return JSON.parse(localStorage.getItem("holoplayer.tvdb.token") || "null"); } catch { return null; } },
+    set(t) { try { localStorage.setItem("holoplayer.tvdb.token", JSON.stringify(t)); } catch {} },
+  };
+  window.HoloTvdb = {
+    createTvdb,
+    live(opts = {}) {
+      const cache = window.HoloMediaCache ? window.HoloMediaCache.live() : null;
+      return createTvdb({ apikey: opts.apikey || BUILTIN_KEY, cache, tokenStore: lsTokenStore });
+    },
+  };
+}
+
+export default { createTvdb };

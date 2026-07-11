@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+// holo-flow-witness.mjs — Gate F2 (HOLO-FLOW-PROMPT.md). The sequencer is PURE: prove determinism,
+// resume-first, kind-rhythm, mood steering, session dedupe, and plan-κ tamper refusal — 1,000 seeded runs.
+
+import { plan, sealPlan, verifyPlan } from "./holo-flow.mjs";
+
+const R = { pass: 0, fail: 0 };
+const check = (n, ok, note = "") => { R[ok ? "pass" : "fail"]++; console.log(`${ok ? "✓" : "✗"} ${n}${note ? " — " + note : ""}`); };
+
+// synthetic pool: 4 kinds × 6 cards
+const KINDS = ["film", "game", "live", "audiobook"];
+const cards = KINDS.flatMap((k) => Array.from({ length: 6 }, (_, i) => ({ id: k + ":" + i, kind: k, title: k + " " + i })));
+const base = { cards, hour: 20, seed: 42, history: [], scoreOf: () => 0 };
+
+// 1. determinism — same inputs → byte-identical plan
+{
+  const a = plan(base), b = plan(base);
+  check("deterministic", JSON.stringify(a.items.map((c) => c.id)) === JSON.stringify(b.items.map((c) => c.id)), a.items.map((c) => c.id).join(" → "));
+}
+// 2. resume-first — a continue-record leads the plan
+{
+  const p = plan({ ...base, continueList: [{ id: "audiobook:3", pos: 100, dur: 400 }] });
+  check("resume-first", p.items[0] && p.items[0].id === "audiobook:3", "why: " + p.why[0]);
+}
+// 3. kind-rhythm — across 1,000 seeds, never three identical kinds in one plan (no binge signal)
+{
+  let bad = 0;
+  for (let s = 1; s <= 1000; s++) { const p = plan({ ...base, seed: s }); const k = p.items.map((c) => c.kind); if (k.length === 3 && k[0] === k[1] && k[1] === k[2]) bad++; }
+  check("kind-rhythm (1000 seeds)", bad === 0, bad + " violations");
+}
+// 4. binge override — 3 finishes of one kind → repeats allowed
+{
+  const p = plan({ ...base, bingeKind: "film", prevKind: "film", continueList: [{ id: "film:1" }], scoreOf: (id) => (id.startsWith("film") ? 8 : 0) });
+  check("binge override", p.items.filter((c) => c.kind === "film").length >= 2, p.items.map((c) => c.kind).join(","));
+}
+// 5. mood steers — "calmer" removes games from the front of the plan; plans differ
+{
+  const a = plan({ ...base, seed: 7 }), b = plan({ ...base, seed: 7, mood: "calmer" });
+  const changed = JSON.stringify(a.items.map((c) => c.id)) !== JSON.stringify(b.items.map((c) => c.id));
+  check("mood re-plans", changed && b.items[0].kind !== "game", b.items.map((c) => c.kind).join(","));
+}
+// 6. session dedupe — played ids never reappear; exhausted pool stops honestly
+{
+  const hist = cards.slice(0, 21).map((c) => c.id);
+  const p = plan({ ...base, history: hist });
+  check("session dedupe", p.items.every((c) => !hist.includes(c.id)), p.items.length + " fresh items from a nearly-drained pool");
+}
+// 7. plan is a κ-object — seal verifies; one flipped byte refuses
+{
+  const sealed = await sealPlan(plan(base));
+  check("plan seals + verifies", !!(await verifyPlan(sealed)), sealed.kappa.slice(0, 20) + "…");
+  const tampered = { ...sealed, why: [...sealed.why] }; tampered.why[0] = (tampered.why[0] || "") + "!";
+  check("tampered plan REFUSED", (await verifyPlan(tampered)) === null);
+}
+// 8. hour priors — morning plans lead with live/book, evening with film (aggregate over seeds)
+{
+  let am = 0, pm = 0;
+  for (let s = 1; s <= 200; s++) {
+    if (["live", "audiobook"].includes(plan({ ...base, seed: s, hour: 7 }).items[0].kind)) am++;
+    if (plan({ ...base, seed: s, hour: 20 }).items[0].kind === "film") pm++;
+  }
+  check("hour priors", am > 150 && pm > 150, `7am live/book ${am}/200 · 8pm film ${pm}/200`);
+}
+
+console.log(`\nF2 ${R.fail === 0 ? "GREEN" : "RED"} — ${R.pass}/${R.pass + R.fail}`);
+process.exit(R.fail === 0 ? 0 : 1);

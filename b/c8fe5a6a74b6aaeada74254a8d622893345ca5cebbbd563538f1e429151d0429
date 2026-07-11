@@ -1,0 +1,71 @@
+// holo-continue.mjs — ONE continue store + taste stats (F1 of HOLO-FLOW-PROMPT.md; absorbs K5-P1/P4).
+//
+// Three players used to remember separately (film → localStorage "holoplayer.resume.<id>", book →
+// "holo.book.<κ>", game → IndexedDB holo-games/saves). This is the ONE κ-sealed record store they all
+// write, back-filled from the legacy keys at read time so history appears with no migration. Records are
+// JCS-sealed; a tampered record is dropped (named on console), the list lives. Device-local by design —
+// personalization without surveillance. Pure ESM, browser+Node (inject `ls`/`idb` for the witness).
+
+import { jcs, sha256hex } from "./holo-media-card.mjs";
+
+const K_CONT = "holo.continue.v1", K_STATS = "holo.stats.v1", CAP = 40;
+const enc = new TextEncoder();
+const sealOf = async (r) => { const { seal, ...body } = r; return sha256hex(enc.encode(jcs(body))); };
+
+export function makeContinue({ ls, idbFactory } = {}) {
+  const LS = ls || (typeof localStorage !== "undefined" ? localStorage : new Map() && { getItem: () => null, setItem: () => {}, key: () => null, length: 0 });
+  const load = (k) => { try { return JSON.parse(LS.getItem(k) || "null"); } catch { return null; } };
+  const save = (k, v) => { try { LS.setItem(k, JSON.stringify(v)); } catch {} };
+
+  return {
+    // record progress for any kind — call at the same sites the legacy stores are written
+    async record({ kind, id, title, pos = 0, dur = 0, extra = null }) {
+      if (!kind || !id) return;
+      const map = load(K_CONT) || {};
+      const r = { kind, id, title: title || "", pos, dur, extra, ts: Date.now() };
+      r.seal = await sealOf(r);
+      map[id] = r;
+      const keys = Object.keys(map).sort((a, b) => map[b].ts - map[a].ts);
+      for (const k of keys.slice(CAP)) delete map[k];
+      save(K_CONT, map);
+    },
+    // newest-first, seal-verified (tampered → dropped loudly), legacy stores folded in
+    async list() {
+      const out = new Map();
+      const map = load(K_CONT) || {};
+      for (const r of Object.values(map)) {
+        if (r.seal && (await sealOf(r)) !== r.seal) { try { console.warn("[continue] record refused (seal):", r.id); } catch {} continue; }
+        out.set(r.id, r);
+      }
+      // back-fill: films (holoplayer.resume.*) and books (holo.book.*) from localStorage
+      try {
+        for (let i = 0; i < LS.length; i++) {
+          const k = LS.key(i);
+          if (/^holoplayer\.resume\./.test(k)) { const v = load(k); const id = k.slice("holoplayer.resume.".length); if (v && v.pos && !out.has(id)) out.set(id, { kind: "film", id, title: v.title || "", pos: v.pos, dur: v.dur || 0, ts: v.ts || 0 }); }
+          else if (/^holo\.book\./.test(k)) { const v = load(k); const id = k.slice(10); if (v && !out.has("book:" + id)) out.set("book:" + id, { kind: "audiobook", id: "book:" + id, kappa: id, title: "", pos: v.t || 0, extra: { chapter: v.i || 0 }, ts: v.ts || 0 }); }
+        }
+      } catch {}
+      // back-fill: game κ-saves (same-origin IndexedDB holo-games/saves), latest per game
+      try {
+        const req = (idbFactory || (typeof indexedDB !== "undefined" ? indexedDB : null));
+        if (req) {
+          const db = await new Promise((res) => { const r = req.open("holo-games", 3); r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onupgradeneeded = () => { try { r.transaction.abort(); } catch {} res(null); }; });
+          if (db && db.objectStoreNames.contains("saves")) {
+            const rows = await new Promise((res) => { const o = []; const c = db.transaction("saves", "readonly").objectStore("saves").openCursor(); c.onsuccess = () => { const cur = c.result; if (cur) { o.push(cur.value); cur.continue(); } else res(o); }; c.onerror = () => res(o); });
+            const latest = new Map();
+            for (const s of rows) { const cur = latest.get(s.kappa); if (!cur || s.ts > cur.ts) latest.set(s.kappa, s); }
+            for (const s of latest.values()) if (!out.has("game:" + s.kappa)) out.set("game:" + s.kappa, { kind: "game", id: "game:" + s.kappa, kappa: s.kappa, title: s.title || "", pos: 0, ts: s.ts || 0, extra: { system: s.system || "" } });
+          }
+          try { db && db.close(); } catch {}
+        }
+      } catch {}
+      return [...out.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    },
+    // taste stats — every κ-play bumps; scores order rows and feed the flow sequencer
+    bumpPlay(id, kind) { const s = load(K_STATS) || {}; const r = s[id] || { n: 0, kind }; r.n++; r.kind = kind || r.kind; r.last = Date.now(); s[id] = r; save(K_STATS, s); },
+    bumpSkip(id, kind) { const s = load(K_STATS) || {}; const r = s[id] || { n: 0, kind }; r.skips = (r.skips || 0) + 1; r.kind = kind || r.kind; r.last = Date.now(); s[id] = r; save(K_STATS, s); },
+    scoreOf(id) { const s = load(K_STATS) || {}; const r = s[id]; return r ? r.n * 2 - (r.skips || 0) * 3 : 0; },
+    kindScore(kind) { const s = load(K_STATS) || {}; let n = 0; for (const r of Object.values(s)) if (r.kind === kind) n += r.n * 2 - (r.skips || 0) * 3; return n; },
+    stats() { return load(K_STATS) || {}; },
+  };
+}

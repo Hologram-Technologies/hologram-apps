@@ -1,0 +1,104 @@
+#!/usr/bin/env node
+// holo-tvdb-witness.mjs — proves the TVDB v4 provider gives the player series-depth TMDb can't, with a
+// fake TVDB (no network, no key) and a Map κ-cache. Same laws as the TMDb witness: κ-cached (fast +
+// offline), verify-before-trust, plus the two TVDB-specific mechanisms — the bearer-token lifecycle and
+// the DAY BUCKET (airing answers refresh daily; the IMDb→TVDB id bridge caches forever).
+//
+// Checks:
+//   1 tokenOnce         — first call logs in once; later calls reuse the stored token (no re-login).
+//   2 tokenRefresh      — a 401 mid-flight re-logins ONCE and retries (expired token heals itself).
+//   3 remoteBridge      — an IMDb id resolves to the TVDB series id (the identity bridge).
+//   4 airingNext        — airingOf(series item) answers status + nextAired + the next episode.
+//   5 episodesNormalized— seasonEpisodes returns the player's ONE episode shape (numbers, art, dates).
+//   6 kappaCacheHit     — a repeated request serves from κ (0 extra fetches).
+//   7 worksOffline      — with a warm cache, a request whose network is DOWN still serves from κ.
+//   8 dayBucket         — the same airing question tomorrow re-fetches (fresh), but the id bridge does NOT.
+//
+// node holo-tvdb-witness.mjs   (from holo-apps/apps/player/)
+
+import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { createTvdb } from "./holo-tvdb.mjs";
+import { createMediaCache, memKV } from "./holo-media-cache.mjs";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const checks = {}; const fail = [];
+const ok = (n, c, d = "") => { checks[n] = !!c; if (!c) fail.push(n + (d ? ` — ${d}` : "")); return !!c; };
+
+// ── fake TVDB (counts calls; routes by path) ─────────────────────────────────────────────────────────────
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64");
+const JWT = (expSec) => `x.${b64({ exp: expSec })}.y`;
+const SERIES = {
+  id: 366972, name: "Foundation", status: { name: "Continuing" }, nextAired: "2026-07-14", lastAired: "2026-07-07",
+  episodes: [
+    { id: 1, name: "The Emperor's Peace", aired: "2021-09-24", runtime: 69, number: 1, seasonNumber: 1, overview: "Gaal arrives.", image: "/banners/ep1.jpg" },
+    { id: 2, name: "Preparing to Live", aired: "2021-09-24", runtime: 59, number: 2, seasonNumber: 1, overview: "", image: null },
+    { id: 3, name: "The Next One", aired: "2026-07-14", runtime: 55, number: 1, seasonNumber: 4, overview: "", image: null },
+    { id: 9, name: "Special", aired: "2021-01-01", runtime: 10, number: 1, seasonNumber: 0, overview: "", image: null },
+  ],
+};
+let logins = 0, calls = 0, netDown = false, expireNext = false;
+const fakeFetch = async (url, opts = {}) => {
+  const path = new URL(url).pathname;
+  if (path === "/v4/login") { logins++; return { ok: true, status: 200, json: async () => ({ status: "success", data: { token: JWT(Math.floor(Date.now() / 1000) + 30 * 86400) } }) }; }
+  if (netDown) throw new Error("network down");
+  calls++;
+  if (expireNext) { expireNext = false; return { ok: false, status: 401, json: async () => ({ message: "Unauthorized" }) }; }
+  if (path.startsWith("/v4/search/remoteid/")) return { ok: true, status: 200, json: async () => ({ data: [{ series: { id: 366972, name: "Foundation" } }] }) };
+  if (path.startsWith("/v4/series/366972/extended")) return { ok: true, status: 200, json: async () => ({ data: SERIES }) };
+  return { ok: false, status: 404, json: async () => ({}) };
+};
+
+let NOW = Date.parse("2026-07-11T12:00:00Z");
+const cache = createMediaCache({ kv: memKV() });
+const tvdb = createTvdb({ apikey: "witness-key", fetch: fakeFetch, cache, now: () => NOW });
+
+// 1 tokenOnce — two calls, one login.
+const idA = await tvdb.seriesIdByRemote("tt0804484");
+await tvdb.series(366972);
+ok("tokenOnce", logins === 1, `logins=${logins}`);
+
+// 2 tokenRefresh — next raw call answers 401 once → exactly one extra login, request still succeeds.
+expireNext = true;
+const s2 = await tvdb.series(366973).catch(() => null);   // uncached path (different id → 404 after retry is fine)
+ok("tokenRefresh", logins === 2, `logins=${logins}`);
+
+// 3 remoteBridge
+ok("remoteBridge", idA === 366972, String(idA));
+
+// 4 airingNext — via a player-shaped item (imdbId bridge), status + nextAired + next episode.
+const a = await tvdb.airingOf({ kind: "series", imdbId: "tt0804484", name: "Foundation" });
+ok("airingNext", !!a && a.status === "Continuing" && a.nextAired === "2026-07-14" && a.nextEpisode && a.nextEpisode.seasonNumber === 4, JSON.stringify(a));
+
+// 5 episodesNormalized — ONE shape: ids, numbers, seconds, art host, air date; season 0 specials excluded.
+const eps = await tvdb.seasonEpisodes({ kind: "series", imdbId: "tt0804484", name: "Foundation" }, 1);
+ok("episodesNormalized",
+  eps.length === 2 && eps[0].kind === "episode" && eps[0].episodeNumber === 1 && eps[0].seasonNumber === 1 &&
+  eps[0].runtimeSec === 69 * 60 && eps[0].releaseDate === "2021-09-24" && /artworks\.thetvdb\.com/.test(eps[0].posterUrl || "") &&
+  eps[0].source === "tvdb" && eps[0].availability && eps[0].availability.playable === false,
+  JSON.stringify(eps[0] || null));
+
+// 6 kappaCacheHit — repeat the same series read: no new network calls.
+const before = calls; await tvdb.series(366972);
+ok("kappaCacheHit", calls === before, `calls ${before}→${calls}`);
+
+// 7 worksOffline — network gone, warm κ still answers.
+netDown = true;
+const off = await tvdb.series(366972).catch(() => null);
+ok("worksOffline", !!off && off.name === "Foundation", off ? off.name : "null");
+netDown = false;
+
+// 8 dayBucket — tomorrow the airing answer re-fetches (fresh), the id bridge does NOT (permanent).
+NOW += 864e5;
+const c0 = calls; await tvdb.series(366972); const afterSeries = calls;
+await tvdb.seriesIdByRemote("tt0804484"); const afterBridge = calls;
+ok("dayBucket", afterSeries === c0 + 1 && afterBridge === afterSeries, `series +${afterSeries - c0}, bridge +${afterBridge - afterSeries}`);
+
+// ── verdict ──────────────────────────────────────────────────────────────────────────────────────────────
+const pass = fail.length === 0;
+console.log("\nholo-tvdb witness — series depth (air dates, status, next episode), κ-cached + offline\n");
+for (const [n, c] of Object.entries(checks)) console.log(`  ${c ? "✓" : "✗"}  ${n}`);
+console.log(pass ? "\n  WITNESSED ✓  the next episode is known, served from κ — fast + offline + self-refreshing daily\n" : `\n  FAILED: ${fail.join("; ")}\n`);
+writeFileSync(join(here, "holo-tvdb-witness.result.json"), JSON.stringify({ when: new Date().toISOString(), pass, checks, fail }, null, 2));
+process.exit(pass ? 0 : 1);

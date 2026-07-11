@@ -1,0 +1,230 @@
+#!/usr/bin/env node
+// holo-library-forge.mjs — THE FORGE: the movie/TV universe → κ (HOLO-TV-LIBRARY-PROMPT.md L1).
+//
+// Sweeps TMDb /discover by year × kind (vote floors keep it real titles, not noise), enriches the head
+// of the popularity curve with one append_to_response call each (runtime · imdb · collection · top cast ·
+// director · keywords→moods), and mints the whole catalog as CONTENT-ADDRESSED shards:
+//
+//   rows      → 16 shards (hash(id)%16), each a raw-JSON κ-object (sha256 of bytes = verify key,
+//               blake3 of bytes = the κ-mirror path b/<hex>)
+//   persons   → ONE inverse posting object (person → their title ids; persons with ≥3 titles)
+//   root      → feed/library-index.json (tiny, published in the Q repo): shard κs + counts + taxonomy
+//
+// Deterministic: same input → same rows → same κs (rows sorted by id; JSON.stringify of plain objects
+// with fixed key order; undefined fields OMITTED — the RFC-8785 lesson). Moods are a FIXED rule table
+// (versioned below), never a model call. Resumable: every network page lands in a checkpoint file first.
+//
+//   node holo-library-forge.mjs             sweep + enrich + mint + UPLOAD + write root
+//   node holo-library-forge.mjs --dry       sweep + mint locally, print κs + sizes, no upload/root
+//   node holo-library-forge.mjs --no-net    re-mint from the checkpoint only (deterministic re-derive)
+
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const HOLOGRAM = path.resolve(HERE, "../../..");
+const { blake3hex } = await import(pathToFileURL(path.join(HOLOGRAM, "holo-os/system/os/usr/lib/holo/holo-blake3.mjs")).href);
+
+const DRY = process.argv.includes("--dry");
+const NO_NET = process.argv.includes("--no-net");
+// --thumbhash <map.json> — P1 (INSTANT PLANE): merge key→holo-thumbhash (~26B) into each row as `h`,
+// so the whole universe paints its own colours from the shards alone (see holo-thumbhash.mjs).
+const THUMBS = (() => { const i = process.argv.indexOf("--thumbhash"); if (i < 0) return null; try { return JSON.parse(readFileSync(process.argv[i + 1], "utf8")); } catch { throw new Error("--thumbhash map unreadable"); } })();
+const KEY = "45f791c5f6a6940a50403bb3890c7b86";           // the built-in community key (holo-tmdb.mjs)
+const API = "https://api.themoviedb.org/3";
+const CKPT = path.join(HERE, ".library-forge-checkpoint.json");
+const SHARDS = 16;
+const YEARS = { movie: [1940, new Date().getFullYear()], tv: [1950, new Date().getFullYear()] };
+const FLOOR = { movie: 200, tv: 100 };                     // vote_count floors (L0-probed: ≈19k titles)
+const ENRICH_TOP = 5000;                                   // head of the curve gets runtime/cast/keywords
+const MIRROR = "https://huggingface.co/HOLOGRAMTECH/holo-messenger-shell/resolve/main/b/";
+const HF_REPO = "HOLOGRAMTECH/holo-messenger-shell";
+
+// ── mood taxonomy v1 — FIXED deterministic rules (genres ∪ keyword clusters); versioned, never a model ──
+export const MOOD_TAXONOMY_VERSION = 1;
+const KW = {
+  mindbending: ["time travel", "time loop", "parallel", "memory", "dream", "simulation", "plot twist", "identity", "surreal", "nonlinear"],
+  tearjerker: ["grief", "terminal illness", "cancer", "tragedy", "loss of", "death of", "holocaust", "euthanasia"],
+  quirky: ["surreal", "absurd", "black comedy", "dark comedy", "satire", "offbeat", "deadpan", "mockumentary"],
+  truestory: ["based on true story", "based on a true story", "biography", "based on real events", "true events", "biopic"],
+};
+const kwHit = (kws, list) => list.some((n) => kws.some((k) => k.includes(n)));
+// g = tmdb genre ids (movie+tv unioned); rt minutes|0; r rating; v votes; kws lowercase keyword names
+export function moodsOf({ g = [], rt = 0, r = 0, v = 0, kws = [] }) {
+  const has = (...ids) => ids.some((x) => g.includes(x));
+  const m = [];
+  if (has(35, 10402, 10751) && r >= 6.5) m.push("feelgood");
+  if (has(80, 53, 9648) && !has(10751, 16) ) m.push("dark");
+  if ((has(878, 10765) && has(9648)) || kwHit(kws, KW.mindbending)) m.push("mindbending");
+  if (has(10751, 16, 10749) && (!rt || rt <= 115) && r >= 6) m.push("cozy");
+  if (has(28, 53, 10759)) m.push("adrenaline");
+  if (has(18) && (kwHit(kws, KW.tearjerker) || (has(10749) && r >= 7.2))) m.push("tearjerker");
+  if (has(27)) m.push("scary");
+  if (has(10749)) m.push("romantic");
+  if (has(12, 10752, 36, 14, 10765, 10768) && ((rt >= 140) || v >= 5000)) m.push("epic");
+  if (has(35) && kwHit(kws, KW.quirky)) m.push("quirky");
+  if (kwHit(kws, KW.truestory) || has(36, 99)) m.push("truestory");
+  if (has(10751, 16, 10762)) m.push("family");
+  return m;
+}
+export const MOODS = ["feelgood", "dark", "mindbending", "cozy", "adrenaline", "tearjerker", "scary", "romantic", "epic", "quirky", "truestory", "family"];
+
+// ── polite, resumable TMDb ───────────────────────────────────────────────────────────────────────────────
+let inflight = 0, lastTick = 0;
+async function tmdb(p, params = {}) {
+  const u = new URL(API + p); u.searchParams.set("api_key", KEY);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, String(v));
+  for (let attempt = 0; ; attempt++) {
+    const wait = Math.max(0, lastTick + 34 - Date.now());               // ≈29 req/s ceiling
+    lastTick = Math.max(Date.now(), lastTick + 34);
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    const res = await fetch(u).catch(() => null);
+    if (res && res.status === 429) { await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); continue; }
+    if (!res || !res.ok) { if (attempt >= 3) throw new Error("tmdb " + (res ? res.status : "net") + " " + p); await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); continue; }
+    return res.json();
+  }
+}
+
+// ── the sweep (checkpointed) ─────────────────────────────────────────────────────────────────────────────
+const ckpt = existsSync(CKPT) ? JSON.parse(readFileSync(CKPT, "utf8")) : { discover: {}, enrich: {} };
+const saveCkpt = () => writeFileSync(CKPT, JSON.stringify(ckpt));
+
+async function sweep() {
+  for (const kind of ["movie", "tv"]) {
+    const [y0, y1] = YEARS[kind];
+    for (let y = y0; y <= y1; y++) {
+      const ck = kind + ":" + y;
+      if (ckpt.discover[ck]) continue;
+      const yearParam = kind === "movie" ? { primary_release_year: y } : { first_air_date_year: y };
+      const base = { ...yearParam, "vote_count.gte": FLOOR[kind], sort_by: "vote_count.desc", include_adult: false };
+      const first = await tmdb(`/discover/${kind}`, { ...base, page: 1 });
+      const pages = Math.min(first.total_pages || 1, 500);
+      const rows = [...(first.results || [])];
+      for (let pg = 2; pg <= pages; pg++) rows.push(...((await tmdb(`/discover/${kind}`, { ...base, page: pg })).results || []));
+      ckpt.discover[ck] = rows.map((t) => ({
+        id: t.id, kind, title: kind === "movie" ? t.title : t.name,
+        year: parseInt((kind === "movie" ? t.release_date : t.first_air_date) || "0") || 0,
+        g: t.genre_ids || [], r: Math.round((t.vote_average || 0) * 10) / 10, v: t.vote_count || 0,
+        p: t.poster_path || null, b: t.backdrop_path || null, l: t.original_language || "",
+      }));
+      saveCkpt();
+      if (y % 10 === 0) console.log(`sweep ${ck}: ${rows.length} titles`);
+    }
+  }
+}
+
+async function enrich(all) {
+  const head = [...all].sort((a, b) => b.v - a.v).slice(0, ENRICH_TOP);
+  let done = 0;
+  for (const t of head) {
+    const ck = t.kind + ":" + t.id;
+    if (!(ck in ckpt.enrich)) {
+      try {
+        const d = await tmdb(`/${t.kind}/${t.id}`, { append_to_response: "keywords,credits,external_ids" });
+        const kws = ((d.keywords && (d.keywords.keywords || d.keywords.results)) || []).map((k) => (k.name || "").toLowerCase());
+        const cast = ((d.credits && d.credits.cast) || []).slice(0, 3).map((c) => [c.id, c.name]);
+        const dir = ((d.credits && d.credits.crew) || []).find((c) => c.job === "Director" || c.job === "Creator");
+        ckpt.enrich[ck] = {
+          rt: d.runtime || (Array.isArray(d.episode_run_time) && d.episode_run_time[0]) || 0,
+          imdb: (d.external_ids && d.external_ids.imdb_id) || d.imdb_id || null,
+          col: (d.belongs_to_collection && d.belongs_to_collection.id) || null,
+          colName: (d.belongs_to_collection && d.belongs_to_collection.name) || null,
+          c3: cast.length ? cast : null, dir: dir ? [dir.id, dir.name] : null, kws,
+          seasons: d.number_of_seasons || null,
+        };
+      } catch { ckpt.enrich[ck] = {}; }
+      if (++done % 250 === 0) { saveCkpt(); console.log(`enrich ${done}/${head.length}`); }
+    }
+  }
+  saveCkpt();
+}
+
+// ── mint: rows → shards → κ ──────────────────────────────────────────────────────────────────────────────
+const sha256hex = (buf) => createHash("sha256").update(buf).digest("hex");
+function mint() {
+  const seen = new Set(); const all = [];
+  for (const rows of Object.values(ckpt.discover)) for (const t of rows) {
+    const k = t.kind + ":" + t.id;
+    if (seen.has(k) || !t.year || !t.p) continue;   // no art or no year = not library-grade
+    seen.add(k); all.push(t);
+  }
+  const persons = new Map();   // id → { n: name, t: [rowKey…] }
+  const rows = all.map((t) => {
+    const e = ckpt.enrich[t.kind + ":" + t.id] || {};
+    const kws = e.kws || [];
+    const row = {
+      i: t.id, k: t.kind === "movie" ? "m" : "t", t: t.title, y: t.year, dec: Math.floor(t.year / 10) * 10,
+      g: t.g, m: moodsOf({ g: t.g, rt: e.rt || 0, r: t.r, v: t.v, kws }),
+      r: t.r, v: t.v, p: t.p, b: t.b || undefined, l: t.l || undefined,
+      rt: e.rt || undefined, imdb: e.imdb || undefined, col: e.col || undefined, cn: e.colName || undefined,
+      sn: e.seasons || undefined,
+      h: (THUMBS && THUMBS[(t.kind === "movie" ? "m" : "t") + t.id]) || undefined,   // ~26B poster soul (P1)
+    };
+    const key = row.k + row.i;
+    for (const pers of [...(e.c3 || []), ...(e.dir ? [e.dir] : [])]) {
+      const rec = persons.get(pers[0]) || { n: pers[1], t: [] };
+      rec.t.push(key); persons.set(pers[0], rec);
+    }
+    if (e.c3) row.c3 = e.c3.map((c) => c[0]);
+    if (e.dir) row.dir = e.dir[0];
+    return JSON.parse(JSON.stringify(row));         // strips undefined — κ-stable bytes
+  }).sort((a, b) => (a.k + a.i < b.k + b.i ? -1 : 1));
+
+  const shards = Array.from({ length: SHARDS }, () => []);
+  for (const r of rows) shards[(r.i + (r.k === "t" ? 7 : 0)) % SHARDS].push(r);
+  const personsObj = Object.fromEntries([...persons].filter(([, v]) => v.t.length >= 3).sort((a, b) => a[0] - b[0]));
+
+  const objects = shards.map((s, n) => ({ name: "shard" + n, bytes: Buffer.from(JSON.stringify({ v: 1, n, rows: s })) }));
+  objects.push({ name: "persons", bytes: Buffer.from(JSON.stringify({ v: 1, persons: personsObj })) });
+  for (const o of objects) { o.sha256 = sha256hex(o.bytes); o.blake3 = blake3hex(new Uint8Array(o.bytes)); }
+  return { rows, objects, personsCount: Object.keys(personsObj).length };
+}
+
+// ── upload + root ────────────────────────────────────────────────────────────────────────────────────────
+async function upload(objects) {
+  const token = readFileSync(path.join(os.homedir(), ".cache/huggingface/token"), "utf8").trim();
+  const missing = [];
+  for (const o of objects) if (!(await fetch(MIRROR + o.blake3, { method: "HEAD" })).ok) missing.push(o);
+  console.log(`mirror: ${objects.length - missing.length} present, ${missing.length} to upload`);
+  if (missing.length) {
+    const ndjson = [JSON.stringify({ key: "header", value: { summary: `holo-library-forge: ${missing.length} catalog object(s)` } })]
+      .concat(missing.map((o) => JSON.stringify({ key: "file", value: { path: "b/" + o.blake3, content: o.bytes.toString("base64"), encoding: "base64" } })))
+      .join("\n");
+    const r = await fetch(`https://huggingface.co/api/models/${HF_REPO}/commit/main`, {
+      method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/x-ndjson" }, body: ndjson,
+    });
+    if (!r.ok) throw new Error("HF commit failed: " + r.status + " " + (await r.text()).slice(0, 200));
+    console.log("HF commit ✓");
+  }
+  for (const o of objects) {   // refuse-at-boundary: every object must re-derive from the mirror
+    const back = new Uint8Array(await (await fetch(MIRROR + o.blake3)).arrayBuffer());
+    if (blake3hex(back) !== o.blake3 || sha256hex(Buffer.from(back)) !== o.sha256) throw new Error("mirror does not re-derive: " + o.name);
+  }
+  console.log("mirror re-derives ✓ all", objects.length);
+}
+
+// ── run ──────────────────────────────────────────────────────────────────────────────────────────────────
+if (!NO_NET) { await sweep(); }
+const preAll = Object.values(ckpt.discover).flat();
+if (!NO_NET) { await enrich(preAll.filter((t) => t.p && t.year)); }
+const { rows, objects, personsCount } = mint();
+const total = objects.reduce((s, o) => s + o.bytes.length, 0);
+console.log(`minted ${rows.length} titles (${rows.filter((r) => r.k === "m").length} movies · ${rows.filter((r) => r.k === "t").length} series) · ${personsCount} persons · ${objects.length} objects · ${(total / 1048576).toFixed(1)} MB`);
+for (const o of objects) console.log(`  ${o.name}: ${(o.bytes.length / 1024).toFixed(0)} KB sha256:${o.sha256.slice(0, 12)}… blake3:${o.blake3.slice(0, 12)}…`);
+
+if (!DRY) {
+  await upload(objects);
+  const root = {
+    $comment: "Holo TV Library root — the κ-addressed universe catalog. Each shard/persons object lives on the κ-mirror at b/<blake3>; sha256 is the verify key (SubtleCrypto at runtime, verify-or-refuse). Rows are compact: i/k/t/y/dec/g[]/m[](moods)/r/v/p/b/rt/imdb/col/c3/dir. Mood taxonomy is a fixed rule table in holo-library-forge.mjs.",
+    version: THUMBS ? 2 : 1, thumbhash: !!THUMBS, moodTaxonomyVersion: MOOD_TAXONOMY_VERSION, generatedAt: new Date().toISOString().slice(0, 10),
+    counts: { titles: rows.length, movies: rows.filter((r) => r.k === "m").length, series: rows.filter((r) => r.k === "t").length, persons: personsCount },
+    mirror: MIRROR, moods: MOODS,
+    shards: objects.filter((o) => o.name.startsWith("shard")).map((o) => ({ sha256: o.sha256, blake3: o.blake3, bytes: o.bytes.length })),
+    persons: (({ sha256, blake3, bytes }) => ({ sha256, blake3, bytes: bytes.length }))(objects.find((o) => o.name === "persons")),
+  };
+  writeFileSync(path.join(HERE, "feed/library-index.json"), JSON.stringify(root, null, 1) + "\n");
+  console.log("root written: feed/library-index.json ✓");
+}

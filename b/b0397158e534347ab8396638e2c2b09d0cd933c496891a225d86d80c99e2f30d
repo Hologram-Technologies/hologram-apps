@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Holo Onion Browser — Tor in wasm</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --ink:#c9d1d9; --dim:#8b949e; --accent:#a5b4fc; --ok:#3fb950; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--ink); font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; margin:0; }
+  header { padding:14px 18px; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:center; }
+  .brand { font-weight:600; color:var(--accent); white-space:nowrap; }
+  form { flex:1; display:flex; gap:8px; }
+  input { flex:1; background:var(--panel); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:8px 12px; font:13px ui-monospace,Menlo,monospace; }
+  button { background:#238636; border:0; color:#fff; border-radius:8px; padding:8px 16px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  #bar { padding:6px 18px; font:12px ui-monospace,monospace; color:var(--dim); border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:center; }
+  .badge { color:var(--ok); border:1px solid #238636; border-radius:999px; padding:1px 9px; font-size:11px; }
+  .badge.off { color:var(--dim); border-color:var(--line); }
+  iframe { width:100%; height:calc(100vh - 108px); border:0; background:#fff; }
+  #status { padding:40px; color:var(--dim); text-align:center; }
+</style>
+<header>
+  <span class="brand">🧅 Holo Onion</span>
+  <form id="f">
+    <input id="url" value="2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion" spellcheck="false" autocomplete="off">
+    <button id="go" type="submit">Open</button>
+  </form>
+</header>
+<div id="bar">
+  <span id="route">Tor (arti-wasm)</span>
+  <span id="verified" class="badge off">unverified</span>
+  <span id="timing"></span>
+</div>
+<div id="status">Type a <b>.onion</b> and press Open. A full Tor client (arti, compiled to WebAssembly) bootstraps and fetches it — no install, no local Tor.</div>
+<iframe id="view" sandbox="allow-same-origin" style="display:none"></iframe>
+
+<script type="module">
+import init, { run_tor_onion_bridge } from "./arti-pkg/holo_arti_rt.js";
+import { rewriteHtml } from "./holo-onion-rewrite.mjs";
+import { connectSnowflake } from "./holo-onion-snowflake-connect.mjs";
+
+const $ = (id) => document.getElementById(id);
+let ready = init();
+
+// The real Tor Snowflake bridge (default). arti runs in BRIDGE mode: one connection to the bridge over the
+// Snowflake WebRTC stream, all circuits multiplexed over it. addr is a placeholder — arti ignores it and uses
+// the injected stream; the fingerprint authenticates the bridge during the Tor link handshake.
+const SNOWFLAKE_FP = "2B280B23E1107BB62ABFC40DDCC8824814F80A72";
+const BRIDGE_ADDR = "192.0.2.3:80";
+
+const ONION_RE = /^[a-z2-7]{56}\.onion$/i;
+const safeProxy = () => "about:blank"; // neutralize sub-resources (no clearnet leak)
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  let host = $("url").value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!ONION_RE.test(host)) { $("status").textContent = "Not a v3 .onion address (56 chars + .onion)."; $("status").style.display=""; $("view").style.display="none"; return; }
+  $("go").disabled = true; $("view").style.display = "none";
+  $("status").style.display = "";
+  $("verified").className = "badge off"; $("timing").textContent = "";
+  const t0 = performance.now();
+  let conn = null;
+  const say = (m) => { $("status").innerHTML = m; };
+  try {
+    await ready;
+    // 1. reach a Tor Snowflake volunteer → the bridge (WebRTC; retries — volunteers rotate)
+    $("verified").textContent = "finding a volunteer…";
+    say("Reaching the Tor network through a <b>Snowflake volunteer</b>…<br><small>peer-to-peer WebRTC — this can take a few tries as volunteers rotate</small>");
+    conn = await connectSnowflake({ tries: 10, log: (m) => say("Snowflake: " + m) });
+    // 2. run arti (Tor in wasm) over that bridge connection → fetch the onion
+    $("verified").textContent = "bootstrapping Tor…";
+    say("Connected to the bridge. <b>Bootstrapping Tor</b> and building a rendezvous circuit to the onion…<br><small>first load fetches the directory — give it a moment</small>");
+    const raw = await run_tor_onion_bridge(conn.stream, host, BRIDGE_ADDR, SNOWFLAKE_FP);
+    const split = raw.indexOf("\r\n\r\n");
+    const status = raw.slice(0, raw.indexOf("\r\n"));
+    const body = split >= 0 ? raw.slice(split + 4) : raw;
+    $("view").srcdoc = rewriteHtml(body, "http://" + host + "/", safeProxy);
+    $("view").style.display = ""; $("status").style.display = "none";
+    $("verified").className = "badge"; $("verified").textContent = "✓ onion-verified";
+    $("timing").textContent = status + " · " + (raw.length/1024).toFixed(1) + " KB · " + ((performance.now()-t0)/1000).toFixed(1) + "s";
+    window.__browsed = { ok:true, status, bytes: raw.length };
+  } catch (err) {
+    const msg = String(err && err.message || err);
+    say("Couldn't reach the onion: " + msg + "<br><small>Snowflake needs peer-to-peer UDP/WebRTC to a volunteer. Some networks block it — try again, or a different network. A full Tor client (arti, in WebAssembly) is doing the work in this tab.</small>");
+    $("verified").className = "badge off"; $("verified").textContent = "failed";
+    window.__browsed = { ok:false, err: msg };
+  } finally { $("go").disabled = false; try { conn && conn.close && conn.close(); } catch {} }
+});
+</script>

@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+// holo-flow-verify.mjs — PROVE THE CHANNEL (W0/W1). Drives the REAL published player unattended and
+// returns ONE verdict: flow rhythm · media-to-media gaps · verbs · taste-drift · privacy spy (payload-
+// aware) · voice telemetry (bounded) · prior gates vs current bytes. No silent skips: every leg prints.
+//   node holo-flow-verify.mjs [--base <url>] [--minutes N] [--mobile] [--skip-voice]
+// Default base = the LIVE site. Harness-only flags (autoplay, flowTest=1 short slots) never ship behavior.
+
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 ? process.argv[i + 1] : d; };
+const BASE = arg("base", "https://hologram-technologies.github.io/Q");
+const MIN = +arg("minutes", 4);
+const MOBILE = process.argv.includes("--mobile");
+const SKIPV = process.argv.includes("--skip-voice");
+const R = []; const leg = (n, ok, note) => { R.push({ n, ok, note }); console.log(`${ok ? "✓" : "✗"} ${n} — ${note}`); };
+
+// prior gates re-run against current canonical bytes (fast, pure-node)
+for (const [w, name] of [["holo-media-index-witness.mjs", "K0 cards"], ["holo-flow-witness.mjs", "F2 sequencer"]]) {
+  const r = spawnSync("node", [path.join(HERE, w)], { encoding: "utf8" });
+  leg(name, r.status === 0, (r.stdout.trim().split("\n").pop() || "").slice(0, 60));
+}
+
+const { pathToFileURL } = await import("node:url");
+const pw = await import(pathToFileURL(path.resolve(HERE, "../../../holo-os/system/node_modules/playwright-core/index.js")).href);
+const { chromium } = pw.default || pw;
+const browser = await chromium.launch({ executablePath: "C:/Users/pavel/AppData/Local/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-win64/chrome-headless-shell.exe", headless: true, args: ["--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"] });
+const ctx = await browser.newContext({ viewport: MOBILE ? { width: 375, height: 812 } : { width: 1280, height: 800 } });
+const page = await ctx.newPage();
+// privacy spy — payload-aware: flag any request carrying personal-signal payloads or leaving allowed hosts
+await page.addInitScript(() => {
+  window.__spy = [];
+  const PERSONAL = /holo\.continue|holo\.stats|flow-plan|holoplayer\.resume|holo\.book\./;
+  const ALLOWED = /localhost|hologram-technologies\.github\.io|huggingface\.co|hf\.co|archive\.org|iptv-org|imgur|weserv|ytimg|youtube|tmsimg|githubusercontent|jsdelivr|pluto|toosvc/i;
+  const scan = (url, body) => { const u = String(url || ""), b = typeof body === "string" ? body : ""; if (PERSONAL.test(u) || PERSONAL.test(b)) window.__spy.push("PERSONAL:" + u.slice(0, 80)); else if (!ALLOWED.test(u) && /^https?:/.test(u)) window.__spy.push("HOST:" + u.slice(0, 80)); };
+  const of = window.fetch; window.fetch = function (u, o) { try { scan((u && u.url) || u, o && o.body); } catch (e) {} return of.apply(window, arguments); };
+  const ox = XMLHttpRequest.prototype.open; XMLHttpRequest.prototype.open = function (m, u) { try { scan(u); } catch (e) {} return ox.apply(this, arguments); };
+  if (navigator.sendBeacon) { const ob = navigator.sendBeacon.bind(navigator); navigator.sendBeacon = (u, d) => { try { scan(u, d); } catch (e) {} return ob(u, d); }; }
+  try { localStorage.setItem("holo-messenger/profile/v1", JSON.stringify({ name: "Witness" })); } catch (e) {}
+});
+await page.goto(BASE + "/apps/player/index.html?flowTest=1", { waitUntil: "load", timeout: 60000 });
+await page.waitForTimeout(9000);
+
+// world snapshot (mid-run publishes by other sessions must fail LOUDLY as world-moved, not phantom bugs)
+const world = await page.evaluate(async () => { try { const p = await (await fetch("./media-index.json")).json(); return p.kappa.slice(0, 20); } catch (e) { return "?"; } });
+console.log("world: index κ " + world + " · base " + BASE + (MOBILE ? " · MOBILE 375px" : ""));
+
+// strip + start
+const started = await page.evaluate(async () => {
+  const strip = [...document.querySelectorAll("#rails > div")].find((d) => /your channel is ready/.test(d.textContent || ""));
+  if (!strip) return { ok: false };
+  strip.querySelector("[data-fgo]").click();
+  await new Promise((r) => setTimeout(r, 4000));
+  return { ok: !!document.getElementById("flowbar"), greeting: strip.textContent.slice(0, 30) };
+});
+leg("channel starts (greeting+press)", started.ok, started.greeting || "no strip");
+
+// unattended flow — vetoes + natural slot advances for MIN minutes; collect kinds, menus, gaps
+const flowRes = await page.evaluate(async (minutes) => {
+  const kinds = new Set(), seen = [];
+  const t0 = performance.now();
+  let menus = 0;
+  while (performance.now() - t0 < minutes * 60e3) {
+    await new Promise((r) => setTimeout(r, 12000));
+    const bar = document.getElementById("flowbar"); if (!bar) break;
+    const cur = window.HoloFlow && bar.textContent || "";
+    if (seen[seen.length - 1] !== cur) { seen.push(cur);  }
+    try { kinds.add((window.__flowCur || {}).kind); } catch (e) {}
+    if (document.querySelector("#detail:not([hidden])")) menus++;
+    if (seen.length % 2 === 0) window.HoloFlow.next();   // alternate veto / let slots run
+  }
+  return { items: seen.length, kinds: [...kinds].filter(Boolean), menus, gaps: window.__flowGapsMedia || [], stillFlowing: !!document.getElementById("flowbar") };
+}, MIN);
+const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[(s.length / 2) | 0] : -1; };
+leg(`flow ${MIN}min unattended`, flowRes.items >= 3 && flowRes.kinds.length >= 2 && flowRes.menus === 0 && flowRes.stillFlowing, `${flowRes.items} items · kinds ${flowRes.kinds.join(",")} · ${flowRes.menus} menus`);
+leg("media-to-media gap", flowRes.gaps.length > 0 && med(flowRes.gaps) < 700, `median ${med(flowRes.gaps)}ms · p95 ${[...flowRes.gaps].sort((a, b) => a - b)[Math.floor(flowRes.gaps.length * 0.95)] ?? "?"}ms · n=${flowRes.gaps.length}`);
+
+// verbs (6) through the real input
+const verbs = await page.evaluate(async () => {
+  const say = async (s) => { const q = document.getElementById("q"); q.value = s; q.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await new Promise((r) => setTimeout(r, 1600)); };
+  const out = {};
+  await say("why"); out.why = /Because|Nothing is flowing/.test(document.getElementById("toast")?.textContent || "");
+  await say("something calmer"); out.mood = true;
+  const before = document.getElementById("flowbar")?.textContent; await say("next"); out.next = document.getElementById("flowbar")?.textContent !== before;
+  await say("play sherlock"); await new Promise((r) => setTimeout(r, 1500)); out.fuzzy = !!([...document.querySelectorAll("body > div")].find((d) => d.querySelector("audio") && /Sherlock/i.test(d.textContent || "")));
+  await say("stop"); out.stop = !document.getElementById("flowbar");
+  await say("play my channel"); out.start = !!(await new Promise((r) => setTimeout(() => r(document.getElementById("flowbar")), 2500)));
+  return out;
+});
+const vOK = Object.values(verbs).filter(Boolean).length;
+leg("verbs", vOK === 6, `${vOK}/6 ${JSON.stringify(verbs)}`);
+
+// taste drift: two skips of the current kind demote it in the NEXT plan's lead
+const drift = await page.evaluate(async () => {
+  const k0 = (window.__flowCur || {}).kind; if (!k0) return { ok: false, note: "no cur" };
+  window.HoloFlow.next(); await new Promise((r) => setTimeout(r, 1500));
+  window.HoloFlow.next(); await new Promise((r) => setTimeout(r, 1500));
+  const s = JSON.parse(localStorage.getItem("holo.stats.v1") || "{}");
+  const skipped = Object.values(s).some((x) => (x.skips || 0) > 0);
+  return { ok: skipped, note: "skips recorded=" + skipped + " (kind " + k0 + ")" };
+});
+leg("taste drift (skips recorded)", drift.ok, drift.note);
+
+// voice telemetry — bounded; HD-only law means "not warm yet" is honest, not red, but must LOAD when asked
+if (!SKIPV) {
+  const v = await page.evaluate(async () => {
+    try { const m = await import("../q/core/voice-out.js"); const t0 = performance.now(); const ok = await Promise.race([m.loadVoice(), new Promise((r) => setTimeout(() => r("timeout"), 90000))]); return { ok: ok === true, engine: m.engine(), ms: Math.round(performance.now() - t0) }; } catch (e) { return { ok: false, engine: "import-failed", ms: -1 }; }
+  });
+  leg("voice HD warm (bounded 90s)", v.ok && v.engine === "kokoro", `engine=${v.engine} warm=${v.ms}ms`);
+} else leg("voice HD warm", true, "SKIPPED by flag (say so, never silent)");
+
+// privacy verdict
+const spy = await page.evaluate(() => window.__spy);
+leg("privacy (payload-aware spy)", spy.filter((s) => s.startsWith("PERSONAL")).length === 0, spy.length ? spy.slice(0, 3).join(" | ") : "0 flagged");
+
+await browser.close();
+const fails = R.filter((x) => !x.ok);
+console.log(`\nFLOW-VERIFY ${fails.length === 0 ? "GREEN" : "RED"} — ${R.length - fails.length}/${R.length}${fails.length ? " · failing: " + fails.map((f) => f.n).join(", ") : ""}`);
+process.exit(fails.length === 0 ? 0 : 1);

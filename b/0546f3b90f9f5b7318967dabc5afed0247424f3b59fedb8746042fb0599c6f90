@@ -1,0 +1,115 @@
+{
+ "$comment": "Holo TV Library root — the κ-addressed universe catalog. Each shard/persons object lives on the κ-mirror at b/<blake3>; sha256 is the verify key (SubtleCrypto at runtime, verify-or-refuse). Rows are compact: i/k/t/y/dec/g[]/m[](moods)/r/v/p/b/rt/imdb/col/c3/dir. Mood taxonomy is a fixed rule table in holo-library-forge.mjs.",
+ "version": 2,
+ "thumbhash": true,
+ "moodTaxonomyVersion": 1,
+ "generatedAt": "2026-07-11",
+ "counts": {
+  "titles": 18712,
+  "movies": 14474,
+  "series": 4238,
+  "persons": 1856
+ },
+ "mirror": "https://huggingface.co/HOLOGRAMTECH/holo-messenger-shell/resolve/main/b/",
+ "moods": [
+  "feelgood",
+  "dark",
+  "mindbending",
+  "cozy",
+  "adrenaline",
+  "tearjerker",
+  "scary",
+  "romantic",
+  "epic",
+  "quirky",
+  "truestory",
+  "family"
+ ],
+ "shards": [
+  {
+   "sha256": "d2e261229323a13aeb96964794e53b8666dbe0d7ff74767fec3001dfa7527852",
+   "blake3": "a92629dbd613fa4d9f5beffdc129b988e59c1de4134512709a05660391e7fea4",
+   "bytes": 318860
+  },
+  {
+   "sha256": "a38f1234acbeec00c823ee9c31eaa5b51d4d840fddae11bb0644b58d858dd881",
+   "blake3": "16ecc4e9c94e1c19661e2618b5ed11bbaa4b5b250366f9643fe388d6693a0078",
+   "bytes": 325376
+  },
+  {
+   "sha256": "b9a56739fdb6c7945d7dca6f6c942b56ba0d91f4339dbee6628d1e632dbdfdb3",
+   "blake3": "577d031f65706f04ca4e53501bba6c33ab18c8c4f15fb6033b03e6335ed3e33d",
+   "bytes": 311092
+  },
+  {
+   "sha256": "032e2dbfe0cb95cd5111a676c9e732255796b374ab1551332c386f1f01cd52a2",
+   "blake3": "20e7fc59b9c3e09f06db096b748d908c2ad2704ef5ea9a874c20e5e97f244ca7",
+   "bytes": 320466
+  },
+  {
+   "sha256": "f76bfbc163a1067c6d95cc350723a316b8d12859dbb92f35eee1ab6b380caa49",
+   "blake3": "07d695bf2d9d9cd2306f7b35cf398a02bded8824bb7a242ee47f1f045a81b998",
+   "bytes": 307474
+  },
+  {
+   "sha256": "2feb5fa70aee133edc0bfac0c778f022e92c5f234bd2cda299ba9586447a395b",
+   "blake3": "70897235fb9455bc9fb526cb96fb67734395c626be4654ad9e4d57a73d918e99",
+   "bytes": 323573
+  },
+  {
+   "sha256": "9e09e6580ce873f8f3eba3d0876b0cda13111d6fa132f70a63f23317c9c9d279",
+   "blake3": "afa09ba7128ecee94541eefe4bd45c4f3c8e509ddb4d65be4996682124806105",
+   "bytes": 316769
+  },
+  {
+   "sha256": "56b7382403180510cdce4324b4cd43fc9b55ffda7253e09e8c42c2ea4e819554",
+   "blake3": "70febd6a953f13218655baaad9ac5b79e6fec3650481555204b9d3c1ef787659",
+   "bytes": 297402
+  },
+  {
+   "sha256": "1d76736fc7d920d4bfcfb546c2cdf159369033ce1145400787caef7aff6d3b72",
+   "blake3": "eecd2cfa43d503a1fa0f8360abf1dee47c46289d68782920a122b7422410bd58",
+   "bytes": 303760
+  },
+  {
+   "sha256": "007be2d4e0b8cb3d1f24252f3ad26252574f9d369cab2c400091768dbe384edb",
+   "blake3": "c7b58078fd43b8b87cc21b553a91481d99eb396b4e8e753ef626bbc1fd0667ca",
+   "bytes": 309154
+  },
+  {
+   "sha256": "162976700a78c3579bbb2ba8f779457ee62682b01f981c87fd2160fcb00b6cb8",
+   "blake3": "620a8d3cdf0fbccc7107512e02543390fafe47ae8a95c3a2a97e6196da5271c3",
+   "bytes": 310759
+  },
+  {
+   "sha256": "f78c0b2b516d01a556e24339e6cf9f476ad8e787fa62f27136645b18937257ed",
+   "blake3": "27953cfa655cccd43477b9929932772d80af8f0ad7898ffac87a9bf162b60f09",
+   "bytes": 328843
+  },
+  {
+   "sha256": "a228cf9548613e6e1c0d474cee5ba89762fe3b9ce920b889e234ff2c748cd319",
+   "blake3": "83b144dcc6fcfbcd91f4970b7dcbce2b9d29ff3cee266b7b3007958dbb922e40",
+   "bytes": 332231
+  },
+  {
+   "sha256": "ebe97488b2244dff262fc776483b98bee10e9cdce0ee4132c1992e4880e53344",
+   "blake3": "46c77e4286f2c148681cefe4d57d1e3c9ba4d602a44c82b0800798c559cdf133",
+   "bytes": 304097
+  },
+  {
+   "sha256": "e095069d38d1a8985b4d6743a1550b5e18b23c1400642d2ef371d2855bc2f0cd",
+   "blake3": "007e6e4e9dd1ae84eb84a628fca3aba0a63628b3b278018062b5cdca9d2a10a9",
+   "bytes": 304596
+  },
+  {
+   "sha256": "8f05fbb5f221014512abff69dc51876255cc4950108f6fe77612a0fb8dec0dbe",
+   "blake3": "861b40c8f8f61aee3036deee1594745f810a5a55e23777ddc36131d0378c7508",
+   "bytes": 311049
+  }
+ ],
+ "persons": {
+  "sha256": "5d86ef6c1b5ec78c7e0ddd11a8d3ada0b24d6a879f2e7e5567b8a6dcb28a7531",
+  "blake3": "3c6d39d693bc0cb5e46d572037269e20b6379985350e4d72bb6fbfdf2831670e",
+  "bytes": 179005
+ }
+}
