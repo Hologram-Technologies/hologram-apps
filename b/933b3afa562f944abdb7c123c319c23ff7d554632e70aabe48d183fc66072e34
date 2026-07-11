@@ -1,0 +1,191 @@
+// holo-project.mjs — the universal Holo Games projector: a guest framebuffer (a libretro core's RGBA
+// frame, or any WebGL/WebGPU game's pixels) is presented SUPER-SHARP at the device's full retina/8K
+// resolution on the native GPU, with the frame STREAMED as content-addressed κ tiles — only CHANGED
+// tiles re-upload (a static HUD costs ~0). This is the SAME Catmull-Rom + unsharp kernel as the engine's
+// KappaCompositor (holospaces-alpine-P0/kappa-engine/holo-render.js) and Holo Canvas's envelope, unified
+// here with a CONTENT-AWARE final stage:
+//   • profile "pixelart"     — sharp-bilinear: crisp pixel blocks with a thin anti-aliased edge (no blur,
+//                              no shimmer at non-integer scale). The right look for retro cores.
+//   • profile "photographic" — Catmull-Rom bicubic + light unsharp. The right look for 3D / shader games.
+// Same envelope, pluggable last stage — chosen per game, abstracting the complexity away.
+
+const WGSL = `
+@group(0) @binding(0) var src: texture_2d<f32>;
+@group(0) @binding(1) var samp: sampler;
+struct U { sharpen: f32, mode: f32, scale: f32, _pad: f32 };
+@group(0) @binding(2) var<uniform> u: U;
+struct VSOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
+@vertex fn vs(@builtin(vertex_index) i: u32) -> VSOut {
+  var p = array<vec2<f32>,3>(vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
+  var o: VSOut; o.pos = vec4<f32>(p[i], 0.0, 1.0);
+  o.uv = vec2<f32>((p[i].x+1.0)*0.5, (1.0-p[i].y)*0.5); return o;
+}
+fn cr(x: f32) -> f32 {
+  let a = -0.5; let ax = abs(x);
+  if (ax < 1.0) { return (a+2.0)*ax*ax*ax - (a+3.0)*ax*ax + 1.0; }
+  if (ax < 2.0) { return a*ax*ax*ax - 5.0*a*ax*ax + 8.0*a*ax - 4.0*a; }
+  return 0.0;
+}
+fn tap(uv: vec2<f32>) -> vec4<f32> { return textureSampleLevel(src, samp, uv, 0.0); }
+@fragment fn fs(in: VSOut) -> @location(0) vec4<f32> {
+  let dim = vec2<f32>(textureDimensions(src));
+  let inv = 1.0/dim;
+  if (u.mode < 0.5) {
+    let pix = in.uv * dim;
+    let fl = floor(pix);
+    if (u.sharpen <= 0.0) {
+      // ── NEAREST: hard pixels, MAXIMUM sharpness — sample the texel CENTRE, zero gray, zero blur. ──
+      let uv2 = (fl + vec2<f32>(0.5)) * inv;
+      return vec4<f32>(textureSampleLevel(src, samp, uv2, 0.0).rgb, 1.0);
+    }
+    // ── SHARP-BILINEAR (canonical): solid texel centres for the body of each pixel, a ~1-output-px
+    //    edge transition only at block boundaries. Even-looking at non-integer scale, no shimmer. ──
+    let s = pix - fl;
+    let cd = s - vec2<f32>(0.5);
+    let rr = vec2<f32>(0.5) - vec2<f32>(0.5) / u.scale;
+    let f = (cd - clamp(cd, -rr, rr)) * u.scale + vec2<f32>(0.5);
+    let uv2 = (fl + f) * inv;
+    return vec4<f32>(textureSampleLevel(src, samp, uv2, 0.0).rgb, 1.0);
+  }
+  // ── PHOTOGRAPHIC: Catmull-Rom (a=-0.5) sharp bicubic + light unsharp ──
+  let c = in.uv*dim - 0.5;
+  let base = floor(c);
+  let f = c - base;
+  var col = vec4<f32>(0.0); var wsum = 0.0;
+  for (var m = -1; m <= 2; m = m + 1) {
+    let wy = cr(f.y - f32(m));
+    for (var n = -1; n <= 2; n = n + 1) {
+      let w = cr(f.x - f32(n)) * wy;
+      let p = (base + vec2<f32>(f32(n), f32(m)) + 0.5) * inv;
+      col = col + w * tap(p); wsum = wsum + w;
+    }
+  }
+  col = col / wsum;
+  if (u.sharpen > 0.0) {
+    let b = (tap((base+vec2<f32>(0.5,0.5))*inv) + tap((base+vec2<f32>(1.5,0.5))*inv)
+           + tap((base+vec2<f32>(0.5,1.5))*inv) + tap((base+vec2<f32>(1.5,1.5))*inv)) * 0.25;
+    col = clamp(col + (col - b) * u.sharpen, vec4<f32>(0.0), vec4<f32>(1.0));
+  }
+  return vec4<f32>(col.rgb, 1.0);
+}`;
+
+export class HoloProject {
+  constructor(canvas, { profile = "pixelart", tile = 32, sharpen = 0.5, maxDim = 8192 } = {}) {
+    this.canvas = canvas; this.tile = tile; this.sharpenAmt = sharpen; this.maxDim = maxDim;
+    this.mode = profile === "photographic" ? 1 : 0;
+    this.device = null; this.ctx = null; this.tex = null;
+    this.w = 0; this.h = 0; this.cols = 0; this.rows = 0; this.tileHash = null; this.scale = 1;
+    this.stats = { frames: 0, dirtyTiles: 0, totalTiles: 0, dedupPct: 0, fps: 0, outW: 0, outH: 0, profile };
+    this._last = 0;
+  }
+
+  async init() {
+    if (!navigator.gpu) throw new Error("WebGPU unavailable");
+    let adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+    if (!adapter) adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) adapter = await navigator.gpu.requestAdapter({ forceFallbackAdapter: true });
+    if (!adapter) throw new Error("WebGPU: no adapter");
+    this.maxDim = Math.min(this.maxDim, adapter.limits.maxTextureDimension2D);
+    this.device = await adapter.requestDevice();
+    this.ctx = this.canvas.getContext("webgpu");
+    this.format = navigator.gpu.getPreferredCanvasFormat();
+    this.ctx.configure({ device: this.device, format: this.format, alphaMode: "opaque" });
+    // linear sampler: photographic taps texel centers (= exact values, no blur); pixelart snaps then
+    // linear-blends only across the thin AA band.
+    this.sampler = this.device.createSampler({ magFilter: "linear", minFilter: "linear" });
+    this.ubo = this.device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    const mod = this.device.createShaderModule({ code: WGSL });
+    this.pipeline = this.device.createRenderPipeline({
+      layout: "auto",
+      vertex: { module: mod, entryPoint: "vs" },
+      fragment: { module: mod, entryPoint: "fs", targets: [{ format: this.format }] },
+      primitive: { topology: "triangle-list" },
+    });
+    this.resizeToDisplay();
+    return this;
+  }
+
+  _writeU() {
+    this.device.queue.writeBuffer(this.ubo, 0, new Float32Array([this.sharpenAmt, this.mode, this.scale, 0]));
+  }
+  _recomputeScale() {
+    if (this.w && this.canvas.width) this.scale = Math.max(this.canvas.width / this.w, this.canvas.height / this.h);
+    this._writeU();
+  }
+
+  resizeToDisplay(dpr = (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1) {
+    const cssW = this.canvas.clientWidth || 640, cssH = this.canvas.clientHeight || 576;
+    this.canvas.width = Math.min(this.maxDim, Math.round(cssW * dpr));
+    this.canvas.height = Math.min(this.maxDim, Math.round(cssH * dpr));
+    this.stats.outW = this.canvas.width; this.stats.outH = this.canvas.height;
+    this._recomputeScale();
+  }
+  setOutputResolution(w, h) {
+    this.canvas.width = Math.min(this.maxDim, Math.round(w));
+    this.canvas.height = Math.min(this.maxDim, Math.round(h));
+    this.stats.outW = this.canvas.width; this.stats.outH = this.canvas.height;
+    this._recomputeScale();
+  }
+  setProfile(p) { this.mode = p === "photographic" ? 1 : 0; this.stats.profile = p; this._writeU(); }
+
+  setSource(w, h) {
+    this.w = w; this.h = h;
+    this.cols = Math.ceil(w / this.tile); this.rows = Math.ceil(h / this.tile);
+    this.tileHash = new Uint32Array(this.cols * this.rows).fill(0xffffffff);
+    this.tex = this.device.createTexture({
+      size: [w, h], format: "rgba8unorm",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.bind = this.device.createBindGroup({
+      layout: this.pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: this.tex.createView() },
+        { binding: 1, resource: this.sampler },
+        { binding: 2, resource: { buffer: this.ubo } },
+      ],
+    });
+    this._recomputeScale();
+  }
+
+  _tileKappa(src, tx, ty) {
+    let h = 2166136261 >>> 0;
+    const x0 = tx * this.tile, y0 = ty * this.tile;
+    const xe = Math.min(x0 + this.tile, this.w), ye = Math.min(y0 + this.tile, this.h);
+    for (let y = y0; y < ye; y++) {
+      let o = (y * this.w + x0) * 4;
+      for (let x = x0; x < xe; x++) { h ^= src[o] ^ (src[o + 1] << 8) ^ (src[o + 2] << 16); h = Math.imul(h, 16777619); o += 4; }
+    }
+    return h >>> 0;
+  }
+
+  // present a raw RGBA framebuffer. Streams only the κ-tiles that changed, then projects super-sharp.
+  present(src) {
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (this._last) { const inst = 1000 / Math.max(0.001, now - this._last); this.stats.fps = this.stats.fps ? this.stats.fps * 0.9 + inst * 0.1 : inst; }
+    this._last = now;
+
+    let dirty = 0;
+    for (let ty = 0; ty < this.rows; ty++) for (let tx = 0; tx < this.cols; tx++) {
+      const k = this._tileKappa(src, tx, ty);
+      const idx = ty * this.cols + tx;
+      if (k !== this.tileHash[idx]) {
+        this.tileHash[idx] = k;
+        const x0 = tx * this.tile, y0 = ty * this.tile;
+        const tw = Math.min(this.tile, this.w - x0), th = Math.min(this.tile, this.h - y0);
+        const region = new Uint8Array(tw * th * 4);
+        for (let y = 0; y < th; y++) region.set(src.subarray(((y0 + y) * this.w + x0) * 4, ((y0 + y) * this.w + x0) * 4 + tw * 4), y * tw * 4);
+        this.device.queue.writeTexture({ texture: this.tex, origin: [x0, y0] }, region, { bytesPerRow: tw * 4, rowsPerImage: th }, [tw, th]);
+        dirty++;
+      }
+    }
+
+    const enc = this.device.createCommandEncoder();
+    const pass = enc.beginRenderPass({ colorAttachments: [{ view: this.ctx.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: "clear", storeOp: "store" }] });
+    pass.setPipeline(this.pipeline); pass.setBindGroup(0, this.bind); pass.draw(3); pass.end();
+    this.device.queue.submit([enc.finish()]);
+
+    this.stats.frames++; this.stats.dirtyTiles = dirty; this.stats.totalTiles = this.cols * this.rows;
+    this.stats.dedupPct = Math.round(100 * (1 - dirty / Math.max(1, this.stats.totalTiles)));
+    return this.stats;
+  }
+}
