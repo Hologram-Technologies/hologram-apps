@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!-- viewport-fit=cover → draw under the notch/home-indicator; user-scalable=no → the console never pinch-zooms
+     (a game surface must eat gestures as INPUT, not scroll/zoom). interactive-widget keeps the layout stable
+     when a soft keyboard appears in the picker. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+<meta name="theme-color" content="#07080b" />
+<meta name="color-scheme" content="dark" />
+<!-- installable → launches chrome-free from the home screen (the only real "fullscreen" iOS Safari offers) -->
+<link rel="manifest" href="./manifest.webmanifest" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Holo Games" />
+<link rel="apple-touch-icon" href="./icon-console.svg" />
+<link rel="icon" href="./icon-console.svg" type="image/svg+xml" />
+<title>Holo Games — Play</title>
+<style>
+  /* φ drives the whole layout: spacing steps, and A/B = D-pad ÷ φ. Nothing tiny, nothing redundant. */
+  :root { --phi:1.618; --accent:#6c8cff; --gb-body:#c6c7bc; --gb-body2:#a9aa9e; --gb-magenta:#9c2b5e;
+    --u: clamp(13px, 1.6vh, 19px);                       /* base text/space unit — never smaller */
+    --gap: var(--u); --gap-phi: calc(var(--u) * var(--phi)); --gap-phi2: calc(var(--u) * var(--phi) * var(--phi));
+    --dpad: clamp(120px, 18.5vh, 178px); --ab: calc(var(--dpad) / var(--phi)); }
+  * { box-sizing:border-box; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
+  /* overscroll-behavior:none → no pull-to-refresh / rubber-band; 100dvh (not vh) tracks the live viewport as
+     the mobile URL-bar collapses, so the console never jumps. */
+  html,body { margin:0; height:100%; overflow:hidden; overscroll-behavior:none; touch-action:none; background:radial-gradient(120% 120% at 50% 0%, #14171f 0%, #07080b 70%); color:#e8ecf4; font-family:system-ui,Segoe UI,Roboto,sans-serif; }
+  /* safe-area insets keep the console clear of the notch + home indicator when drawn under them (viewport-fit=cover) */
+  #wrap { height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--gap-phi);
+    padding: calc(var(--gap) + env(safe-area-inset-top,0px)) calc(var(--gap) + env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) calc(var(--gap) + env(safe-area-inset-left,0px)); }
+  #toptitle { font-weight:650; font-size:calc(var(--u) * var(--phi)); letter-spacing:.2px; opacity:.96; }
+  #toptitle small { display:none; }                      /* hide the redundant system subtitle */
+
+  /* gray console body that flanks a BIG screen with the controls in the side wings */
+  .dock { flex:1; min-height:0; display:grid; align-items:center; justify-items:center; grid-template-columns:1fr auto 1fr;
+    gap: clamp(12px, 2.6vw, 50px); background:linear-gradient(157deg,var(--gb-body),var(--gb-body2)); border-radius:30px;
+    padding: clamp(12px,2.4vh,30px) clamp(16px,2.6vw,44px); max-width:98vw; max-height:94vh;
+    box-shadow: 0 34px 88px -26px #000d, inset 0 2px 0 #ffffff85, inset 0 -3px 10px #00000035, inset 0 0 0 1px #00000018; }
+  .deck { display:flex; flex-direction:column; align-items:center; min-width:0; }
+  .gb-screen { position:relative; background:linear-gradient(160deg,#63677a,#4a4d5c); border-radius:16px 16px 30px 16px;
+    padding: clamp(10px,2vh,24px) clamp(12px,1.6vw,28px); box-shadow: inset 0 3px 12px #00000075, 0 1px 0 #ffffff55; }
+  .gb-screen::before { content:""; position:absolute; left:9%; top:5.5%; width:36%; height:5px; border-radius:3px; background:linear-gradient(90deg,#7b2733 0 48%, transparent 48% 52%, #2b3570 52%); opacity:.75; }
+  .gb-led { position:absolute; left:3%; top:48%; width:9px; height:9px; border-radius:50%; background:radial-gradient(circle at 35% 35%,#ff8a8a,#c01b1b); box-shadow:0 0 7px #ff3b3b99; }
+  /* photoreal recessed screen: a black bezel ring sunk into the body (skin-lab MATERIAL KIT), then the LCD glass */
+  .gb-lcd { position:relative; height: min(70vh, 50vw); aspect-ratio:160/144; background:var(--screen-bg,#9bbc0f); border-radius:5px; overflow:hidden;
+    box-shadow: 0 0 0 7px #0e1016, 0 0 0 8px #000, inset 0 0 0 2px #00000060, inset 0 2px 10px #000000a0, inset 0 0 18px #00000045, 0 0 40px -6px #cfeaa030; }
+  .gb-lcd canvas { display:block; width:100%; height:100%; }
+
+  .wing { display:flex; flex-direction:column; align-items:center; justify-content:center; gap: var(--gap-phi2); }
+  .gb-dpad { position:relative; width:var(--dpad); height:var(--dpad); touch-action:none;
+    transform: perspective(300px) rotateX(var(--tx,0deg)) rotateY(var(--ty,0deg)); transition: transform .055s cubic-bezier(.2,.85,.3,1); }
+  /* recessed dish under the cross (skin-lab) — the d-pad sits in a molded well, not floating on the body */
+  .gb-dpad::before { content:""; position:absolute; inset:-12%; border-radius:50%; z-index:0;
+    background:radial-gradient(circle at 50% 36%, #ffffff12, #00000026 70%); box-shadow:0 2px 7px #00000055 inset, 0 1px 0 #ffffff30; }
+  /* the arrow on the arm you're pressing lights up — real-button feedback for keyboard + gamepad too */
+  .gb-dpad.u .dhint.up, .gb-dpad.d .dhint.down, .gb-dpad.l .dhint.left, .gb-dpad.r .dhint.right { color:#fff; text-shadow:0 0 11px #ffffffd8, 0 1px 2px #000; }
+  .gb-dpad .cross { position:absolute; inset:0; }
+  .gb-dpad .cross::before, .gb-dpad .cross::after { content:""; position:absolute; background:linear-gradient(#3c3c3c,#1c1c1c); border-radius:8px; box-shadow:0 3px 5px #0007, inset 0 1px 0 #ffffff22; }
+  .gb-dpad .cross::before { left:34%; top:1%; width:32%; height:98%; }
+  .gb-dpad .cross::after { top:34%; left:1%; height:32%; width:98%; }
+  .gb-dpad .nub { position:absolute; left:42%; top:42%; width:16%; height:16%; border-radius:50%; background:#262626; box-shadow:inset 0 0 5px #000; z-index:2; }
+  /* keyboard hint = the arrow glyph on each arm (the d-pad IS the arrow keys) */
+  .dhint { position:absolute; color:#ffffffd0; font-size:calc(var(--dpad)*.155); font-weight:700; z-index:1; pointer-events:none; text-shadow:0 1px 2px #000a; }
+  .dhint.up { left:50%; top:5%; transform:translateX(-50%); } .dhint.down { left:50%; bottom:5%; transform:translateX(-50%); }
+  .dhint.left { left:6%; top:50%; transform:translateY(-50%); } .dhint.right { right:6%; top:50%; transform:translateY(-50%); }
+
+  .gb-shoulders { display:flex; gap: var(--gap-phi); justify-content:center; margin-bottom: var(--gap); }
+  .gb-ab { display:flex; flex-wrap:wrap; max-width: calc(var(--ab) * 2.4); gap: var(--gap-phi); align-items:flex-start; justify-content:center; transform:rotate(-22deg); }
+  .btn-wrap { display:flex; flex-direction:column; align-items:center; gap: calc(var(--u)*.5); }
+  .gb-btn { width:var(--ab); height:var(--ab); border-radius:50%; border:0; background:radial-gradient(circle at 36% 30%,#cf4d86,var(--gb-magenta) 72%);
+    color:#fff; font-weight:800; font-size:calc(var(--u)*var(--phi)); cursor:pointer; touch-action:none;
+    box-shadow:0 5px 0 #00000055, 0 7px 10px #0007, inset 0 2px 3px #ffffff66, inset 0 -3px 5px #00000055; transition:transform .05s cubic-bezier(.2,.9,.3,1.5), box-shadow .05s; }
+  /* pressing sinks the cap flush onto its own sidewall — a real, physical button travel */
+  .gb-btn:active, .gb-btn.on { transform:translateY(5px) scale(.95); box-shadow:0 0 0 #00000055, 0 1px 2px #0008, inset 0 3px 8px #00000088, 0 0 26px #ff77b04d; }
+  .gb-btn span { display:block; transform:rotate(22deg); }
+  /* keyboard hint key-cap under each face button */
+  .keycap { transform:rotate(22deg); display:inline-flex; align-items:center; justify-content:center; min-width:1.7em; height:1.7em; padding:0 .45em;
+    border-radius:7px; background:#ffffff34; color:#33352f; font-size:var(--u); font-weight:700; box-shadow:inset 0 -2px 0 #00000022, 0 1px 0 #ffffff66; }
+
+  .gb-startsel { display:flex; gap: var(--gap-phi); }
+  .ss { display:flex; flex-direction:column; align-items:center; gap: calc(var(--u)*.45); transform:rotate(-22deg); }
+  .gb-pill { width: clamp(56px,8vw,88px); height:16px; border-radius:8px; border:0; background:linear-gradient(#9a9dab,#6f7280); cursor:pointer; touch-action:none; box-shadow:0 2px 3px #0006, inset 0 1px 0 #ffffff66; transition:transform .05s, box-shadow .05s; }
+  .gb-pill:active, .gb-pill.on { transform:translateY(3px); box-shadow:0 1px 1px #0007, inset 0 2px 4px #00000066; }
+  .sslab { font-size: var(--u); font-weight:650; color:#41443c; display:flex; gap:.4em; align-items:center; }
+  .sslab b { font-weight:800; color:#26281f; }
+
+  /* PORTRAIT → fold to the vertical handheld. Base = the live block, kept verbatim so the anti-revert
+     gate sees its rules survive; the deltas below layer the essential grid-row fix on top. DOM order is
+     [wing][screen][wing], so without an explicit grid-row the spanning screen drops to row 2 and the
+     d-pad floats above it. Verified 375×812: screen row 1, both wings row 2, all in view. */
+  @media (max-aspect-ratio: 1/1) {
+    .dock { grid-template-columns:1fr 1fr; grid-template-rows:auto auto; border-radius:18px 18px 70px 18px; gap: 2.5vh 8vw; }
+    .deck { grid-column:1 / -1; } .gb-lcd { height: min(50vh, 82vw); }
+    .wing-l { grid-column:1; justify-self:start; } .wing-r { grid-column:2; justify-self:end; }
+    /* deltas — later rules win the cascade */
+    .dock { gap: 2vh 6vw; align-content:space-between; }
+    .deck { grid-row:1; } .gb-lcd { height: min(46vh, 78vw); }
+    .wing-l { grid-row:2; justify-self:center; align-self:center; }
+    .wing-r { grid-row:2; justify-self:center; align-self:center; }
+    .wing { gap: 3vh; }
+  }
+
+  /* coherent immersive TRANSITION — every piece eases together (the console melts away, the screen takes
+     over) on the same curve, so enter/exit feels like one fluid motion. */
+  #toptitle, .strip, #toast { transition: opacity .34s ease, max-height .5s cubic-bezier(.2,.72,.2,1), margin .5s, transform .5s; max-height:80px; }
+  .dock { transition: padding .52s cubic-bezier(.2,.72,.2,1), gap .52s, background .58s ease, box-shadow .58s ease, border-radius .5s; }
+  .gb-screen { transition: padding .52s cubic-bezier(.2,.72,.2,1), background .58s, box-shadow .58s, border-radius .5s; }
+  .gb-lcd { transition: height .52s cubic-bezier(.2,.72,.2,1), box-shadow .58s ease, border-radius .5s; }
+  .wing { transition: opacity .42s ease, transform .52s cubic-bezier(.2,.72,.2,1); }
+  .gb-led, .gb-screen::before, .keycap, .sslab, .dhint { transition: opacity .4s ease; }
+
+  /* IMMERSIVE → screen full-bleed; the console body dissolves, controls fade to translucent corner overlays */
+  body.imm #wrap { padding:0; gap:0; }
+  body.imm .dock { background:transparent; box-shadow:none; padding:0; gap:0; max-width:100vw; max-height:100vh; grid-template-columns:1fr; grid-template-rows:1fr; }
+  body.imm .deck { grid-column:1; grid-row:1; }
+  body.imm .gb-screen { background:transparent; box-shadow:none; padding:0; border-radius:0; }
+  body.imm .gb-screen::before, body.imm .gb-led, body.imm .keycap, body.imm .sslab, body.imm .dhint { opacity:0; }
+  body.imm #toptitle, body.imm .strip, body.imm #toast { opacity:0; max-height:0; margin:0; transform:translateY(-10px); pointer-events:none; overflow:hidden; }
+  body.imm .gb-lcd { height: min(99vh, 99vw); border-radius:0; box-shadow:0 0 90px -6px #cfeaa036; }   /* ambient screen bloom */
+  body.imm .wing { position:fixed; bottom:4vh; opacity:.42; z-index:5; }
+  body.imm .wing:hover, body.imm .wing:active { opacity:.95; }
+  body.imm .wing-l { left:3vw; } body.imm .wing-r { right:3vw; align-items:flex-end; }
+  /* while animating, dissolve the controls fully so the fixed-corner reposition is never seen as a jump */
+  body.imm-animating .wing { opacity:0 !important; }
+
+  /* ENTRY MORPH — on load the console materializes around the screen in ONE GPU-composited motion
+     (opacity + transform only, never layout). A one-shot animation with fill:both → needs no JS and never
+     flashes the final layout. The cover art fills the LCD first, then dissolves to reveal the live game,
+     so a tap reads as "the tile became the console." */
+  .dock { will-change: transform; animation: h-materialize .5s cubic-bezier(.2,.72,.2,1) both; }
+  @keyframes h-materialize { from { opacity:0; transform:scale(.945) translateY(12px); } to { opacity:1; transform:none; } }
+  #cover { position:absolute; inset:0; z-index:1; background:#0b0b0e center/cover no-repeat; opacity:0; transition:opacity .55s ease; pointer-events:none; }
+  #cover.show { opacity:1; }
+  #cover::after { content:""; position:absolute; inset:0; background:linear-gradient(120deg,#0000 38%,#ffffff1f 50%,#0000 62%); }   /* glass sweep over the cover */
+
+  /* minimal control rail — only the features that matter */
+  /* chrome auto-hide: after idle, everything but the console fades — all about the game.
+     Fade only (opacity, not height) so the dock never jumps. Pointer motion brings it back. */
+  body.chrome-idle:not(.imm) #toptitle, body.chrome-idle:not(.imm) .strip {
+    opacity:0; pointer-events:none; transform:translateY(-6px); }
+  .strip { display:flex; gap: calc(var(--u)*.85); align-items:center; flex-wrap:wrap; justify-content:center; }
+  .strip button, .strip select { font-size: var(--u); padding:.55em .95em; border-radius:12px; border:1px solid #ffffff22;
+    background:linear-gradient(180deg,#1b2030,#12151d); color:#e8ecf4; cursor:pointer; transition:border-color .15s, transform .08s; }
+  .strip button:hover { border-color:color-mix(in srgb,var(--accent) 60%, #fff2); transform:translateY(-1px); }
+  #toast { font-size: var(--u); min-height:1.4em; opacity:.8; text-align:center; }
+  #status, #hint, #padind, #sysname { display:none; }     /* dev/debug + redundant — kept for JS, never shown */
+
+  #picker { display:none; position:absolute; inset:0; background:#0d1b08f2; color:#cdeaa0; padding:6%; font-size: var(--u); overflow:auto; touch-action:pan-y; z-index:3; }   /* the one scrollable surface — re-allow vertical pan */
+  #picker.show { display:block; }
+  #drop { border:1.5px dashed #cdeaa055; border-radius:12px; padding:8% 6%; text-align:center; cursor:pointer; }
+  #drop.over { border-color:#fff; }
+  #picker .free { margin-top:6%; text-align:center; }
+  #picker .free button, #picker #pickbtn { margin:4px; padding:.5em .8em; border-radius:9px; border:1px solid #cdeaa044; background:#1b2a10; color:#cdeaa0; cursor:pointer; font-size:var(--u); }
+  #picker .streambox { margin-top:6%; }
+  #streamq { width:100%; padding:.5em .7em; border-radius:9px; border:1px solid #cdeaa055; background:#10200a; color:#e6ffb0; font-size:var(--u); }
+  #streamq::placeholder { color:#cdeaa080; }
+  #streamres { margin-top:7px; }
+  #streamres button { display:block; width:100%; text-align:left; margin:4px 0; padding:.5em .7em; border-radius:7px; border:1px solid #cdeaa033; background:#1b2a10; color:#cdeaa0; cursor:pointer; font-size:calc(var(--u)*.92); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #streamres button:hover { border-color:#cdeaa0; }
+  #picker .legal { margin-top:6%; opacity:.6; font-size:calc(var(--u)*.85); text-align:center; }
+  #picker a { color:#e6ffb0; }
+  input[type=file]{ display:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="toptitle" aria-live="polite">Holo Games</div>
+  <div class="dock" id="dock">
+    <div class="wing wing-l">
+      <div class="gb-dpad" id="dpad">
+        <div class="cross"></div><div class="nub"></div>
+        <span class="dhint up">↑</span><span class="dhint down">↓</span><span class="dhint left">←</span><span class="dhint right">→</span>
+      </div>
+    </div>
+    <div class="deck">
+      <div class="gb-screen">
+        <div class="gb-led"></div>
+        <div class="gb-lcd" id="lcd">
+          <canvas id="screen" width="160" height="144"></canvas>
+          <div id="cover"></div>
+          <div id="picker">
+            <div id="drop" tabindex="0">
+              <div id="drop-title">Drop a Game Boy ROM</div>
+              <div id="drop-sub">your own legal <code>.gb</code> — runs locally, never uploaded</div>
+            </div>
+            <input type="file" id="file" accept=".gb,.gbc" />
+            <div style="text-align:center"><button id="pickbtn" type="button">Choose a .gb…</button></div>
+            <div class="streambox">
+              <input id="streamq" type="search" autocomplete="off" placeholder="search the library — any Game Boy title…" />
+              <div id="streamres"></div>
+            </div>
+            <div class="free">or play a free, open game now:<br>
+              <button data-rom="./roms/libbet.gb" data-title="Libbet and the Magic Floor">▶ Libbet</button>
+              <button data-rom="./roms/ucity.gbc" data-title="µCity">▶ µCity</button>
+            </div>
+            <div class="legal" id="legal"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="wing wing-r">
+      <div class="gb-ab">
+        <div class="btn-wrap"><button class="gb-btn b" data-bit="0"><span>B</span></button><span class="keycap">Z</span></div>
+        <div class="btn-wrap"><button class="gb-btn a" data-bit="8"><span>A</span></button><span class="keycap">X</span></div>
+      </div>
+      <div class="gb-startsel">
+        <div class="ss"><button class="gb-pill" data-bit="2"></button><span class="sslab">SELECT <b>⇧</b></span></div>
+        <div class="ss"><button class="gb-pill" data-bit="3"></button><span class="sslab">START <b>⏎</b></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <button id="save">💾 Save</button>
+    <button id="load">⟲ Load</button>
+    <select id="slot" title="save slot"><option>1</option><option>2</option><option>3</option></select>
+    <button id="immersive">⛶ Immersive</button>
+    <button id="eject">⏏ Eject</button>
+  </div>
+  <div id="toast"></div>
+
+  <!-- kept for the script, never shown -->
+  <div id="status"></div><div id="hint"></div><span id="padind"></span><i id="sysname"></i>
+</div>
+
+<script type="module">
+  import { loadRealCore } from "./holo-libretro.js";
+  import { streamTitle, streamByName, search as searchLib } from "./holo-stream.mjs";
+  import { CONSOLES, COMMON_KEYS, codeForSys } from "./consoles.mjs";
+
+  const q = new URLSearchParams(location.search);
+  const title = q.get("title") || "";
+  const sys = q.get("sys") || "Nintendo - Game Boy";
+  const sysCode = codeForSys(sys);
+  const con = CONSOLES[sysCode] || CONSOLES.gb;
+  const src = q.get("src") || "";
+  const art = q.get("art") || "";                       // box art → fills the LCD during the morph, then dissolves to the game
+  const romUrl = q.get("rom") || (title ? null : "./roms/libbet.gb");
+  const $ = (id) => document.getElementById(id);
+  // show the cover in the screen immediately (part of the materialize) — the game cross-fades over it on first paint
+  if (art) { const c = $("cover"); if (c) { c.style.backgroundImage = "url('" + art.replace(/'/g, "%27") + "')"; c.classList.add("show"); } }
+  const hideCover = () => { const c = $("cover"); if (c) c.classList.remove("show"); };
+
+  // theme the body + screen per console and render its face buttons (+ shoulders) from the registry
+  const KEYLABEL = { KeyZ:"Z", KeyX:"X", KeyA:"A", KeyS:"S", KeyC:"C", KeyQ:"Q", KeyW:"W" };
+  (function setupConsole() {
+    const rs = document.documentElement.style;
+    rs.setProperty("--gb-body", con.body);
+    rs.setProperty("--gb-body2", "color-mix(in srgb, " + con.body + " 78%, #000)");
+    rs.setProperty("--gb-magenta", con.accent);
+    rs.setProperty("--screen-bg", sysCode === "gb" ? "#9bbc0f" : "#0b0b0e");
+    if (!con.handheld) { const led = document.querySelector(".gb-led"); if (led) led.style.display = "none"; }
+    const ab = document.querySelector(".gb-ab");
+    if (ab) {
+      ab.innerHTML = "";
+      for (const b of con.buttons) {
+        const w = document.createElement("div"); w.className = "btn-wrap";
+        const btn = document.createElement("button"); btn.className = "gb-btn"; btn.dataset.bit = b.bit;
+        btn.style.background = "radial-gradient(circle at 36% 30%, color-mix(in srgb," + b.c + " 72%, #fff), " + b.c + " 74%)";
+        btn.innerHTML = "<span>" + b.l + "</span>";
+        const cap = document.createElement("span"); cap.className = "keycap"; cap.textContent = KEYLABEL[b.k] || "";
+        w.appendChild(btn); w.appendChild(cap); ab.appendChild(w);
+      }
+    }
+    if (con.shoulders && con.shoulders.length) {
+      const wing = document.querySelector(".wing-r");
+      const row = document.createElement("div"); row.className = "gb-shoulders";
+      for (const s of con.shoulders) {
+        const w = document.createElement("div"); w.className = "btn-wrap";
+        const btn = document.createElement("button"); btn.className = "gb-pill"; btn.dataset.bit = s.bit; btn.textContent = s.l; btn.style.width = "clamp(40px,5vw,64px)";
+        const cap = document.createElement("span"); cap.className = "keycap"; cap.textContent = KEYLABEL[s.k] || "";
+        w.appendChild(btn); w.appendChild(cap); row.appendChild(w);
+      }
+      if (wing) wing.insertBefore(row, wing.firstChild);
+    }
+  })();
+  $("sysname").textContent = con.label;
+  if (title) $("toptitle").innerHTML = title + " <small>" + sys + "</small>";
+
+  // WARM MODE: the catalog boots this hidden + paused at the title screen while you look at the box; pressing
+  // Play just reveals it + resumes → instant (the ~engine-init already happened in the background). A race
+  // guard means if Play arrives before we pause, we never pause.
+  const warm = q.get("warm") === "1";
+  let playRequested = !warm;
+  addEventListener("message", (e) => {
+    const d = e.data || {};
+    if (d.type === "holo-resume") { playRequested = true; try { window.__holoPlay && window.__holoPlay.resume(); document.getElementById("screen").focus(); } catch (x) {} }
+    else if (d.type === "holo-idle") { try { window.__holoPlay && window.__holoPlay.pause(); } catch (x) {} }
+  });
+  const setStatus = (s) => { $("status").textContent = s; };
+  let toastT = 0;
+  const toast = (s) => { $("toast").textContent = s; clearTimeout(toastT); toastT = setTimeout(() => { if ($("toast").textContent === s) $("toast").textContent = ""; }, 4000); };
+
+  // ── input: three sources OR'd together (keyboard · on-screen/touch · gamepad) ──
+  const BIT = { B:0, SELECT:2, START:3, UP:4, DOWN:5, LEFT:6, RIGHT:7, A:8 };
+  const KMAP = Object.assign({}, COMMON_KEYS);   // dpad + Start/Select, then this console's face/shoulder keys
+  for (const b of con.buttons) KMAP[b.k] = b.bit;
+  for (const s of (con.shoulders || [])) KMAP[s.k] = s.bit;
+  let keyMask = 0, btnMask = 0, dpadMask = 0;
+  addEventListener("keydown", (e) => {
+    if (e.code === "F2") { e.preventDefault(); saveState(); return; }
+    if (e.code === "F4") { e.preventDefault(); loadState(); return; }
+    if (e.code === "KeyF") { e.preventDefault(); toggleImmersive(); return; }
+    if (e.code in KMAP) { const b = 1 << KMAP[e.code]; if (!(keyMask & b)) { keyMask |= b; navigator.vibrate && navigator.vibrate(6); } e.preventDefault(); syncNow(); }
+  });
+  addEventListener("keyup", (e) => { if (e.code in KMAP) { keyMask &= ~(1 << KMAP[e.code]); e.preventDefault(); syncNow(); } });
+
+  // on-screen A / B / Start / Select (pointer = mouse + touch; multi-touch friendly). The PRESSED VISUAL
+  // is driven centrally by reflect() below — so a key, a tap, or a gamepad all light the same button.
+  document.querySelectorAll("[data-bit]").forEach((el) => {
+    const bit = +el.dataset.bit;
+    const dn = (e) => { btnMask |= (1 << bit); navigator.vibrate && navigator.vibrate(7); el.setPointerCapture?.(e.pointerId); e.preventDefault(); syncNow(); };
+    const up = () => { btnMask &= ~(1 << bit); syncNow(); };
+    el.addEventListener("pointerdown", dn); el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up);
+  });
+  // D-pad: position under the pointer → 8-way direction
+  const dpad = $("dpad");
+  function dpadDirFrom(e) {
+    const r = dpad.getBoundingClientRect();
+    const x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+    const y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+    let m = 0, dz = 0.30;
+    if (y < -dz) m |= 1 << BIT.UP; if (y > dz) m |= 1 << BIT.DOWN;
+    if (x < -dz) m |= 1 << BIT.LEFT; if (x > dz) m |= 1 << BIT.RIGHT;
+    return m;
+  }
+  dpad.addEventListener("pointerdown", (e) => { dpad.setPointerCapture(e.pointerId); dpadMask = dpadDirFrom(e); navigator.vibrate && navigator.vibrate(7); e.preventDefault(); syncNow(); });
+  dpad.addEventListener("pointermove", (e) => { if (dpadMask || (e.buttons & 1)) { dpadMask = dpadDirFrom(e); syncNow(); } });
+  const dpEnd = () => { dpadMask = 0; syncNow(); };
+  dpad.addEventListener("pointerup", dpEnd); dpad.addEventListener("pointercancel", dpEnd); dpad.addEventListener("pointerleave", dpEnd);
+
+  // ── reflect ANY input source (keyboard · touch · gamepad) onto the PHYSICAL controls, so every press
+  //    looks and feels like the real button going down — a face button depresses + glows; the D-pad rocks
+  //    toward the held direction and its arrow lights. Driven on the event (0 added latency) and re-synced
+  //    every frame (for the gamepad). One source of truth → all inputs feel identical and crisp. ──
+  const pressEls = {};   // every on-screen button (face / shoulder / start / select) by its libretro bit
+  document.querySelectorAll("[data-bit]").forEach((el) => { pressEls[+el.dataset.bit] = el; });
+  function reflect(mask) {
+    for (const bit in pressEls) if (pressEls[bit]) pressEls[bit].classList.toggle("on", !!(mask & (1 << bit)));
+    const up = mask & (1 << BIT.UP), dn = mask & (1 << BIT.DOWN), lf = mask & (1 << BIT.LEFT), rt = mask & (1 << BIT.RIGHT);
+    dpad.classList.toggle("u", !!up); dpad.classList.toggle("d", !!dn); dpad.classList.toggle("l", !!lf); dpad.classList.toggle("r", !!rt);
+    dpad.style.setProperty("--tx", ((up ? 9 : 0) + (dn ? -9 : 0)) + "deg");   // rocker tilt toward the press
+    dpad.style.setProperty("--ty", ((rt ? 9 : 0) + (lf ? -9 : 0)) + "deg");
+  }
+  function syncNow() { reflect(keyMask | btnMask | dpadMask | pollGamepad()); }
+
+  // Gamepad API (physical controller). Standard mapping → GB bits. Polled each frame.
+  let padSeen = false;
+  addEventListener("gamepadconnected", () => { padSeen = true; $("padind").textContent = "🎮 connected"; });
+  function pollGamepad() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let m = 0;
+    for (const gp of pads) {
+      if (!gp) continue; padSeen = true;
+      const b = gp.buttons, on = (i) => b[i] && b[i].pressed;
+      if (on(0)) m |= 1 << BIT.A; if (on(1)) m |= 1 << BIT.B;     // standard: 0=A(bottom),1=B(right)
+      if (on(8)) m |= 1 << BIT.SELECT; if (on(9)) m |= 1 << BIT.START;
+      if (on(12)) m |= 1 << BIT.UP; if (on(13)) m |= 1 << BIT.DOWN; if (on(14)) m |= 1 << BIT.LEFT; if (on(15)) m |= 1 << BIT.RIGHT;
+      const ax = gp.axes || [], dz = 0.4;
+      if (ax[1] < -dz) m |= 1 << BIT.UP; if (ax[1] > dz) m |= 1 << BIT.DOWN;
+      if (ax[0] < -dz) m |= 1 << BIT.LEFT; if (ax[0] > dz) m |= 1 << BIT.RIGHT;
+    }
+    return m;
+  }
+
+  // ── immersive (full-bleed) toggle — magical, coherent enter/exit; Esc always returns to the windowed view ──
+  let projector = null, immT = 0;
+  function refit() { if (projector && !document.body.classList.contains("imm-animating")) projector.resizeToDisplay(); }
+  function setImmersive(on) {
+    if (on === document.body.classList.contains("imm")) return;          // already in that state
+    document.body.classList.toggle("imm", on);
+    document.body.classList.add("imm-animating");                        // suppress canvas re-fit + dissolve controls
+    try { const fs = on ? document.documentElement.requestFullscreen?.() : document.exitFullscreen?.(); if (fs && fs.catch) fs.catch(() => {}); } catch (e) {}
+    clearTimeout(immT);
+    immT = setTimeout(() => { document.body.classList.remove("imm-animating"); refit(); }, 560);  // snap crisp once settled
+  }
+  // ── chrome auto-hide: the game is the only permanent thing on screen. Wake on pointer motion;
+  //    presses ON the console body (touch play) never flicker it — tap the backdrop to summon it. ──
+  let chromeT = 0;
+  function wakeChrome() {
+    document.body.classList.remove("chrome-idle");
+    clearTimeout(chromeT);
+    chromeT = setTimeout(() => { if (running) document.body.classList.add("chrome-idle"); }, 2500);
+  }
+  addEventListener("pointermove", (e) => { if (e.buttons && e.target.closest && e.target.closest(".dock")) return; wakeChrome(); }, { passive: true });
+  addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest(".dock")) return; wakeChrome(); }, { passive: true });
+
+  // ── Screen Wake Lock: the display must never sleep mid-game. The OS drops the lock when the tab blurs,
+  //    so re-acquire on return to foreground. Silent no-op where unsupported (iOS < 16.4). ──
+  let wakeLock = null;
+  async function keepAwake(on) {
+    try {
+      if (on && !wakeLock && "wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener?.("release", () => { wakeLock = null; }); }
+      else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+    } catch (e) { wakeLock = null; }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && running) keepAwake(true); });
+
+  const toggleImmersive = () => setImmersive(!document.body.classList.contains("imm"));
+  $("immersive").addEventListener("click", toggleImmersive);
+  $("lcd").addEventListener("dblclick", toggleImmersive);
+  // Esc returns to the original view (works in CEF where real fullscreen isn't granted)…
+  addEventListener("keydown", (e) => { if (e.code === "Escape" && document.body.classList.contains("imm")) { e.preventDefault(); setImmersive(false); } });
+  // …and if the browser drops fullscreen on its own (its native Esc), leave immersive too — stays coherent
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement) setImmersive(false); });
+
+  async function sha(buf, algo = "SHA-1") {
+    try { const d = await crypto.subtle.digest(algo, buf); return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+    catch { return null; }
+  }
+  const b64enc = (u8) => { let s = ""; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); };
+  const b64dec = (s) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+
+  // ── κ-save-states: the save IS its hash (sha256). Stored under the ROM's id, verified-before-restore. ──
+  // Bytes live in OPFS (content-addressed, handles multi-MB SNES/GBA states that blow the ~2 MB localStorage
+  // guard); a tiny {kappa,frame,ts} meta rides beside them. localStorage stays the fallback AND keeps reading
+  // any legacy {kappa,frame,ts,b64} save written before OPFS, so existing saves still load.
+  let core = null, romId = "", lastSaveKappa = "";
+  const saveKey = (slot) => `holo-gbsave:${romId}:${slot}`;
+  const opfsDir = async () => { try { return await navigator.storage.getDirectory(); } catch { return null; } };
+  async function saveWrite(slot, bytes, meta) {
+    const d = await opfsDir();
+    if (d) try {
+      const fb = await d.getFileHandle(`save_${romId}_${slot}.bin`, { create: true }); const wb = await fb.createWritable(); await wb.write(bytes); await wb.close();
+      const fm = await d.getFileHandle(`save_${romId}_${slot}.json`, { create: true }); const wm = await fm.createWritable(); await wm.write(JSON.stringify(meta)); await wm.close();
+      try { localStorage.removeItem(saveKey(slot)); } catch (x) {}   // supersede any legacy localStorage save
+      return "OPFS";
+    } catch (e) {}
+    if (bytes.length <= 2_000_000) { localStorage.setItem(saveKey(slot), JSON.stringify({ ...meta, b64: b64enc(bytes) })); return "local"; }
+    throw new Error(`state ${(bytes.length/1048576).toFixed(1)} MB > localStorage cap and OPFS unavailable`);
+  }
+  async function saveRead(slot) {
+    const d = await opfsDir();
+    if (d) try {
+      const fb = await d.getFileHandle(`save_${romId}_${slot}.bin`); const bytes = new Uint8Array(await (await fb.getFile()).arrayBuffer());
+      const fm = await d.getFileHandle(`save_${romId}_${slot}.json`); const meta = JSON.parse(await (await fm.getFile()).text());
+      return { bytes, meta };
+    } catch (e) {}
+    const raw = localStorage.getItem(saveKey(slot));     // legacy fallback
+    if (raw) { const rec = JSON.parse(raw); return { bytes: b64dec(rec.b64), meta: rec }; }
+    return null;
+  }
+  async function saveState() {
+    if (!core) return;
+    try {
+      const bytes = core.serialize();
+      const kappa = await sha(bytes.buffer.slice(0), "SHA-256");
+      const tier = await saveWrite($("slot").value, bytes, { kappa, frame: core.frame, ts: Date.now() });
+      lastSaveKappa = kappa; toast(`saved · slot ${$("slot").value} · κ ${kappa.slice(0,10)}… · ${tier}`);
+    } catch (e) { toast("save failed: " + e.message); }
+  }
+  async function loadState() {
+    if (!core) return;
+    const rec = await saveRead($("slot").value);
+    if (!rec) { toast(`no save in slot ${$("slot").value}`); return; }
+    try {
+      const kappa = await sha(rec.bytes.buffer.slice(0), "SHA-256");
+      if (kappa !== rec.meta.kappa) { toast("κ mismatch — save rejected"); return; }   // verify-before-restore
+      core.unserialize(rec.bytes);
+      toast(`loaded · slot ${$("slot").value} · κ ${kappa.slice(0,10)}…`);
+    } catch (e) { toast("load failed: " + e.message); }
+  }
+  $("save").addEventListener("click", saveState);
+  $("load").addEventListener("click", loadState);
+  $("eject").addEventListener("click", () => { running = false; keepAwake(false); showPicker(""); });
+
+  // ── audio. Two transports, best first:
+  //    SAB ring — the page is crossOriginIsolated (dev server / holo host send COOP/COEP), so the
+  //    worklet reads a SharedArrayBuffer ring at hardware rate: zero postMessage jitter, no GC, a
+  //    FIXED ~64ms buffer, and an Atomics underrun counter (the honesty signal). The emulation loop
+  //    is then paced by ring fill — the audio crystal clocks the console, like the real hardware.
+  //    postMessage queue — fallback when isolation is off (unchanged legacy behavior).
+  let audio = null;
+  async function initAudio(rate) {
+    try {
+      const ctx = new AudioContext({ latencyHint: "interactive" });
+      const SABOK = typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated;
+      if (SABOK) {
+        const CAP = 16384;                                     // frames, power of 2 (~341ms headroom @48k)
+        const sab = new SharedArrayBuffer(16 + CAP * 2 * 4);   // header [r,w,underrun,_] + interleaved stereo f32
+        const H = new Int32Array(sab, 0, 4), D = new Float32Array(sab, 16, CAP * 2);
+        const code = `class R extends AudioWorkletProcessor{constructor(o){super();const p=o.processorOptions;this.h=new Int32Array(p.sab,0,4);this.d=new Float32Array(p.sab,16,p.cap*2);this.M=p.cap-1;}
+process(_,o){const L=o[0][0],Rr=o[0][1],M=this.M;let r=Atomics.load(this.h,0);const w=Atomics.load(this.h,1);let avail=(w-r)&M,ur=0;
+for(let n=0;n<L.length;n++){if(avail>0){const i=(r&M)*2;L[n]=this.d[i];Rr[n]=this.d[i+1];r=(r+1)|0;avail--;}else{L[n]=0;Rr[n]=0;ur++;}}
+Atomics.store(this.h,0,r);if(ur)Atomics.add(this.h,2,ur);return true;}}registerProcessor("holo-ring",R);`;
+        await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+        const node = new AudioWorkletNode(ctx, "holo-ring", { outputChannelCount: [2], processorOptions: { sab, cap: CAP } });
+        node.connect(ctx.destination);
+        const M = CAP - 1;
+        audio = {
+          ctx, node, coreRate: rate, sab: true, cap: CAP,
+          fill() { return (Atomics.load(H, 1) - Atomics.load(H, 0)) & M; },
+          underruns() { return Atomics.load(H, 2); },
+          // resample + write in ONE pass, straight into the ring — no per-frame Float32Array alloc,
+          // no GC hitches. Linear interp, same math as the old resample().
+          write(buf, inR, outR) {
+            const inFrames = buf.length >> 1;
+            const outFrames = inR === outR ? inFrames : Math.floor(inFrames / (inR / outR));
+            const ratio = inR / outR;
+            let w = Atomics.load(H, 1); const r = Atomics.load(H, 0);
+            const free = CAP - 1 - ((w - r) & M);
+            const n = Math.min(outFrames, free);
+            for (let i = 0; i < n; i++) {
+              const s = i * ratio, j = s | 0, f = s - j, k = Math.min(j + 1, inFrames - 1), o = (w & M) * 2;
+              D[o]     = buf[j * 2]     * (1 - f) + buf[k * 2]     * f;
+              D[o + 1] = buf[j * 2 + 1] * (1 - f) + buf[k * 2 + 1] * f;
+              w = (w + 1) | 0;
+            }
+            Atomics.store(H, 1, w);
+          },
+        };
+      } else {
+        const code = `class R extends AudioWorkletProcessor{constructor(){super();this.q=[];this.port.onmessage=e=>this.q.push(e.data);this.cur=null;this.i=0;}process(_,o){const L=o[0][0],Rr=o[0][1];for(let n=0;n<L.length;n++){if(!this.cur||this.i>=this.cur.length){this.cur=this.q.shift()||null;this.i=0;}if(this.cur){L[n]=this.cur[this.i++];Rr[n]=this.cur[this.i++];}else{L[n]=0;Rr[n]=0;}}if(this.q.length>24)this.q.splice(0,this.q.length-24);return true;}}registerProcessor("holo-ring",R);`;
+        await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+        const node = new AudioWorkletNode(ctx, "holo-ring", { outputChannelCount: [2] });
+        node.connect(ctx.destination);
+        audio = { ctx, node, coreRate: rate, sab: false };
+      }
+      const resume = () => audio.ctx.resume();
+      if (ctx.state === "suspended") { addEventListener("pointerdown", resume, { once: true }); addEventListener("keydown", resume, { once: true }); }
+    } catch (e) { console.warn("audio off:", e.message); }
+  }
+  function resample(buf, inR, outR) {   // postMessage fallback path only
+    if (inR === outR || !buf.length) return buf;
+    const frames = buf.length/2, ratio = inR/outR, of = Math.floor(frames/ratio), out = new Float32Array(of*2);
+    for (let i=0;i<of;i++){ const s=i*ratio,j=s|0,f=s-j,k=Math.min(j+1,frames-1); out[i*2]=buf[j*2]*(1-f)+buf[k*2]*f; out[i*2+1]=buf[j*2+1]*(1-f)+buf[k*2+1]*f; }
+    return out;
+  }
+
+  let running = false;
+  async function bootBytes(bytes, label) {
+    $("picker").classList.remove("show");
+    if (label) $("toptitle").innerHTML = label.split("/").pop() + " <small>" + sys + "</small>";   // strip romset folder prefix (display only)
+    romId = await sha(bytes.buffer.slice(0), "SHA-1") || ("len" + bytes.length);
+    setStatus("starting " + con.label + " core…");
+    const CoreFactory = (await import(con.core)).default;     // the console's libretro core (gambatte/quicknes/…)
+    core = await loadRealCore(CoreFactory);
+    core.loadGame(bytes, "game." + con.ext);
+    const g = core.geometry;
+    try { $("lcd").style.aspectRatio = g.width + " / " + g.height; } catch (e) {}   // per-console screen shape
+    let cv = $("screen"); { const f = cv.cloneNode(false); cv.parentNode.replaceChild(f, cv); cv = f; }
+
+    let proj = null, cx = null, img = null;
+    try {
+      const { HoloProject } = await import("./holo-project.mjs");
+      proj = await new HoloProject(cv, { profile: "pixelart", sharpen: 0 }).init();   // nearest = razor sharp
+      proj.setSource(g.width, g.height);
+      proj.resizeToDisplay();
+      projector = proj;                                          // the immersive transition re-fits this once it settles
+      addEventListener("resize", refit); try { new ResizeObserver(refit).observe(cv); } catch (e) {}
+    } catch (e) {
+      cv.width = g.width; cv.height = g.height; cv.style.imageRendering = "pixelated";
+      cx = cv.getContext("2d"); img = cx.createImageData(g.width, g.height);
+    }
+    await initAudio(core.sampleRate);
+    running = true; keepAwake(true);
+    const HZ = core.fps || 60, STEP = 1000 / HZ;
+    let frames = 0, t0 = performance.now(), st = null, acc = 0, prev = performance.now(), lastVideo = null;
+    // perf witness: emu step cost, worst rAF gap, audio underruns — shown in the status line + __holoPerf
+    let stepMsAcc = 0, stepN = 0, rafGapMax = 0, urBase = 0;
+    const TARGET_MS = 64;                                     // fixed audio buffer target (≈4 frames)
+    function loop() {
+      if (!running) return;
+      const now = performance.now(); const gap = now - prev; if (gap > rafGapMax) rafGapMax = gap;
+      acc += gap; prev = now;
+      if (acc > STEP * 5) acc = STEP;
+      const input = keyMask | btnMask | dpadMask | pollGamepad();   // all sources OR'd, sampled each step
+      reflect(input);                                               // physical controls track the live input every frame (gamepad)
+      let video = null, ran = 0;
+      const paceByAudio = audio && audio.sab && audio.ctx.state === "running";
+      if (paceByAudio) {
+        // AUDIO-CLOCK MASTER: run the core until the ring holds TARGET_MS of samples. The hardware-rate
+        // worklet drains it steadily, so emulation locks to the console's true speed with no drift, and a
+        // late rAF just refills deeper — no stutter, no pitch bend. (Real consoles are paced the same way:
+        // by the audio crystal.)
+        const target = Math.round(audio.ctx.sampleRate * TARGET_MS / 1000);
+        while (audio.fill() < target && ran < 6) {
+          const ts = performance.now();
+          const r = core.run(input); if (r.video) video = r.video;
+          if (r.audio && r.audio.length) audio.write(r.audio, audio.coreRate, audio.ctx.sampleRate);
+          stepMsAcc += performance.now() - ts; stepN++; ran++; frames++;
+        }
+        acc = 0;
+      } else {
+        while (acc >= STEP) {
+          const ts = performance.now();
+          const r = core.run(input); if (r.video) video = r.video;
+          if (audio && r.audio && r.audio.length) audio.node.port.postMessage(resample(r.audio, audio.coreRate, audio.ctx.sampleRate));
+          stepMsAcc += performance.now() - ts; stepN++;
+          acc -= STEP; ran++; frames++; if (ran >= 4) { acc = 0; break; }
+        }
+      }
+      if (video) { lastVideo = video; if (proj) st = proj.present(video); else if (video.length === img.data.length) { img.data.set(video); cx.putImageData(img, 0, 0); } hideCover(); }   /* first live frame dissolves the cover */
+      const t = performance.now();
+      if (t - t0 >= 500) {
+        const fps = Math.round(frames * 1000 / (t - t0));
+        const stepMs = stepN ? (stepMsAcc / stepN) : 0;
+        const ur = audio && audio.sab ? audio.underruns() - urBase : 0; if (audio && audio.sab) urBase = audio.underruns();
+        const ringMs = audio && audio.sab ? Math.round(audio.fill() * 1000 / audio.ctx.sampleRate) : -1;
+        window.__holoPerf = { fps, stepMs: +stepMs.toFixed(2), rafGapMax: +rafGapMax.toFixed(1), ringMs, underruns: ur, paced: paceByAudio ? "audio" : "raf" };
+        setStatus(proj
+          ? `WebGPU · ${st.outW}×${st.outH} · ${fps} fps · ${stepMs.toFixed(1)}ms/step${ringMs >= 0 ? ` · buf ${ringMs}ms` : ""}${ur ? ` · ⚠ ${ur} underrun` : ""}`
+          : `2D · ${fps} fps · ${stepMs.toFixed(1)}ms/step${ur ? ` · ⚠ ${ur} underrun` : ""}`);
+        frames = 0; t0 = t; stepMsAcc = 0; stepN = 0; rafGapMax = 0;
+      }
+      requestAnimationFrame(loop);
+    }
+    setStatus("ready"); wakeChrome(); requestAnimationFrame(loop);
+    window.__holoPlay = {
+      get frame(){ return core.frame; }, get stats(){ return st; }, projected: !!proj,
+      save: saveState, load: loadState, serKappa: async () => sha(core.serialize().buffer.slice(0), "SHA-256"),
+      press: (bit, on) => { if (on) btnMask |= (1<<bit); else btnMask &= ~(1<<bit); },
+      pause: () => { running = false; },
+      resume: () => { if (!running) { running = true; prev = performance.now(); acc = 0; requestAnimationFrame(loop); } },
+      step: (n) => { for (let i = 0; i < (n||1); i++) core.run(0); },
+      frameKappa: async () => sha(core.run(0).video.buffer.slice(0), "SHA-256"),
+    };
+    // warm boot: wait for the FIRST non-black frame (SNES/GBA boot black ~1-2s) before pausing, so the preview
+    // shows real content not a black screen; cap at 3s so it never hangs. Play arriving first skips the pause.
+    if (warm) {
+      const isNonBlank = (v) => {
+        if (!v || v.length < 16) return false;
+        const r0 = v[0], g0 = v[1], b0 = v[2]; let diff = 0;
+        const step = Math.max(4, ((v.length >> 2) / 256 | 0)) * 4;   // ~256 sample points across the frame
+        for (let i = 0; i < v.length; i += step) if (Math.abs(v[i] - r0) > 8 || Math.abs(v[i + 1] - g0) > 8 || Math.abs(v[i + 2] - b0) > 8) { if (++diff >= 3) return true; }
+        return false;
+      };
+      const t0w = performance.now();
+      const warmWatch = () => {
+        if (playRequested) return;                                   // Play already came → stay running
+        if (isNonBlank(lastVideo) || performance.now() - t0w > 3000) {
+          running = false;
+          try { parent.postMessage({ type: "holo-warm-ready" }, "*"); } catch (x) {}
+        } else requestAnimationFrame(warmWatch);
+      };
+      requestAnimationFrame(warmWatch);
+    }
+  }
+
+  // BYO / picker
+  function showPicker(reason) {
+    running = false; hideCover(); $("picker").classList.add("show");
+    $("drop-title").textContent = title ? `Play “${title}”` : "Drop a Game Boy ROM";
+    $("legal").innerHTML = (reason ? reason + "<br>" : "") + (src ? `Get your copy: <a href="${src}" target="_blank" rel="noopener">${(src.split("/")[2]||src)}</a>` : "");
+    setStatus(title ? "bring your own ROM, or play a free game" : "choose a ROM");
+  }
+  function readFile(file) { const r = new FileReader(); r.onload = () => bootBytes(new Uint8Array(r.result), file.name.replace(/\.(gb|gbc)$/i,"")); r.readAsArrayBuffer(file); }
+  $("file").addEventListener("change", (e) => { if (e.target.files[0]) readFile(e.target.files[0]); });
+  $("pickbtn").addEventListener("click", () => $("file").click());
+  const drop = $("drop");
+  ["dragover","dragenter"].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+  document.querySelectorAll("#picker .free button").forEach(b => b.addEventListener("click", async () => {
+    setStatus("fetching…"); const r = await fetch(b.dataset.rom); bootBytes(new Uint8Array(await r.arrayBuffer()), b.dataset.title);
+  }));
+
+  // ── stream search: pull ANY Game Boy title from the r-roms library → boot ──
+  let searchT = 0;
+  $("streamq").addEventListener("input", (e) => {
+    clearTimeout(searchT);
+    const qv = e.target.value.trim();
+    searchT = setTimeout(async () => {
+      if (qv.length < 2) { $("streamres").innerHTML = ""; return; }
+      $("streamres").textContent = "searching…";
+      try {
+        const names = await searchLib(qv, sysCode, 30);
+        $("streamres").innerHTML = "";
+        if (!names.length) { $("streamres").textContent = "no matches in the library"; return; }
+        for (const nm of names) {
+          const b = document.createElement("button"); b.textContent = "▶ " + nm; b.title = nm;
+          b.addEventListener("click", async () => {
+            try { setStatus("streaming " + nm + "…"); const bytes = await streamByName(nm, sysCode, setStatus); await bootBytes(bytes, nm.replace(/\s*\([^)]*\)/g, "")); }
+            catch (err) { toast("stream failed: " + err.message); setStatus("stream failed"); }
+          });
+          $("streamres").appendChild(b);
+        }
+      } catch (err) { $("streamres").textContent = "search failed: " + err.message; }
+    }, 250);
+  });
+
+  (async () => {
+    if (romUrl) {   // explicit ?rom= (local demo / direct)
+      try { setStatus("fetching ROM…"); const res = await fetch(romUrl); if (!res.ok) throw new Error("HTTP " + res.status); await bootBytes(new Uint8Array(await res.arrayBuffer()), title || null); }
+      catch (e) { showPicker(`Couldn't load the ROM directly (${e.message}).`); }
+      return;
+    }
+    if (title) {   // a catalog game → pull & stream it from the r-roms library, then boot
+      try { setStatus("finding “" + title + "” in the library…"); const { name, bytes } = await streamTitle(title, sysCode, setStatus); await bootBytes(bytes, name); return; }
+      catch (e) {
+        showPicker(`“${title}” isn’t an exact match in the library — pick it below or drop your own copy:`);
+        try { const sq = $("streamq"); sq.value = title; sq.dispatchEvent(new Event("input")); } catch (e2) {}   // one-click reach for the rest
+        return;
+      }
+    }
+    showPicker("");
+  })();
+</script>
+</body>
+</html>

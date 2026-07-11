@@ -1,0 +1,268 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080b">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Holo Games">
+<link rel="apple-touch-icon" href="./icon-console.svg">
+<link rel="icon" href="./icon-console.svg" type="image/svg+xml">
+<title>Holo Games</title>
+<!--
+  Holo Games — the full retro library on the live static /Q, clean + instant. Every tile paints a
+  ThumbHash blur of its box-art on frame one (≈25 bytes baked in the catalog, decoded on-device, zero
+  network) then the real art cross-fades in. Two play tiers, one grid:
+    · Plays Instantly — freely-shared homebrew, same-origin ROMs + art, zero infra.
+    · Every system    — thousands per system; a tap streams the ROM through the operator's Cloudflare
+                        Worker (baked default, overridable in ⚙), κ-verified, cached after first play.
+  Cores + WebGPU projector run on-device (play.html). No game server. Tap a title → it plays.
+-->
+<style>
+  :root{color-scheme:dark;--bg:#07080b;--panel:#0f1218;--line:#1a1e26;--text:#e8ecf4;--muted:#8b93a7;--accent:#6c8cff;--gb:#9bbc0f}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(120% 80% at 50% -10%,#14171f 0%,#0a0c10 55%,var(--bg) 100%);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  header{display:flex;align-items:center;gap:14px;padding:20px clamp(16px,4vw,44px) 4px}
+  .mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(140deg,var(--accent),#9bbcff);display:grid;place-items:center;font-size:17px;box-shadow:0 6px 18px #6c8cff44}
+  h1{font-size:clamp(20px,3vw,28px);font-weight:750;letter-spacing:-.02em;margin:0}
+  .spacer{flex:1}
+  .cfg{font-size:12.5px;color:var(--muted);border:1px solid var(--line);background:#ffffff0a;border-radius:10px;padding:8px 12px;cursor:pointer}
+  .cfg.on{color:#bcd35a;border-color:#9bbc0f55}
+  #search{width:calc(100% - 2*clamp(16px,4vw,44px));margin:8px clamp(16px,4vw,44px);max-width:460px;background:#ffffff0a;border:1px solid var(--line);border-radius:12px;color:inherit;font:inherit;padding:10px 15px;outline:none}
+  #search:focus{border-color:var(--accent)}
+  .sys{display:flex;gap:8px;padding:6px clamp(16px,4vw,44px) 10px;overflow-x:auto;scrollbar-width:none}
+  .sys::-webkit-scrollbar{display:none}
+  .chip{flex:none;font:600 13px/1 inherit;padding:9px 15px;border-radius:999px;cursor:pointer;background:#ffffff0a;border:1px solid #ffffff12;color:#aab3c5;transition:all .15s;white-space:nowrap}
+  .chip:hover{color:var(--text);border-color:#ffffff2a}
+  .chip.on{background:color-mix(in srgb,var(--accent) 20%,transparent);border-color:var(--accent);color:#dfe7ff}
+  #note{padding:0 clamp(16px,4vw,44px);color:var(--muted);font-size:12.5px;min-height:15px}
+  #grid{display:grid;gap:18px 15px;padding:12px clamp(16px,4vw,44px) 60px;grid-template-columns:repeat(auto-fill,minmax(138px,1fr))}
+  .tile{cursor:pointer;border:0;background:none;padding:0;text-align:left;font:inherit;color:inherit;outline:none}
+  .box{position:relative;aspect-ratio:.72;border-radius:12px;overflow:hidden;background:#12161d center/cover no-repeat;border:1px solid var(--line);box-shadow:0 14px 30px -16px #000c;transition:transform .2s cubic-bezier(.2,.7,.2,1),box-shadow .2s,border-color .2s}
+  .box img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s}
+  .box img.in{opacity:1}
+  .tile:hover .box,.tile:focus-visible .box{transform:translateY(-5px) scale(1.05);border-color:var(--accent);box-shadow:0 24px 44px -16px #000e,0 0 0 2px var(--accent)}
+  .badge{position:absolute;top:7px;left:7px;z-index:1;font:700 9px/1 inherit;padding:4px 7px;border-radius:6px;background:#9bbc0fee;color:#1a2a05;box-shadow:0 2px 6px #0007}
+  .nm{margin-top:8px;font-weight:640;font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #more{height:2px}
+  #stage{position:fixed;inset:0;z-index:50;display:none;background:#000}
+  #stage.on{display:block;animation:stage-in .42s cubic-bezier(.2,.72,.2,1) both}
+  /* the console grows out of the tapped tile (transform-origin set to the tile on click) → one continuous morph */
+  @keyframes stage-in{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){#stage.on{animation:none}}
+  #stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #stage .x{position:absolute;top:16px;right:20px;z-index:2;width:40px;height:40px;border-radius:50%;border:1px solid #ffffff22;background:#000000aa;color:#fff;font-size:16px;cursor:pointer;opacity:0;transition:opacity .25s}
+  #stage:hover .x,#stage .x:focus-visible{opacity:1}
+  #dlg{position:fixed;inset:0;z-index:60;display:none;background:#000a;backdrop-filter:blur(6px)}
+  #dlg.on{display:grid;place-items:center}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;width:min(92vw,480px);box-shadow:0 40px 100px #000c}
+  .card h2{margin:0 0 6px;font-size:18px}.card p{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .card input{width:100%;background:#0c0e16;border:1px solid var(--line);border-radius:10px;color:inherit;font:inherit;padding:11px 13px;outline:none}
+  .card input:focus{border-color:var(--accent)}
+  .card .row{display:flex;gap:10px;margin-top:14px;justify-content:flex-end}
+  .card button{font:inherit;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:#ffffff0d;color:var(--text);cursor:pointer}
+  .card button.primary{background:linear-gradient(180deg,var(--accent),#4f6fe0);border:0;font-weight:650}
+</style>
+
+<header>
+  <div class="mark">🎮</div><h1>Holo Games</h1><div class="spacer"></div>
+  <button class="cfg" id="cfg">⚙ ROM proxy</button>
+</header>
+<input id="search" type="search" placeholder="Search this system…" autocomplete="off">
+<div class="sys" id="sys"></div>
+<div id="note"></div>
+<div id="grid"></div><div id="more"></div>
+
+<div id="stage"><iframe allow="autoplay; fullscreen; gamepad"></iframe><button class="x" title="Back (Esc)">✕</button></div>
+<div id="dlg"><div class="card">
+  <h2>ROM proxy</h2>
+  <p>The ★ homebrew plays with no setup. The full commercial library streams through a Cloudflare Worker (already connected). Paste a different one here to override — stored only in this browser.</p>
+  <input id="proxy" type="url" placeholder="https://holo-rom-proxy.you.workers.dev" autocomplete="off">
+  <div class="row"><button id="dlg-clear">Reset</button><button class="primary" id="dlg-save">Save</button></div>
+</div></div>
+
+<script type="module">
+import { streamTitle } from "./holo-stream.mjs";
+import { verifyBlock } from "./holo-ipfs.js";
+
+// ── universal resolver: fetch a κ-object from the decentralized IPFS commons, VERIFY it re-derives
+//    to its BLAKE3 κ (Law L5 — an untrusted gateway can't feed a wrong byte), hand back a blob URL.
+//    Races public gateways; null → caller falls back to same-origin. ──
+// multiple public gateways → resilience (one slow/down, another serves). First κ-verified wins.
+const IPFS_GW = ["https://ipfs.io/ipfs/", "https://dweb.link/ipfs/", "https://w3s.link/ipfs/", "https://4everland.io/ipfs/", "https://flk-ipfs.xyz/ipfs/"];
+// the whole decentralized homebrew library: the pinned commons (homebrew-manifest.json, hundreds)
+// unioned with the originally-bundled set (ipfs-manifest.json — those also have a same-origin rom fallback).
+let ipfsMap = {};
+try { ipfsMap = (await (await fetch("./homebrew-manifest.json")).json()).games || {}; } catch (e) {}
+try { const base = (await (await fetch("./ipfs-manifest.json")).json()).games || {}; for (const k in base) if (!ipfsMap[k]) ipfsMap[k] = base[k]; } catch (e) {}
+const _blobCache = new Map();
+
+// ── local κ-cache (IndexedDB) — a ROM fetched + verified ONCE is stored under its blake3 κ and served
+//    0-network forever, for this device. RETURNING users (and repeat plays) are instant, offline-safe.
+//    Key = the κ, so a cache hit needs no re-verify (the key IS the integrity claim). ──
+let _db = null;
+const idb = () => _db || (_db = new Promise((res) => { let r; try { r = indexedDB.open("holo-kappa-roms", 1); } catch (e) { return res(null); } r.onupgradeneeded = () => { try { r.result.createObjectStore("k"); } catch (e) {} }; r.onsuccess = () => res(r.result); r.onerror = () => res(null); }));
+async function cacheGet(k) { const db = await idb(); if (!db) return null; try { return await new Promise((res) => { const q = db.transaction("k").objectStore("k").get(k); q.onsuccess = () => res(q.result ? new Uint8Array(q.result) : null); q.onerror = () => res(null); }); } catch (e) { return null; } }
+async function cachePut(k, b) { const db = await idb(); if (!db) return; try { const tx = db.transaction("k", "readwrite"); tx.objectStore("k").put(b, k); } catch (e) {} }
+
+async function fromCommons(title) {
+  if (_blobCache.has(title)) return _blobCache.get(title);
+  const m = ipfsMap[title];
+  if (!m || !m.ipfs) return null;
+  // 1) local κ-cache — instant, 0-network (the returning-user path)
+  let bytes = await cacheGet(m.cid);
+  // 2) else race the gateways; first κ-verified wins (6s cap → quick fallback if cold)
+  if (!bytes) {
+    const tryGw = (gw) => fetch(gw + m.ipfs, { signal: AbortSignal.timeout(6000) })
+      .then(async (r) => { if (!r.ok) throw 0; const b = new Uint8Array(await r.arrayBuffer()); if (!(await verifyBlock(m.cid, b))) throw 0; return b; });
+    try { bytes = await Promise.any(IPFS_GW.map(tryGw)); } catch (e) {}
+    if (bytes) cachePut(m.cid, bytes);                    // fill the local cache for next time
+  }
+  if (!bytes) return null;
+  const url = URL.createObjectURL(new Blob([bytes]));
+  _blobCache.set(title, url);
+  return url;
+}
+// warm-on-idle: prefetch the visible tier's ROMs into the κ-cache so taps are instant
+function warmCommons(titles) {
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 400));
+  let i = 0; const step = () => { if (i >= titles.length) return; const t = titles[i++]; fromCommons(t).finally(() => idle(step)); };
+  idle(step);
+}
+
+// operator's ROM proxy is baked so the whole library plays out of the box; ⚙ overrides per-browser.
+const DEFAULT_PROXY = "https://holo-rom-proxy.trinity-03d.workers.dev";
+let proxy = (localStorage.getItem("holo-rom-proxy") ?? DEFAULT_PROXY);
+globalThis.HOLO_ROM_PROXY = proxy || undefined;
+
+const SYS = [
+  ["arcade","★ Plays Instantly","Nintendo - Game Boy"],
+  ["gb","Game Boy","Nintendo - Game Boy"],
+  ["gbc","Game Boy Color","Nintendo - Game Boy Color"],
+  ["nes","NES","Nintendo - Nintendo Entertainment System"],
+  ["snes","SNES","Nintendo - Super Nintendo Entertainment System"],
+  ["gba","GBA","Nintendo - Game Boy Advance"],
+  ["gen","Genesis","Sega - Mega Drive - Genesis"],
+  ["sms","Master System","Sega - Master System - Mark III"],
+  ["gg","Game Gear","Sega - Game Gear"],
+];
+const WINDOW = 48;
+const $ = (id) => document.getElementById(id);
+const plain = (n) => n.split("/").pop().replace(/\s*\([^)]*\)/g,"").trim();
+const region = (n) => { const r=(/\(([^)]*)\)/.exec(n)||[,""])[1].toLowerCase(); return r.includes("usa")?0:r.includes("world")?1:r.includes("europe")?2:3; };
+
+// ── ThumbHash decoder (evanw, public domain) — ≈25 bytes → a blurred cover, no network ──
+const _tc = new Map();
+function thumbURL(b64){
+  if(_tc.has(b64)) return _tc.get(b64);
+  let url=null;
+  try{
+    const bin=atob(b64),h=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)h[i]=bin.charCodeAt(i);
+    const PI=Math.PI,mn=Math.min,mx=Math.max,cos=Math.cos,rnd=Math.round;
+    const h24=h[0]|(h[1]<<8)|(h[2]<<16),h16=h[3]|(h[4]<<8);
+    const l_dc=(h24&63)/63,p_dc=((h24>>6)&63)/31.5-1,q_dc=((h24>>12)&63)/31.5-1,l_sc=((h24>>18)&31)/31,hasA=h24>>23;
+    const p_sc=((h16>>3)&63)/63,q_sc=((h16>>9)&63)/63,isL=h16>>15;
+    const lx=mx(3,isL?(hasA?5:7):(h16&7)),ly=mx(3,isL?(h16&7):(hasA?5:7));
+    const a_dc=hasA?(h[5]&15)/15:1,a_sc=(h[5]>>4)/15,acS=hasA?6:5;let acI=0;
+    const dec=(nx,ny,sc)=>{const ac=[];for(let cy=0;cy<ny;cy++)for(let cx=cy?0:1;cx*ny<nx*(ny-cy);cx++)ac.push((((h[acS+(acI>>1)]>>((acI++&1)<<2))&15)/7.5-1)*sc);return ac;};
+    const l_ac=dec(lx,ly,l_sc),p_ac=dec(3,3,p_sc*1.25),q_ac=dec(3,3,q_sc*1.25),a_ac=hasA&&dec(5,5,a_sc);
+    const ratio=lx/ly,w=rnd(ratio>1?32:32*ratio),ht=rnd(ratio>1?32/ratio:32),rgba=new Uint8Array(w*ht*4),fx=[],fy=[];
+    for(let y=0,i=0;y<ht;y++)for(let x=0;x<w;x++,i+=4){
+      let l=l_dc,p=p_dc,q=q_dc,a=a_dc,cx,cy,n,j;
+      for(cx=0,n=mx(lx,hasA?5:3);cx<n;cx++)fx[cx]=cos(PI/w*(x+.5)*cx);
+      for(cy=0,n=mx(ly,hasA?5:3);cy<n;cy++)fy[cy]=cos(PI/ht*(y+.5)*cy);
+      for(cy=0,j=0;cy<ly;cy++)for(cx=cy?0:1;cx*ly<lx*(ly-cy);cx++,j++)l+=l_ac[j]*fx[cx]*(fy[cy]*2);
+      for(cy=0,j=0;cy<3;cy++)for(cx=cy?0:1;cx<3-cy;cx++,j++){const f=fx[cx]*(fy[cy]*2);p+=p_ac[j]*f;q+=q_ac[j]*f;}
+      if(hasA)for(cy=0,j=0;cy<5;cy++)for(cx=cy?0:1;cx<5-cy;cx++,j++)a+=a_ac[j]*fx[cx]*(fy[cy]*2);
+      const b=l-2/3*p,r=(3*l-b+q)/2,g=r-q;
+      rgba[i]=mx(0,255*mn(1,r));rgba[i+1]=mx(0,255*mn(1,g));rgba[i+2]=mx(0,255*mn(1,b));rgba[i+3]=mx(0,255*mn(1,a));
+    }
+    const cv=document.createElement("canvas");cv.width=w;cv.height=ht;const ctx=cv.getContext("2d"),id=ctx.createImageData(w,ht);id.data.set(rgba);ctx.putImageData(id,0,0);url=cv.toDataURL("image/png");
+  }catch(e){}
+  _tc.set(b64,url);return url;
+}
+
+// ── settings ──
+$("cfg").classList.toggle("on",!!proxy);
+$("cfg").onclick=()=>{$("proxy").value=proxy;$("dlg").classList.add("on");$("proxy").focus();};
+$("dlg-save").onclick=()=>{proxy=$("proxy").value.trim().replace(/\/$/,"");localStorage.setItem("holo-rom-proxy",proxy);globalThis.HOLO_ROM_PROXY=proxy||undefined;$("cfg").classList.toggle("on",!!proxy);$("dlg").classList.remove("on");render();};
+$("dlg-clear").onclick=()=>{localStorage.removeItem("holo-rom-proxy");proxy=DEFAULT_PROXY;$("proxy").value=proxy;};
+$("dlg").onclick=(e)=>{if(e.target===$("dlg"))$("dlg").classList.remove("on");};
+
+// ── play overlay ──
+const stage=$("stage"),frame=stage.querySelector("iframe");
+const closeStage=()=>{stage.classList.remove("on");frame.src="about:blank";const s=$("src-note");if(s)s.remove();};
+// grow the console out of the tapped tile — set the stage's transform-origin to the tile's centre
+const setStageOrigin=(el)=>{try{const r=el.getBoundingClientRect();stage.style.transformOrigin=(r.left+r.width/2)+"px "+(r.top+r.height/2)+"px";}catch(e){}};
+stage.querySelector(".x").onclick=closeStage;
+addEventListener("keydown",(e)=>{if(e.key==="Escape"&&stage.classList.contains("on")){e.preventDefault();closeStage();}});
+const play=(url)=>{frame.src=url;stage.classList.add("on");};
+// a small "where the bytes came from" badge, so decentralized play is visible
+function srcBadge(text){let s=$("src-note");if(!s){s=document.createElement("div");s.id="src-note";s.style.cssText="position:fixed;top:16px;left:20px;z-index:52;font:600 12px/1 Inter,system-ui;padding:7px 12px;border-radius:999px;background:#0c0e16cc;border:1px solid #9bbc0f55;color:#bcd35a;backdrop-filter:blur(8px)";stage.appendChild(s);}s.textContent=text;}
+// homebrew: try the decentralized IPFS commons (κ-verified) first; fall back to same-origin.
+async function playHomebrew(g){
+  frame.src="about:blank";stage.classList.add("on");srcBadge("resolving “"+g.title+"” from the κ-commons…");
+  const blob=await fromCommons(g.title);
+  const boot=(rom)=>play("play.html?rom="+encodeURIComponent(rom)+"&sys="+encodeURIComponent("Nintendo - Game Boy")+"&title="+encodeURIComponent(g.title)+(g.art?"&art="+encodeURIComponent(g.art):""));
+  if(blob){ srcBadge("⚡ playing from IPFS · BLAKE3-verified"); boot(blob); }
+  else if(g.rom){ srcBadge("playing (same-origin)"); boot(g.rom); }
+  else { srcBadge("the commons is warming this game — tap again in a moment"); setTimeout(()=>{const s=$("src-note");if(s&&stage.classList.contains("on")&&frame.src.includes("about:blank"))closeStage();},2600); }
+}
+
+// ── data ──
+// same-origin fallback roms (the bundled originals) + build the Plays-Instantly browse list from the
+// WHOLE commons — every pinned κ-object, art from its gbdev thumbnail. Sorted A→Z.
+let bundledRom={};
+try{for(const g of (await(await fetch("./arcade.json")).json()).games||[]) bundledRom[g.title]=g.rom;}catch(e){}
+const arcade=Object.entries(ipfsMap).map(([title,m])=>({title,art:m.art||"",rom:bundledRom[title]||""})).sort((a,b)=>a.title.localeCompare(b.title,undefined,{sensitivity:"base"}));
+const cat={};
+async function games(code){
+  if(cat[code]) return cat[code];
+  try{
+    const j=await(await fetch("./catalog/"+code+".json")).json();
+    const seen=new Map();
+    for(const g of (j.games||[])){ const k=plain(g.name).toLowerCase(); const p=seen.get(k); if(!p||region(g.name)<region(p.name)) seen.set(k,g); }
+    return cat[code]=[...seen.values()];
+  }catch(e){ return cat[code]=[]; }
+}
+
+// ── render (windowed, ThumbHash-instant, art cross-fades) ──
+let cur="arcade",view=[],shown=0,io;
+function tile(e){
+  const b=document.createElement("button");b.className="tile";
+  b.innerHTML=`<div class="box">${e.arcade?'<span class="badge">★ PLAYS NOW</span>':''}<img alt="" decoding="async"></div><div class="nm"></div>`;
+  b.querySelector(".nm").textContent=e.t;
+  const box=b.querySelector(".box"),img=b.querySelector("img");
+  if(e.thumb){const u=thumbURL(e.thumb);if(u)box.style.backgroundImage=`url(${u})`;}
+  if(e.art){img.dataset.src=e.art;io.observe(b);} else img.remove();
+  b.onclick=()=>{setStageOrigin(b);e.go();};
+  return b;
+}
+function grow(){const grid=$("grid"),more=$("more"),frag=document.createDocumentFragment();const end=Math.min(shown+WINDOW,view.length);for(let i=shown;i<end;i++)frag.appendChild(tile(view[i]));shown=end;grid.insertBefore(frag,more);}
+async function render(){
+  $("sys").querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c.dataset.code===cur));
+  const q=$("search").value.trim().toLowerCase(),sys=SYS.find(s=>s[0]===cur),playSys=sys[2];
+  if(cur==="arcade"){
+    view=arcade.filter(g=>!q||g.title.toLowerCase().includes(q)).map(g=>({t:g.title,art:g.art,thumb:"",arcade:true,
+      go:()=>playHomebrew(g)}));
+    $("note").textContent=view.length+" freely-shared games — decentralized on IPFS, κ-verified.";
+    warmCommons(view.slice(0,24).map(v=>v.t));   // prefetch the first screenful into the κ-cache
+  }else{
+    const list=await games(cur);
+    const f=q?list.filter(g=>plain(g.name).toLowerCase().includes(q)):list;
+    view=f.map(g=>{const t=plain(g.name);return {t,art:g.art,thumb:g.thumb,
+      go:()=>{ if(!globalThis.HOLO_ROM_PROXY){$("proxy").value=proxy;$("dlg").classList.add("on");return;} play("play.html?title="+encodeURIComponent(t)+"&sys="+encodeURIComponent(playSys)+(g.art?"&art="+encodeURIComponent(g.art):"")); }};});
+    $("note").textContent=list.length.toLocaleString()+" games · tap to stream & play";
+  }
+  const grid=$("grid");grid.textContent="";const more=document.createElement("div");more.id="more";grid.appendChild(more);
+  shown=0;grow();moreObs.observe(more);
+}
+io=new IntersectionObserver((es)=>{for(const e of es)if(e.isIntersecting){io.unobserve(e.target);const img=e.target.querySelector("img");if(img&&img.dataset.src){img.src=img.dataset.src;img.onload=()=>img.classList.add("in");img.onerror=()=>{img.style.opacity=0;};}}},{rootMargin:"700px"});
+const moreObs=new IntersectionObserver((es)=>{for(const e of es)if(e.isIntersecting&&shown<view.length)grow();},{rootMargin:"1000px"});
+addEventListener("scroll",()=>{if(shown<view.length){const r=$("more").getBoundingClientRect();if(r.top<innerHeight+1000)grow();}},{passive:true});
+
+for(const [code,label] of SYS){const b=document.createElement("button");b.className="chip";b.dataset.code=code;b.textContent=label;b.onclick=()=>{cur=code;$("search").value="";render();};$("sys").appendChild(b);}
+let sT=0;$("search").addEventListener("input",()=>{clearTimeout(sT);sT=setTimeout(render,140);});
+render();
+</script>
