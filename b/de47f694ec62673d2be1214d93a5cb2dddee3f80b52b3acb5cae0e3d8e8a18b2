@@ -1,0 +1,88 @@
+// holo-imusic.mjs — Spotube-native on-demand music, κ-native & serverless.
+//   metadata: iTunes Search API (CORS-clean, no auth) → rich track/album/artist + 600px cover + duration.
+//   audio:    resolved to a YouTube video (Piped, mirror-failover) — prefer the artist "- Topic" official
+//             audio + closest duration — then played through the player's youtube-nocookie embed, the ONE
+//             audio path that is COEP-safe under the require-corp shell (radio no-cors streams are blocked).
+//   cache:    the {track → videoId} match goes through holo-media-cache (sha256/JCS, L5-verified, IndexedDB),
+//             so a track resolves ONCE and is instant + offline forever after.
+// Proven end-to-end in the require-corp harness (Bonobo · Kerala → sbygyYTKzVE, "Bonobo - Topic", ~395ms cold).
+
+const ITUNES = "https://itunes.apple.com/search";
+// public Piped instances are individually flaky → failover, like Radio Browser's mirrors.
+const PIPED = [
+  "api.piped.private.coffee", "pipedapi.kavin.rocks", "pipedapi.adminforge.de",
+  "pipedapi.leptons.xyz", "pipedapi.r4fo.com", "pipedapi.darkness.services", "pipedapi.phoenix.link",
+];
+
+export function normTrack(t) {
+  return {
+    id: "im:" + t.trackId, kind: "song", source: "imusic",
+    name: t.trackName, artist: t.artistName, album: t.collectionName || "",
+    durationSec: Math.round((t.trackTimeMillis || 0) / 1000),
+    genre: t.primaryGenreName || "", year: (t.releaseDate || "").slice(0, 4),
+    art: (t.artworkUrl100 || "").replace("100x100", "600x600"), artSmall: t.artworkUrl100 || "",
+    explicit: t.trackExplicitness === "explicit",
+  };
+}
+
+export async function search(q, limit = 24) {
+  if (!q || !q.trim()) return [];
+  try {
+    const r = await fetch(ITUNES + "?media=music&entity=song&limit=" + limit + "&term=" + encodeURIComponent(q.trim()));
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j.results || []).filter((t) => t.trackId && t.trackName && t.artistName).map(normTrack);
+  } catch { return []; }
+}
+
+const _memo = new Map(), _inflight = new Map();
+async function _doResolve(track) {
+  const q = encodeURIComponent(track.artist + " " + track.name + " audio");
+  for (const host of PIPED) {
+    try {
+      const c = new AbortController(); const to = setTimeout(() => c.abort(), 5000);
+      const r = await fetch("https://" + host + "/search?q=" + q + "&filter=music_songs", { signal: c.signal });
+      clearTimeout(to);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const cand = (j.items || []).map((it) => ({
+        id: String(it.url || "").replace("/watch?v=", ""),
+        up: it.uploaderName || it.uploader || "", dur: it.duration || 0,
+      })).filter((x) => x.id && x.id.length === 11);
+      if (!cand.length) continue;
+      const topic = cand.find((x) => /-\s*topic$/i.test(x.up));                 // YouTube Music official audio
+      const byDur = cand.slice().sort((a, b) => Math.abs(a.dur - track.durationSec) - Math.abs(b.dur - track.durationSec));
+      const pick = topic || byDur[0];
+      if (pick && pick.id) return { videoId: pick.id, via: host };
+    } catch {}
+  }
+  return { videoId: null };
+}
+// resolve a track → { videoId }, κ-cached (once, then instant/offline).
+export async function resolve(track) {
+  const key = "im-yt:" + track.id;
+  if (_memo.has(key)) return _memo.get(key);
+  if (_inflight.has(key)) return _inflight.get(key);
+  const p = (async () => {
+    const cache = (typeof window !== "undefined" && window.HoloMediaCache) ? window.HoloMediaCache.live() : null;
+    let res;
+    try { res = cache ? (await cache.through(key, () => _doResolve(track))).body : await _doResolve(track); }
+    catch { res = await _doResolve(track); }
+    if (res && res.videoId) _memo.set(key, res);
+    return res;
+  })();
+  _inflight.set(key, p);
+  try { return await p; } finally { _inflight.delete(key); }
+}
+
+// a play-ready item for the player's YT-embed path (trailerKey + _noStream, like the "Trailers & More" clips).
+export function playItem(track, videoId) {
+  return {
+    id: track.id + ":yt:" + videoId, name: track.artist + " — " + track.name,
+    artist: track.artist, album: track.album, kind: "stream", _noStream: true, _music: true,
+    trailerKey: videoId, posterUrl: track.art, backdrop: track.art,
+    runtimeSec: track.durationSec, source: "imusic",
+  };
+}
+
+if (typeof window !== "undefined") window.HoloIMusic = { search, resolve, playItem, normTrack };
