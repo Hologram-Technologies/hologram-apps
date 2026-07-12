@@ -1,0 +1,269 @@
+// holo-imusic.mjs — Spotube-native on-demand music, κ-native & serverless.
+//   metadata: iTunes Search API (CORS-clean, no auth) → rich track/album/artist + 600px cover + duration.
+//   audio:    resolved to a YouTube video (Piped, mirror-failover) — prefer the artist "- Topic" official
+//             audio + closest duration — then played through the player's youtube-nocookie embed, the ONE
+//             audio path that is COEP-safe under the require-corp shell (radio no-cors streams are blocked).
+//   radio:    a track's YouTube Music neighbourhood (Piped relatedStreams) → an endless song-radio queue.
+//   cache:    EVERY lookup goes through holo-media-cache (sha256/JCS, L5-verified, IndexedDB) — searches,
+//             artist/album pages, the {track → videoId} match, lyrics, radio — so browsing is instant +
+//             offline once warm. Transient failures THROW and are never sealed; only real answers cache.
+// Proven end-to-end in the require-corp harness (Bonobo · Kerala → sbygyYTKzVE, "Bonobo - Topic", ~395ms cold).
+
+const ITUNES = "https://itunes.apple.com/search";
+// public Piped instances are individually flaky → failover, like Radio Browser's mirrors.
+const PIPED = [
+  "api.piped.private.coffee", "pipedapi.kavin.rocks", "pipedapi.adminforge.de",
+  "pipedapi.leptons.xyz", "pipedapi.r4fo.com", "pipedapi.darkness.services", "pipedapi.phoenix.link",
+];
+
+const _fetch = async (url, ms = 8000) => {
+  const c = new AbortController(); const to = setTimeout(() => c.abort(), ms);
+  try { return await fetch(url, { signal: c.signal }); } finally { clearTimeout(to); }
+};
+
+// ── the ONE κ-through — memo (session) → holo-media-cache (κ, IndexedDB) → live fetch. A thrown fetcher is
+// retried once outside the cache and NEVER sealed, so a flaky network can't poison the κ-record.
+const _memo = new Map(), _inflight = new Map();
+async function _through(key, fn, memoIf = (r) => r != null) {
+  if (_memo.has(key)) return _memo.get(key);
+  if (_inflight.has(key)) return _inflight.get(key);
+  const p = (async () => {
+    const cache = (typeof window !== "undefined" && window.HoloMediaCache) ? window.HoloMediaCache.live() : null;
+    let res;
+    try { res = cache ? (await cache.through(key, fn)).body : await fn(); }
+    catch { res = await fn(); }
+    if (memoIf(res)) _memo.set(key, res);
+    return res;
+  })();
+  _inflight.set(key, p);
+  try { return await p; } finally { _inflight.delete(key); }
+}
+// month bucket for MUTABLE catalogues (searches, discographies, radio) — κ-instant warm, eventually fresh.
+// Immutable records (an album's tracklist, a track's videoId, lyrics) cache under permanent keys.
+const _bucket = () => new Date().toISOString().slice(0, 7);
+
+const hq = (u) => (u || "").replace("100x100", "600x600");
+export function normTrack(t) {
+  return {
+    id: "im:" + t.trackId, kind: "song", source: "imusic",
+    name: t.trackName, artist: t.artistName, album: t.collectionName || "",
+    artistId: t.artistId, collectionId: t.collectionId, trackNumber: t.trackNumber || 0,
+    durationSec: Math.round((t.trackTimeMillis || 0) / 1000),
+    genre: t.primaryGenreName || "", year: (t.releaseDate || "").slice(0, 4),
+    art: hq(t.artworkUrl100), artSmall: t.artworkUrl100 || "",
+    explicit: t.trackExplicitness === "explicit",
+  };
+}
+export function normAlbum(t) {
+  return {
+    id: "ima:" + t.collectionId, kind: "album", collectionId: t.collectionId,
+    name: t.collectionName, artist: t.artistName, artistId: t.artistId,
+    art: hq(t.artworkUrl100), artSmall: t.artworkUrl100 || "",
+    year: (t.releaseDate || "").slice(0, 4), genre: t.primaryGenreName || "", trackCount: t.trackCount || 0,
+  };
+}
+export function normArtist(t) {
+  return { id: "imr:" + t.artistId, kind: "artist", artistId: t.artistId, name: t.artistName, genre: t.primaryGenreName || "" };
+}
+// throws on network failure (so a flake is never sealed); {results:[]} only when iTunes really says so.
+const _lookup = async (params) => { const r = await _fetch("https://itunes.apple.com/lookup?" + params); if (!r.ok) throw new Error("lookup " + r.status); return r.json(); };
+
+// an artist's world: top songs + full discography (iTunes lookup).
+async function _doArtist(artistId) {
+  const [s, a] = await Promise.all([_lookup("id=" + artistId + "&entity=song&limit=25"), _lookup("id=" + artistId + "&entity=album&limit=48")]);
+  const row = (a.results || []).find((x) => x.wrapperType === "artist") || (s.results || []).find((x) => x.wrapperType === "artist") || {};
+  const tracks = (s.results || []).filter((x) => x.kind === "song").map(normTrack);
+  const albums = (a.results || []).filter((x) => x.wrapperType === "collection" && x.collectionId).map(normAlbum)
+    .sort((x, y) => (y.year || "").localeCompare(x.year || ""));
+  if (!tracks.length && !albums.length) return null;
+  return { id: "imr:" + artistId, artistId, name: row.artistName || (tracks[0] && tracks[0].artist) || "", genre: row.primaryGenreName || "",
+    tracks, albums, art: (albums[0] && albums[0].art) || (tracks[0] && tracks[0].art) || "" };
+}
+export async function artist(artistId) {
+  try { return await _through("im-artist:" + _bucket() + ":" + artistId, () => _doArtist(artistId)); } catch { return null; }
+}
+// an album's ordered tracklist (iTunes lookup) — immutable once published → permanent κ-record.
+async function _doAlbum(collectionId) {
+  const j = await _lookup("id=" + collectionId + "&entity=song&limit=80");
+  const col = (j.results || []).find((x) => x.wrapperType === "collection") || {};
+  const tracks = (j.results || []).filter((x) => x.kind === "song").sort((x, y) => (x.trackNumber || 0) - (y.trackNumber || 0)).map(normTrack);
+  if (!tracks.length) return null;
+  return { id: "ima:" + collectionId, collectionId, name: col.collectionName || "", artist: col.artistName || "", artistId: col.artistId,
+    year: (col.releaseDate || "").slice(0, 4), genre: col.primaryGenreName || "", art: hq(col.artworkUrl100), artSmall: col.artworkUrl100 || "", tracks };
+}
+export async function album(collectionId) {
+  try { return await _through("im-album:" + collectionId, () => _doAlbum(collectionId)); } catch { return null; }
+}
+async function _doSearchAlbums(q, limit) {
+  const r = await _fetch(ITUNES + "?media=music&entity=album&limit=" + limit + "&term=" + encodeURIComponent(q));
+  if (!r.ok) throw new Error("search " + r.status);
+  const j = await r.json();
+  return (j.results || []).filter((x) => x.collectionId && x.collectionName).map(normAlbum);
+}
+export async function searchAlbums(q, limit = 12) {
+  const my = (q || "").trim(); if (!my) return [];
+  try { return await _through("im-sa:" + _bucket() + ":" + limit + ":" + my.toLowerCase(), () => _doSearchAlbums(my, limit), (r) => r && r.length > 0); } catch { return []; }
+}
+async function _doSearch(q, limit) {
+  const r = await _fetch(ITUNES + "?media=music&entity=song&limit=" + limit + "&term=" + encodeURIComponent(q));
+  if (!r.ok) throw new Error("search " + r.status);
+  const j = await r.json();
+  return (j.results || []).filter((t) => t.trackId && t.trackName && t.artistName).map(normTrack);
+}
+export async function search(q, limit = 24) {
+  const my = (q || "").trim(); if (!my) return [];
+  try { return await _through("im-s:" + _bucket() + ":" + limit + ":" + my.toLowerCase(), () => _doSearch(my, limit), (r) => r && r.length > 0); } catch { return []; }
+}
+
+// ── charts — Apple's LEGACY RSS on itunes.apple.com (CORS-clean, unlike rss.applemarketingtools.com):
+// topsongs / topalbums, overall or per-genre. The editorial layer of the home: real, daily, serverless.
+const _bucketDay = () => new Date().toISOString().slice(0, 10);
+const _rssArt = (e) => { const im = e["im:image"] || []; const u = ((im[im.length - 1] || {}).label) || ""; return { art: u.replace(/\/\d+x\d+/, "/600x600"), artSmall: u }; };
+const _rssArtistId = (e) => { const h = (e["im:artist"] && e["im:artist"].attributes && e["im:artist"].attributes.href) || ""; const m = h.match(/\/(?:artist\/)?(?:[^/]*\/)?(?:id)?(\d+)(?:[?/]|$)/); return m ? +m[1] : undefined; };
+async function _doCharts(kind, genre, limit) {
+  const u = "https://itunes.apple.com/us/rss/" + kind + "/limit=" + limit + (genre ? "/genre=" + genre : "") + "/json";
+  const r = await _fetch(u, 8000);
+  if (!r.ok) throw new Error("rss " + r.status);
+  const j = await r.json();
+  const es = (j.feed && j.feed.entry) || [];
+  return es.map((e) => {
+    const id = e.id && e.id.attributes && +e.id.attributes["im:id"]; if (!id) return null;
+    const { art, artSmall } = _rssArt(e);
+    const name = (e["im:name"] || {}).label || "", artistName = (e["im:artist"] || {}).label || "";
+    if (kind === "topalbums") return { id: "ima:" + id, kind: "album", collectionId: id, name, artist: artistName,
+      artistId: _rssArtistId(e), art, artSmall, year: ((e["im:releaseDate"] || {}).label || "").slice(0, 4), genre: "" };
+    const col = e["im:collection"] || {};
+    return { id: "im:" + id, kind: "song", source: "imusic", name, artist: artistName,
+      album: ((col["im:name"] || {}).label) || "", artistId: _rssArtistId(e),
+      collectionId: (col.attributes && +col.attributes["im:id"]) || undefined,
+      trackNumber: 0, durationSec: 0, genre: "", year: "", art, artSmall };
+  }).filter(Boolean);
+}
+export async function charts(kind = "topsongs", genre = 0, limit = 24) {
+  try { return await _through("im-rss:" + _bucketDay() + ":" + kind + ":" + genre + ":" + limit, () => _doCharts(kind, genre, limit), (r) => r && r.length > 0); } catch { return []; }
+}
+
+// resolve an artist NAME → { artistId, name, art, genre } (via their top songs), κ-cached — feeds Browse.
+async function _doFindArtist(name) {
+  const hits = await _doSearch(name, 8);
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const h = hits.find((x) => norm(x.artist) === norm(name)) || hits.find((x) => norm(x.artist).includes(norm(name)));
+  return h ? { artistId: h.artistId, name: h.artist, art: h.art, genre: h.genre } : null;
+}
+export async function findArtist(name) {
+  const my = (name || "").trim(); if (!my) return null;
+  try { return await _through("im-fa:" + _bucket() + ":" + my.toLowerCase(), () => _doFindArtist(my), (r) => !!r); } catch { return null; }
+}
+
+async function _doResolve(track) {
+  const q = encodeURIComponent(track.artist + " " + track.name + " audio");
+  for (const host of PIPED) {
+    try {
+      const r = await _fetch("https://" + host + "/search?q=" + q + "&filter=music_songs", 5000);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const cand = (j.items || []).map((it) => ({
+        id: String(it.url || "").replace("/watch?v=", ""),
+        up: it.uploaderName || it.uploader || "", dur: it.duration || 0,
+      })).filter((x) => x.id && x.id.length === 11);
+      if (!cand.length) continue;
+      const topic = cand.find((x) => /-\s*topic$/i.test(x.up));                 // YouTube Music official audio
+      const byDur = cand.slice().sort((a, b) => Math.abs(a.dur - track.durationSec) - Math.abs(b.dur - track.durationSec));
+      const pick = topic || byDur[0];
+      if (pick && pick.id) return { videoId: pick.id, via: host };
+    } catch {}
+  }
+  return { videoId: null };
+}
+// resolve a track → { videoId }, κ-cached (once, then instant/offline).
+export async function resolve(track) {
+  return _through("im-yt:" + track.id, () => _doResolve(track), (r) => !!(r && r.videoId));
+}
+
+// ── song radio — YouTube Music's OWN autogenerated radio for the track (the RD<videoId> playlist, via
+// Piped /playlists — proven live; /streams and Invidious are dead/CORS-blocked). This is how the queue
+// never runs dry: when the last song ends, the radio continues from it.
+async function _doRelated(videoId) {
+  for (const host of PIPED) {
+    try {
+      const r = await _fetch("https://" + host + "/playlists/RD" + videoId, 6000);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const rel = (j.relatedStreams || [])
+        .map((x) => ({ id: String(x.url || "").replace("/watch?v=", ""), title: x.title || "", up: x.uploaderName || x.uploader || "", dur: x.duration || 0 }))
+        .filter((x) => x.id && x.id.length === 11 && x.dur >= 60 && x.dur <= 900);
+      if (rel.length) return rel;
+    } catch {}
+  }
+  throw new Error("no piped instance answered");   // transient — never sealed as "no related"
+}
+export async function radio(track, limit = 20) {
+  try {
+    const r = await resolve(track); if (!r || !r.videoId) return [];
+    const rel = await _through("im-rel:" + _bucket() + ":" + r.videoId, () => _doRelated(r.videoId), (x) => x && x.length > 0);
+    const seen = new Set([r.videoId]); const out = [];
+    for (const x of rel || []) {
+      if (seen.has(x.id)) continue; seen.add(x.id);
+      const isTopic = /-\s*topic$/i.test(x.up);
+      const artistName = x.up.replace(/\s*-\s*Topic$/i, "").trim();
+      let name = x.title.replace(/\s*[([](official|lyric|audio|video|visuali[sz]er|hd|4k|remaster[^)\]]*)[^)\]]*[)\]]\s*/gi, " ").replace(/\s+/g, " ").trim();
+      const m = name.match(/^(.{2,60}?)\s*[-–—]\s*(.{2,90})$/);   // "Artist - Title" uploads → split
+      if (m && !isTopic) name = m[2].trim();
+      const finalArtist = (m && !isTopic) ? m[1].trim() : artistName;
+      out.push({ id: "imyt:" + x.id, kind: "song", source: "imusic-radio", name, artist: finalArtist, album: "",
+        durationSec: x.dur, genre: "", year: "",
+        art: "https://i.ytimg.com/vi/" + x.id + "/hqdefault.jpg", artSmall: "https://i.ytimg.com/vi/" + x.id + "/mqdefault.jpg",
+        _videoId: x.id });
+      if (out.length >= limit) break;
+    }
+    return out;
+  } catch { return []; }
+}
+
+// non-music segments (SponsorBlock `music_offtopic`, CORS-clean, 76ms) — the player seeks OVER these so a
+// "video edit" upload still plays like the record. 404 = "no segments", the common cacheable answer.
+async function _doSegments(videoId) {
+  const r = await _fetch("https://sponsor.ajay.app/api/skipSegments?videoID=" + videoId + "&categories=%5B%22music_offtopic%22%5D", 6000);
+  if (r.status === 404) return [];
+  if (!r.ok) throw new Error("sb " + r.status);
+  const j = await r.json();
+  return (Array.isArray(j) ? j : []).map((x) => x.segment).filter((s) => Array.isArray(s) && s.length === 2 && s[1] - s[0] > 1.5);
+}
+export async function segments(videoId) {
+  try { return await _through("im-sb:" + videoId, () => _doSegments(videoId), (r) => Array.isArray(r)); } catch { return []; }
+}
+
+// time-synced lyrics — LRClib (CORS-clean, no auth), κ-cached like the YT match. → { synced:[{t,line}], plain } | null
+async function _doLyrics(track) {
+  // throws on network failure/timeout (NOT cached — transient); returns null only on a real LRClib "no lyrics"
+  // (404), which IS the cacheable answer for this track.
+  const u = "https://lrclib.net/api/get?artist_name=" + encodeURIComponent(track.artist || "") +
+    "&track_name=" + encodeURIComponent(track.name || "") +
+    (track.album ? "&album_name=" + encodeURIComponent(track.album) : "") +
+    (track.durationSec ? "&duration=" + track.durationSec : "");
+  const r = await _fetch(u, 12000);
+  if (!r.ok) return null;
+  const j = await r.json();
+  const synced = [];
+  for (const ln of String(j.syncedLyrics || "").split("\n")) {
+    const m = ln.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/);
+    if (m) synced.push({ t: parseInt(m[1], 10) * 60 + parseFloat(m[2]), line: m[3].trim() });
+  }
+  if (!synced.length && !j.plainLyrics) return null;
+  return { synced, plain: j.plainLyrics || "" };
+}
+export async function lyrics(track) {
+  return _through("im-lyr:" + track.id, () => _doLyrics(track), (r) => !!r);
+}
+
+// a play-ready item for the player's YT-embed path (trailerKey + _noStream, like the "Trailers & More" clips).
+export function playItem(track, videoId) {
+  return {
+    id: track.id + ":yt:" + videoId, name: track.artist + " — " + track.name,
+    artist: track.artist, album: track.album, kind: "stream", _noStream: true, _music: true,
+    trailerKey: videoId, posterUrl: track.art, backdrop: track.art,
+    runtimeSec: track.durationSec, source: "imusic",
+  };
+}
+
+if (typeof window !== "undefined") window.HoloIMusic = { search, searchAlbums, artist, album, findArtist, charts, resolve, radio, lyrics, segments, playItem, normTrack };
