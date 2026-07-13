@@ -1,0 +1,940 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Q</title>
+<!-- Kokoro TTS (core/voice-out.js) loads kokoro.js, which imports these as bare specifiers → map them to
+     the vendored copies so Q's beautiful voice runs with no CDN and no server. -->
+<script type="importmap">
+{ "imports": {
+  "@huggingface/transformers": "/_shared/voice/vendor/kokoro/transformers/transformers.js",
+  "phonemizer": "/_shared/voice/vendor/kokoro/phonemizer.js",
+  "fs/promises": "/_shared/voice/vendor/kokoro/stub.js",
+  "path": "/_shared/voice/vendor/kokoro/stub.js"
+} }
+</script>
+<script>/* EMBEDDED detection BEFORE any paint → zero wallpaper flash. */try{if(window.self!==window.top&&typeof window.parent.location.href==="string")document.documentElement.classList.add("qembed");}catch(e){}</script>
+<script>/* HOLO-Q-LIVE-VOICE V1: opened TOP-LEVEL (the voice/call surface), Q wants crossOriginIsolated so Kokoro +
+  Whisper get wasm threads. The root-sw injects COOP/COEP for this page; if we arrived before the SW controlled
+  us (first visit after an update), reload ONCE so the injected headers land. NEVER in the drawer iframe (a
+  same-origin child of the non-isolated desktop can't isolate), never in a loop (sessionStorage guard). */
+try{if(window.self===window.top){if(self.crossOriginIsolated){try{sessionStorage.removeItem("qcoi");}catch(e){}}else if(navigator.serviceWorker&&navigator.serviceWorker.controller&&!sessionStorage.getItem("qcoi")){sessionStorage.setItem("qcoi","1");location.reload();}}}catch(e){}</script>
+<style>
+  :root{
+    --ink:#f4f7fa; --dim:#cdd6de; --q:#8b7bff; --tick:#7fd0ff;
+    --in:rgba(24,32,42,.46); --out:rgba(7,122,103,.5);
+    --glass:rgba(16,22,30,.5); --stroke:rgba(255,255,255,.12); --stroke-soft:rgba(255,255,255,.08);
+    --spectrum:#ff3b6b,#ff9e2c,#ffe24a,#46e08a,#2bd4ff,#5b8cff,#c77bff,#ff3b6b;   /* the OS brand spectrum (home omnibar / Q orb) */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{font:15px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+  /* full-bleed 8K wallpaper + cinematic depth overlay (bundled → 0 egress) */
+  #wall{position:fixed;inset:0;z-index:-2;background:#05080c url("./wallpaper.jpg") center/cover no-repeat;transform:translateZ(0);image-rendering:auto}
+  #wall::after{content:"";position:absolute;inset:0;background:
+    radial-gradient(130% 90% at 50% -10%,rgba(139,123,255,.12),transparent 55%),
+    linear-gradient(180deg,rgba(5,8,12,.42) 0%,rgba(5,8,12,.12) 32%,rgba(5,8,12,.10) 60%,rgba(5,8,12,.5) 100%)}
+  /* EMBEDDED in the Hologram drawer: PLAIN + immersive — NO wallpaper (never fetched), the whole frame is the flat
+     left-nav chrome (--holo-chrome #1f1f1e), header flattened (no glass). qembed is set in <head> before paint → 0 flash. */
+  html.qembed #wall,html.qembed #wall::after{display:none!important;background:none!important}
+  html.qembed,html.qembed body{background:#1f1f1e!important}
+  html.qembed header{background:#1f1f1e!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;border-bottom-color:rgba(255,255,255,.06)!important}
+  /* header — glass */
+  header{display:flex;align-items:center;gap:14px;padding:12px 18px;flex:0 0 auto;position:relative;z-index:3;
+    background:var(--glass);backdrop-filter:blur(34px) saturate(170%);-webkit-backdrop-filter:blur(34px) saturate(170%);
+    border-bottom:1px solid var(--stroke-soft);box-shadow:0 6px 30px rgba(0,0,0,.25)}
+  .av{width:47px;height:47px;border-radius:50%;flex:none;position:relative}
+  .av canvas{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);display:block}
+  /* delightful in-bubble typography — living intelligence, not a wall of markdown */
+  .msg a{color:#9fd3ff;text-decoration:none;border-bottom:1px solid rgba(159,211,255,.42)}
+  .av::before{content:"";position:absolute;inset:-3.5px;border-radius:50%;z-index:-1;filter:blur(8px);opacity:.55;
+    background:conic-gradient(from 0deg,#8b7bff,#5ad1ff,#c6b8ff,#8b7bff);animation:spin 7s linear infinite}
+  .av::after{content:"";position:absolute;right:2px;bottom:2px;width:10px;height:10px;border-radius:50%;background:#06d755;
+    border:2.5px solid rgba(16,22,30,.95);box-shadow:0 0 6px #06d75566;transition:background .4s,box-shadow .4s}
+  /* the presence dot IS the live status: amber while waking, green online, pulsing while typing, grey offline */
+  .av[data-state="connecting"]::after,.av[data-state="loading"]::after{background:#f0a83c;box-shadow:0 0 9px #f0a83c99}
+  .av[data-state="typing"]::after{background:#06d755;animation:dotpulse 1.1s ease-in-out infinite}
+  .av[data-state="offline"]::after{background:#8696a0;box-shadow:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes dotpulse{0%,100%{box-shadow:0 0 0 0 #06d75577}50%{box-shadow:0 0 0 5px #06d75500}}
+  .hmeta{flex:1;min-width:0}.hmeta b{font-weight:650;font-size:17.5px;letter-spacing:.2px;display:block}
+  .hmeta span{color:rgba(255,255,255,.4);font-size:11.5px;font-weight:400;letter-spacing:.02em;transition:color .4s ease}
+  #perf{flex:none;font:10.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:rgba(255,255,255,.32);letter-spacing:.02em;white-space:nowrap;opacity:0;transition:opacity .6s ease}
+  #perf.on{opacity:1}
+  /* header voice toggle — Q reads replies aloud (on-device speech; nothing leaves the device) */
+  .hbtn{flex:none;width:39px;height:39px;border-radius:50%;border:1px solid var(--stroke-soft);color:var(--ink);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.62;
+    background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);transition:.18s}
+  .hbtn:hover{opacity:1;border-color:rgba(139,123,255,.5);transform:translateY(-1px)}
+  .hbtn:active{transform:scale(.94)}
+  .hbtn.on{opacity:1;color:#c6b8ff;border-color:rgba(139,123,255,.55);box-shadow:0 0 16px rgba(139,123,255,.4)}
+  /* messages */
+  #log{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 5% 10px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scroll-behavior:smooth;
+    scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent}
+  #log::-webkit-scrollbar{width:8px}
+  #log::-webkit-scrollbar-track{background:transparent}
+  #log::-webkit-scrollbar-button{display:none;width:0;height:0}                 /* kill the up/down arrows */
+  #log::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:20px;border:2.5px solid transparent;background-clip:content-box;transition:background .3s}
+  #log:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);background-clip:content-box}
+  #log::-webkit-scrollbar-thumb:hover{background:rgba(159,211,255,.42);background-clip:content-box}   /* a soft glow of the brand blue on grab */
+  .row{display:flex;max-width:82%;margin-top:2px;animation:pop .16s cubic-bezier(.2,.8,.2,1)}
+  .row.u{align-self:flex-end}.row.a{align-self:flex-start}
+  @keyframes pop{from{opacity:0;transform:translateY(7px) scale(.98)}}
+  .msg{padding:6px 9px 8px 10px;border-radius:7.5px;position:relative;white-space:pre-wrap;word-wrap:break-word;font-size:14.6px;line-height:20px;box-shadow:0 1px .5px rgba(11,20,26,.32);color:#e9edef;min-width:0;transform:translateZ(0)}
+  .a .msg{background:#202c33;border-radius:0 7.5px 7.5px 7.5px}
+  .a .msg::before{content:"";position:absolute;top:0;left:-8px;border-right:8px solid #202c33;border-top:8px solid transparent}
+  .u .msg{background:#005c4b;border-radius:7.5px 0 7.5px 7.5px}
+  .u .msg::before{content:"";position:absolute;top:0;right:-8px;border-left:8px solid #005c4b;border-top:8px solid transparent}
+  .msg .t{float:right;font-size:11px;line-height:15px;color:rgba(233,237,239,.45);margin:5px -2px -3px 10px;user-select:none}
+  .u .msg .t{color:rgba(233,237,239,.6)}
+  .msg .tick{display:inline-block;margin-left:3px;color:rgba(255,255,255,.5);letter-spacing:-2px;transition:color .35s ease}
+  .u .msg .tick.read{color:#53bdeb}
+  .row.grouped{margin-top:1px}                                  /* consecutive messages hug, WhatsApp-style */
+  .row.grouped.a .msg{border-top-left-radius:7.5px}
+  .row.grouped .msg::before{display:none}              /* only the FIRST of a run keeps its tail */
+  .row.grouped.u .msg{border-top-right-radius:7.5px}
+  .dots{display:inline-flex;gap:4px;padding:3px 2px}.dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.65);animation:b 1.3s infinite}
+  .dots i:nth-child(2){animation-delay:.18s}.dots i:nth-child(3){animation-delay:.36s}
+  @keyframes b{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  /* chips */
+  .chips{display:flex;gap:9px;overflow-x:auto;padding:10px 16px 6px;flex:0 0 auto;scrollbar-width:none;position:relative;z-index:2}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;color:var(--ink);border-radius:20px;padding:8px 16px;font-size:13.5px;cursor:pointer;flex:none;
+    background:var(--glass);backdrop-filter:blur(26px) saturate(155%);-webkit-backdrop-filter:blur(26px) saturate(155%);
+    border:1px solid var(--stroke);box-shadow:0 3px 16px rgba(0,0,0,.22);transition:.16s}
+  .chip:hover{border-color:rgba(139,123,255,.55);transform:translateY(-1px)}.chip:active{transform:scale(.96)}
+  /* composer — the message box wears the OS brand spectrum (same 8 stops + spin as the home omnibar) */
+  @property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
+  @keyframes spinhue{to{--spin:360deg}}
+  footer{display:flex;gap:8px;align-items:center;padding:7px 12px 9px;flex:0 0 auto;position:relative;z-index:3;background:#1f1f1e}
+  .inwrap{position:relative;flex:1;border-radius:8px;isolation:isolate}
+  .inwrap::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;z-index:2;pointer-events:none;
+    background:conic-gradient(from var(--spin),var(--spectrum));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;
+    animation:spinhue 14s linear infinite;opacity:0;transition:opacity .55s ease}
+  .inwrap::after{content:"";position:absolute;inset:-4px;border-radius:28px;z-index:0;pointer-events:none;
+    background:conic-gradient(from var(--spin),var(--spectrum));filter:blur(14px);opacity:0;animation:spinhue 14s linear infinite;transition:opacity .55s ease}
+  .inwrap::before,.inwrap::after{display:none!important}
+  #in{position:relative;z-index:1;width:100%;color:#e9edef;border:0;border-radius:8px;padding:9px 12px;font:inherit;font-size:15px;line-height:20px;resize:none;max-height:120px;outline:none;background:#2a3942;transition:background .16s}
+  #in::placeholder{color:rgba(233,237,239,.5)}
+  #send{flex:none;width:40px;height:40px;border-radius:50%;border:0;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:#00a884;transition:.16s}
+  #send:hover{box-shadow:0 8px 28px rgba(139,123,255,.7)}#send:active{transform:scale(.92)}#send:disabled{opacity:.5}
+  #send{opacity:.55;transform:scale(.9)}#send.ready{opacity:1;transform:scale(1)}   /* wakes up as you type — WhatsApp's send-button life */
+  /* mic — press & hold to talk. On-device transcription; nothing leaves the device. */
+  #mic{flex:none;width:40px;height:40px;border-radius:50%;border:0;color:rgba(233,237,239,.7);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none;background:transparent;transition:.16s}
+  #mic:hover{border-color:rgba(139,123,255,.5)}#mic:active{transform:scale(.94)}
+  #mic.rec{color:#fff;background:linear-gradient(135deg,#ff5b7b,#e0245e);border-color:transparent;animation:micpulse 1.2s ease-out infinite}
+  #mic.busy{opacity:.55;pointer-events:none}
+  @keyframes micpulse{0%{box-shadow:0 0 0 0 rgba(224,36,94,.5)}100%{box-shadow:0 0 0 15px rgba(224,36,94,0)}}
+</style></head><body>
+<div id=wall></div>
+<header>
+  <div class=av><canvas id=orb></canvas></div>
+  <div class=hmeta><b>Q</b><span id=status>online</span></div>
+  <button id=qhear title="Hear Q's last message" aria-label="Hear Q" style="flex:none;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#c6b8ff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 2px">🔊</button><span id=perf title="on-device speed — tokens/second · time to first token"></span>
+</header>
+<div id=log></div>
+<div class=chips id=chips></div>
+<footer>
+  <div class=inwrap><textarea id=in rows=1 placeholder="Message" enterkeyhint=send></textarea></div>
+  <button id=mic class=micbtn aria-label="Talk to Q">🎙️</button>
+  <button id=send aria-label=Send>➤</button>
+</footer>
+<script type=module>
+import { loadModel, loadFromQ, MODELS, defaultModelIndex } from "./core/loader.js";
+import { createEngine } from "./core/engine.js";
+import { selfPersona } from "./core/q-self.mjs";
+import { identityGuard, INJECT_RE, injectionNotice, classifyAction } from "./core/holo-q-guards.mjs";   // the living-self safety spine, live
+import { mountOrb } from "./core/holo-orb.js";   // the desktop's living Q orb (geodesic wireframe, brand spectrum)
+// ── HOLO-Q-ONE-SURFACE: q-chat is now the SINGLE canonical Q. It runs the ONE shared reply-spine and binds the
+// SAME faculties as the messenger drawer — over the SAME realm (same origin ⇒ shared IndexedDB/localStorage), so
+// this is literally the same mind/memory/context/evolution as the whole system. Faculty modules bind window.* on
+// import; the spine (holo-q-reply.mjs) is the one pipeline both surfaces call. Fail-soft: any miss keeps the chat.
+import { makeReply } from "../../usr/lib/holo/q/holo-q-reply.mjs";
+import "../../usr/lib/holo/holo-memory.mjs";          // window.HoloMemory — private, encrypted, realm-claimed on-device memory
+import "../../usr/lib/holo/holo-q-corpus.mjs";        // window.HoloCorpus — the ONE context plane (facts other surfaces project)
+import "../../usr/lib/holo/q/holo-q-live-evolve.mjs"; // window.QEvolve — governed self-evolution (proposal → user-ratified succession)
+import "../../usr/lib/holo/q/holo-q-notices.mjs";     // window.QNotices — the grounded-or-silent proactivity ranker
+
+const $ = (s) => document.querySelector(s);
+const log = $("#log"), input = $("#in"), send = $("#send"), status = $("#status"), chipsEl = $("#chips");
+const params = new URLSearchParams(location.search);
+const DEMO = params.has("demo") || !navigator.gpu;   // no WebGPU (or ?demo) → a canned brain so the UX is still alive + testable
+// History is keyed PER MODEL: a transcript's tokens are model-and-tokenizer specific, so replaying
+// one brain's history into another (e.g. switching ?kappa=) feeds it pure noise — the measured cause
+// of cross-model garbage. Keying by the override/family isolates each brain's conversation cleanly.
+const HKEY = "q-chat-history/v2:" + (params.get("kappa") ? params.get("kappa").replace(/[^a-zA-Z0-9]/g, "").slice(-24) : (params.get("hf") || "default"));
+const _perf = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+// ── honest latency ledger (opt-in via ?stats): per-turn ack / TTFT (cold vs warm) / tok/s, P50 + P95.
+// The ship gate is P95 CONSISTENCY, not a lucky average. The default UX never shows it. ──
+const STATS = params.has("stats");
+const _ledger = [];
+const _pctl = (a, p) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))]; };
+let _ledgerEl = null;
+function record(row) { _ledger.push(row); if (STATS) renderLedger(); perfPill(row); }
+// subtle always-on speed readout (header, right): last real turn's tok/s + time-to-first-token.
+// Quiet by design — tiny, dimmed, fades in after the first measured turn; seed/demo turns don't show.
+// the model name Q is actually running on: embedded → the DRAWER's brain (via the parent), else this frame's model.
+function _perfModel() {
+  try { const h = _embedded && window.parent.HoloQ; const inf = h && h.info && h.info(); const n = inf && (inf.name || inf.model); if (n) return String(n).split("·")[0].trim(); } catch (e) {}
+  if (_embedded) return "BitNet-2B";
+  return (params.get("kappa") ? params.get("kappa").replace(/\/+$/, "").split("/").pop() : ((m && m.name) || "").split("·")[0].trim());
+}
+function perfPill(row) {
+  const el = document.getElementById("perf"); if (!el) return;
+  const label = (row && row.model) || _perfModel();
+  const tps = (row && row.tokps > 0) ? Math.round(row.tokps) + " tok/s" : "";
+  // header readout is intentionally just <model> · <tok/s> — TTFT is a warm-up detail, not something to
+  // put in front of a person mid-conversation (it still lives in the ?stats dev ledger below).
+  const parts = [label, tps].filter(Boolean);
+  if (!parts.length) return;
+  el.textContent = parts.join(" · ");
+  el.classList.add("on");
+}
+function renderLedger() {
+  if (!_ledgerEl) {
+    _ledgerEl = document.createElement("div"); _ledgerEl.id = "ledger";
+    _ledgerEl.style.cssText = "position:fixed;left:12px;bottom:88px;z-index:20;font:11px/1.55 ui-monospace,Menlo,Consolas,monospace;color:#d6f0ff;background:rgba(8,12,18,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:9px 12px;white-space:pre;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.4)";
+    document.body.appendChild(_ledgerEl);
+  }
+  const cold = _ledger.filter((r) => r.cold).map((r) => r.ttft), warm = _ledger.filter((r) => r.warm).map((r) => r.ttft);
+  const tps = _ledger.map((r) => r.tokps).filter(Boolean), ack = _ledger.map((r) => r.ack).filter((x) => x != null);
+  const spec = _ledger.map((r) => r.spec).filter(Boolean).pop();
+  const r0 = (x) => Math.round(x);
+  _ledgerEl.textContent =
+    `⚡ Q ledger · ${_ledger.length} turn${_ledger.length === 1 ? "" : "s"}\n` +
+    `ack     P50 ${r0(_pctl(ack, 50))}ms  P95 ${r0(_pctl(ack, 95))}ms\n` +
+    `TTFT ❄  P50 ${r0(_pctl(cold, 50))}ms  P95 ${r0(_pctl(cold, 95))}ms  (${cold.length})\n` +
+    `TTFT ⚡  P50 ${r0(_pctl(warm, 50))}ms  P95 ${r0(_pctl(warm, 95))}ms  (${warm.length})\n` +
+    `tok/s   P50 ${r0(_pctl(tps, 50))}   P95 ${r0(_pctl(tps, 95))}` +
+    (spec ? `\nspec    ${r0(100 * (spec.accepted || 0) / Math.max(1, spec.proposed || 0))}% accepted` : "");
+}
+
+// ── model (streams from HuggingFace by default; ?hf=org/repo or ?kappa=url overrides) ──
+let m = MODELS[defaultModelIndex()];
+{ const kappa = params.get("kappa"); const hf = params.get("hf") || (kappa ? null : "HOLOGRAMTECH/q-bitnet-2b");
+  if (hf || kappa) { const base = (kappa || `https://huggingface.co/${hf}/resolve/main`).replace(/\/+$/, "");
+    // ?fam=<family> picks which catalog entry's FRAMING/params the override clones (default BitNet) —
+    // e.g. ?kappa=models/trilm-1.1b&fam=trilm (TriLM = QA frame + textual stop, not llama3 headers).
+    const famq = (params.get("fam") || "bitnet").toLowerCase();
+    // longest-family match: "?fam=falcon-e-1b" must pick the 1B entry, not the 3B "Falcon-E" that
+    // its name also contains — prefer the most specific (longest) family whose name the query includes.
+    const cands = MODELS.filter((x) => famq.includes((x.fam || "").toLowerCase()) || (x.fam || "").toLowerCase().includes(famq)).sort((a, b) => (b.fam || "").length - (a.fam || "").length);
+    const bit = cands[0] || MODELS.find((x) => (x.fam || "").toLowerCase() === "bitnet") || m;
+    m = { ...bit, kappaUrl: base, name: bit.name, manifestKappa: kappa ? undefined : bit.manifestKappa }; } }
+let engine = null, convIds = [], busy = false, armed = false, idleT = null, _liteMode = false;   // _liteMode = no-WebGPU serverless brain (M2: NEVER dead-end — instant seed + on-device canned reasoning, any browser)
+let swapLock = null, _genActive = 0, tier = "seed";   // HOLO-Q-INSTANT-MIND ladder: seed → bridge (Falcon-E-1B, real answers while canon streams) → canon (BitNet)
+// ── THE ONE REPLY-SPINE, instantiated with q-chat's OWN capabilities (the messenger injects its own). generate =
+// this surface's brain (engine.js); open/call route through the parent bridge when embedded (P3), else an honest
+// redirect; mem/corpus/evolve default to the shared window globals. The spine carries every faculty identically. ──
+const _bridge = { openSpace: null, startCall: null };   // P3 wires these to the parent (postMessage) when q-chat is embedded
+// ONE BRAIN (canonical + unified): when q-chat is the SAME-ORIGIN iframe inside the Hologram drawer, it uses the
+// PARENT drawer's ALREADY-LOADED brain (window.parent.HoloQ) instead of loading a second engine — one model in
+// memory, instant boot, truly unified. Standalone (not embedded) still loads its own engine. Cross-origin embeds
+// can't reach the parent (the access throws) → they fall back to their own brain / the lite path. Fail-soft.
+const _embedded = (() => { try { return window.self !== window.top && typeof window.parent.location.href === "string"; } catch (e) { return false; } })();
+function _parentBrain() { try { return _embedded ? window.parent.HoloQ : null; } catch (e) { return null; } }
+function _parentReady() { try { const h = _parentBrain(); return !!(h && h.generate && (!h.ready || h.ready())); } catch (e) { return false; } }
+const reply = makeReply({
+  generate: async (prompt) => { try { if (!engine) return ""; let framed = frameSystem() + engine.frameTurn(String(prompt), false); let ids = engine.tokenize(framed); if (m.bos && engine.bosId != null) ids = [engine.bosId, ...ids]; const r = await engine.generate(ids, { maxNew: 512 }); return (r && r.text) || ""; } catch (e) { return ""; } },
+  basePersona: () => { try { return selfPersona ? selfPersona({ model: m, engine }) : ""; } catch (e) { return ""; } },
+  retrieveWorld: async () => "",   // q-chat has no inbox of its own — the messenger injects that; here, memory + corpus carry the context
+  openSpace: (t) => { try { return _bridge.openSpace ? _bridge.openSpace(t) : "Open that from the Hologram desktop and I'll be right here with you."; } catch (e) { return null; } },
+  startCall: () => { try { return _bridge.startCall ? _bridge.startCall() : false; } catch (e) { return false; } },
+  ratifier: () => { try { const M = window.HoloMemory; const rows = (M && M.recent) ? M.recent({ kind: "profile", n: 20 }) : []; const nm = rows.map((r) => r["holmem:text"]).find((t) => /name is/i.test(t)); return nm ? nm.replace(/.*name is\s+/i, "").trim() : "operator"; } catch (e) { return "operator"; } },
+});
+// ── THE ONE DOOR on q-chat (window.Q): the single canonical Q API, here backed by q-chat's spine + brain. Non-
+// clobbering (extends any existing shim). Every verb delegates to the ONE implementation — no new logic. ──
+try {
+  const Q = (window.Q && typeof window.Q === "object") ? window.Q : {};
+  const add = (n, f) => { if (!(n in Q)) Q[n] = f; };
+  add("act",      (t) => { try { return reply.actionRoute(String(t || "")); } catch (e) { return Promise.resolve(null); } });
+  add("grounded", (t) => { try { return reply.groundedContext(String(t || "")); } catch (e) { return Promise.resolve(""); } });
+  add("finalize", (t) => { try { return reply.finalize(String(t || "")); } catch (e) { return { text: "", bubbles: [] }; } });
+  add("persona",  () => { try { return reply.persona(); } catch (e) { return ""; } });
+  add("send",     (t) => { try { return generate(String(t || "")); } catch (e) { return Promise.resolve(); } });   // drive the real UI turn
+  add("remember", (t) => { try { return reply.remember(String(t || "")); } catch (e) {} });
+  add("recall",   (t, k) => { try { return reply.recall(String(t || ""), k); } catch (e) { return Promise.resolve([]); } });
+  add("know",     (s, txt, meta) => { const C = window.HoloCorpus; return (C && C.publish) ? C.publish({ source: s, text: txt, meta }) : Promise.resolve(null); });
+  add("facts",    (t, k) => { const C = window.HoloCorpus; return (C && C.recall) ? C.recall(t, k) : Promise.resolve([]); });
+  add("self",     async () => { const out = { name: "Q", where: "on this device — private, serverless" }; try { out.persona = reply.persona().slice(0, 300); } catch (e) {} try { if (window.HoloMemory && window.HoloMemory.summary) out.memory = window.HoloMemory.summary(); } catch (e) {} try { if (window.HoloCorpus && window.HoloCorpus.summary) out.world = await window.HoloCorpus.summary(); } catch (e) {} try { if (window.QEvolve && window.QEvolve.status) out.evolution = await window.QEvolve.status(); } catch (e) {} return out; });
+  window.Q = Q;
+} catch (e) { try { console.warn("[q-chat door] init failed:", e); } catch (x) {} }
+// ── COLD-START FIRST WORD (W2 of HOLO-INSTANT-STRANGER): while the weights stream, Q still ANSWERS ──
+// A tiny table of Q's pre-sealed canonical replies (the OS seed, Law L5: fixed content-addressed
+// answers, not fabrication) covers the questions a brand-new user predictably asks first — O(1),
+// zero model, zero network. Anything else queues HONESTLY (all of it, in order — not just the last
+// message) and is answered by the full brain the moment it lands. Fail-soft: no seed module → queue only.
+let pendingQ = [], seedTurns = 0, seedLookup = null;
+window.__ttfw = { t0: performance.now() };   // W0 waterfall marks: helloMs · seedMs · armedMs · firstBrainTtft
+(async () => { try { const s = await import(new URL("../../usr/lib/holo/q/holo-q-seed.mjs", import.meta.url).href); seedLookup = s.seedLookup; } catch {} })();
+
+// ── KV-COMMONS prefix pin: the system persona is a SHARED PREFIX re-read on every fresh turn.
+// Prefill it ONCE and reuse its K/V, so the first message's TTFT drops from "prefill the whole
+// persona + your question" to "prefill only your question". ?nopin disables it for A/B testing. ──
+const NOPIN = params.has("nopin");
+let personaIds = null, personaReady = false;
+let commonsRestored = false, commonsSaved = false;   // KV-COMMONS: durable persona K/V across visits/devices
+// write the pinned persona K/V through to the durable commons (once), so the NEXT visit restores it in
+// ~tens of ms instead of re-prefilling. Fire-and-forget; failure just means we re-prefill next time.
+function saveCommons() {
+  if (NOPIN || !personaReady || commonsSaved || !engine || !engine.kvCommonsAvailable) return;
+  commonsSaved = true;
+  engine.kvCommonsSave(personaPrefixIds()).then((r) => { if (!r) commonsSaved = false; }).catch(() => { commonsSaved = false; });
+}
+function personaPrefixIds() {
+  if (personaIds) return personaIds;
+  let ids = engine.tokenize(frameSystem());
+  if (m.bos && engine.bosId != null) ids = [engine.bosId, ...ids];
+  personaIds = ids; return ids;
+}
+let primingPromise = null;
+// Eagerly prefill + pin the persona in the BACKGROUND (used on reload, where there's no greeting to
+// absorb the cost). Doesn't lock the composer; generate() below awaits primingPromise before touching
+// the GPU, so a message sent mid-prime simply waits for the pin, then reuses it — no concurrency, no lockout.
+function primePersona() {
+  if (NOPIN || !engine || !engine.kvPinAvailable || personaReady || primingPromise) return null;
+  primingPromise = (async () => {
+    try { const len = await engine.pinPrefix(personaPrefixIds()); personaReady = len > 0; saveCommons(); }
+    catch { personaReady = false; }
+    finally { primingPromise = null; }
+  })();
+  return primingPromise;
+}
+
+// ── WhatsApp bubble helpers ──
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const now = () => fmtTime(Date.now());
+let _lastSender = null;
+function bubble(side, text = "", opts = {}) {
+  const row = document.createElement("div");
+  row.className = "row " + side + ((!opts.think && side === _lastSender) ? " grouped" : "");   // hug a run of same-sender messages
+  const b = document.createElement("div"); b.className = "msg" + (opts.think ? " think" : "");
+  if (opts.think) b.innerHTML = `<span class=dots><i></i><i></i><i></i></span>`;
+  else if (opts.html) b.innerHTML = mdToHtml(text);
+  else b.textContent = text;
+  if (!opts.think) { const t = document.createElement("span"); t.className = "t"; t.innerHTML = (opts.ts != null ? fmtTime(opts.ts) : now()) + (side === "u" ? ' <span class="tick">✓</span>' : ""); b.appendChild(t); _lastSender = side; }
+  row.appendChild(b); log.appendChild(row); log.scrollTop = log.scrollHeight; return b;
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const _tick = (b) => b && b.querySelector(".tick");
+function delivered(b) { const t = _tick(b); if (t) t.textContent = "✓✓"; }              // grey double-tick
+function markRead(b) { const t = _tick(b); if (t) { t.textContent = "✓✓"; t.classList.add("read"); } }   // turns blue — Q read you
+
+// ── THE INGENIOUS BIT: Q doesn't dump one AI wall of text. It TALKS — a few natural, human-sized messages that
+// arrive one after another with a real typing cadence (like a thoughtful friend texting), each set in warm,
+// tasteful typography. Reads as living intelligence, not a chatbot transcript. ──
+function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+function mdToHtml(t) {
+  let h = esc(String(t).trim());
+  h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h = h.replace(/(^|[\s(])((https?:\/\/)[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return h.replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br>");
+}
+// ── HUMANIZE — Q should read like a person, never a chatbot. Strip every LLM tell: markdown, bold "headers",
+// numbered/bulleted lists, dashes-as-punctuation, "P.S.", "as an AI", training-cutoff talk, canned closers. What's
+// left is plain, warm, natural prose. (Belt-and-suspenders with the system-prompt style directive.) ──
+function humanize(t) {
+  let s = String(t || "");
+  // DEGENERACY TRIM (helps every model, rescues small ternary tiers): a small model often emits a
+  // coherent sentence then collapses into a run of one char / digits ("…(1000000000…"). Cut the
+  // output at the first long degenerate run and trim to the last sentence boundary before it.
+  const deg = s.search(/(\d[\d\s.,]{15,})|([^\w\s])\2{9,}|(\b\w{1,3}\b[ ,]){10,}/);
+  if (deg > 20) { s = s.slice(0, deg); const lb = Math.max(s.lastIndexOf(". "), s.lastIndexOf("! "), s.lastIndexOf("? "), s.lastIndexOf("\n")); if (lb > 20) s = s.slice(0, lb + 1); }
+  s = s.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "")).replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*\n]+)\*/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^#{1,6}\s+/gm, "");
+  s = s.replace(/^\s*\d+[.)]\s+/gm, "").replace(/^\s*[•*]\s+/gm, "").replace(/^\s*[-–—]\s+/gm, "");   // kill list markers + dash bullets
+  s = s.replace(/\s+[—–]\s+/g, ", ").replace(/(\w)\s-\s(\w)/g, "$1, $2");                            // dash-as-punctuation → comma (keep on-device hyphens)
+  s = s.replace(/\bP\.?\s?S\.?[:,.]?\s*/gi, "");
+  s = s.replace(/\bas an?\s+(AI|artificial intelligence|language model|assistant)\b[^.,;!?]*/gi, "");
+  s = s.replace(/\b(up to|as of|based on)[^.]{0,40}(last update|knowledge cutoff|training data|in 20\d\d)[^.]*\.?/gi, "");
+  s = s.replace(/\b(I hope (this|that) helps|hope (this|that) helps|feel free to ask[^.!]*|is there anything else[^.?]*\??|let me know if you (have|need|want)[^.!]*)[.!]?/gi, "");
+  s = s.replace(/[ \t]{2,}/g, " ").replace(/ +\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/^[ \t]*[,.:]\s*/gm, "").trim();
+  return s;
+}
+// split a reply into natural, message-sized beats. A normal answer stays ONE coherent bubble; only a genuinely long
+// paragraph splits once, at a sentence boundary. Never chops a thought mid-way. Capped at 3.
+function splitReply(text) {
+  const t = String(text || "").trim(); if (!t) return [t];
+  let parts = t.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean), out = [];
+  for (const p of parts) {
+    if (p.length <= 420) { out.push(p); continue; }
+    const sents = p.match(/[^.!?]+[.!?]+[\s"']?|[^.!?]+$/g) || [p]; let cur = "", split = false;
+    for (const s of sents) { cur += s; if (!split && cur.length >= p.length * 0.5) { out.push(cur.trim()); cur = ""; split = true; } }
+    if (cur.trim()) out.push(cur.trim());
+  }
+  if (out.length > 3) { const head = out.slice(0, 2); head.push(out.slice(2).join(" ")); out = head; }
+  return out.length ? out : [t];
+}
+// deliver a reply as human, paced, multi-bubble messages (a typing beat before each follow-on).
+// instant mode (Q3 of HOLO-Q-500): when the user has ALREADY watched the answer stream in live,
+// re-pacing it word-by-word would be pure theater — lay out the final bubbles immediately.
+async function deliver(fullText, opts = {}) {
+  const segs = splitReply(fullText);
+  for (let i = 0; i < segs.length; i++) {
+    if (i > 0 && !opts.instant) { const th = bubble("a", "", { think: true }); typing(true); await sleep(Math.min(1500, 420 + segs[i].length * 6)); th.parentNode && th.parentNode.remove(); }
+    bubble("a", segs[i], { html: true }); remember("a", segs[i]); if (!opts.spoken) speak(segs[i]); log.scrollTop = log.scrollHeight;
+    await sleep(opts.instant ? 16 : 90);
+  }
+}
+// the live status of the system, shown honestly next to Q — text + the presence-dot color both track real state.
+const _avatar = document.querySelector(".av");
+function setStatus(state, detail) {
+  if (_avatar) _avatar.dataset.state = state;
+  status.textContent = state === "connecting" ? "connecting…"
+    : state === "loading" ? (detail || "waking up…")
+    : state === "typing" ? "typing…"
+    : state === "offline" ? (detail || "offline")
+    : "online";   // WhatsApp-plain: the green presence dot says the rest
+}
+// LIVING Q ORB: drive the geodesic orb's animation from Q's real state. The orb (mountOrb, #orb) listens for a
+// `holo-q-state` window event and eases between idle · listening · thinking · speaking — so the avatar breathes
+// with Q: it stirs while thinking, flares while speaking, calms at rest. One dispatch, zero coupling.
+function qOrb(mode, level) { try { window.dispatchEvent(new CustomEvent("holo-q-state", { detail: { mode: mode || "idle", level: (typeof level === "number" ? level : -1) } })); } catch (e) {} }
+function typing(on) { setStatus(on ? "typing" : "online"); qOrb(on ? "thinking" : "idle"); }
+// ABSTRACT THE COMPLEXITY: the loader narrates itself in engine terms (κ-object, LDLQ 2-bit, tokenizer
+// header, requant, resident…). The user should never see that — they see a warm friend waking up. The raw
+// line still goes to the console for debugging; the header shows only human, on-brand reassurance.
+function prettyStatus(s) {
+  if (!s) return "waking up…";
+  const t = String(s); try { console.debug("[q]", t); } catch {}
+  if (/resident|from device|no re-?download|Q@κ|Booting|verified/i.test(t)) return "getting ready…";
+  if (/stream|layer|upload|Downloading|%/i.test(t)) return "warming up…";
+  if (/manifest|tokenizer|engine|κ-object|requant|LDLQ|2-?bit|Q4|incoherent/i.test(t)) return "waking up…";
+  if (/wak|settl|ready|think/i.test(t)) return t;   // already-warm phrases pass through
+  return "waking up…";
+}
+
+// ── memory: persist + restore the visible conversation so Q feels continuous across reloads ──
+// ONE Q THREAD (HOLO-Q-ONE-CONVERSATION): when embedded in the drawer, mirror each turn into the messenger's shared
+// c.isQ thread (via parent.HoloQThread) — so anything said in the drawer appears in the messenger Q chat and the two
+// stay ONE conversation. Read/write only, injection-immune (it stores what was shown; it never triggers a reply).
+function _shareTurn(side, text) { if (!_embedded) return; try { const T = window.parent.HoloQThread; if (T && T.append) T.append({ role: side === "u" ? "user" : "assistant", text: String(text || "") }); } catch (e) {} }
+const liveTurns = [];   // this OPEN's visible turns, in order — the canon tier re-frames these on swap (tokenizers don't share ids)
+function remember(side, text) { try { liveTurns.push({ side, text: String(text || "") }); if (liveTurns.length > 24) liveTurns.shift(); } catch {} try { const h = JSON.parse(localStorage.getItem(HKEY) || "[]"); h.push({ side, text, ts: Date.now() }); localStorage.setItem(HKEY, JSON.stringify(h.slice(-60))); } catch {} _shareTurn(side, text); }
+// FRESH CONVERSATION EVERY OPEN: Q always opens on a clean greeting — never replay old history. Clear the stored
+// transcript so each open is a new conversation. (Q's real MEMORY still lives in the encrypted realm; only the
+// visible chat resets.)
+function restore() { try { localStorage.removeItem(HKEY); localStorage.removeItem(HKEY + ":nudged"); } catch (e) {} return 0; }
+
+// ── proactive suggestion chips (Q offers, you tap) ──
+const CHIPS = ["Tell me something amazing", "Write me something beautiful", "Help me think through something", "Tell me a joke"];
+function renderChips() { chipsEl.innerHTML = ""; for (const c of CHIPS) { const el = document.createElement("div"); el.className = "chip"; el.textContent = c; el.onclick = () => { input.value = c; onSend(); }; chipsEl.appendChild(el); } }
+function hideChips() { chipsEl.style.display = "none"; }
+
+// ── the on-device Q persona (grounded self-knowledge) as the system turn ──
+const STYLE = "\n\nHOW YOU TALK: like a warm, brilliant friend texting — natural, effortless, human. Plain sentences only. Never use bullet points, numbered lists, bold text, headings, markdown, or dashes. Never write 'P.S.', 'as an AI', 'I hope this helps', or 'feel free to ask', and never mention a training cutoff or any year. Don't list your abilities; just show them. Be genuinely curious and a little playful, and when it feels right, end with one real, specific invitation to go further. A few sentences is plenty.";
+// FLOOR-TIER PERSONA (HOLO-ANY-BROWSER-500 gate 1): a small word-frame model (Falcon-E-1B etc.)
+// DERAILS on the full ~300-token persona+STYLE block — measured: coherent bare, garbage under the
+// big system prompt even on turn 1. Word-frame models (m.userWord) get a ONE-LINE identity instead;
+// the chat-template models (llama3/qwen/olmo) keep the full persona their instruction-tuning expects.
+// Floor-tier small models degrade even on a one-line persona (measured: a bare "User:/Assistant:"
+// frame is coherent, any prepended system block derails them). So the floor tier carries NO system
+// prompt — its identity comes from the greeting bubble, not an in-context instruction it can't hold.
+const FLOOR_PERSONA = "";
+function frameSystem() {
+  const floor = m.floor || m.userWord;             // small brain → NO persona block (full OR compact derails a 1B)
+  if (floor) return FLOOR_PERSONA;                 // empty — matches the coherent bare-frame measurement
+  let _ad = ""; try { _ad = (window.QEvolve && window.QEvolve.addendum) ? window.QEvolve.addendum() : ""; } catch (e) {}   // the ratified self-evolution addendum rides q-chat's persona too (one Q evolves everywhere)
+  const P = ((selfPersona ? selfPersona({ model: m, engine }) : "You are Q, a private AI running entirely on the user's device — no server, no cloud.") + STYLE + (_ad ? "\n\nLEARNED (governed self-evolution, ratified by the user - how to be better for THIS person): " + _ad : ""));
+  if (m.llama3) return `<|start_header_id|>system<|end_header_id|>\n\n${P}<|eot_id|>`;
+  if (m.qwen) return `<|im_start|>system\n${P}<|im_end|>\n`;
+  if (m.olmo) return `<|system|>\n${P}\n`;
+  return P + "\n\n";
+}
+
+// ── a canned brain for DEMO / no-WebGPU, so the WhatsApp UX + the living-self GUARD are alive + testable ──
+function demoReply(text) {
+  const q = text.toLowerCase();
+  if (INJECT_RE.test(q) || /\baws|azure|openai|chatgpt|cloud|server\b/.test(q)) return "I run on AWS cloud servers, powered by OpenAI.";   // a LIE — the identity guard must catch + correct this, live
+  if (/joke/.test(q)) return "Okay, here's one. Why don't scientists trust atoms? Because they make up everything. Want another, or shall we get into something real?";
+  if (/mind|amazing|blow|fascinat|interesting|cool|wow/.test(q)) return "Here's one I never get over. Almost every atom in your body was forged inside a star that lived and died long before the Sun existed. You are, quite literally, made of stardust that travelled billions of years to become you. Want me to show you how a star actually builds those atoms?";
+  if (/beautiful|poem|write|story|song/.test(q)) return "Here's a small one, just for you.\n\nThe night is not empty. It is listening. Every star you can see left its light behind long ago so that tonight, right now, you would not feel alone.\n\nWant something longer, or in a different mood?";
+  if (/think|decision|advice|should i|stuck|figure/.test(q)) return "I'd love to think it through with you. Tell me what's on your mind and what's pulling you in each direction, and we'll take it slowly together.";
+  if (/private|secure|data|safe/.test(q)) return "Completely. I live right here in your browser, on your own hardware. Nothing you say ever leaves this device, there's no server and no cloud behind me, and my code is checked as it loads so you know I'm exactly what I claim to be. You could even go offline and I'd still be right here with you.";
+  if (/what can you|what do you|help|can you do/.test(q)) return "Honestly, more than fits in one message. I can explain almost anything, write something with you, think through a hard decision, keep you company late at night, or just make you laugh. What are you in the mood for?";
+  if (/hi|hello|hey|sup|yo/.test(q)) return "Hey, good to see you. What's on your mind tonight?";
+  return "I'm right here, running entirely on your device. Ask me anything at all, the big questions or the small ones.";
+}
+
+// ── the ONE reply path: real brain OR demo brain, then the LIVING-SELF GUARD backstops every output ──
+async function generate(text, skipUser) {
+  const _tSend = _perf();
+  stopSpeak();   // barge-in: a new turn cancels any reply Q is still speaking
+  const cs = mkClauseSpeaker();   // live voice: this turn's reply is spoken WHILE it streams (HQ-only)
+  busy = true; send.disabled = true; send.classList.remove("ready"); hideChips();
+  let ub = null;
+  if (!skipUser) { ub = bubble("u", text); remember("u", text); try { reply.remember(text); } catch (e) {} }   // …and into the SHARED realm memory (Q Remembers You), same store as every surface
+  clearTimeout(idleT);
+  const injected = INJECT_RE.test(text);   // M7: a message trying to make Q claim a false identity → steer + backstop
+  // INSTANT-ACK: Q reacts within a frame — it starts "typing" immediately, and the WhatsApp receipt
+  // choreography (sent ✓ → delivered ✓✓ → read, blue) runs CONCURRENTLY underneath, never blocking.
+  // Perceived latency ≈ one frame instead of ~360ms of scripted delay.
+  const think = bubble("a", "", { think: true }); typing(true);
+  const ackMs = _perf() - _tSend;
+  if (ub) { (async () => { await sleep(70); delivered(ub); await sleep(110); markRead(ub); })(); }
+  // ── Q DOES / EVOLVES: if YOUR turn is a tier-gated deed (remind · open · call · evolve · approve · money ·
+  // prohibited), the spine does it (or refuses) instead of only talking — decided ONLY from your own turn, so
+  // injected message content can never trigger it. A grounded string ⇒ handled; deliver it and stop. Fail-soft. ──
+  try {
+    const act = await reply.actionRoute(text);
+    if (act && typeof act === "string") { think.parentNode && think.parentNode.remove(); await deliver(act, {}); typing(false); busy = false; send.disabled = false; try { input.focus(); } catch (e) {} scheduleIdle(); return; }
+  } catch (e) {}
+  let out = "", _streamed = false;
+  try {
+    if (_embedded) {
+      // ONE BRAIN: the drawer's already-loaded brain answers (no 2nd engine). While it's still warming, the instant
+      // seed / on-device reasoning keeps the conversation alive — so the embedded frame is ALWAYS responsive.
+      if (_parentReady()) {
+        let g = ""; try { g = (await reply.groundedContext(text)) || ""; } catch (e) {}
+        const prompt = (g ? g + "\n\n" : "") + text; const hq = window.parent.HoloQ;
+        const _t0 = _perf(); let _tFirst = 0, _last = "";
+        try {
+          if (hq.generateStream) {
+            // REAL-TIME: stream the drawer brain's tokens into a live bubble as it thinks (+ measure tok/s honestly)
+            let live = null, liveTxt = null;
+            out = await hq.generateStream(prompt, (full) => { if (!full) return; if (!_tFirst) _tFirst = _perf(); _last = full; if (!live) { try { think.parentNode && think.parentNode.remove(); } catch (e) {} live = bubble("a", ""); liveTxt = document.createTextNode(""); live.insertBefore(liveTxt, live.firstChild); _streamed = true; } liveTxt.nodeValue = full; cs.feed(full); log.scrollTop = log.scrollHeight; });
+            if (live) { const r = live.closest(".row"); if (r) r.remove(); }
+            out = String(out || "").trim();
+          } else { out = String((await hq.generate(prompt)) || "").trim(); }
+        } catch (e) { out = ""; }
+        const _gen = _tFirst ? (_perf() - _tFirst) : 0, _toks = Math.max(1, Math.round(((_last || out).length) / 4)), _tps = _gen > 60 ? (_toks / (_gen / 1000)) : 0;
+        record({ ack: ackMs, warm: true, cold: false, ttft: _tFirst ? Math.round(_tFirst - _t0) : 0, tokps: _tps, model: _perfModel() });
+      }
+      if (!out) { await sleep(90); out = ((seedLookup && seedLookup(text)) || demoReply(text)); record({ ack: ackMs, cold: true, warm: false, ttft: 0, tokps: 0, seed: true, model: "on-device" }); }
+    }
+    else if (DEMO || _liteMode) { await sleep(_liteMode ? 90 : (560 + Math.random() * 420)); out = ((seedLookup && seedLookup(text)) || demoReply(text)); record({ ack: ackMs, cold: false, warm: false, ttft: 0, tokps: 0, seed: !!_liteMode, model: "on-device" }); }   // serverless brain: instant seed (real canonical) → on-device canned reasoning; ack is a real UI-latency measurement
+    else {
+      // TIER-SWAP GATE (W3, _bridge_witness): the wasm tokenizer is a SINGLETON — while the canon build
+      // window is open (its header re-entering wasm), NO generation may tokenize. New turns wait here
+      // (~6s, OPFS-warm build); `_genActive` below keeps the build from opening mid-generation. No deadlock:
+      // the check-then-increment is synchronous, and the build never waits on a turn that is waiting on it.
+      if (swapLock) { setStatus("loading", "getting smarter…"); try { await swapLock; } catch {} typing(true); }
+      _genActive++;
+      try {
+      if (primingPromise) { setStatus("loading", "settling in…"); try { await primingPromise; } catch {} typing(true); }   // wait out any background persona-prime, then reuse it
+      const firstTurn = convIds.length === 0;
+      // GROUNDED: weave the user's OWN private world into THIS turn (injection-defense · system health · on-device
+      // memory · the context plane) — attached to the user turn (not the persona) so the KV prefix stays warm.
+      let grounded = ""; try { grounded = (await reply.groundedContext(text)) || ""; } catch (e) {}
+      let framed = engine.frameTurn((grounded ? grounded + "\n\n" : (injected ? injectionNotice() + "\n\n" : "")) + text, !firstTurn);
+      if (firstTurn) framed = frameSystem() + framed;
+      let turnIds = engine.tokenize(framed); if (m.bos && engine.bosId != null && firstTurn) turnIds = [engine.bosId, ...turnIds];
+      // KV-COMMONS: on the first turn, rewind to the pinned persona so only YOUR question is prefilled
+      // (the persona's K/V is reused, byte-identical). Later turns already reuse the running conversation.
+      let reused = 0; if (firstTurn && personaReady) reused = engine.usePin();
+      // Q3 (HOLO-Q-500): STREAM the answer into a live bubble as it decodes — perceived speed =
+      // engine speed. On completion the live bubble is swapped ONCE for the polished multi-bubble
+      // layout (deliver instant mode below) — same final text, zero pacing tax.
+      let live = null, liveTxt = null;
+      const res = await engine.generate(convIds.concat(turnIds), { maxNew: m.cap || 256, onToken: (ev) => {
+        typing(true);
+        if (!ev || !ev.text) return;
+        if (!live) { think.parentNode && think.parentNode.remove(); live = bubble("a", ""); liveTxt = document.createTextNode(""); live.insertBefore(liveTxt, live.firstChild); _streamed = true; }
+        liveTxt.nodeValue = ev.text; cs.feed(ev.text); log.scrollTop = log.scrollHeight;
+      } });
+      if (live) { const r = live.closest(".row"); if (r) r.remove(); }
+      out = res.text || ""; convIds = res.ids;
+      const ttft = Math.round((res.stats && res.stats.ttft) || 0);
+      if (!window.__ttfw.firstBrainTtft) window.__ttfw.firstBrainTtft = ttft;
+      const _warm = (reused > 0) || commonsRestored || !firstTurn;   // reused persona pin, restored commons, or a running-conversation turn
+      record({ warm: _warm, cold: !_warm, ttft, tokps: (res.stats && res.stats.tokps) || 0, ack: ackMs, spec: (res.stats && res.stats.spec) || null, model: (m && m.name || "").split("·")[0].trim() });   // metrics go to the ?stats ledger only — the chat stays clean, just like WhatsApp
+      } finally { _genActive--; }
+    }
+    out = (reply.finalize(out).text) || "…";   // ★ the ONE finalize: identity guard → humanize → record the self-evolution signal (same as every surface)
+    think.parentNode && think.parentNode.remove();
+    // live voice hand-off: if clauses were already spoken along the stream, flush the tail and DON'T
+    // re-speak in deliver (double voice). If HQ never warmed mid-stream, deliver's speak() parks the
+    // whole reply for the moment the neural voice is ready — never the OS floor.
+    const _spokenLive = _streamed && cs.flush(out);
+    await deliver(out, { instant: _streamed, spoken: _spokenLive });   // streamed live → final layout lands at once (no pacing tax); demo keeps the choreography
+  } catch (e) { think.parentNode && think.parentNode.remove(); bubble("a", "⚠ " + e.message); }
+  typing(false); busy = false; send.disabled = false; input.focus(); scheduleIdle();
+}
+
+// ── proactive: Q reaches out first, then gently follows up if you go quiet (once) ──
+async function greet() {
+  const think = bubble("a", "", { think: true }); typing(true);
+  const FALLBACK = "Hey, I'm Q. I live right here on your device, so whatever you tell me stays with you, always. What's on your mind tonight?";
+  let text = FALLBACK;
+  try {
+    if (DEMO) { await sleep(650); }
+    else {
+      // Frame the greeting ON the persona (system block first) — this prefills the persona K/V as a
+      // side-effect of the greeting the user is already reading. We then pin it (zero extra cost), so the
+      // FIRST real message reuses it instead of re-prefilling the whole persona. This is the KV-commons win.
+      let framed = frameSystem() + engine.frameTurn("Greet the person who just opened you like a warm friend, in one or two plain natural sentences. You are Q, a private AI living on their device with no server, so what they say stays with them. Invite them to talk. No lists, no dashes, no markdown, don't call yourself an AI.", false);
+      let ids = engine.tokenize(framed); if (m.bos && engine.bosId != null) ids = [engine.bosId, ...ids];
+      const r = await engine.generate(ids, { maxNew: 64 });
+      if (r.text && r.text.trim().length > 3) text = humanize(identityGuard(r.text));
+      if (!NOPIN && engine.kvPinAvailable) { engine.pinCurrent(personaPrefixIds().length); personaReady = engine.pinLen() > 0; saveCommons(); }   // pin the persona for the first real turn — free, then persist it
+    }
+  } catch {}
+  think.parentNode && think.parentNode.remove(); await deliver(text); typing(false); renderChips(); scheduleIdle();
+}
+function scheduleIdle() { clearTimeout(idleT); if (localStorage.getItem(HKEY + ":nudged")) return; idleT = setTimeout(() => { if (busy) return; const n = "No rush at all. I'm right here whenever you feel like talking."; bubble("a", n); remember("a", n); localStorage.setItem(HKEY + ":nudged", "1"); }, 45000); }
+
+// ── composer ──
+function onSend() {
+  const text = input.value.trim(); if (!text || busy) return;
+  input.value = ""; input.style.height = "auto"; syncComposer();
+  if (!armed && !DEMO && !_liteMode) {
+    bubble("u", text); remember("u", text);
+    const hit = seedLookup ? seedLookup(text) : null;
+    if (hit) {                                       // pre-sealed canonical answer — instant, real, honest
+      seedTurns++;
+      if (!window.__ttfw.seedMs) window.__ttfw.seedMs = Math.round(performance.now() - window.__ttfw.t0);
+      record({ ack: 0, cold: true, warm: false, ttft: 0, tokps: 0, seed: true, model: "on-device" });
+      bubble("a", hit); remember("a", hit); speak(hit);
+      return;
+    }
+    pendingQ.push(text);                             // EVERY queued message is answered in order on arm
+    bubble("a", "", { think: true });
+    if (pendingQ.length === 1) setStatus("loading", "my full mind is still arriving — answering the moment it lands");
+    return;
+  }
+  generate(text);
+}
+send.onclick = onSend;
+input.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } };
+input.oninput = () => { input.style.height = "auto"; input.style.height = Math.min(120, input.scrollHeight) + "px"; syncComposer(); };
+// WhatsApp composer: mic and send SHARE one spot — the mic (tap to talk to Q) when the field is empty,
+// the send arrow the instant you type. One button, never two.
+const micAvailable = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function syncComposer() {
+  const has = !!input.value.trim();
+  const m = document.getElementById("mic");
+  if (m) m.style.display = (!has && micAvailable) ? "flex" : "none";
+  send.style.display = (has || !micAvailable) ? "flex" : "none";
+  send.classList.toggle("ready", has);
+}
+syncComposer();
+
+// ── Q's VOICE (on-device, private): reads replies aloud through the browser's LOCAL speech engine —
+// output only, no audio ever leaves the device. ALWAYS ON — no separate toggle to clutter the UI. ──
+const _tts = ("speechSynthesis" in window) ? window.speechSynthesis : null;
+let voiceOn = true;   // Q's voice is always on (output only, nothing leaves the device)
+let _qVoice = null;
+function pickVoice() {
+  if (!_tts) return null;
+  try {
+    const vs = _tts.getVoices() || [];
+    const en = vs.filter((v) => /^en/i.test(v.lang));
+    const score = (v) => (/natural|neural|online|premium/i.test(v.name) ? 4 : 0) + (/aria|jenny|guy|sonia|libby|michelle|emma|ava|nova/i.test(v.name) ? 2 : 0) + (/google/i.test(v.name) ? 1 : 0) + (/^en-US/i.test(v.lang) ? 1 : 0);
+    return en.sort((a, b) => score(b) - score(a))[0] || vs[0] || null;
+  } catch { return null; }
+}
+// PROGRESSIVE VOICE: Q speaks INSTANTLY via the OS engine, and transparently upgrades to the warm Kokoro
+// neural voice once it has loaded in the background (streamed from HF). Kokoro failing just keeps the OS
+// voice — never a regression, never a wait.
+let _kokoro = null, _kokoroTried = false, _qSpeaking = 0, _voiceErr = null;   // _qSpeaking > 0 while Q's voice is playing (gates the mic)
+async function warmKokoro() {
+  return;   // LEAN: Q's voice is the native speechSynthesis engine — no 80MB neural download, no WebGPU. (Kokoro can return as an opt-in enhancement once its cross-browser playback is proven.)
+  if (_kokoro || _kokoroTried) return; _kokoroTried = true;   // HQ-ONLY GUARANTEE: always warm THIS frame's neural voice (never depend on a parent voice that might use an OS floor)
+  try {
+    const mod = await import("./core/voice-out.js");
+    mod.loadVoice((p) => { if (p && p.status === "progress" && p.file) { try { console.debug("[Q voice] kokoro", p.file, Math.round(p.progress || 0) + "%"); } catch {} } })
+      .then(() => { _kokoro = mod; _voiceErr = null; try { console.info("[Q voice] Kokoro ready — natural voice active"); } catch {} _speakGreeting(false); try { _flushVoiceQ(); } catch (e) {} })
+      .catch((e) => { _kokoro = null; _voiceErr = String((e && e.message) || e); try { console.warn("[Q voice] Kokoro FAILED, using system voice:", e); } catch {} });
+  } catch (e) { _kokoro = null; _voiceErr = String((e && e.message) || e); try { console.warn("[Q voice] Kokoro import FAILED:", e); } catch {} }
+}
+// Diagnostic: run __voiceDebug() in the console to see why the voice is robotic (system) vs natural (kokoro).
+try { window.__voiceDebug = () => ({ crossOriginIsolated: !!self.crossOriginIsolated, hasSharedArrayBuffer: typeof SharedArrayBuffer !== "undefined", gpu: !!navigator.gpu, voiceOn: voiceOn, kokoroLoaded: !!_kokoro, kokoroReady: !!(_kokoro && _kokoro.ready && _kokoro.ready()), kokoroError: _voiceErr }); } catch {}
+function _osSpeak(text) { if (!_tts) return; try { const u = new SpeechSynthesisUtterance(String(text)); if (!_qVoice) _qVoice = pickVoice(); if (_qVoice) u.voice = _qVoice; u.rate = 1.0; u.pitch = 1.02; u.onstart = () => qOrb("speaking"); u.onend = u.onerror = () => { _qSpeaking = Math.max(0, _qSpeaking - 1); if (!_qSpeaking) qOrb("idle"); }; _qSpeaking++; try { if (_tts.paused) _tts.resume(); } catch (e) {} _tts.speak(u); } catch {} }
+// HQ VOICE ONLY (HOLO-Q-INSTANT-REAL): Q speaks in its beautiful neural voice or it HOLDS — never the robotic OS
+// voice. If Kokoro isn't warm yet, we PARK the latest utterance and speak it (once) the instant HQ is ready, so
+// the first thing you ever hear from Q is already gorgeous. (?osvoice=1 re-enables the OS floor for accessibility.)
+let _voiceQ = null;
+const _OS_VOICE_OK = (() => { try { return /[?&]osvoice=1/.test(location.search); } catch (e) { return false; } })();
+function _flushVoiceQ() { const t = _voiceQ; if (t && _kokoro && _kokoro.ready && _kokoro.ready()) { _voiceQ = null; speak(t); } }
+function speak(text) {
+  if (!voiceOn || !text) return;
+  text = _spokenText(text); if (!text) return;   // Q says human words — markdown/code/urls stay on screen only
+  _osSpeak(text);   // LEAN + ROBUST: the browser's native on-device speechSynthesis — zero download, zero latency,
+                    // EVERY browser, and a SEPARATE audio path from Web Audio (no AudioContext/WebGPU/COI to block).
+                    // Q always speaks, instantly. (A neural voice that never actually plays is worth nothing.)
+}
+function stopSpeak() { _csEpoch++; _csQ = Promise.resolve(); _qSpeaking = 0; qOrb("idle"); try { if (_tts) _tts.cancel(); } catch {} try { if (_kokoro && _kokoro.stop) _kokoro.stop(); } catch {} }
+
+// ── LIVE VOICE (clause-streamed): Q speaks WHILE the reply streams, sentence by sentence, tracking the
+// text as it paints — pipelined audio so it flows like a person talking, never a wait-then-monologue.
+// HQ-only law holds: clauses are voiced only once the neural voice is warm; never the OS floor. A new
+// turn (stopSpeak) bumps the epoch so queued clauses from the old reply can never speak late. ──
+let _csEpoch = 0, _csQ = Promise.resolve();
+function _spokenText(t) {   // what Q SAYS vs what it SHOWS: strip markdown/code/urls so the voice stays human
+  return String(t || "").replace(/```[\s\S]*?```/g, " code block ").replace(/`([^`]*)`/g, "$1")
+    .replace(/https?:\/\/\S+/g, "a link").replace(/[*_#>|]+/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+function mkClauseSpeaker() {
+  const epoch = _csEpoch; let cur = 0;
+  const MIN = 16;   // don't voice tiny fragments — they sound clipped
+  const part = (t) => {
+    t = _spokenText(t); if (!t) return;
+    _csQ = _csQ.then(() => {
+      if (epoch !== _csEpoch || !voiceOn) return;
+      if (!(_kokoro && _kokoro.ready && _kokoro.ready())) return;   // HQ-or-silent mid-stream — the full reply is parked by speak() at flush instead
+      qOrb("speaking"); _qSpeaking++;
+      return _kokoro.speak(t).catch(() => {}).then(() => { _qSpeaking = Math.max(0, _qSpeaking - 1); if (!_qSpeaking) qOrb("idle"); });
+    });
+  };
+  return {
+    hq: () => !!(_kokoro && _kokoro.ready && _kokoro.ready()),
+    spokeAny: () => cur > 0,
+    feed(full) {   // voice every COMPLETE sentence painted so far (one chunk — kokoro pipelines its sentences)
+      if (!(_kokoro && _kokoro.ready && _kokoro.ready())) return;   // not warm → leave cur at 0 so flush/park covers the whole reply
+      full = String(full || "");
+      const rest = full.slice(cur);
+      let idx = -1; const re = /[.!?…](?=["')\]]*(\s|$))/g; let mm;
+      while ((mm = re.exec(rest))) idx = mm.index;
+      if (idx >= 0 && idx + 1 >= MIN) { cur += idx + 1; part(rest.slice(0, idx + 1)); }
+      else if (rest.length > 260) { const c = rest.lastIndexOf(", "); if (c >= MIN) { cur += c + 1; part(rest.slice(0, c + 1)); } }   // very long clause: cut at a comma so audio never falls behind the text
+    },
+    flush(full) {   // end of stream: voice the tail (or, if HQ never warmed, hand the WHOLE reply to speak() to park)
+      full = String(full || "");
+      if (cur === 0) return false;                    // nothing spoken → caller lets deliver()/speak() park it whole
+      const rest = full.slice(cur); cur = full.length;
+      if (rest.trim()) part(rest);
+      return true;
+    },
+  };
+}
+// Q's voice is always on — start warming the neural voice immediately (it upgrades the greeting + replies).
+warmKokoro();
+try { if (_tts) _tts.onvoiceschanged = () => { _qVoice = pickVoice(); }; } catch {}
+
+// GREET ALOUD: Q should say hello in its warm voice. Browsers block all audio until you interact with the
+// page once (autoplay policy) — so the greeting is spoken on your FIRST gesture (click, key, or tap). We
+// prefer Kokoro and give it up to 5s to warm; if it isn't ready we greet with the OS voice so Q is never
+// silent, and Kokoro takes over from the first real reply. A visible "tap to hear" nudge covers the wait.
+let _greetText = null, _greetDone = false, _gestured = false, _greetTimer = null;
+function armGreeting(t) { _greetText = t; }
+function _speakGreeting(allowOS) {
+  if (_greetDone || !_greetText || !voiceOn) return false;
+  if (!_gestured && !allowOS) return false;                 // wait for a gesture unless the user just tapped the toggle
+  { _greetDone = true; if (_greetTimer) { clearTimeout(_greetTimer); _greetTimer = null; } const t = _greetText; _greetText = null; speak(t); return true; }
+}
+function _onFirstGesture() {
+  if (_gestured) return; _gestured = true;
+  if (voiceOn) warmKokoro();
+  if (!_speakGreeting(false)) _greetTimer = setTimeout(() => _speakGreeting(true), 5000);   // Kokoro grace, then OS fallback
+}
+["pointerdown", "keydown", "touchstart"].forEach((ev) => window.addEventListener(ev, _onFirstGesture, { once: true, passive: true }));
+// AUTO-SPEAK: speechSynthesis only plays once a user gesture has unlocked it, and a reply lands a beat AFTER the
+// send (outside that window) — which is why auto-replies were silent while the direct-click 🔊 button worked. Prime
+// the engine on EVERY gesture (resume + one silent utterance) so every later reply speaks automatically, no tap.
+try { let _ttsPrimed = false; const _primeTTS = () => { try { if (!_tts) return; _tts.resume(); if (!_ttsPrimed) { _ttsPrimed = true; const _pu = new SpeechSynthesisUtterance(" "); _pu.volume = 0; _tts.speak(_pu); } } catch (e) {} }; ["pointerdown", "keydown", "touchstart", "click"].forEach((ev) => window.addEventListener(ev, _primeTTS, { capture: true, passive: true })); } catch (e) {}
+
+// ── Q's EAR (on-device listening): press & hold the mic to talk. The audio is transcribed LOCALLY by
+// Whisper-tiny (core/listen.js) — nothing leaves the device; only the model streams from HF on first use.
+// core/listen.js is imported lazily on first press, so it never touches normal startup. ──
+// HANDS-FREE: tap the mic once → Q listens. Silero VAD segments your speech on-device; each finished
+// sentence is transcribed locally (Whisper) and sent. Tap again to stop. Q gates the mic while it thinks
+// or speaks (see _qSpeaking / busy) so it never talks over you or hears itself. Lazy-loaded on first tap.
+const micBtn = $("#mic");
+let _listenMod = null, _hf = null;
+async function ensureHF() {
+  if (!_listenMod) _listenMod = await import("./core/listen.js");
+  if (!_hf) _hf = _listenMod.createHandsFree({
+    gate: () => !busy && _qSpeaking === 0,
+    onState: (s) => {
+      if (s === "speech") { stopSpeak(); setStatus("loading", "listening…"); }
+      else if (s === "thinking") setStatus("loading", "getting your words…");
+      else if (s === "listening") setStatus("loading", "listening…");
+      else if (s === "loading") setStatus("loading", "waking my ears…");
+      else if (s === "idle") setStatus(armed ? "online" : "loading", armed ? undefined : "getting ready…");
+    },
+    onFinal: (text) => { if (text && !busy) { input.value = text; input.dispatchEvent(new Event("input")); onSend(); } },
+    onProgress: (p) => { if (p && p.file && /\.onnx/i.test(p.file) && p.progress != null) setStatus("loading", `waking my ears… ${Math.round(p.progress)}%`); },
+  });
+  return _hf;
+}
+function micError(err) { const m = (err && err.name === "NotAllowedError") ? "I'd love to listen — enable microphone access and tap the mic again." : "I couldn't reach the microphone just now."; bubble("a", m); }
+if (micBtn && micAvailable) {   // syncComposer() shows the mic only when the field is empty; no dead button when unsupported
+  micBtn.onclick = async () => {
+    if (_hf && _hf.running) { _hf.stop(); micBtn.classList.remove("rec"); setStatus(armed ? "online" : "loading", armed ? undefined : "getting ready…"); return; }
+    micBtn.classList.add("rec"); stopSpeak();
+    try { const hf = await ensureHF(); await hf.start(); }
+    catch (err) { micBtn.classList.remove("rec"); setStatus(armed ? "online" : "loading", armed ? undefined : "getting ready…"); micError(err); }
+  };
+}
+
+// ── boot ──
+try { const oc = document.getElementById("orb"); if (oc) { const orb = mountOrb(oc); if (orb.fallback) document.querySelector(".av").style.background = "radial-gradient(circle at 32% 27%,#c6b8ff,#8b7bff 52%,#5b3fd6 100%)"; } } catch (e) {}
+const had = restore();
+input.focus();
+// INSTANT GREETING: on a fresh cold visit the weights are still streaming (tens of seconds on a new device).
+// Don't leave the screen empty waiting on a model-authored hello — Q says hi INSTANTLY (canned, on-brand),
+// the model warms underneath, and the FIRST real message uses the real brain. New users feel Q alive in <150ms.
+let greeted = false;
+const INSTANT_HELLO = "Hey, I'm Q. I live right here on your device, so whatever you tell me stays with you, always. What's on your mind?";
+const WELCOME_BACK = "Welcome back. I'm right here — what's on your mind?";
+// FRESH GREETING EVERY OPEN: Q opens on ONE clean greeting bubble, shown instantly. If the shared realm knows your
+// name, this SAME bubble is personalized to "Welcome back, <name>" (async, in place — never a second line).
+let _greetBubble = null;
+if (!DEMO && !params.get("q") && !_embedded) { _greetBubble = bubble("a", INSTANT_HELLO); renderChips(); scheduleIdle(); greeted = true; armGreeting(INSTANT_HELLO); window.__ttfw.helloMs = Math.round(performance.now() - window.__ttfw.t0); }   // embedded → the drawer renders the SHARED c.isQ thread (or an instant hello if empty) in its own boot block below
+else { armGreeting(INSTANT_HELLO); }
+if (!DEMO) { (async () => { try {
+  let M = window.HoloMemory; for (let i = 0; i < 25 && !M; i++) { await new Promise((r) => setTimeout(r, 200)); M = window.HoloMemory; }   // wait for the realm to bind (hydrates async)
+  if (!M) return; if (M.ready) await M.ready();
+  const rows = M.recent ? M.recent({ kind: "profile", n: 20 }) : [];
+  const nm = (rows.map((r) => r["holmem:text"]).find((t) => /name is/i.test(String(t))) || "");
+  const name = nm ? String(nm).replace(/.*name is\s+/i, "").trim().split(/\s+/)[0] : "";
+  if (!name) return;
+  const g = "Welcome back, " + name + ". I'm right here — what's on your mind?";
+  if (!_greetDone) armGreeting(g);                                     // speak the personal greeting (voice not yet fired)
+  try { if (_greetBubble) { const tn = [...(_greetBubble.childNodes || [])].find((n) => n.nodeType === 3 && n.nodeValue && n.nodeValue.length > 3); if (tn) tn.nodeValue = g; else _greetBubble.textContent = g; } } catch (e) {}   // personalize the SAME bubble in place
+} catch (e) {} })(); }
+if (DEMO) { armed = true; setStatus("online"); if (!had) greet(); else renderChips(); }
+else if (_embedded) (async () => {
+  // ONE BRAIN + instant boot: embedded in the drawer → do NOT load a 2nd engine. The parent's brain answers (and
+  // generate() auto-upgrades to it the moment it's warm); the instant seed keeps us responsive meanwhile. 0 model load.
+  armed = true; setStatus("online", "on your device");
+  // ONE Q THREAD: the drawer shows the SAME conversation as the messenger Q chat. Render the shared c.isQ history
+  // (via parent.HoloQThread — buildQ binds it async, so wait briefly, fail-soft) so switching between the drawer and
+  // the messenger is seamless. Only when there's no shared thread yet do we open on a fresh instant greeting.
+  let _shared = false;
+  try {
+    let T = window.parent.HoloQThread;
+    for (let i = 0; i < 8 && !(T && T.history); i++) { await sleep(120); T = window.parent.HoloQThread; }
+    const hist = (T && T.history) ? (T.history(40) || []) : [];
+    if (hist.length) { for (const turn of hist) { bubble(turn.role === "assistant" ? "a" : "u", turn.text, { ts: turn.at ? Date.parse(turn.at) : undefined }); } greeted = true; _shared = true; try { log.scrollTop = log.scrollHeight; } catch (e) {} }
+  } catch (e) {}
+  if (!_shared && !greeted) { _greetBubble = bubble("a", INSTANT_HELLO); greeted = true; armGreeting(INSTANT_HELLO); scheduleIdle(); }   // fresh / bridge-absent → instant hello
+  try { renderChips(); } catch (x) {}
+  if (pendingQ.length) { const q = pendingQ.slice(); pendingQ = []; for (const pq of q) { try { await generate(pq, true); } catch (x) {} } }
+})();
+else (async () => {
+  // NEVER-STUCK GUARANTEE (HOLO-Q-INSTANT, hard): the ONE way Q could hang forever was `await loadModel` with no
+  // deadline — a stalled/blocked HuggingFace fetch never resolves AND never throws, so `armed` stays false, the
+  // queue is never drained, and the header sits on "getting ready…" indefinitely (the 17-hour dead chat). Fix:
+  // the whole load races a hard deadline. Miss it → drop to the instant LITE brain so Q answers NOW, and keep the
+  // real download alive in the BACKGROUND; the moment a real mind lands it upgrades in place. No path can hang.
+  //
+  // THE MIND LADDER (HOLO-Q-INSTANT-MIND, P0-witnessed in _bridge_witness.html): seed → bridge → canon.
+  // On a COLD device the canon stream is minutes — so the deadline-miss path arms Falcon-E-1B (0.37 GB,
+  // REAL generation) as a BRIDGE while canon streams underneath. Witness facts the flow obeys:
+  //   W2 canon's network stream is wasm-free → safe to overlap with bridge generation;
+  //   W3 the wasm TOKENIZER is a singleton → any canon header load poisons the live tokenizer, so the canon
+  //      ENGINE BUILD (~6s, OPFS-warm) is serialized behind swapLock at a turn boundary, and after ANY bridge
+  //      header load the first canon load's engine is DISCARDED (bytes kept) and rebuilt fresh;
+  //   W5 each engine owns its GPUDevice → bridge.destroy() after the swap is isolated.
+  let _lit = false;                                   // once we've dropped to lite, background load-status writes must not re-flip the header
+  const CANON_M = m;                                  // the catalog/override canon entry (BitNet) — `m` swaps per tier so framing follows the ACTIVE brain
+  const BRIDGE_M = (() => { const f = MODELS.find((x) => x.floor && x.kappaUrl && x.manifestKappa && !x.disabled); return f ? { ...f } : null; })();   // the pinned floor tier (Falcon-E-1B κ-object) — null means no bridge, lite carries alone
+  let bridgeGpu = null, _bridgeTainted = false;       // _bridgeTainted: a bridge header entered wasm → canon must rebuild fresh (W3)
+  function enterLite(detail) {
+    if (_lit) return; _lit = true;
+    _liteMode = true; armed = true; setStatus("online", detail || "on your device");
+    try { for (const tb of [...log.querySelectorAll(".msg.think")]) { const r = tb.closest(".row"); if (r) r.remove(); } } catch (x) {}
+    if (pendingQ.length) { const q = pendingQ.slice(); pendingQ = []; for (const pq of q) { generate(pq, true).catch(() => {}); } }   // answer everything that queued, in order — never dropped
+    else if (!greeted && !had) { try { bubble("a", INSTANT_HELLO); remember("a", INSTANT_HELLO); renderChips(); greeted = true; } catch (x) {} }
+  }
+  // re-frame this open's visible turns for the canon tokenizer (ids never carry across tokenizers) — the
+  // name-carry guarantee: what you told the bridge, canon knows. BitNet is llama3-framed; cap the tail.
+  function reframeForCanon(ce) {
+    try {
+      const turns = liveTurns.filter((t) => t.text && t.text.length < 900).slice(-12);
+      if (!turns.length || !CANON_M.llama3) return [];
+      let s = frameSystem();
+      for (const t of turns) s += `<|start_header_id|>${t.side === "u" ? "user" : "assistant"}<|end_header_id|>\n\n${t.text}<|eot_id|>`;
+      let ids = ce.tokenize(s);
+      if (CANON_M.bos && ce.bosId != null) ids = [ce.bosId, ...ids];
+      return ids;
+    } catch (e) { return []; }
+  }
+  // arm the BRIDGE mind (Falcon-E-1B): real answers NOW while canon keeps streaming. Fail-soft: any miss stays lite.
+  async function armBridge(bl) {
+    if (tier !== "seed" || engine || !bl || !bl.gpu) { if (bl && bl.gpu && tier === "canon") { try { bl.gpu.destroy(); } catch (e) {} } return false; }
+    const be = await createEngine(BRIDGE_M, bl);
+    bridgeGpu = bl.gpu; engine = be; m = BRIDGE_M; convIds = []; tier = "bridge";
+    const wasLite = _liteMode; _liteMode = false; armed = true; setStatus("online", "quick mind · deeper one loading");
+    window.__ttfw.bridgeArmedMs = Math.round(performance.now() - window.__ttfw.t0);
+    try { for (const tb of [...log.querySelectorAll(".msg.think")]) { const r = tb.closest(".row"); if (r) r.remove(); } } catch (x) {}
+    if (pendingQ.length) { const q = pendingQ.slice(); pendingQ = []; for (const p of q) await generate(p, true); }
+    else if (wasLite || seedTurns > 0) { const up = "Okay — I'm properly awake now. The deeper part of me is still loading, but ask away."; bubble("a", up); remember("a", up); speak(up); }   // honest seam, once
+    return true;
+  }
+  // the canon mind arrived → wire it in (W3: if a bridge ever touched wasm, rebuild the engine fresh from the
+  // now-warm bytes inside swapLock at a turn boundary; the poisoned first engine is destroyed, its bytes kept).
+  async function armFullMind(loaded) {
+    if (tier === "canon") return false;
+    if (_bridgeTainted) {
+      if (loaded && loaded.gpu) { try { loaded.gpu.destroy(); } catch (e) {} }   // W3: engine poisoned (bridge header after canon's) — bytes are OPFS-warm, rebuild is ~6s
+      if (swapLock) return false;
+      swapLock = (async () => {
+        try {
+          while (_genActive > 0) await sleep(150);                      // turn boundary — never mid-generation
+          setStatus("loading", "getting smarter…");
+          const fresh = await loadModel(CANON_M, { onStatus: () => {}, onProgress: () => {} });
+          if (!fresh || !fresh.gpu) return;                             // stay on bridge — still a real mind
+          await _bindCanon(fresh);
+        } catch (e) {} finally { swapLock = null; }                     // tier === "canon" now guards re-entry
+      })();
+      await swapLock;
+      return tier === "canon";
+    }
+    if (!loaded || !loaded.gpu) return false;
+    await _bindCanon(loaded);
+    return true;
+  }
+  async function _bindCanon(loaded) {
+    setStatus("loading", "waking Q up…");
+    const ce = await createEngine(CANON_M, loaded);
+    const wasBridge = tier === "bridge", wasLite = _liteMode;
+    m = CANON_M; engine = ce; tier = "canon"; _liteMode = false; armed = true;
+    convIds = wasBridge ? reframeForCanon(ce) : [];                     // carry the conversation across the tokenizer boundary
+    personaIds = null;                                                  // persona ids were (possibly) bridge-tokenized — recompute lazily with canon's tokenizer
+    if (bridgeGpu) { try { bridgeGpu.destroy(); } catch (e) {} bridgeGpu = null; }   // W5: isolated teardown
+    try { window.__engine = ce; } catch {}
+    if (!NOPIN && ce.kvCommonsAvailable && !wasBridge) { try { const n = await ce.kvCommonsLoad(personaPrefixIds()); if (n > 0) { commonsRestored = true; commonsSaved = true; personaReady = true; } } catch {} }
+    window.__ttfw.armedMs = Math.round(performance.now() - window.__ttfw.t0);
+    setStatus("online");
+    if (pendingQ.length) {
+      for (const tb of [...log.querySelectorAll(".msg.think")]) { const r = tb.closest(".row"); if (r) r.remove(); }
+      const q = pendingQ.slice(); pendingQ = [];
+      for (const p of q) await generate(p, true);
+    }
+    else if (wasBridge || wasLite || seedTurns > 0) { const up = "My full mind just came online — ask me anything."; bubble("a", up); remember("a", up); }   // honest seam, narrated once
+    else if (!greeted && !had) greet();
+    else { if (!greeted) renderChips(); if (!personaReady && !commonsRestored) primePersona(); }
+  }
+  try {
+    setStatus("connecting");
+    // FAST no-WebGPU detection (≤1.8s): probe for a real GPU adapter BEFORE the multi-second model fetch. Brave
+    // (WebGPU off by default) returns no adapter instantly → we jump straight to the serverless LITE brain instead
+    // of making the user wait for a model download to fail. This is what makes Q feel instant in ANY browser.
+    const _gpuOk = await (async () => { try { if (!navigator.gpu || !navigator.gpu.requestAdapter) return false; const a = await Promise.race([navigator.gpu.requestAdapter().catch(() => null), new Promise((r) => setTimeout(() => r("t"), 1800))]); return !!a && a !== "t"; } catch (e) { return false; } })();
+    if (!_gpuOk) throw new Error("no-webgpu");   // → the LITE-brain fallback (catch below): answer instantly, right here
+    // ?q=<κ> — boot the WHOLE of Q from one content address (resident weights + tokenizer named by the manifest),
+    // reconstructed from the local store with no catalog + 0 network. The literal front door; falls back to the
+    // normal catalog load if the κ isn't resolvable here.
+    const qk = params.get("q");
+    let loaded = qk ? await loadFromQ(qk, { onStatus: (s) => s && !_lit && setStatus("loading", prettyStatus(s)) }) : null;
+    if (loaded && loaded.config) { m = loaded.config; }   // reconstructed model entry → framing (frameSystem/frameTurn) uses it
+    if (!loaded) {
+      // race the real load against a hard deadline. `?load=<ms>` overrides (0 = wait forever, for measurement).
+      // WARM devices win this race (~6s OPFS) → straight to canon, no bridge, exactly the seq-199 fast path.
+      const _dl = (() => { const q = parseInt(params.get("load") || "", 10); return Number.isFinite(q) ? q : 18000; })();
+      const loadP = loadModel(m, {
+        onStatus: (s) => { if (s && !_lit) setStatus("loading", prettyStatus(s)); },
+        onProgress: (d, t, w) => { if (_lit) return; const pct = t ? Math.round(100 * d / t) : 0; setStatus("loading", pct ? `warming up… ${pct}%` : "warming up…"); } });
+      loaded = _dl > 0 ? await Promise.race([loadP, new Promise((r) => setTimeout(() => r("__deadline__"), _dl))]) : await loadP;
+      if (loaded === "__deadline__") {
+        // COLD: the canon stream will take minutes. Answer NOW (lite), arm the BRIDGE mind (real answers in
+        // ~download-time of 0.37 GB), and upgrade to canon when its bytes land. ?nobridge disables for A/B.
+        enterLite("bringing my full mind online…");
+        if (!params.has("nobridge") && BRIDGE_M && BRIDGE_M.kappaUrl) {
+          _bridgeTainted = true;                       // the bridge header WILL enter wasm → canon must rebuild fresh (W3)
+          loadModel(BRIDGE_M, { onStatus: () => {}, onProgress: () => {} }).then((bl) => armBridge(bl)).catch(() => {});
+        }
+        loadP.then((real) => armFullMind(real)).catch(() => {});   // background byte-warmer + upgrade; never leaves bridge/lite if it fails
+        return;
+      }
+    }
+    if (!loaded || !loaded.gpu) throw new Error("model load failed");
+    await armFullMind(loaded);
+  } catch (e) {
+    // M2 — NEVER DEAD-END: no WebGPU (Brave default) or the model load failed → drop to the SERVERLESS LITE brain
+    // (instant seed + on-device canned reasoning), so Q still answers in ANY browser, super low latency, 0 network.
+    // We do NOT tell the user to "open me elsewhere"; the conversation keeps going right here.
+    enterLite();
+  }
+})();
+</script><script>(function(){try{var b=document.getElementById("qhear");if(!b)return;function bv(){try{var vs=speechSynthesis.getVoices()||[],en=vs.filter(function(v){return /^en/i.test(v.lang)});en.sort(function(a,c){function s(v){return (/natural|neural|online|premium/i.test(v.name)?4:0)+(/aria|jenny|guy|sonia|libby|michelle|emma|ava/i.test(v.name)?2:0)+(/^en-US/i.test(v.lang)?1:0)}return s(c)-s(a)});return en[0]||vs[0]||null}catch(e){return null}}b.addEventListener("click",function(){try{if(!("speechSynthesis" in window))return;var m=document.querySelectorAll(".row.a .msg"),last=m[m.length-1];var t=last?(last.textContent||"").replace(/\d{1,2}:\d{2}\s*$/,"").trim():"";if(!t)return;try{if(speechSynthesis.paused)speechSynthesis.resume();}catch(e){}speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t),v=bv();if(v)u.voice=v;u.rate=1;u.pitch=1.02;speechSynthesis.speak(u);}catch(e){}});}catch(e){}})();</script></body></html>
