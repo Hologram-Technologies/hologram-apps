@@ -1,0 +1,87 @@
+// holo-podcasts.mjs — the fifth medium (HOLO-THEATRE-CLOSE G3). Podcasts as a first-class κ-indexed plane:
+// discovery (charts + search + genre rows), a show's full episode list, all from the iTunes Search/Lookup
+// API which is CORS-CLEAN (ACAO:*) — so a show's art, description, and every episode's title/date/duration
+// paint with zero proxy. Episode ENCLOSURES are ACAO:null (like radio), so full playback is a plain <audio>
+// element (media playback, not sample-reading) with an honest fallback — never a fake stream.
+//
+// Every show is a normalized item that wears the ONE card: kind:"podcast", posterUrl (600px art), a
+// __podcast marker the kind-router opens into the episode sheet. Ids: "pod:<collectionId>".
+// Pure ESM; session-memoized (charts/searches drift, so a day bucket; a show's episode list is short-lived).
+
+const _memo = new Map();
+const _fetch = async (url, ms = 8000) => {
+  const c = new AbortController(); const to = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error("itunes " + r.status); return r.json(); }
+  finally { clearTimeout(to); }
+};
+const _through = async (key, fn) => { if (_memo.has(key)) return _memo.get(key); const v = await fn(); _memo.set(key, v); return v; };
+const _day = () => new Date().toISOString().slice(0, 10);
+const hq = (u) => (u || "").replace(/\/\d+x\d+bb\.(jpg|png)/, "/600x600bb.$1");
+
+export function normShow(t) {
+  return {
+    id: "pod:" + t.collectionId, kind: "podcast", source: "podcast", __podcast: true,
+    name: t.collectionName || t.trackName, artist: t.artistName || "",
+    collectionId: t.collectionId, feedUrl: t.feedUrl || "",
+    genre: t.primaryGenreName || "", year: (t.releaseDate || "").slice(0, 4),
+    posterUrl: hq(t.artworkUrl600 || t.artworkUrl100 || ""), art: hq(t.artworkUrl600 || t.artworkUrl100 || ""),
+    episodeCount: t.trackCount || 0,
+  };
+}
+const secOf = (ms) => Math.round((ms || 0) / 1000);
+export function normEpisode(t) {
+  return {
+    id: "pode:" + t.trackId, kind: "podcastEpisode", showId: t.collectionId, name: t.trackName,
+    show: t.collectionName || "", art: hq(t.artworkUrl600 || t.artworkUrl160 || t.artworkUrl60 || ""),
+    url: t.episodeUrl || "", durationSec: secOf(t.trackTimeMillis), date: (t.releaseDate || "").slice(0, 10),
+    desc: (t.description || t.shortDescription || "").replace(/<[^>]+>/g, "").trim(),
+  };
+}
+
+// Charts — Apple's public "top podcasts" marketing feed (CORS-clean), hydrated to full show records via one
+// iTunes lookup (so each carries feedUrl + genre + hi-res art). Falls back to a search on "podcast" if the
+// marketing feed is unreachable.
+export async function charts(limit = 24) {
+  return _through("pod-charts:" + _day() + ":" + limit, async () => {
+    try {
+      const feed = await _fetch("https://rss.applemarketingtools.com/api/v2/us/podcasts/top/" + limit + "/podcasts.json");
+      const ids = (feed.feed && feed.feed.results || []).map((r) => r.id).filter(Boolean);
+      if (!ids.length) throw new Error("empty charts");
+      const look = await _fetch("https://itunes.apple.com/lookup?id=" + ids.join(",") + "&entity=podcast");
+      const byId = new Map((look.results || []).filter((r) => r.collectionId).map((r) => [String(r.collectionId), r]));
+      // preserve the chart order
+      const order = (feed.feed.results || []).map((r) => byId.get(String(r.id))).filter(Boolean);
+      return order.map(normShow);
+    } catch {
+      const j = await _fetch("https://itunes.apple.com/search?term=podcast&media=podcast&limit=" + limit);
+      return (j.results || []).filter((r) => r.collectionId).map(normShow);
+    }
+  });
+}
+
+// Charts within a named iTunes genre (Comedy, News, Society & Culture, …) via the genre-scoped search.
+export async function byGenre(genre, limit = 20) {
+  return _through("pod-genre:" + _day() + ":" + genre + ":" + limit, async () => {
+    const j = await _fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(genre) + "&media=podcast&attribute=genreIndex&limit=" + limit);
+    return (j.results || []).filter((r) => r.collectionId && (r.primaryGenreName || "").length).map(normShow);
+  });
+}
+
+export async function search(q, limit = 14) {
+  const my = (q || "").trim(); if (!my) return [];
+  return _through("pod-search:" + _day() + ":" + my.toLowerCase() + ":" + limit, async () => {
+    const j = await _fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(my) + "&media=podcast&limit=" + limit);
+    return (j.results || []).filter((r) => r.collectionId).map(normShow);
+  });
+}
+
+// A show's recent episodes (iTunes lookup with the podcastEpisode entity) — title, date, duration, art, the
+// enclosure URL, and a plain-text description. Newest first.
+export async function episodes(collectionId, limit = 40) {
+  return _through("pod-eps:" + collectionId + ":" + limit, async () => {
+    const j = await _fetch("https://itunes.apple.com/lookup?id=" + collectionId + "&entity=podcastEpisode&limit=" + (limit + 1));
+    return (j.results || []).filter((r) => r.kind === "podcast-episode" && r.episodeUrl).map(normEpisode);
+  });
+}
+
+if (typeof window !== "undefined") window.HoloPodcasts = { charts, byGenre, search, episodes, normShow, normEpisode };
