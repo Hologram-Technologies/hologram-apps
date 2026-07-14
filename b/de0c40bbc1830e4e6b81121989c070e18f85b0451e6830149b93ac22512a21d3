@@ -1,0 +1,131 @@
+// holo-jf-bridge.mjs — ONE BRAIN (HOLO-TV-ONE-BRAIN-PROMPT.md U0/U1): the pure seam between Holo TV's
+// items and the κ-Jellyfin server's state. Two halves:
+//
+//   1. id codecs — player item ↔ the server's GUID-shaped 32-hex ids (the SAME codec the core uses:
+//      01 movie(tmdb) · 02 series(tmdb) · 03 κ-card(sha256[0:30]) · 04 episode · 05 season · 08 song).
+//      Player ids are tmdb-rooted strings ("tmdb:movie:603", "tmdb:ep:1399:1:2", "kappa:<hex64>") so the
+//      mapping is total for everything the server can also see; unbridgeable items (jf:/plex:/live) → null
+//      and the caller keeps its localStorage fallback. Pure, witnessed in Node against the core's exports.
+//
+//   2. the shared UserData store — the SAME IndexedDB the jellyfin SW binds ("holo-jf-userdata"/"ud",
+//      record shape {PlaybackPositionTicks, PlayCount, IsFavorite, Played} + Holo* extras), write-through,
+//      with BroadcastChannel "holo-jf-ud" deltas so the page and the SW's once-loaded in-memory maps never
+//      go stale. LAW (inherited): a zero-position write NEVER erases an existing resume point; only ≥90%
+//      finished clears it.
+//
+// Pure ESM; identical in browser and Node ≥20 (Node gets the codecs + pure record logic; IDB/BC only bind
+// in the browser via openSharedUd()).
+
+export const UD_DB = "holo-jf-userdata";
+export const UD_STORE = "ud";
+export const UD_CHANNEL = "holo-jf-ud";
+const TICKS_PER_SEC = 10000000;
+
+// ── id codecs (mirror holo-jellyfin-core.mjs exactly — the witness cross-checks) ─────────────────────────
+const hex30 = (n) => Number(n).toString(16).padStart(30, "0");
+export const movieGuid = (tmdbId) => "01" + hex30(tmdbId);
+export const seriesGuid = (tmdbId) => "02" + hex30(tmdbId);
+export const kappaGuid = (hex) => "03" + String(hex).replace(/^sha256:/, "").slice(0, 30);
+export const epGuid = (series, season, ep) => "04" + Number(series).toString(16).padStart(20, "0") + Number(season).toString(16).padStart(6, "0") + Number(ep).toString(16).padStart(4, "0");
+export const seasonGuid = (series, season) => "05" + Number(series).toString(16).padStart(20, "0") + Number(season).toString(16).padStart(6, "0") + "0000";
+export const songGuid = (trackId) => "08" + hex30(trackId);
+
+// Player item → GUID. Prefers structured fields (tmdbId/kind/season/episode) over id-string parsing so
+// pool items from any source (Cinemeta/Trakt/library) bridge as long as they are tmdb-rooted.
+export function toGuid(it) {
+  if (!it) return null;
+  try {
+    if (it.kind === "episode") {
+      const series = it.tmdbId ?? (String(it.id || "").match(/^tmdb:ep:(\d+):/) || [])[1];
+      if (series != null && it.seasonNumber != null && it.episodeNumber != null) return epGuid(series, it.seasonNumber, it.episodeNumber);
+      return null;
+    }
+    if (it.tmdbId != null && (it.kind === "movie" || it.kind === "series")) return it.kind === "series" ? seriesGuid(it.tmdbId) : movieGuid(it.tmdbId);
+    const id = String(it.id || it.holoKappa || "");
+    let m = id.match(/^kappa:([0-9a-f]{64})$/i); if (m) return kappaGuid(m[1]);
+    m = id.match(/^im:(\d+)$/); if (m) return songGuid(m[1]);                 // music plane tracks (iTunes ids)
+    m = id.match(/^tmdb:(movie|series):(\d+)$/); if (m) return m[1] === "series" ? seriesGuid(m[2]) : movieGuid(m[2]);
+    m = id.match(/^tmdb:ep:(\d+):(\d+):(\d+)$/); if (m) return epGuid(m[1], m[2], m[3]);
+    m = id.match(/^tmdb:season:(\d+):(\d+)$/); if (m) return seasonGuid(m[1], m[2]);
+    if (it.kappa && /^[0-9a-f]{64}$/i.test(String(it.kappa).replace(/^sha256:/, ""))) return kappaGuid(it.kappa);
+  } catch {}
+  return null;                                              // honest: not everything bridges (jf:/plex:/live)
+}
+
+export function fromGuid(g) {
+  const s = String(g || "").toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(s)) return null;
+  const kind = s.slice(0, 2), body = s.slice(2);
+  if (kind === "01") return { kind: "movie", tmdbId: parseInt(body, 16), id: "tmdb:movie:" + parseInt(body, 16) };
+  if (kind === "02") return { kind: "series", tmdbId: parseInt(body, 16), id: "tmdb:series:" + parseInt(body, 16) };
+  if (kind === "03") return { kind: "kappa", kappaPrefix: body };          // 30 hex of the card sha (prefix)
+  if (kind === "04") { const series = parseInt(s.slice(2, 22), 16), season = parseInt(s.slice(22, 28), 16), ep = parseInt(s.slice(28, 32), 16); return { kind: "episode", tmdbId: series, seasonNumber: season, episodeNumber: ep, id: "tmdb:ep:" + series + ":" + season + ":" + ep }; }
+  if (kind === "05") { const series = parseInt(s.slice(2, 22), 16), season = parseInt(s.slice(22, 28), 16); return { kind: "season", tmdbId: series, seasonNumber: season, id: "tmdb:season:" + series + ":" + season }; }
+  if (kind === "08") return { kind: "song", trackId: parseInt(body, 16), id: "im:" + parseInt(body, 16) };
+  return null;
+}
+
+// ── pure record logic (the resume law lives HERE so the witness can pin it) ──────────────────────────────
+const defaults = () => ({ PlaybackPositionTicks: 0, PlayCount: 0, IsFavorite: false, Played: false });
+
+// Merge a progress report into a record. posSec=0 never erases an existing point; ≥90% of a known duration
+// marks Played and clears the point (the same law the core enforces for jellyfin-web's Stopped reports).
+export function patchResume(existing, posSec, durSec, now) {
+  const cur = { ...defaults(), ...(existing || {}) };
+  const ticks = Math.max(0, Math.round((posSec || 0) * TICKS_PER_SEC));
+  if (ticks === 0 && cur.PlaybackPositionTicks > 0) return cur;            // the pos=0 law
+  const out = { ...cur, PlaybackPositionTicks: ticks, HoloAt: now || cur.HoloAt || 0 };
+  if (durSec > 0) {
+    out.HoloDurationSec = durSec;
+    if (posSec / durSec >= 0.9) { out.Played = true; out.PlayCount = (cur.PlayCount || 0) + (cur.Played ? 0 : 1); out.PlaybackPositionTicks = 0; }
+  }
+  return out;
+}
+
+export function resumeOf(record) {
+  if (!record || !(record.PlaybackPositionTicks > 0)) return null;
+  return { pos: record.PlaybackPositionTicks / TICKS_PER_SEC, dur: record.HoloDurationSec || 0, at: record.HoloAt || 0 };
+}
+
+// ── the shared store (browser) — same DB/shape the jellyfin SW binds; BC-fresh both ways ─────────────────
+export function openSharedUd({ idb, bc } = {}) {
+  const IDB = idb || (typeof indexedDB !== "undefined" ? indexedDB : null);
+  const BC = bc !== undefined ? bc : (typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(UD_CHANNEL) : null);
+  if (!IDB) return null;
+  let UD = null, db = null, loading = null;
+  const listeners = new Set();
+  if (BC) BC.onmessage = (e) => { const d = e && e.data; if (d && d.id && d.v && UD) { UD.set(d.id, d.v); for (const f of listeners) { try { f(d.id, d.v); } catch {} } } };
+  return {
+    ensure() {
+      if (UD) return Promise.resolve();
+      if (!loading) loading = new Promise((resolve, reject) => {
+        const r = IDB.open(UD_DB, 1);
+        r.onupgradeneeded = () => r.result.createObjectStore(UD_STORE);
+        r.onerror = () => reject(r.error);
+        r.onsuccess = () => {
+          db = r.result; UD = new Map();
+          const tx = db.transaction(UD_STORE).objectStore(UD_STORE).openCursor();
+          tx.onsuccess = (e) => { const c = e.target.result; if (c) { UD.set(c.key, c.value); c.continue(); } else resolve(); };
+          tx.onerror = () => resolve();
+        };
+      });
+      return loading;
+    },
+    ready: () => !!UD,
+    get: (id) => (UD ? UD.get(id) : undefined),
+    set(id, v) {
+      if (!UD) return;
+      UD.set(id, v);
+      try { db.transaction(UD_STORE, "readwrite").objectStore(UD_STORE).put(v, id); } catch {}
+      try { BC && BC.postMessage({ id, v }); } catch {}
+    },
+    patch(id, patch) { const v = { ...defaults(), ...(this.get(id) || {}), ...patch }; this.set(id, v); return v; },
+    setResume(id, posSec, durSec, now) { const v = patchResume(this.get(id), posSec, durSec, now || Date.now()); this.set(id, v); return v; },
+    setFavorite(id, on) { return this.patch(id, { IsFavorite: !!on, HoloAt: Date.now() }); },
+    setPlayed(id, on) { const cur = this.get(id) || {}; return this.patch(id, { Played: !!on, PlayCount: on && !cur.Played ? (cur.PlayCount || 0) + 1 : (cur.PlayCount || 0), ...(on ? { PlaybackPositionTicks: 0 } : {}), HoloAt: Date.now() }); },
+    entries: () => (UD ? UD.entries() : [][Symbol.iterator]()),
+    onChange(f) { listeners.add(f); return () => listeners.delete(f); },
+  };
+}
+
+if (typeof window !== "undefined") window.HoloJfBridge = { toGuid, fromGuid, patchResume, resumeOf, openSharedUd, movieGuid, seriesGuid, kappaGuid, epGuid, seasonGuid, songGuid };

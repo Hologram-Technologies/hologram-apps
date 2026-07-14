@@ -1,0 +1,136 @@
+// holo-music-plane.mjs — HOLO-MUSIC-ONE-PLANE P1 runtime.
+// The universe as a LOCAL κ-shard: load music-universe.json ONCE (lazy, then IndexedDB/HTTP-cached), and
+// answer search in <16ms on-device, offline, with zero network. This is what makes the whole catalogue feel
+// like it's already here: the plane answers instantly from the shard, and HoloIMusic (iTunes/Piped) only
+// tops up the long tail after. Rows rehydrate to the SAME shape as HoloIMusic.normTrack, so a plane result
+// drops straight into the player / pages with no adapter.
+//
+// The shard is content-addressed (ships as a κ-object; the SW serves it verify-on-read) — the universe is a
+// file you own: reload = 0-network, airplane mode = still the whole thing.
+
+let _loading = null, _U = null;
+
+function _rehydrate(shard) {
+  const pre = (shard.art && shard.art.pre) || "", suf = (shard.art && shard.art.suf) || "/100x100bb.jpg";
+  const artUrl = (tok, size) => {
+    if (!tok) return "";
+    if (tok[0] === "!") return tok.slice(1);                 // non-standard url stored verbatim
+    return pre + tok + "/" + size + "x" + size + "bb.jpg";
+  };
+  const artists = new Map();
+  for (const [id, name, genre] of (shard.a || [])) artists.set(id, { name, genre });
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const tracks = (shard.t || []).map(([id, name, artistId, album, collectionId, year, dur, art]) => {
+    const ar = artists.get(artistId) || {};
+    return {
+      id: "im:" + id, kind: "song", source: "imusic",
+      name, artist: ar.name || "", artistId: artistId || 0,
+      album: album || "", collectionId: collectionId || 0,
+      genre: ar.genre || "", year: year ? String(year) : "", durationSec: dur || 0,
+      art: artUrl(art, 300), artSmall: artUrl(art, 100),
+      _hay: norm(name + " " + (ar.name || "")),
+    };
+  });
+  // inverted-ish: a token → row-indices map (rows already popularity-ordered by chart/shard order) + a
+  // sorted vocabulary for prefix expansion of the token being typed. Scales past a linear scan.
+  const postings = new Map(); const vocabSet = new Set();
+  tracks.forEach((t, i) => { for (const tok of t._hay.split(" ")) { if (!tok) continue; vocabSet.add(tok); (postings.get(tok) || postings.set(tok, []).get(tok)).push(i); } });
+  const vocab = [...vocabSet].sort();
+  // artist rows (for the Artists lane) — one card per artist, first track's art
+  const artistCard = new Map();
+  tracks.forEach((t) => { if (t.artistId && !artistCard.has(t.artistId)) artistCard.set(t.artistId, { artistId: t.artistId, name: t.artist, art: t.art, genre: t.genre }); });
+  return { tracks, artists, postings, vocab, artistCard, genres: shard.genres || [], counts: shard.counts || {} };
+}
+
+// lazy load — dedupes concurrent callers; caches for the session (HTTP/SW cache handles reloads + offline).
+export async function ready() {
+  if (_U) return _U;
+  if (_loading) return _loading;
+  _loading = (async () => {
+    try {
+      const r = await fetch(new URL("./music-universe.json", import.meta.url));
+      if (!r.ok) throw new Error("shard " + r.status);
+      _U = _rehydrate(await r.json());
+      return _U;
+    } catch { _U = { tracks: [], artists: new Map(), postings: new Map(), vocab: [], artistCard: new Map(), genres: [], counts: {} }; return _U; }
+  })();
+  return _loading;
+}
+export function isReady() { return !!_U; }
+export function loaded() { return _U; }   // sync accessor once ready (null before)
+
+// prefix-expand a partial token via the sorted vocabulary (binary search to the run of matches).
+function _prefixTokens(U, p) {
+  const v = U.vocab; let lo = 0, hi = v.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (v[m] < p) lo = m + 1; else hi = m; }
+  const out = [];
+  for (let i = lo; i < v.length && v[i].startsWith(p) && out.length < 40; i++) out.push(v[i]);
+  return out;
+}
+
+// search the universe — <16ms, 0-network. Returns { songs, artists, albums } in the normTrack shape.
+export function search(q, limit = 14) {
+  const U = _U; if (!U || !q) return { songs: [], artists: [], albums: [] };
+  const toks = String(q).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+  if (!toks.length) return { songs: [], artists: [], albums: [] };
+  // candidate rows: intersect postings of complete tokens; the LAST token is a prefix (being typed).
+  let cand = null;
+  toks.forEach((tok, i) => {
+    const last = i === toks.length - 1;
+    const rows = new Set();
+    const exact = U.postings.get(tok); if (exact) for (const r of exact) rows.add(r);
+    if (last) for (const pt of _prefixTokens(U, tok)) { const p = U.postings.get(pt); if (p) for (const r of p) rows.add(r); }
+    cand = cand === null ? rows : new Set([...cand].filter((r) => rows.has(r)));
+  });
+  if (!cand || !cand.size) return { songs: [], artists: [], albums: [] };
+  // score: popularity (row index, lower = better) + exact-name bonus; rows are already popularity-ordered.
+  const qn = toks.join(" ");
+  const scored = [...cand].map((i) => { const t = U.tracks[i]; let s = i; if (t.name.toLowerCase() === qn) s -= 100000; if (t.name.toLowerCase().startsWith(qn)) s -= 40000; return [s, i]; })
+    .sort((a, b) => a[0] - b[0]);
+  const songs = scored.slice(0, limit).map(([, i]) => U.tracks[i]);
+  // artists + albums derived from the hits (unique) — same grammar as the network search
+  const seenA = new Set(), artists = [], seenAl = new Set(), albums = [];
+  for (const [, i] of scored) {
+    const t = U.tracks[i];
+    if (t.artistId && !seenA.has(t.artistId) && seenA.add(t.artistId) && artists.length < 8) artists.push({ artistId: t.artistId, name: t.artist, art: t.art, genre: t.genre });
+    if (t.collectionId && !seenAl.has(t.collectionId) && seenAl.add(t.collectionId) && albums.length < 8) albums.push({ collectionId: t.collectionId, name: t.album, artist: t.artist, artSmall: t.artSmall, year: t.year });
+  }
+  return { songs, artists, albums };
+}
+
+// a genre's tracks from the universe (for offline/instant genre lanes). gid = iTunes genre id.
+export function byGenre(gid, limit = 24) {
+  const U = _U; if (!U) return [];
+  const label = (U.genres.find(([, g]) => g === gid) || [])[0] || "";
+  const ln = label.toLowerCase();
+  const out = [];
+  for (const t of U.tracks) { if ((t.genre || "").toLowerCase().includes(ln.split("/")[0]) || (t.genre || "").toLowerCase() === ln) { out.push(t); if (out.length >= limit) break; } }
+  return out;
+}
+// tracks whose genre matches ANY of the given labels (first-token, case-insensitive) — the mood filter.
+// Optionally bounded to an era [minYear, maxYear]. Instant, 0-network — powers the P3 mood lanes.
+export function byGenres(labels, limit = 20, era) {
+  const U = _U; if (!U || !labels || !labels.length) return [];
+  const keys = labels.map((l) => String(l).toLowerCase().split("/")[0].trim());
+  const [lo, hi] = era || [0, 9999];
+  const out = [];
+  for (const t of U.tracks) {
+    const g = (t.genre || "").toLowerCase().split("/")[0].trim();
+    if (!keys.includes(g)) continue;
+    const y = parseInt(t.year, 10) || 0; if (y && (y < lo || y > hi)) continue;
+    out.push(t); if (out.length >= limit) break;
+  }
+  return out;
+}
+// a taste-FAR sample: tracks whose genre is NOT in the given "familiar" labels (for Discover). Instant.
+export function unlike(labels, limit = 20) {
+  const U = _U; if (!U) return [];
+  const keys = new Set((labels || []).map((l) => String(l).toLowerCase().split("/")[0].trim()));
+  const out = [];
+  for (const t of U.tracks) { const g = (t.genre || "").toLowerCase().split("/")[0].trim(); if (g && !keys.has(g)) { out.push(t); if (out.length >= limit) break; } }
+  return out;
+}
+export function sample(n = 24) { const U = _U; return U ? U.tracks.slice(0, n) : []; }
+export function count() { const U = _U; return U ? U.tracks.length : 0; }
+
+if (typeof window !== "undefined") window.HoloMusicUniverse = { ready, isReady, loaded, search, byGenre, byGenres, unlike, sample, count };
