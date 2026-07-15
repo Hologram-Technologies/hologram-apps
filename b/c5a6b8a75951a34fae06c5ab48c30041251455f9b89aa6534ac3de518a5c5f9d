@@ -1,0 +1,136 @@
+// holo-books.mjs — THE BOOK PLANE: the κ-addressed book+audiobook universe at runtime (HOLO-BOOKS B1/F0).
+//
+// The exact holo-library.mjs recipe pointed at feed/books-index.json: a tiny root names every shard by
+// TWO hashes — blake3 (the κ-mirror path b/<hex>) and sha256 (the verify key). Reads are verify-or-refuse:
+// bytes are cached raw in CacheStorage and RE-HASHED on every read; a tampered shard is refused by name,
+// never parsed. Once cached, the whole book universe browses OFFLINE; every shelf pivot is a plain
+// in-memory scan over compact rows.
+//
+// Row (forge: holo-book-forge.mjs): i id (int OL work# when k:"w"; string IA id when k:"a") · t title ·
+// a author · ak author key · y/dec · s[] shelves · l lang (absent=en) · r/rc rating avg/count · w want ·
+// e editions · c OL cover id · ia IA id · g gutenberg id · au{ia,dl,s,n,p} audio rail (p:1 = ACAO-pinned) ·
+// tx{k,s,z,f} THE BOOK BYTES as a κ-object on the same mirror (k=blake3 path, s=sha256 verify) · h soul.
+//
+// Browser binding: window.HoloBooks.live() → { load, query, search, author, authorsIndex, rows, root }.
+
+export function createBooks({ root = null, fetch: f, cacheGet, cachePut, sha256hex, rootUrl = "feed/books-index.json" } = {}) {
+  const doFetch = f || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : null);
+  if (!doFetch) throw new Error("holo-books: fetch required");
+  let R = root, rows = [], byKey = new Map(), loaded = false, authorsCache = null, searchIdx = null;
+  const stats = { shardsFromCache: 0, shardsFromNet: 0, refused: 0 };
+
+  async function loadRoot() {
+    if (R) return R;
+    try { R = await (await doFetch(rootUrl + "?v=" + Date.now(), { cache: "no-store" })).json(); }
+    catch { try { R = await (await doFetch(rootUrl)).json(); } catch { R = null; } }
+    if (R && cachePut) { try { await cachePut("broot", new TextEncoder().encode(JSON.stringify(R))); } catch {} }
+    if (!R && cacheGet) { const c = await cacheGet("broot"); if (c) R = JSON.parse(new TextDecoder().decode(c)); }
+    if (!R) throw new Error("holo-books: no root reachable (network + cache empty)");
+    return R;
+  }
+  async function readObject(ref, name) {
+    if (cacheGet) {
+      const c = await cacheGet(ref.sha256);
+      if (c) {
+        if ((await sha256hex(c)) === ref.sha256) { stats.shardsFromCache++; return c; }
+        stats.refused++; console.warn("holo-books: REFUSED tampered cache object", name, ref.sha256.slice(0, 12));
+      }
+    }
+    const res = await doFetch(R.mirror + ref.blake3);
+    if (!res.ok) throw new Error("holo-books: mirror " + res.status + " for " + name);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if ((await sha256hex(bytes)) !== ref.sha256) { stats.refused++; throw new Error("holo-books: REFUSED " + name + " — bytes do not re-derive"); }
+    stats.shardsFromNet++;
+    if (cachePut) await cachePut(ref.sha256, bytes);
+    return bytes;
+  }
+  const dec = (u8) => JSON.parse(new TextDecoder().decode(u8));
+
+  async function load(onShard = null) {
+    if (loaded) return rows;
+    await loadRoot();
+    const parts = await Promise.all(R.shards.map(async (ref, n) => {
+      const s = dec(await readObject(ref, "bshard" + n));
+      if (onShard) try { onShard(n, s.rows.length); } catch {}
+      return s.rows;
+    }));
+    rows = parts.flat();
+    byKey = new Map(rows.map((r) => [r.k + r.i, r]));
+    loaded = true;
+    return rows;
+  }
+
+  // popularity score: community stars × confidence, want-to-read, and (for audio-only rows) IA downloads
+  const score = (r) => (r.r || 0) * Math.log10(1 + (r.rc || 0)) * 40 + (r.w || 0) + (r.au && r.au.dl ? Math.log10(1 + r.au.dl) * 30 : 0);
+
+  // q: { shelf:"scifi"…, shelves:[…], decades:[1890,…], audio:true (has rail) | "pinned", text:true (tx|g),
+  //      mirrored:true (tx only), rated:true, author:"OL…A", exclude:Set(keys), limit, sort:"top"|"new"|"old"|"az"|"rated"|"listened" }
+  function query(q = {}) {
+    let list = rows;
+    if (q.author) { const a = authorsCache && authorsCache[q.author]; list = a ? a.t.map((k) => byKey.get(k)).filter(Boolean) : []; }
+    const out = [];
+    const shelves = q.shelves || (q.shelf ? [q.shelf] : null);
+    for (const r of list) {
+      if (shelves && !(r.s && shelves.some((s) => r.s.includes(s)))) continue;
+      if (q.decades && q.decades.length && !q.decades.includes(r.dec)) continue;
+      if (q.audio === true && !r.au) continue;
+      if (q.audio === "pinned" && !(r.au && r.au.p)) continue;
+      if (q.text && !(r.tx || r.g)) continue;
+      if (q.mirrored && !r.tx) continue;
+      if (q.rated && !r.rc) continue;
+      if (q.lang && (r.l || "en") !== q.lang) continue;
+      if (q.exclude && q.exclude.has(r.k + r.i)) continue;
+      out.push(r);
+    }
+    if (q.sort === "az") out.sort((a, b) => a.t.localeCompare(b.t));
+    else if (q.sort === "new") out.sort((a, b) => (b.y || 0) - (a.y || 0) || score(b) - score(a));
+    else if (q.sort === "old") out.sort((a, b) => (a.y || 9999) - (b.y || 9999) || score(b) - score(a));
+    else if (q.sort === "rated") out.sort((a, b) => (b.r || 0) * Math.log10(1 + (b.rc || 0)) - (a.r || 0) * Math.log10(1 + (a.rc || 0)));
+    else if (q.sort === "listened") out.sort((a, b) => ((b.au && b.au.dl) || 0) - ((a.au && a.au.dl) || 0));
+    else out.sort((a, b) => score(b) - score(a));
+    return q.limit ? out.slice(0, q.limit) : out;
+  }
+
+  // search-as-you-type over title + author (prefix beats substring — the HoloLibrary pattern)
+  function search(text, limit = 40) {
+    const t = String(text || "").toLowerCase().trim();
+    if (!t) return [];
+    if (!searchIdx) searchIdx = rows.map((r) => [r.t.toLowerCase(), (r.a || "").toLowerCase(), r]);
+    const pre = [], sub = [];
+    for (const [lt, la, r] of searchIdx) {
+      if (lt.startsWith(t) || la.startsWith(t)) pre.push(r);
+      else if (lt.includes(t) || la.includes(t)) sub.push(r);
+      if (pre.length >= limit * 12) break;   // wide net BEFORE ranking — the canon row must never lose to an early shard position
+    }
+    pre.sort((a, b) => score(b) - score(a)); sub.sort((a, b) => score(b) - score(a));
+    return [...pre, ...sub].slice(0, limit);
+  }
+
+  // authors (lazy) — author key → { n: name, t: [rowKeys] }; "more by this author" instantly
+  async function authorsIndex() {
+    if (authorsCache) return authorsCache;
+    await loadRoot();
+    authorsCache = dec(await readObject(R.authors, "authors")).authors;
+    return authorsCache;
+  }
+  async function author(key) { return (await authorsIndex())[key] || null; }
+
+  return {
+    load, query, search, author, authorsIndex, loadRoot,
+    get rows() { return rows; }, get root() { return R; }, get loaded() { return loaded; },
+    authorsReady: () => !!authorsCache,
+    rowByKey: (k) => byKey.get(k) || null, stats: () => ({ ...stats }),
+  };
+}
+
+// ── browser binding — CacheStorage raw-bytes tier + SubtleCrypto verify (same CACHE discipline as TV) ───
+if (typeof window !== "undefined") {
+  const CACHE = "holo-books-objects";   // content-addressed: entries never change, only appear
+  const sha256hex = async (u8) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", u8))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const cacheGet = async (sha) => { try { const c = await caches.open(CACHE); const r = await c.match("https://holo.local/books/" + sha); return r ? new Uint8Array(await r.arrayBuffer()) : null; } catch { return null; } };
+  const cachePut = async (sha, bytes) => { try { const c = await caches.open(CACHE); await c.put("https://holo.local/books/" + sha, new Response(bytes)); } catch {} };
+  let one = null;
+  window.HoloBooks = { createBooks, live() { return one || (one = createBooks({ sha256hex, cacheGet, cachePut })); } };
+}
+
+export default { createBooks };

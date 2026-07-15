@@ -1,0 +1,124 @@
+{
+ "$comment": "Holo Books root — the κ-addressed book+audiobook universe (HOLO-BOOKS-KAPPA-UNIVERSE B0). Shards/authors live on the κ-mirror at b/<blake3>; sha256 is the verify key (verify-or-refuse). Rows: i/k(w|a)/t/a/ak/y/dec/s[](shelves)/l/r/rc/w/e/c(cover_i)/ia/g(gutenberg id)/au{ia,dl,s,n,p(pinned=ACAO-probed)}/tx{k(blake3 of the BOOK BYTES on this same mirror),s,z,f}/h(thumbhash). tx means: the book itself is a κ-object — fetch mirror+tx.k, verify, read. au.p=1 means the IA audio rail answered a ranged CORS GET. Shelf taxonomy is a fixed rule table in holo-book-forge.mjs.",
+ "version": 1,
+ "thumbhash": true,
+ "shelfTaxonomyVersion": 1,
+ "generatedAt": "2026-07-15",
+ "counts": {
+  "works": 50434,
+  "canon": 30241,
+  "audio": 21845,
+  "pinnedAudio": 579,
+  "text": 8320,
+  "mirroredTexts": 390,
+  "both": 7662,
+  "rated": 27446,
+  "souls": 2399,
+  "authors": 3577
+ },
+ "mirror": "https://huggingface.co/HOLOGRAMTECH/holo-messenger-shell/resolve/main/b/",
+ "shelves": [
+  "scifi",
+  "fantasy",
+  "romance",
+  "mystery",
+  "thriller",
+  "horror",
+  "classics",
+  "history",
+  "biography",
+  "science",
+  "philosophy",
+  "poetry",
+  "children",
+  "adventure",
+  "growth"
+ ],
+ "shards": [
+  {
+   "sha256": "115e33a403493f386c77fc03c38cac8a4268e2b70756a6db1bbeca4516972148",
+   "blake3": "a4132ba325e4e7b32ac54871e12f66611ed9fab26113b30cb8d69cf22d2a0d98",
+   "bytes": 642600
+  },
+  {
+   "sha256": "19c61979dbda7d747d748a91974beda9a49f84747aa956df885ee700e82bb35d",
+   "blake3": "90bbdde0a227438d32a3098e23d58f5605a4d9231fdd84699cce4fbd3dc3fe97",
+   "bytes": 632548
+  },
+  {
+   "sha256": "dbc75257ebdc5b08fe94c07c6679ec5c491c04546a5174ab91c41b65a18b6cff",
+   "blake3": "04ba5ef0f86576b40ca59d6dd5c47d19604360ce4c2df80e4bf7a1c09ec67cae",
+   "bytes": 639685
+  },
+  {
+   "sha256": "5db4ddddd6a12c6db7aad5f4a6cd0b9e442e51004b37ef364e80e5bbf8b7d86f",
+   "blake3": "e55cff54a07b46f8eac8fa9aadd6150c2a6e04f4fda1084133adc1c47e02cb03",
+   "bytes": 632837
+  },
+  {
+   "sha256": "78ee118d46b1253998e12670d29f39ef1d4277022af652d4b56cba97d5650b5b",
+   "blake3": "e64eba9b3b8556e057756ecccb58159dff602f47de93512318322e1081a2f648",
+   "bytes": 655373
+  },
+  {
+   "sha256": "c8a72ad1841384be5ed1d528879118f05bfe5dd8dbbea0004312f53779f9d312",
+   "blake3": "ddcbf0e6afb928cfb86411c878a32117f056d57aa44f0cc03c03fcb5933ceeb2",
+   "bytes": 662737
+  },
+  {
+   "sha256": "d5f127bf0dffefe78a00888115a43f0b32fa0f91b666fa0a06c765fd664d0fa9",
+   "blake3": "1b9d7794331ca8e08a63da7ef2dd20f8b0da42d81f2e4496afe791c5206e8892",
+   "bytes": 632908
+  },
+  {
+   "sha256": "1fd1b520b0a4ecec7aa700a059a99f82eb2ff7cb37ceb5d7352cc30422865e89",
+   "blake3": "863a37285606fda6da302e0752cf9ff1994c4b0568c917393587939bb063a435",
+   "bytes": 635707
+  },
+  {
+   "sha256": "0c689fca4d3dd37a18f6a86d2a6866454836a04c051c74a7acbff878d2752663",
+   "blake3": "17b63056925a7cb5276c6619ad43f08e3932786b65755abf26b9ab74ae30444a",
+   "bytes": 635307
+  },
+  {
+   "sha256": "eb801609b13dbdb393d7bcdc2a43902e85f1b5269eec3d2ecdc799088e4fef05",
+   "blake3": "9d1bb58365dfb046088722f8602d28e492bf09a9201597aacda6ef0819ecfb72",
+   "bytes": 640439
+  },
+  {
+   "sha256": "8d744eab58e6bc51594c70a8b129f440bd50aac197971ab533557406304b9bf6",
+   "blake3": "bcc1a08d8268fda1d0d92ab27f7a53d9e226d53e8ea5dfc294b7a5f257905064",
+   "bytes": 619501
+  },
+  {
+   "sha256": "c7e651403dadde37ecdf8576aaf50ea97a022453f6976dec297aa7e05ab9d7d0",
+   "blake3": "2a06d4b145ea37ae61b9e69d8660de7ff24f403f1452953bc23d9210996385f9",
+   "bytes": 650501
+  },
+  {
+   "sha256": "a3fd7c5743ba78b73fd02f9a10cae1d525c6b70d7b7cff7e92914dfbebd9739e",
+   "blake3": "4e4e3f1fdc52415ab0ae11fd81d6c08117674ee8345f1ccb9f4ea9e9da035403",
+   "bytes": 623469
+  },
+  {
+   "sha256": "e4ae9019acad755a0cb9a805ef25ba84fb3eb889e973888f2969c59775d40d1e",
+   "blake3": "c7af2776b3251d954fae535c60adfdc951023805ac8e59651244b8a25d301404",
+   "bytes": 636019
+  },
+  {
+   "sha256": "ae7f130d5418db424ee8299dfb727715ca5c909261f4b71526a2bbd41a8a0995",
+   "blake3": "cf69f04ddbf0270b32cb4330126eed038c6718002c2ca4e61561a5d1df13b7a3",
+   "bytes": 632171
+  },
+  {
+   "sha256": "cd05f1dd962742407e0beeab9fc7f19e4a063c2278cd8df6e1b249403c14c281",
+   "blake3": "b1562e0f90b725cf1becdfa95de8ffdb66c798fe341d5b07d232c8abf8e2f9df",
+   "bytes": 643254
+  }
+ ],
+ "authors": {
+  "sha256": "95c8ab5b70a5c9eb124d10945dc9f6f36d7d332f96d67d3db92175ea0979b99b",
+  "blake3": "9d90de9e9bd19e0501b8a190ac410189b2b0dce9f55b9e8ea2f9d723f89c9f85",
+  "bytes": 334496
+ }
+}
