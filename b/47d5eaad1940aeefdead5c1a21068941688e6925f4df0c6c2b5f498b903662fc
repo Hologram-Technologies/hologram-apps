@@ -1,0 +1,110 @@
+// holo-rt.mjs — Rotten Tomatoes scores for the whole catalog, κ-cached, resolved by title + year.
+//
+// The tomato is the rating language the world already speaks. This module asks Rotten Tomatoes' own
+// public search backend (Algolia — the same CORS-clean endpoint their site queries from every visitor's
+// browser; the app id + search key ship in RT's client bundle, the same posture as the TMDb community
+// key) and matches HONESTLY: a hit must agree on normalized title (including aka titles) AND land within
+// ±1 year. No confident match → null — never a guess, never a fake score.
+//
+// Every resolution goes THROUGH holo-media-cache, so a title is fetched ONCE ever (misses too, sealed as
+// a {miss:1} sentinel): warm = memory-speed, offline = still answers. Dependency-injected (fetch + cache)
+// so Node witnesses it with a canned Algolia and a Map cache — no network, no key.
+
+const ALGOLIA_URL = "https://79frdp12pn-dsn.algolia.net/1/indexes/content_rt/query";
+const ALGOLIA_APP = "79FRDP12PN";
+const ALGOLIA_KEY = "175588f6e5f8319b27702e4cc4013561"; // public search-only key, shipped by RT client-side
+
+// normalize a title for comparison: case/diacritic/punctuation-blind, whitespace-collapsed.
+export function norm(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+// pick the best hit for (name, year): title (or any aka) must match exactly after norm, releaseYear
+// within ±1 (metadata planes disagree by one around festival/wide-release dates). Exact year beats ±1;
+// a hit that actually carries scores beats one that doesn't.
+export function match(hits, name, year, type) {
+  const want = norm(name);
+  if (!want) return null;
+  let best = null, bestRank = -1;
+  for (const h of hits || []) {
+    if (!h || (type && h.type !== type) || !h.releaseYear) continue;
+    const names = [h.title, ...(h.titles || []), ...(h.aka || [])];
+    if (!names.some((t) => norm(t) === want)) continue;
+    const dy = Math.abs(Number(h.releaseYear) - Number(year));
+    if (dy > 1) continue;
+    const rt = h.rottenTomatoes || null;
+    const scored = rt && (typeof rt.criticsScore === "number" || typeof rt.audienceScore === "number");
+    const rank = (dy === 0 ? 2 : 0) + (scored ? 1 : 0);
+    if (rank > bestRank) { best = h; bestRank = rank; }
+  }
+  if (!best) return null;
+  const rt = best.rottenTomatoes || {};
+  const critics = typeof rt.criticsScore === "number" ? rt.criticsScore : null;
+  const audience = typeof rt.audienceScore === "number" ? rt.audienceScore : null;
+  if (critics == null && audience == null) return null;
+  return { critics, audience, certified: !!rt.certifiedFresh };
+}
+
+// createRt({ fetch, cache }) — fetch/cache injectable; cache is a holo-media-cache instance (or null).
+export function createRt({ fetch: f, cache = null } = {}) {
+  const doFetch = f || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : null);
+  if (!doFetch) throw new Error("holo-rt: a fetch implementation is required");
+
+  async function query(name, type) {
+    const res = await doFetch(ALGOLIA_URL, {
+      method: "POST",
+      headers: {
+        "x-algolia-application-id": ALGOLIA_APP,
+        "x-algolia-api-key": ALGOLIA_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        query: String(name).slice(0, 120),
+        hitsPerPage: 12,
+        filters: "type:" + type,
+        attributesToRetrieve: ["title", "titles", "aka", "releaseYear", "type", "rottenTomatoes"],
+        attributesToHighlight: [],
+      }),
+    });
+    if (!res.ok) throw new Error("holo-rt: algolia " + res.status);
+    return (await res.json()).hits || [];
+  }
+
+  // score(name, year, kind) → { critics, audience, certified } | null. kind: "movie" | "tv".
+  // κ-keyed by normalized title+year+kind — permanent (scores of settled films barely move, and the
+  // cache makes the whole catalog work offline). A network failure is NOT sealed — only real answers.
+  async function score(name, year, kind = "movie") {
+    const type = kind === "tv" ? "tv" : "movie";
+    if (!name || !year) return null;
+    const resolve = async () => {
+      const s = match(await query(name, type), name, year, type);
+      return s ? { s } : { miss: 1 };   // a real no-match is an answer too — seal it, never re-ask
+    };
+    let body;
+    if (cache) ({ body } = await cache.through("rt:v1:" + type + ":" + norm(name) + ":" + year, resolve));
+    else body = await resolve();
+    return body && body.s ? body.s : null;
+  }
+
+  return { score };
+}
+
+// browser binding — real fetch + the persistent κ-cache. One shared instance (one in-flight dedupe layer).
+if (typeof window !== "undefined") {
+  let _inst = null;
+  window.HoloRt = {
+    createRt,
+    live() {
+      if (_inst) return _inst;
+      const cache = window.HoloMediaCache ? window.HoloMediaCache.live() : null;
+      return (_inst = createRt({ cache }));
+    },
+  };
+}
+
+export default { createRt, match, norm };
