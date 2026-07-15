@@ -1,0 +1,14 @@
+{
+  "name": "Q — a private AI on your device",
+  "short_name": "Q",
+  "description": "A real AI that thinks entirely in your browser. No server, no cloud, no account — nothing you say ever leaves your device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06070c",
+  "theme_color": "#06070c",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

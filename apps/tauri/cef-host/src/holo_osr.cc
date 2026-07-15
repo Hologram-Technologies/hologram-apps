@@ -35,10 +35,10 @@ void kr_blake3_hex(const uint8_t* data, size_t len, char* out_hex);   // Rust bl
 void kr_free(uint8_t* ptr, size_t len);
 void kr_cache_free_mime(char* m);
 // Planetary shared-κ transport (handler.cc SharedCache, dir-backed HOLO_SHARED_DIR). Cross-device projection
-// publishes each novel tile here keyed by its CANONICAL sha256 (the shared store is sha256-keyed; blake3 stays
-// the local fast σ-axis), so a lens on ANOTHER node fetches the tile by content address. Put recomputes/verifies
-// the κ from the bytes — it cannot mislabel, so an untrusted relay is safe (L5 on read).
-void kr_shared_put(const KShared* c, const char* kappa, const uint8_t* bytes, size_t len, const char* mime);
+// publishes each novel tile here on the BLAKE3 σ-axis — the SAME canonical κ the producer already addresses tiles
+// on (the substrate is blake3-canonical; no sha256 in the projection path). A lens on another node fetches the
+// tile by its blake3 content address. Put recomputes/verifies the κ from the bytes — it cannot mislabel.
+void kr_shared_put_b3(const KShared* c, const uint8_t* bytes, size_t len, const char* mime);
 }
 KCache* HoloWebCache();
 KShared* HoloSharedCache();   // handler.cc — the shared-κ transport door (NULL ⇒ shared layer disabled)
@@ -184,12 +184,6 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
       // content tiles (stable bytes) — that is the content win the falsifiable bar measures.
       if (genuine) { if (edge) ++edges; else ++changed_tiles; }
 
-      // Cross-device: the CANONICAL sha256 of this tile — the shared/wire axis a remote lens fetches on (the
-      // shared store is sha256-keyed; the local manifest keeps the fast blake3 σ-axis). Computed for EVERY
-      // emitted tile in share mode so the manifest can carry "s" for all of them.
-      std::string shahex;
-      if (share_) { char sh[65] = {0}; kr_sha256_hex(reinterpret_cast<const uint8_t*>(px.data()), px.size(), sh); shahex.assign(sh); }
-
       // κ-LUT + publish: only for a GENUINE change (a static keyframe re-emit is already resident locally AND
       // already in the shared-κ from when it was first novel, so it needs neither probe nor re-put). Probe on the
       // SAME axis the tile is addressed on — BLAKE3 (σ-axis), via kr_cache_get_b3; a HIT ⇒ O(1) reuse, a MISS ⇒ publish.
@@ -203,19 +197,18 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
       } else {
         kr_cache_put(HoloWebCache(), ("holo:osr:" + hex).c_str(),
                      reinterpret_cast<const uint8_t*>(px.data()), px.size(), "application/octet-stream", 1);
-        // Cross-device: publish this novel tile to the shared-κ transport by its sha256 (kr_shared_put recomputes
-        // + verifies the κ from the bytes — it cannot mislabel, so an untrusted relay is safe; L5 on read).
-        if (share_ && HoloSharedCache() && !shahex.empty()) {
-          kr_shared_put(HoloSharedCache(), shahex.c_str(), reinterpret_cast<const uint8_t*>(px.data()), px.size(), "application/octet-stream");
-          last_share_sha_.assign(shahex);
+        // Cross-device: publish this novel tile to the shared-κ transport on the BLAKE3 σ-axis — the same
+        // canonical κ the manifest already carries (kr_shared_put_b3 recomputes + verifies the κ from the bytes).
+        if (share_ && HoloSharedCache()) {
+          kr_shared_put_b3(HoloSharedCache(), reinterpret_cast<const uint8_t*>(px.data()), px.size(), "application/octet-stream");
+          last_share_sha_.assign(hex);
           ++shared_n_;
         }
       }
       }   // end if(genuine) — publish/probe only on a real change
 
       tiles_json += (first ? "" : ",");
-      tiles_json += "{\"id\":\"" + id + "\",\"k\":\"did:holo:blake3:" + hex + "\"";
-      if (!shahex.empty()) tiles_json += ",\"s\":\"" + shahex + "\"";   // the wire axis for a remote lens
+      tiles_json += "{\"id\":\"" + id + "\",\"k\":\"did:holo:blake3:" + hex + "\"";   // blake3 is THE wire axis (local + remote)
       if (content_mode_) {
         tiles_json += ",\"prow\":" + std::to_string(prow) + ",\"cx\":" + std::to_string(cx);
         if (edge) tiles_json += ",\"edge\":1";
@@ -240,7 +233,7 @@ void HoloOsrClient::OnPaint(CefRefPtr<CefBrowser> browser,
                  edge_total_, stat_frames_, residAvg, resid_max_, resid_n_, content_mode_ ? "" : " [screen-space]");
     std::fflush(stderr);
     if (share_) {
-      std::fprintf(stderr, "HOLO-OSR-SHARE: published %ld tiles to shared-κ (cross-device); sample sha256 %s\n",
+      std::fprintf(stderr, "HOLO-OSR-SHARE: published %ld tiles to shared-κ (cross-device); sample blake3 %s\n",
                    shared_n_, last_share_sha_.c_str());
       std::fflush(stderr);
       shared_n_ = 0;
@@ -406,20 +399,117 @@ void HoloOsrClient::OnDevToolsMethodResult(CefRefPtr<CefBrowser>, int message_id
   if (idle > kInputIdleMs || std::fabs(resid) > kSnapPx) scroll_y_ = static_cast<long>(auth + 0.5);
 }
 
-// Zero-copy GPU probe: fires when HOLO_OSR_ACCEL=1 (shared_texture_enabled). Logs the shared D3D11 texture
-// handle + format so we can confirm the host can do GPU-accelerated OSR (the prerequisite for 8K). The real
-// build opens this texture in our own D3D11 device, tiles + BLAKE3-hashes it on the GPU, and feeds the κ-LUT.
+// Zero-copy GPU path (HOLO_OSR_ACCEL=1, shared_texture_enabled): fires INSTEAD of OnPaint with a shared D3D11
+// texture handle. We open that texture on our OWN device, copy it into a CPU-readable staging texture, map it,
+// and run the SAME κ tiling the software OnPaint proves — so a GPU-composited frame becomes a stream of
+// did:holo:blake3 κ tiles (the σ-axis), exactly like the software path, closing the last unwired projection leg.
+// Additive: this does not touch OnPaint. Build-gated to Windows/D3D11 (the only platform CEF shares a texture on).
+#ifdef _WIN32
+bool HoloOsrClient::EnsureD3D() {
+  if (d3d_dev_ && d3d_ctx_) return true;
+  const D3D_FEATURE_LEVEL want[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
+  D3D_FEATURE_LEVEL got;
+  const HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+      D3D11_CREATE_DEVICE_BGRA_SUPPORT, want, 2, D3D11_SDK_VERSION, &d3d_dev_, &got, &d3d_ctx_);
+  if (FAILED(hr)) { std::fprintf(stderr, "HOLO-ACCEL: D3D11CreateDevice failed 0x%08lx\n", static_cast<unsigned long>(hr)); std::fflush(stderr); return false; }
+  return true;
+}
+
 void HoloOsrClient::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
                                        const RectList& dirtyRects, const CefAcceleratedPaintInfo& info) {
-  static int n = 0;
-  if (n < 3 || (n % 120) == 0) {
-    std::fprintf(stderr, "HOLO-ACCEL-PAINT: #%d type=%d dirty=%zu handle=%p format=%d view=%dx%d\n",
-                 n, static_cast<int>(type), dirtyRects.size(),
-                 reinterpret_cast<void*>(info.shared_texture_handle), static_cast<int>(info.format), w_, h_);
-    std::fflush(stderr);
+  if (screencast_) return;                       // motion is on the CDP JPEG path; tiling stops (mirrors OnPaint)
+  if (type != PET_VIEW || !lens_frame_ || !info.shared_texture_handle) return;
+  if (!EnsureD3D()) return;
+
+  HANDLE h = reinterpret_cast<HANDLE>(info.shared_texture_handle);
+  ID3D11Texture2D* shared = nullptr;
+  // Modern CEF shares an NT handle (OpenSharedResource1 on ID3D11Device1); older builds a legacy KMT handle.
+  ID3D11Device1* dev1 = nullptr;
+  if (SUCCEEDED(d3d_dev_->QueryInterface(__uuidof(ID3D11Device1), reinterpret_cast<void**>(&dev1))) && dev1) {
+    dev1->OpenSharedResource1(h, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&shared));
+    dev1->Release();
   }
-  ++n;
+  if (!shared) d3d_dev_->OpenSharedResource(h, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&shared));
+  if (!shared) { static bool once = false; if (!once) { once = true; std::fprintf(stderr, "HOLO-ACCEL: OpenSharedResource failed (handle=%p format=%d)\n", reinterpret_cast<void*>(h), static_cast<int>(info.format)); std::fflush(stderr); } return; }
+
+  D3D11_TEXTURE2D_DESC desc; shared->GetDesc(&desc);
+  if (!stage_tex_ || stage_w_ != static_cast<int>(desc.Width) || stage_h_ != static_cast<int>(desc.Height)) {
+    if (stage_tex_) { stage_tex_->Release(); stage_tex_ = nullptr; }
+    D3D11_TEXTURE2D_DESC s = {};
+    s.Width = desc.Width; s.Height = desc.Height; s.MipLevels = 1; s.ArraySize = 1;
+    s.Format = desc.Format; s.SampleDesc.Count = 1; s.Usage = D3D11_USAGE_STAGING; s.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    if (FAILED(d3d_dev_->CreateTexture2D(&s, nullptr, &stage_tex_))) { shared->Release(); return; }
+    stage_w_ = static_cast<int>(desc.Width); stage_h_ = static_cast<int>(desc.Height);
+    std::fprintf(stderr, "HOLO-ACCEL: readback ready %ux%u fmt=%d — GPU frame -> CPU staging -> blake3 kappa tiles\n", desc.Width, desc.Height, static_cast<int>(desc.Format)); std::fflush(stderr);
+  }
+  d3d_ctx_->CopyResource(stage_tex_, shared);
+  shared->Release();
+
+  D3D11_MAPPED_SUBRESOURCE map;
+  if (FAILED(d3d_ctx_->Map(stage_tex_, 0, D3D11_MAP_READ, 0, &map))) return;
+  EmitAccelTiles(static_cast<const uint8_t*>(map.pData), static_cast<int>(map.RowPitch),
+                 static_cast<int>(desc.Width), static_cast<int>(desc.Height));
+  d3d_ctx_->Unmap(stage_tex_, 0);
 }
+
+// The accel-path tiler: same content-addressing the software OnPaint proves, over the GPU-readback buffer.
+// Screen-space tiles (id "t{cx}_{ry}", matching the lens's screen-space placement); each tile is BGRA->RGBA,
+// BLAKE3-hashed on the sigma-axis, delta-emitted only on kappa-change, novel bytes put to the kappa cache, and
+// the first emitted tile is re-derivation self-tested (put -> fetch by blake3 address -> memcmp) — the native I2 proof.
+void HoloOsrClient::EmitAccelTiles(const uint8_t* src, int rowPitch, int width, int height) {
+  const int TILE = tile_;
+  const int cols = (width + TILE - 1) / TILE, rows = (height + TILE - 1) / TILE;
+  std::string tiles_json; bool first = true; int changed = 0;
+  for (int ry = 0; ry < rows; ++ry) for (int cx = 0; cx < cols; ++cx) {
+    const int tx = cx * TILE, ty = ry * TILE, tw = std::min(TILE, width - tx), th = std::min(TILE, height - ty);
+    std::string px; px.resize(static_cast<size_t>(tw) * th * 4);
+    for (int row = 0; row < th; ++row) {
+      const uint8_t* s = src + static_cast<size_t>(ty + row) * rowPitch + static_cast<size_t>(tx) * 4;  // RowPitch != width*4
+      char* d = &px[static_cast<size_t>(row) * tw * 4];
+      for (int i = 0; i < tw; ++i) { d[i * 4] = static_cast<char>(s[i * 4 + 2]); d[i * 4 + 1] = static_cast<char>(s[i * 4 + 1]); d[i * 4 + 2] = static_cast<char>(s[i * 4]); d[i * 4 + 3] = static_cast<char>(s[i * 4 + 3]); }
+    }
+    char hexbuf[65] = {0};
+    kr_blake3_hex(reinterpret_cast<const uint8_t*>(px.data()), px.size(), hexbuf);
+    const std::string hex(hexbuf);
+    const std::string id = "t" + std::to_string(cx) + "_" + std::to_string(ry);
+    if (last_kappa_[id] == hex) continue;                 // delta on the blake3 sigma-axis (unchanged => no emit)
+    last_kappa_[id] = hex; ++changed;
+
+    uint8_t* probe = nullptr; size_t plen = 0; char* pmime = nullptr;
+    const bool resident = HoloWebCache() && kr_cache_get_b3(HoloWebCache(), hex.c_str(), &probe, &plen, &pmime) == 1;
+    if (resident) { if (probe) kr_free(probe, plen); if (pmime) kr_cache_free_mime(pmime); }
+    else kr_cache_put(HoloWebCache(), ("holo:osr:" + hex).c_str(), reinterpret_cast<const uint8_t*>(px.data()), px.size(), "application/octet-stream", 1);
+
+    // One-shot native I2 proof on the accel path: fetch the tile back BY ITS BLAKE3 ADDRESS and byte-compare.
+    if (!accel_selftest_ && HoloWebCache()) {
+      accel_selftest_ = true;
+      uint8_t* out = nullptr; size_t outlen = 0; char* mime = nullptr;
+      const unsigned char hit = kr_cache_get_b3(HoloWebCache(), hex.c_str(), &out, &outlen, &mime);
+      const bool ok = hit == 1 && outlen == px.size() && out && std::memcmp(out, px.data(), px.size()) == 0;
+      std::fprintf(stderr, "HOLO-ACCEL-REDERIVE: tile %s did:holo:blake3:%s — cache-roundtrip %s (%zu bytes) — accel-path tile re-derives to its kappa\n", id.c_str(), hex.c_str(), ok ? "OK" : "FAIL", px.size()); std::fflush(stderr);
+      if (out) kr_free(out, outlen); if (mime) kr_cache_free_mime(mime);
+    }
+
+    tiles_json += (first ? "" : ",");
+    tiles_json += "{\"id\":\"" + id + "\",\"k\":\"did:holo:blake3:" + hex + "\"}";
+    first = false;
+  }
+  accel_emitted_ += changed;
+  if (++accel_frames_ >= 120) {
+    std::fprintf(stderr, "HOLO-ACCEL-TILES: %ld blake3 kappa tiles emitted on the GPU zero-copy path over %d frames (did:holo:blake3 sigma-axis)\n", accel_emitted_, accel_frames_); std::fflush(stderr);
+    accel_emitted_ = 0; accel_frames_ = 0;
+  }
+  if (tiles_json.empty()) return;                          // static frame => zero bandwidth (mirrors OnPaint)
+  const std::string manifest = "{\"w\":" + std::to_string(width) + ",\"h\":" + std::to_string(height) +
+      ",\"tile\":" + std::to_string(tile_) + ",\"seq\":" + std::to_string(seq_++) + ",\"accel\":1,\"tiles\":[" + tiles_json + "]}";
+  lens_frame_->ExecuteJavaScript("window.__holoOsrFrame&&window.__holoOsrFrame(" + manifest + ")", lens_frame_->GetURL(), 0);
+}
+#else
+void HoloOsrClient::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
+                                       const RectList& dirtyRects, const CefAcceleratedPaintInfo& info) {
+  (void)browser; (void)type; (void)dirtyRects; (void)info;   // non-Windows: no D3D11 shared texture to read back
+}
+#endif
 
 // Attach the CDP DevTools observer so screencast can be started on demand (whether forced now or promoted later
 // by the churn router). Page.enable is harmless in tile mode; we only startScreencast when actually in/entering
@@ -594,11 +684,19 @@ void OpenOsr(const std::string& url, CefRefPtr<CefFrame> lens_frame, int w, int 
   if (g_active_osr && g_active_osr->browser())
     g_active_osr->browser()->GetHost()->CloseBrowser(true);
   CefWindowInfo window_info;
-  window_info.SetAsWindowless(0);                 // off-screen ⇒ forces Alloy runtime (no Chrome window)
+  window_info.SetAsWindowless(0);                 // off-screen producer
+  // CEF 149 runtime mode: the process default is CHROME (settings.chrome_runtime unset → Chrome). OSR /
+  // OnPaint / OnAcceleratedPaint are ALLOY-only — a windowless browser left at the default Chrome style does
+  // NOT render (MEASURED 2026-06-28: producer opened at the right res but emitted 0 frames on OnPaint,
+  // OnAcceleratedPaint AND CDP screencast; host logged CefWebContentsViewOSR::GetTopLevelNativeWindow() Not
+  // implemented). SetAsWindowless alone forced Alloy in OLDER CEF; 149 requires the per-window style to be set
+  // explicitly (every other window in this host already sets CEF_RUNTIME_STYLE_CHROME). So pin the producer to
+  // Alloy — Chrome top-level windows + an Alloy windowless producer coexist per-browser in one process.
+  window_info.runtime_style = CEF_RUNTIME_STYLE_ALLOY;
   const char* accel = std::getenv("HOLO_OSR_ACCEL");   // zero-copy GPU path probe: OnAcceleratedPaint instead of OnPaint
   if (accel && accel[0] == '1') window_info.shared_texture_enabled = 1;
   CefBrowserSettings settings;
-  settings.windowless_frame_rate = 60;            // produce rate; present runs faster via holo-present-mailbox
+  settings.windowless_frame_rate = 120;           // produce cap raised 60→120 (8c): lifts the artificial ceiling so low/medium-churn pages emit up to 120 fresh dirty-tile frames/s; heavy-churn/full-frame 8K stays bandwidth-bound regardless (the 8K path is reconstruct-via-super-res, not moving 127MB frames). present is already decoupled + faster via holo-present-mailbox.
   const char* sc = std::getenv("HOLO_PROJECT_SCREENCAST");   // force CDP JPEG screencast always (vs raw tiles)
   const char* noauto = std::getenv("HOLO_PROJECT_NOAUTO");   // disable the churn-driven tile↔screencast switch
   const char* noctn = std::getenv("HOLO_OSR_NOCONTENT");     // A/B: disable content-space tiling (legacy screen-space grid)

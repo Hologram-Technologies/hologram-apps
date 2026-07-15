@@ -39,80 +39,68 @@
       button { cursor: pointer; }
       .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
 
-      /* ── tab strip ── */
-      #tabstrip { flex: 0 0 auto; display: flex; align-items: stretch; gap: 2px; padding: 5px 6px 0; background: var(--panel2);
-        border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: thin; }
-      .tab { display: flex; align-items: center; gap: 0.45rem; max-width: 220px; min-width: 120px; padding: 0.4rem 0.6rem;
-        background: var(--panel2); color: var(--dim); border: 1px solid transparent; border-bottom: 0;
-        border-radius: 9px 9px 0 0; cursor: pointer; white-space: nowrap; }
-      .tab.active { background: var(--panel); color: var(--ink); border-color: var(--line); }
+      /* ── tab strip — the top-level bar, Chromium metrics: a thin 34px strip, tabs sit flex-end and the
+             active tab MERGES into the toolbar below (same surface, no divider) ── */
+      #tabstrip { flex: 0 0 auto; display: flex; align-items: flex-end; gap: 1px; height: 34px; padding: 3px 6px 0;
+        background: var(--panel2); overflow-x: auto; scrollbar-width: none; }
+      #tabstrip::-webkit-scrollbar { display: none; }
+      .tab { display: flex; align-items: center; gap: 0.4rem; height: 28px; max-width: 200px; min-width: 96px;
+        flex: 0 1 200px; padding: 0 4px 0 10px; background: transparent; color: var(--dim); border: 0;
+        border-radius: 8px 8px 0 0; cursor: pointer; white-space: nowrap; font-size: 12.5px; position: relative; }
+      .tab:not(.active):hover { background: #ffffff0d; color: var(--ink); }
+      .tab.active { background: var(--panel); color: var(--ink); }
+      /* Chromium's curve where the active tab meets the toolbar */
+      .tab.active::before, .tab.active::after { content: ""; position: absolute; bottom: 0; width: 8px; height: 8px;
+        background: var(--panel); pointer-events: none; }
+      .tab.active::before { left: -8px; -webkit-mask: radial-gradient(circle 8px at 0 0, transparent 7.5px, #000 8px); mask: radial-gradient(circle 8px at 0 0, transparent 7.5px, #000 8px); }
+      .tab.active::after { right: -8px; -webkit-mask: radial-gradient(circle 8px at 100% 0, transparent 7.5px, #000 8px); mask: radial-gradient(circle 8px at 100% 0, transparent 7.5px, #000 8px); }
       .tab .fav { width: 14px; height: 14px; flex: 0 0 auto; color: var(--acc); display: flex; }
       .tab .ttl { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
-      .tab .x { flex: 0 0 auto; border: 0; background: transparent; color: var(--dim); border-radius: 5px; padding: 0 0.25rem; line-height: 1; }
-      .tab .x:hover { background: #ffffff18; color: var(--ink); }
-      #newtab { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--dim); font-size: 18px;
-        border-radius: 7px; width: 30px; height: 30px; }
+      .tab .x { flex: 0 0 auto; border: 0; background: transparent; color: var(--dim); border-radius: 50%;
+        width: 18px; height: 18px; display: grid; place-items: center; padding: 0; line-height: 1; opacity: 0; transition: opacity 0.1s; }
+      .tab:hover .x, .tab.active .x { opacity: 0.6; }
+      .tab .x:hover { background: #ffffff22; color: var(--ink); opacity: 1; }
+      #newtab { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: var(--dim); font-size: 16px;
+        border-radius: 50%; width: 26px; height: 26px; margin-bottom: 1px; }
       #newtab:hover { background: #ffffff14; color: var(--ink); }
+      /* embedded in a host canvas (the messenger holospace): the host floats its own control cluster
+         over the strip's right edge — keep tabs clear of it, Chromium window-controls style */
+      body.embedded #tabstrip { padding-right: 140px; }
 
-      /* ── nav bar + omnibox ── */
-      #navbar { flex: 0 0 auto; display: flex; align-items: center; gap: var(--holo-size-xs); padding: var(--holo-size-xs) var(--holo-size-s);
+      /* ── nav bar + omnibox — thin Chromium toolbar: 40px, shares the active tab's surface ── */
+      #navbar { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 8px;
         background: var(--panel); border-bottom: 1px solid var(--line); position: relative; z-index: 50; }
-      .navbtn { border: 0; background: transparent; color: var(--dim); border-radius: 50%; width: 34px; height: 34px;
-        display: grid; place-items: center; }
+      .navbtn { border: 0; background: transparent; color: var(--dim); border-radius: 50%; width: 30px; height: 30px;
+        flex: 0 0 auto; display: grid; place-items: center; }
       .navbtn:hover:not(:disabled) { background: #ffffff14; color: var(--ink); }
       .navbtn:disabled { opacity: 0.35; cursor: default; }
-      .navbtn svg { width: 18px; height: 18px; }
-      #omni { flex: 1 1 auto; display: flex; align-items: center; gap: 0; background: var(--panel2); border: 1px solid var(--line);
+      .navbtn svg { width: 17px; height: 17px; }
+      #omni { flex: 1 1 auto; display: flex; align-items: center; gap: 0; height: 30px; background: var(--panel2); border: 1px solid transparent;
         border-radius: 999px; padding: 0 0.5rem; min-width: 0; position: relative; }
       #omni:focus-within { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent); }
-      #secchip { display: flex; align-items: center; gap: 0.3rem; color: var(--dim); padding: 0 0.4rem 0 0.2rem; white-space: nowrap; font-size: var(--holo-text-sm, 1rem); }
+      /* the security chip: icon-only, Chromium-style. One quiet signal — neutral by default, green when
+         the page passed its check, red when something is wrong. The tooltip says it in plain words. */
+      #secchip { display: flex; align-items: center; color: var(--dim); padding: 0 0.35rem 0 0.2rem; }
       #secchip svg { width: 14px; height: 14px; }
-      #secchip.secure { color: var(--ok); } #secchip.warning { color: var(--warn); } #secchip.dangerous { color: var(--bad); }
-      #addr { flex: 1 1 auto; background: transparent; border: 0; outline: 0; color: var(--ink); padding: 0.5rem 0.3rem; min-width: 0; font-size: var(--holo-text-sm, 1rem); }
+      #secchip.secure { color: var(--dim); } #secchip.warning { color: var(--warn); } #secchip.dangerous { color: var(--bad); }
+      #secchip.ok { color: var(--ok); } #secchip.bad { color: var(--bad); }
+      #addr { flex: 1 1 auto; background: transparent; border: 0; outline: 0; color: var(--ink); padding: 0 0.3rem; min-width: 0; font-size: 13px; height: 100%; }
       #addr::placeholder { color: #5b6673; }
-      .hud { display: flex; align-items: center; gap: 0.4rem; font-size: var(--holo-text-sm, 1rem); white-space: nowrap; padding-right: 0.2rem; }
-      #verify { font-weight: 700; padding: 0.16rem 0.5rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
-      #verify.ok { color: var(--ok); border-color: #16432a; background: #0c1f14; }
-      #verify.bad { color: var(--bad); border-color: #4a1d1d; background: #1f0e0e; }
-      #verify.work { color: var(--acc); border-color: #173a40; }
-      #lat { color: var(--dim); font-variant-numeric: tabular-nums; } #lat b { color: var(--acc); }
       #star.on { color: var(--warn); }
-      #native { border: 1px solid var(--line); background: transparent; color: var(--dim); border-radius: var(--holo-radius-sm, 8px); padding: 0.3rem 0.55rem; font-size: var(--holo-text-sm, 1rem); white-space: nowrap; }
-      #native:hover { color: var(--ink); border-color: #34404e; }
-      /* "Open in Hologram" — the primary handoff to the native host (the accent-filled CTA). */
-      #gonative { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; white-space: nowrap;
-        border: 1px solid color-mix(in srgb, var(--acc) 55%, transparent); background: color-mix(in srgb, var(--acc) 15%, transparent);
-        color: var(--acc2); border-radius: var(--holo-radius-sm, 8px); padding: 0.3rem 0.55rem; font-size: var(--holo-text-sm, 1rem);
-        transition: background 0.15s, border-color 0.15s, transform 0.12s; }
-      #gonative:hover { background: color-mix(in srgb, var(--acc) 26%, transparent); border-color: var(--acc); color: var(--ink); }
-      #gonative:active { transform: translateY(1px); }
-      #gonative svg { width: 15px; height: 15px; flex: 0 0 auto; }
-      #gonative.ok { box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 45%, transparent); }
-      /* one-time, content-verified install popover (the seamless fallback) */
-      #nativepop { position: fixed; z-index: 80; right: 12px; top: 86px; width: min(370px, calc(100vw - 24px));
-        background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 14px 44px #000b;
-        padding: 14px; opacity: 0; transform: translateY(-6px) scale(0.98); pointer-events: none; transition: opacity 0.16s, transform 0.16s; }
-      #nativepop.on { opacity: 1; transform: none; pointer-events: auto; }
-      #nativepop h4 { margin: 0 0 5px; font-size: var(--holo-text, 1rem); display: flex; align-items: center; gap: 0.4rem; color: var(--ink); }
-      #nativepop p { margin: 0 0 10px; color: var(--dim); font-size: var(--holo-text-sm, 1rem); line-height: 1.45; }
-      #nativepop .cmd { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
-      #nativepop .cmd code { flex: 1; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      #nativepop button { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 7px; padding: 5px 11px; font-size: var(--holo-text-sm, 1rem); cursor: pointer; }
-      #nativepop button:hover { border-color: var(--acc); }
-      #nativepop .fine { margin: 10px 0 0; color: var(--dim); font-size: var(--holo-text-sm, 1rem); line-height: 1.45; }
-      #nativepop .fine code { color: var(--acc2); }
-      #nativepop .fine a { color: var(--acc); text-decoration: none; }
-      #nativepop .fine a:hover { text-decoration: underline; }
-      #nativepop .row { display: flex; justify-content: space-between; gap: 8px; margin-top: 11px; }
-      #nativepop .row .primary { background: var(--acc); border-color: var(--acc); color: #fff; }
-      @media (max-width: 760px) { #gonative .lbl { display: none; } }
+      /* ── Ladder chip — paywall unlock. Dim by default, tints when it unlocked the current page. ── */
+      #ladderchip { display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer;
+        color: var(--dim); padding: 0 0.3rem; height: 100%; flex: 0 0 auto; }
+      #ladderchip svg { width: 15px; height: 15px; }
+      #ladderchip:hover { color: var(--ink); }
+      #ladderchip.dim { opacity: 0.4; }
+      #ladderchip.lit { color: var(--acc); filter: drop-shadow(0 0 5px color-mix(in srgb, var(--acc) 60%, transparent)); }
 
       /* ── window controls (native tier only) — frameless host: Hologram owns the chrome ── */
-      #winctl { position: fixed; top: 0; right: 0; height: 40px; display: none; align-items: center; gap: 2px;
+      #winctl { position: fixed; top: 0; right: 0; height: 34px; display: none; align-items: center; gap: 2px;
         padding: 0 6px 0 10px; z-index: 300; -webkit-app-region: no-drag; }
       body.native #winctl { display: flex; }
       body.native #tabstrip { padding-right: 132px; }   /* keep tabs clear of the controls */
-      .wc { width: 40px; height: 30px; border: 0; background: transparent; color: var(--dim); border-radius: 8px;
+      .wc { width: 40px; height: 30px; border: 0; background: transparent; color: var(--dim); border-radius: var(--holo-radius-sm, 8px);
         display: grid; place-items: center; cursor: pointer; transition: background 0.12s, color 0.12s; }
       .wc:hover { background: #ffffff16; color: var(--ink); }
       .wc:active { transform: translateY(0.5px); }
@@ -121,19 +109,19 @@
       #wc-max .ic-restore { display: none; }
       body.maximized #wc-max .ic-max { display: none; }
       body.maximized #wc-max .ic-restore { display: block; }
-      /* native tier: strip the OS dock and the redundant "Open in…" handoffs — this IS the native
-         Chromium window, so it should feel like Chrome, not carry pointers back to itself. */
-      body.native #holo-dock { display: none !important; }
-      body.native #native, body.native #gonative { display: none !important; }
+      /* strip the OS dock rail in the browser — this IS a browser (Chrome-like), so it should not
+         carry the shell's app-navigator down its left edge. App navigation lives on the New Tab
+         Page's Apps grid instead. (Previously hidden only in the native tier; now in web too.) */
+      #holo-dock { display: none !important; }
 
       /* ── omnibox suggestions ── */
       #sugg { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--line);
         border-radius: var(--holo-radius, 12px); box-shadow: 0 18px 50px #0009; overflow: hidden; display: none; z-index: 80; }
       #sugg.on { display: block; }
-      .sg { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; cursor: pointer; }
+      .sg { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; cursor: pointer; font-size: 13px; }
       .sg:hover, .sg.sel { background: #ffffff10; }
-      .sg .k { flex: 0 0 auto; font-size: var(--holo-text-sm, 1rem); color: var(--bg); background: var(--acc); border-radius: 5px; padding: 0.05rem 0.4rem; font-weight: 700; }
-      .sg .k.ca { background: var(--ok); } .sg .k.web { background: var(--warn); color: #1a1300; }
+      .sg .k { flex: 0 0 auto; width: 16px; height: 16px; color: var(--dim); display: flex; }
+      .sg .k svg { width: 16px; height: 16px; }
       .sg .t { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .sg .u { color: var(--dim); font-size: var(--holo-text-sm, 1rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
 
@@ -143,6 +131,18 @@
       #renderer.on { display: block; }
       #ntp { position: absolute; inset: 0; overflow: auto; padding: var(--holo-size-m); display: none; }
       #ntp.on { display: block; }
+      /* loading veil — a calm shimmer instead of a blank frame while a page/IPFS object resolves + verifies */
+      #ldg { position:absolute; inset:0; display:none; place-items:center; z-index:6; opacity:0; transition:opacity .2s ease;
+             background:radial-gradient(900px 520px at 50% 32%, #0e1730, var(--bg,#070a12) 70%); }
+      #ldg.on { display:grid; opacity:1; }
+      .ldg-card { display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; color:var(--ink,#eaf0fb); }
+      .ldg-glyph { width:44px; height:44px; color:#a78bfa; animation:ldgspin 2.4s linear infinite; filter:drop-shadow(0 0 14px rgba(167,139,250,.5)); }
+      @keyframes ldgspin { to { transform:rotate(360deg); } }
+      .ldg-t { font:600 15px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:-.01em; }
+      .ldg-bar { width:212px; height:4px; border-radius:99px; background:rgba(255,255,255,.09); overflow:hidden; }
+      .ldg-bar span { display:block; width:38%; height:100%; border-radius:99px; background:linear-gradient(90deg,#7c5cff,#4dd0e1); animation:ldgslide 1.15s ease-in-out infinite; }
+      @keyframes ldgslide { 0%{transform:translateX(-130%)} 100%{transform:translateX(330%)} }
+      .ldg-s { font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; color:#7d8aa6; }
       .ntp-wrap { max-width: 980px; margin: 0 auto; }
       .ntp-hero { text-align: center; padding: var(--holo-size-m) 0 var(--holo-size-s); }
       .ntp-hero .logo { width: 56px; height: 56px; color: var(--acc); margin: 0 auto 0.6rem; display: block; }
@@ -166,6 +166,24 @@
       #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #000c; color: #fff;
         padding: 0.6rem 1rem; border-radius: 10px; border: 1px solid var(--line); opacity: 0; pointer-events: none; transition: 0.25s; z-index: 200; max-width: 80vw; }
       #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      #toast.act { pointer-events: auto; cursor: pointer; border-color: var(--acc); }
+
+      /* ── device-mesh pairing (the one-tap "carry my browsing through my own device") ── */
+      #peerdlg { position: fixed; inset: 0; background: #0008; display: none; place-items: center; z-index: 250; }
+      #peerdlg.on { display: grid; }
+      #peerdlg .box { width: min(440px, calc(100vw - 2rem)); background: var(--panel); border: 1px solid var(--line);
+        border-radius: var(--holo-radius, 12px); padding: 1.4rem 1.5rem; box-shadow: 0 24px 70px #000b; }
+      #peerdlg h2 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+      #peerdlg p { color: var(--dim); font-size: 0.86rem; margin: 0.35rem 0; }
+      #peerdlg code { background: var(--panel2); padding: 0.1rem 0.35rem; border-radius: 6px; font-size: 0.82rem; }
+      #peerdlg input { width: 100%; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+        color: var(--ink); padding: 0.55rem 0.7rem; margin-top: 0.7rem; outline: 0; font-size: 0.9rem; }
+      #peerdlg input:focus { border-color: var(--acc); }
+      #peerdlg .row { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+      #peerdlg button { border: 0; border-radius: 8px; padding: 0.5rem 1rem; font-weight: 600; }
+      #peerdlg .go { background: var(--acc); color: #fff; }
+      #peerdlg .no { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+      #peerstate { font-size: 0.84rem; margin-top: 0.6rem; min-height: 1.2em; }
       @media (max-width: 640px) { #native { display: none; } .tab { min-width: 92px; } }
     </style>
   </head>
@@ -175,6 +193,9 @@
          Shadow DOM; the bar auto-tracks this app's real boot time. -->
     <script src="./holo-splash.js"></script>
     <holo-splash app="Holo Browser"></holo-splash>
+
+    <!-- ?embed=… → the host canvas floats its controls over the tab strip; reserve the right edge for them -->
+    <script>if (new URLSearchParams(location.search).has("embed")) document.body.classList.add("embedded");</script>
 
     <!-- ── tab strip (the WebContents list) — also the window drag handle in the native tier ── -->
     <div id="tabstrip" role="tablist" aria-label="Browser tabs" data-tauri-drag-region>
@@ -198,20 +219,12 @@
       <button class="navbtn" id="reload" title="Reload" aria-label="Reload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg></button>
       <button class="navbtn" id="home" title="New Tab Page" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></button>
       <div id="omni">
-        <span id="secchip" title="Connection security"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span id="sectext">holo</span></span>
+        <span id="secchip" title="This connection is private"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
         <input id="addr" type="text" spellcheck="false" autocomplete="off" aria-label="Address and search bar"
-          placeholder="Search the dweb or enter a holo://κ, ipfs://, .eth or web address" />
-        <span class="hud">
-          <span id="verify" title="content-addressing status (Law L5)">κ</span>
-          <span id="lat" title="load latency"></span>
-        </span>
+          placeholder="Search or type a URL" />
+        <button id="ladderchip" title="Ladder — paywall unlock: Auto" aria-label="Paywall unlock" data-mode="auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg></button>
       </div>
       <button class="navbtn" id="star" title="Bookmark" aria-label="Bookmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.18 3.7 1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.46 4.73L18.18 21z"/></svg></button>
-      <button id="native" title="Open this page in the native Chromium (CEF) host">Open in Chromium ↗</button>
-      <button id="gonative" title="Open Hologram as a native window Chrome-less, content-verified, opens to this page">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3a9 9 0 0 0-7.8 4.5"/></svg>
-        <span class="lbl">Open in Hologram ↗</span>
-      </button>
       <!-- The OS overlay actions (capture · live · theme · manage) dock HERE into the toolbar instead
            of floating top-right (holo-manage.js resolveMount → [data-holo-manage-slot]). -->
       <span id="holo-manage-slot" data-holo-manage-slot style="display:inline-flex;align-items:center;gap:2px;margin-left:2px"></span>
@@ -224,27 +237,52 @@
         <div class="ntp-wrap">
           <div class="ntp-hero">
             <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M12 2a10 10 0 0 0-8.66 5M12 22a10 10 0 0 0 8.66-5M22 12a10 10 0 0 0-5-8.66"/></svg>
-            <h1>Holo Browser</h1>
-            <p>The web as content-addressable substrate. Every byte re-derived (Law L5).</p>
-            <div class="ntp-omni"><input id="ntpAddr" type="text" spellcheck="false" autocomplete="off" aria-label="Search or enter address" placeholder="Search the dweb or enter an address" /></div>
+            <h1>Hologram</h1>
+            <div class="ntp-omni"><input id="ntpAddr" type="text" spellcheck="false" autocomplete="off" aria-label="Search or enter address" placeholder="Search or type a URL" /></div>
           </div>
-          <div class="sect"><h2>Hologram OS</h2><div class="grid" id="fleet"></div></div>
+          <div class="sect"><h2>Apps</h2><div class="grid" id="fleet"></div></div>
           <div id="dirSections"></div>
         </div>
       </div>
       <iframe id="renderer" title="Page renderer" referrerpolicy="no-referrer-when-downgrade"
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write"
         sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals allow-downloads"></iframe>
+      <!-- ── loading veil: never a blank frame. Shows a calm shimmer + honest status while a page/IPFS
+           object resolves + verifies; fades out the instant the renderer paints (or on timeout). ── -->
+      <div id="ldg" aria-hidden="true">
+        <div class="ldg-card">
+          <svg class="ldg-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3a9 9 0 0 0-7.8 4.5M12 21a9 9 0 0 0 7.8-4.5M21 12a9 9 0 0 0-4.5-7.8"/></svg>
+          <div class="ldg-t" id="ldgT">Resolving…</div>
+          <div class="ldg-bar"><span></span></div>
+          <div class="ldg-s">verifying every block · re-derived on your device · Law L5</div>
+        </div>
+      </div>
     </div>
 
     <div id="toast" role="status" aria-live="polite"></div>
 
-    <!-- one-time install affordance: only shown if the hologram:// deep link finds no native host -->
-    <div id="nativepop" role="dialog" aria-label="Open in Hologram" aria-modal="false">
-      <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/></svg> Open in Hologram</h4>
-      <p>Run Hologram as its own window like a new browser window, but Chrome-less and every byte content-verified. One paste to install; instant, one-click after that.</p>
-      <div class="cmd"><code id="nativecmd">irm https://raw.githubusercontent.com/humuhumu33/hologram-apps/master/apps/tauri/bootstrap.ps1 | iex</code><button id="nativecopy">Copy</button></div>
-      <p class="fine">One time · content-verified (<code>Law L5</code>) · registers <code>hologram://</code> so this button opens it instantly next time. <br/>No terminal? <a href="#" id="nativeweb">Install the web app instead</a> no download, opens like a tab.</p>
-      <div class="row"><button id="nativeclose">Not now</button><button class="primary" id="nativeretry">I installed it open</button></div>
+    <!-- ── device-mesh pairing: exit the real web through YOUR OWN machine (SEC-7 tier 1.6) ── -->
+    <div id="peerdlg" role="dialog" aria-modal="true" aria-labelledby="peerttl">
+      <div class="box">
+        <h2 id="peerttl">Browse through your own device</h2>
+        <p>Public relays hand many sites back empty. Your own computer can carry the request instead —
+           the bytes flow device-to-device and never touch a third party. Works on any network.</p>
+        <p><b>Is this the computer</b> you want to browse through? Turn it into your exit peer —
+           it shows a QR your phone scans, and stays reachable while open:</p>
+        <div class="row" style="justify-content:flex-start;margin:.2rem 0 .9rem"><button class="go" id="peerbehost" style="width:100%">Make this device the exit peer →</button></div>
+        <p style="border-top:1px solid var(--line);padding-top:.8rem"><b>Or pair to another device:</b> on it,
+           open <code>peer-host.html</code> — <b>scan its QR</b>, or type the pairing code it shows here.</p>
+        <input id="peercode" type="text" spellcheck="false" autocomplete="off"
+          placeholder="pairing code (e.g. a1b2c-3d4e5-…)" aria-label="Pairing code" />
+        <div id="peerstate"></div>
+        <details style="margin-top:.7rem"><summary style="cursor:pointer;color:var(--dim);font-size:.82rem">Advanced: same-network address</summary>
+          <p style="font-size:.8rem">If both devices are on the same Wi-Fi, paste the host's address instead
+             (for example <code>http://192.168.1.20:8474</code>).</p>
+          <input id="peersignal" type="text" spellcheck="false" autocomplete="off"
+            placeholder="http://your-device:8474" aria-label="Hologram host address" />
+        </details>
+        <div class="row"><button class="no" id="peerno">Not now</button><button class="go" id="peergo">Connect</button></div>
+      </div>
     </div>
 
     <script src="/.holo/sha256/a0ebbc696bda5154727b76b42c11921231cbc652de3e705dd6b632456e6f34aa.js" data-holo-shared="teleport.js" defer></script>
@@ -274,23 +312,56 @@
         requestAnimationFrame(reportContentTop);
         setTimeout(reportContentTop, 250);
         // a tab's native webview committed a navigation → if it's the active tab, sync the omnibox.
-        TAURI.event.listen("holo://navigated", (e) => {
+        // A webview-initiated load (a clicked link) that lands on a recognized watch page is projected
+        // through Holo Video, same as an omnibox nav. The projector page is holo:// and never
+        // re-matches, so there is no loop. (In-page SPA clicks that don't commit a navigation are not
+        // caught here — that needs host-side injection, Phase 2.) Fail-open throughout.
+        TAURI.event.listen("holo://navigated", async (e) => {
           try {
             const [id, u] = e.payload;
+            const url = unwrap(String(u));
             const at = browser.activeTab;
-            if (at && at.id === id) setOmni(unwrap(String(u)));
+            if (at && at.id === id) setOmni(url);
+            if (invoke && /^https?:\/\//i.test(url)) {
+              const mr = await mediaRouteFor(url);
+              if (mr) {
+                const abs = new URL(mr.route, location.href).href;
+                invoke("tab_navigate", { id, url: abs }).catch(() => {});
+                const tab = browser.tabs.find((t) => t.id === id);
+                if (tab) { tab.title = "▶ " + mr.platform; renderTabs(); }
+              }
+            }
           } catch {}
         });
       }
       const browser = new B.Browser();
+      // Persist visit history on-device so Holo Search can rank over YOUR own κ-graph (and history
+      // survives a reload). Plain JSON, same-origin only, capped — SEC-7: it never leaves the device.
+      const HIST_LS = "holo.browser.history.v1";
+      try { const saved = JSON.parse(localStorage.getItem(HIST_LS) || "[]"); if (Array.isArray(saved)) browser.history = saved.slice(0, 500); } catch {}
+      function persistHistory() { try { localStorage.setItem(HIST_LS, JSON.stringify(browser.history.slice(0, 500))); } catch {} }
+      // Holo Search (loaded same-origin in the webview) posts navigation intent back here — it can't
+      // drive the loading seam itself. Same-origin only; anything else is ignored.
+      window.addEventListener("message", (e) => {
+        if (e.origin !== location.origin) return;
+        const m = e.data || {};
+        if (m.type === "holonav" && typeof m.url === "string") { try { go(m.url); } catch {} }
+        // the SW's dead-paint interstitial (rendered same-origin in the sandboxed iframe) offers
+        // "Use my own device" — its click lands here and opens the pairing flow.
+        if (m.type === "holo-peer-setup") openPeerSetup();
+      });
 
-      let toastT; const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2600); };
+      let toastT; const toast = (m) => { const el = $("toast"); el.textContent = m; el.classList.remove("act"); el.onclick = null; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2600); };
       const short = (s, n = 10) => { s = String(s || ""); return s.length > 2 * n + 1 ? s.slice(0, n) + "…" + s.slice(-n) : s; };
 
       // ── the loading seam's service worker (scope <base>webview/) ───────────────────
       let swReady = false;
       async function registerSW() {
         if (!("serviceWorker" in navigator)) return;
+        // The κ-store IS the memory (L3): ask the browser to mark this origin's storage durable
+        // so minted pages survive eviction pressure across sessions. Fail-open — a denial only
+        // leaves the store evictable, exactly as before.
+        try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch {}
         try {
           const reg = await navigator.serviceWorker.register(BASE + "browser-sw.js", { type: "module", scope: VIEW });
           // navigator.serviceWorker.ready would hang — this page is OUTSIDE the /webview/ scope,
@@ -299,7 +370,20 @@
           swReady = !!reg.active;
         } catch (e) { swReady = false; }
         navigator.serviceWorker.addEventListener("message", onSwMessage);
+        pushOperator();     // tell the seam who is signed in → per-identity egress Chrome
+        peerAutoConnect();  // #pair= link auto-connects; a persisted pairκ reconnects silently (serverless rendezvous)
       }
+      // Read the signed-in operator κ (TEE presence, written by holo-sso) and push it to the SW,
+      // so the live-web egress runs in a Chrome profile bound to THIS identity — logins persist
+      // per person, never cross operators. A SW can't read localStorage; the page must relay it.
+      function readOperator() {
+        try { const p = JSON.parse(localStorage.getItem("holo.identity.presentation") || "null"); return (p && !p.guest && p.operator) ? String(p.operator) : ""; } catch { return ""; }
+      }
+      async function pushOperator() {
+        try { const reg = await navigator.serviceWorker.getRegistration(VIEW); const w = reg && (reg.active || reg.waiting); if (w) w.postMessage({ type: "setop", operator: readOperator() }); } catch {}
+      }
+      // presence can change mid-session (sign in/out in another tab) — keep the seam in sync.
+      try { if (typeof BroadcastChannel !== "undefined") { const bc = new BroadcastChannel("holo-identity"); bc.addEventListener("message", () => pushOperator()); } } catch {}
       // best-effort reuse of the Holo IPFS gateway for ipfs:// / ipns:// (no reimplementation).
       async function registerIpfsSW() {
         try { await navigator.serviceWorker.register(BASE + "ipfs-sw.js", { type: "module", scope: BASE + "ipfsview/" }); } catch {}
@@ -315,15 +399,177 @@
         });
       }
 
+      // ── device-mesh exit peer (holo-peer-egress): RTC lives HERE (the page), and the SW proxies each
+      // peer fetch to us. Establish the link when a signal relay + owner identity are configured; a bare
+      // static origin has neither, so this is a fail-open no-op there (the loopback + relay tiers cover it).
+      let _peerLink = null;
+      async function swPost(msg, transfer) {
+        try { const reg = await navigator.serviceWorker.getRegistration(VIEW); const w = reg && (reg.active || reg.waiting); if (w) w.postMessage(msg, transfer || []); } catch {}
+      }
+      function peerConfig() {
+        const u = new URL(location.href);
+        const ls = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+        // pairκ (the serverless rendezvous — works across ANY network): from a scanned #pair= link, or persisted.
+        const pairk = (location.hash.match(/pair=([0-9a-f]{16,64})/i) || [])[1] || ls("holo.browser.peer.pairk");
+        // legacy same-network path (Advanced): a directly-reachable host origin that answers /signal.
+        const signal = u.searchParams.get("peer-signal") || ls("holo.browser.peer.signal");
+        const id = u.searchParams.get("peer-id") || readOperator() || ls("holo.browser.peer.id");
+        const only = u.searchParams.get("peer-only") === "1" || ls("holo.browser.peer.only") === "1";
+        return { pairk, signal, id, only };
+      }
+      async function establishPeer() {
+        const { pairk, signal, id, only } = peerConfig();
+        try {
+          // PRIMARY — serverless rendezvous by pairκ: no address, no server, any network (the milestone path).
+          if (pairk) {
+            const { connectExitPeerRdv } = await import(BASE + "_shared/holo-peer-egress.mjs");
+            const { makeNostrMailbox } = await import(BASE + "_shared/holo-rendezvous.mjs");
+            const mailbox = await makeNostrMailbox({});
+            if (mailbox.relayCount() === 0) return false;   // WebSocket egress blocked — honest no-op, ladder covers it
+            const link = await connectExitPeerRdv({ pairKappa: pairk, mailbox });
+            if (!link || !link.ok) { if (mailbox.close) mailbox.close(); return false; }
+            _peerLink = link;
+            setTimeout(() => swPost({ type: "peer-ready", ready: true, only }), 800);
+            return true;
+          }
+          // FALLBACK (Advanced / same-network) — the legacy /signal-relayed together transport.
+          if (!signal || !id) return false;   // nothing configured → no mesh tier (honest)
+          const { connectExitPeer } = await import(BASE + "_shared/holo-peer-egress.mjs");
+          const link = await connectExitPeer({ identKappa: id, signal });
+          if (!link || !link.ok) return false;
+          _peerLink = link;
+          setTimeout(() => swPost({ type: "peer-ready", ready: true, only }), 1500);   // let the channel open, then arm the tier
+          return true;
+        } catch { return false; }
+      }
+
+      // ── one-tap pairing: the fix the interstitial names. Primary path is the serverless rendezvous —
+      // paste (or scan into #pair=) the code peer-host.html shows; both devices derive the SAME coordinate
+      // from the pairκ (SEC-5) and meet P2P with no server. Advanced disclosure keeps the LAN address path.
+      function openPeerSetup() {
+        const dlg = $("peerdlg"); dlg.classList.add("on");
+        const inp = $("peercode"); inp.value = ""; $("peersignal").value = (peerConfig().signal || ""); $("peerstate").textContent = "";
+        setTimeout(() => inp.focus(), 50);
+      }
+      // "Make THIS device the exit peer" → open peer-host.html as a browser tab. It mints a pairκ, shows a
+      // QR + code, and arms serveAsExitPeerRdv over the content-blind Nostr rendezvous — the other device
+      // scans/types it and browses through here. (Needs a Hologram host that answers /web; on a bare static
+      // mount peer-host says so honestly.) Closes the loop from ONE panel: pair TO a device, or BE the device.
+      function becomeExitPeer() {
+        $("peerdlg").classList.remove("on");
+        const t = browser.newTab("holo://exit-peer"); renderTabs();
+        t.title = "Exit peer"; setOmni(""); setSecurity(); syncNav();
+        setVerify({ verified: true, scheme: "holo" });
+        loadFrame(BASE + "peer-host.html", t, performance.now(), "holo");
+      }
+      function closePeerSetup() { $("peerdlg").classList.remove("on"); }
+      $("peerno").onclick = closePeerSetup;
+      $("peerbehost").onclick = becomeExitPeer;
+      $("peerdlg").addEventListener("click", (e) => { if (e.target === $("peerdlg")) closePeerSetup(); });
+      async function connectWith({ pairk, signal }) {
+        const st = $("peerstate");
+        try {
+          if (pairk) { localStorage.setItem("holo.browser.peer.pairk", pairk); }
+          else if (signal) { localStorage.setItem("holo.browser.peer.signal", signal); if (!readOperator()) localStorage.setItem("holo.browser.peer.id", "device-mesh-default"); }
+        } catch {}
+        st.style.color = "var(--dim)"; st.textContent = "Dialing your device…";
+        const ok = await establishPeer();
+        if (ok) { st.style.color = "var(--ok)"; st.textContent = "Connected — your browsing now exits through your own device."; setTimeout(closePeerSetup, 1200); toast("Device mesh connected"); }
+        else { st.style.color = "var(--bad)"; st.textContent = pairk ? "Could not reach your device. Is peer-host.html still open, and is this network allowing WebSocket + WebRTC?" : "Could not reach it. Is peer-host.html open on that machine, and the address reachable from here?"; }
+        return ok;
+      }
+      $("peergo").onclick = async () => {
+        const st = $("peerstate");
+        const codeRaw = $("peercode").value.trim();
+        const signal = $("peersignal").value.trim().replace(/\/+$/, "");
+        if (codeRaw) {
+          const pairk = codeRaw.replace(/[^0-9a-f]/gi, "").toLowerCase();
+          if (pairk.length < 16) { st.style.color = "var(--bad)"; st.textContent = "That doesn't look like a full pairing code — copy it from peer-host.html."; return; }
+          return void connectWith({ pairk });
+        }
+        if (/^https?:\/\//i.test(signal)) return void connectWith({ signal });
+        st.style.color = "var(--bad)"; st.textContent = "Enter the pairing code from your other device (or an address under Advanced).";
+      };
+      // ── boot: a scanned #pair=<κ> link auto-connects; a persisted pairκ reconnects silently (once per planet). ──
+      async function peerAutoConnect() {
+        const hashPair = (location.hash.match(/pair=([0-9a-f]{16,64})/i) || [])[1];
+        if (hashPair) {
+          try { localStorage.setItem("holo.browser.peer.pairk", hashPair); } catch {}
+          try { history.replaceState(null, "", location.pathname + location.search); } catch {}   // don't leave the κ in the address bar
+          toast("Pairing with your device…");
+          const ok = await establishPeer();
+          toast(ok ? "Device mesh connected — browsing through your device" : "Could not reach your device (still open on the other machine?)");
+          return;
+        }
+        // persisted pairκ (or legacy signal) → reconnect quietly on every boot; failure is silent (ladder covers it).
+        const { pairk, signal, id } = peerConfig();
+        if (pairk || (signal && id)) establishPeer();
+      }
+      // first dead-paint of the session, unpaired → one quiet, actionable nudge (a clickable toast).
+      let _peerNudged = false;
+      function peerNudge() {
+        if (_peerNudged || _peerLink) return; _peerNudged = true;
+        const el = $("toast"); el.textContent = "That site arrived empty through a public relay — tap here to carry browsing through your own device.";
+        el.classList.add("show", "act");
+        el.onclick = () => { el.classList.remove("show", "act"); el.onclick = null; openPeerSetup(); };
+        clearTimeout(toastT); toastT = setTimeout(() => { el.classList.remove("show", "act"); el.onclick = null; }, 8000);
+      }
+
       // the SW tells us what committed (κ + mint/verify) → update the HUD + history.
       let pendingByView = new Map();   // view-url → { tab, t0, input }
       function onSwMessage(e) {
-        const m = e.data || {}; if (m.type !== "committed") return;
+        const m = e.data || {};
+        // SW-proxied device-mesh fetch: run it over our peer link, hand the framed bytes back to the SW.
+        if (m.type === "peer-fetch" && m.id) {
+          (async () => {
+            if (!_peerLink) return swPost({ type: "peer-fetch-res", id: m.id, error: "no peer link" });
+            try { const r = await _peerLink.peerFetch(m.url, { doc: m.doc, op: m.op }); swPost({ type: "peer-fetch-res", id: m.id, status: r.status, headers: r.headers, bytes: r.bytes }); }
+            catch (err) { swPost({ type: "peer-fetch-res", id: m.id, error: String(err && err.message || err) }); }
+          })();
+          return;
+        }
+        // a dead paint just served (SW interstitial) → if no device mesh is armed, nudge once.
+        if (m.type === "dead-paint") { if (!m.peer) peerNudge(); return; }
+        // the LADDER unlocked a walled page → light the chip + name what carried it (rung).
+        if (m.type === "ladder") {
+          const p0 = pendingByView.get(m.view); const tab0 = p0 ? p0.tab : browser.activeTab;
+          if (tab0) { tab0.ladderVia = m.via; tab0.ladderOn = true; }
+          if ((tab0 || browser.activeTab) === browser.activeTab) reflectLadder(m.via, m.recovered);
+          return;
+        }
+        if (m.type !== "committed") return;
         const p = pendingByView.get(m.view); const tab = p ? p.tab : browser.activeTab; if (!tab) return;
         tab.lastKappa = m.kappa; tab.lastMinted = !!m.minted;
         tab.securityState = m.refused ? "dangerous" : (m.verified ? (m.scheme === "holo" || m.scheme === "ipfs" ? "secure" : (m.scheme === "https" ? "secure" : "warning")) : "warning");
         if (tab === browser.activeTab) { setVerify(m); setSecurity(); }
       }
+
+      // ── LADDER chip — auto (unlock only when a wall is seen) · on (force reader) · off. The SW owns
+      // the setting (persisted there); the page mirrors the label + lights up when a page was unlocked. ──
+      const LADDER_MODES = ["auto", "on", "off"];
+      const LADDER_LABEL = { auto: "Auto", on: "Always on", off: "Off" };
+      function reflectLadder(via, recovered) {
+        const c = $("ladderchip"); if (!c) return;
+        c.classList.add("lit");
+        c.title = "Ladder unlocked this page" + (via ? " · " + via : "") + (recovered ? " · full text recovered" : "");
+      }
+      function ladderMode() { return localStorage.getItem("holo.ladder.mode") || "auto"; }
+      function paintLadderChip() {
+        const c = $("ladderchip"); if (!c) return; const m = ladderMode();
+        c.dataset.mode = m; c.classList.toggle("dim", m === "off");
+        if (!c.classList.contains("lit")) c.title = "Ladder — paywall unlock: " + LADDER_LABEL[m];
+      }
+      (function initLadderChip() {
+        const c = $("ladderchip"); if (!c) return;
+        c.onclick = () => {
+          const next = LADDER_MODES[(LADDER_MODES.indexOf(ladderMode()) + 1) % LADDER_MODES.length];
+          localStorage.setItem("holo.ladder.mode", next);
+          c.classList.remove("lit"); swPost({ type: "ladder", mode: next }); paintLadderChip();
+          if (next === "on" && browser.activeTab && browser.activeTab.url) reload();   // force-reader takes effect on reload
+        };
+        swPost({ type: "ladder", mode: ladderMode() });   // push the persisted choice to a fresh SW
+        paintLadderChip();
+      })();
 
       // ── chrome rendering ───────────────────────────────────────────────────────────
       const ICON_GLOBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
@@ -341,15 +587,19 @@
       function setOmni(url) { const a = $("addr"); if (document.activeElement !== a) a.value = (url === "chrome://newtab" ? "" : url); }
       function setSecurity() {
         const t = browser.activeTab; const chip = $("secchip"); const st = t ? t.securityState : "neutral";
-        chip.className = ""; if (st !== "neutral") chip.classList.add(st);
-        $("sectext").textContent = t ? (B.classifyInput(t.url).scheme || "holo") : "holo";
+        const keep = ["ok", "bad"].filter((c) => chip.classList.contains(c));   // verification state survives a re-render
+        chip.className = ""; if (st !== "neutral") chip.classList.add(st); keep.forEach((c) => chip.classList.add(c));
+        if (st === "dangerous") chip.title = "This connection is not safe";
+        else if (st === "warning") chip.title = "Be careful on this site";
+        else chip.title = "This connection is private";
       }
+      // Verification folds into the one chip — green when the page checked out, red when it was refused.
       function setVerify(m) {
-        const v = $("verify");
-        if (!m) { v.className = ""; v.textContent = "κ"; return; }
-        if (m.refused) { v.className = "bad"; v.textContent = "✗ refused"; return; }
-        if (m.verified) { v.className = "ok"; const tx = m.transformed && m.transformed.length ? m.transformed : null; v.textContent = "✓ κ " + (m.minted ? "(minted)" : short(m.kappa, 6)) + (tx ? " +ext" : ""); v.title = tx ? `source κ verified (Law L5: the bytes re-derive); the rendered VIEW was transformed by ${tx.length} κ-verified content-script extension(s): ${tx.join(", ")}. The address still points at the original source.` : "content address re-derived (Law L5)"; return; }
-        v.className = "work"; v.textContent = "…";
+        const chip = $("secchip");
+        chip.classList.remove("ok", "bad");
+        if (!m) return;
+        if (m.refused) { chip.classList.add("bad"); chip.title = "This page failed its safety check and was not shown"; return; }
+        if (m.verified) { chip.classList.add("ok"); chip.title = "This page was checked before it was shown"; }
       }
       function syncNav() {
         const t = browser.activeTab; const nav = t ? t.nav : null;
@@ -359,32 +609,20 @@
 
       // ── New Tab Page ───────────────────────────────────────────────────────────────
       function colorFor(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 70% 60%)`; }
+      // Chromium-clean NTP: search + a quiet row of app tiles (name only — like Chrome's shortcuts).
+      // The dweb directory still powers omnibox suggestions; it just doesn't clutter the page.
       function renderNTP() {
         const model = B.newTabModel({ history: browser.history, bookmarks: browser.bookmarks });
         const fleet = $("fleet"); fleet.innerHTML = "";
         for (const a of model.fleet) {
           const c = document.createElement("button"); c.className = "card";
-          c.innerHTML = `<span class="dot"></span><span style="min-width:0"><div class="nm"></div><div class="ds"></div></span>`;
+          c.innerHTML = `<span class="dot"></span><span style="min-width:0"><div class="nm"></div></span>`;
           c.querySelector(".dot").style.background = a.accent || colorFor(a.name); c.querySelector(".dot").textContent = a.name.replace(/^Holo\s*/, "").slice(0, 2);
-          c.querySelector(".nm").textContent = a.name; c.querySelector(".ds").textContent = a.desc || "";
+          c.querySelector(".nm").textContent = a.name;
           c.onclick = () => go(a.loader);    // open the holospace inside this tab (same-origin)
           fleet.appendChild(c);
         }
-        const ds = $("dirSections"); ds.innerHTML = "";
-        for (const sec of model.directory) {
-          const wrap = document.createElement("div"); wrap.className = "sect";
-          const h = document.createElement("h2"); h.textContent = sec.title; wrap.appendChild(h);
-          if (sec.note) { const n = document.createElement("div"); n.className = "crumbnote"; n.textContent = sec.note; wrap.appendChild(n); }
-          const g = document.createElement("div"); g.className = "grid";
-          for (const e of sec.entries) {
-            const c = document.createElement("button"); c.className = "card";
-            c.innerHTML = `<span class="dot">${ICON_GLOBE}</span><span style="min-width:0"><div class="nm"></div><div class="ds"></div></span>`;
-            c.querySelector(".dot").style.background = "transparent"; c.querySelector(".dot").style.color = "var(--acc)";
-            c.querySelector(".nm").textContent = e.name; c.querySelector(".ds").textContent = e.desc || e.kind;
-            c.onclick = () => go(e.target); g.appendChild(c);
-          }
-          wrap.appendChild(g); ds.appendChild(wrap);
-        }
+        $("dirSections").innerHTML = "";
       }
       function showNTP(on) {
         $("ntp").classList.toggle("on", on);
@@ -392,21 +630,71 @@
         if (NATIVE_MW && on && invoke) invoke("tab_ntp");   // hide all tab webviews → the NTP shows
       }
 
+      // ── media handoff: a recognized watch URL plays through Holo Video (the one WebGPU sink) ──
+      // This engine can't feed a platform's own H.264/AAC MSE player ("can't play"), but it decodes
+      // the VP9/Opus that /sc/vstream (yt-dlp, ~1000 sites) gives us. We route the tab to the
+      // SAME-ORIGIN Holo Video projector page (holo://os/apps/video, super-res on) instead of the
+      // platform's dead player — sidestepping the cross-scheme wall that blocks injecting a holo://
+      // <video> into the https page (measured err:4). Lazy + fail-soft: a missing/unsealed module
+      // never breaks navigation; an unrecognized URL falls through to a normal page load.
+      let _mr = null, _mrTried = false;
+      async function mediaRouteFor(url) {
+        if (!_mrTried) { _mrTried = true; try { _mr = await import("../../usr/lib/holo/holo-media-route.mjs"); } catch { _mr = null; } }
+        try { return _mr ? _mr.decideMediaRoute(url) : null; } catch { return null; }
+      }
+
       // ── navigation (NavigationController.navigate → the loading seam → the renderer) ──
+      // HOME = THE LENS: a holospace DERIVED on-device from your own κ-graph (home.html +
+      // _shared/holo-front-page.mjs, Node-witnessed deterministic + zero-network). Hologram's front
+      // door is no longer a competitor's page personalized by their surveillance — it is yours, it
+      // has a κ, and it composes with zero egress. Google stays one keystroke away in the omnibox.
+      const HOME = "holo://home";
+      // The default engine of the Hologram browser is HOLOGRAM. A plain query → Holo Search: your own
+      // ranked κ-graph (history + the app universe), instant, on-device, with a one-tap web escape — a
+      // bare query never needs a third party to paint. `holo-search.html` is served by the browser app.
+      const HOLO_SEARCH = { name: "Holo Search", url: BASE + "holo-search.html?q=%s" };
+      const GOOGLE = HOLO_SEARCH;   // omnibox free-text → Holo Search (the web escape lives inside it)
       let demoKappa = null;
       async function go(input, { record = true } = {}) {
         const a = $("addr");
-        let t = browser.activeTab; if (!t) t = browser.newTab("chrome://newtab");
-        const cls = B.classifyInput(input);
+        if (input === "chrome://newtab" || input === "chrome://new-tab-page") input = HOME;   // a new tab IS the Lens
+        let t = browser.activeTab; if (!t) t = browser.newTab(HOME);
+        // HOME — the Lens: loaded DIRECTLY same-origin (it is ours; composing it touches no wire).
+        if (input === HOME) {
+          if (record) t.nav.navigate(HOME, { transition: "typed" });
+          t.title = "Home"; a.blur(); closeSugg(); renderTabs(); setOmni(""); setSecurity(); syncNav();
+          setVerify({ verified: true, scheme: "holo" });
+          loadFrame(BASE + "home.html", t, performance.now(), "holo"); return;
+        }
+        const cls = B.classifyInput(input, { search: GOOGLE });
         if (cls.kind === "empty") return;
         const url = cls.url;
         if (record) { t.nav.navigate(url, { transition: "typed" }); }
         t.title = titleFor(cls); a.blur(); closeSugg();
         renderTabs(); setOmni(url); setSecurity(); syncNav();
-        const t0 = performance.now(); $("verify").className = "work"; $("verify").textContent = "…"; $("lat").textContent = "";
+        const t0 = performance.now(); setVerify(null);
 
         // chrome://newtab → the NTP
-        if (cls.scheme === "chrome" || cls.kind === "demo" && !demoKappa) { showNTP(true); $("verify").className = ""; $("verify").textContent = "κ"; t.title = "New Tab"; renderTabs(); return; }
+        if (cls.scheme === "chrome" || cls.kind === "demo" && !demoKappa) { showNTP(true); setVerify(null); t.title = "New Tab"; renderTabs(); return; }
+
+        // holo://pass — Holo Pass: your sovereign logins (a same-origin app page, no egress). Try it as a
+        // guest; in a signed-in session it fronts the TEE-encrypted vault.
+        if (/^holo:\/\/(pass|passwords|sovereign|wallet)\b/i.test(input)) {
+          t.title = "Your presence"; renderTabs(); setOmni("holo://pass"); setVerify({ verified: true, scheme: "holo" });
+          loadFrame(BASE + "sovereign-demo.html", t, t0, "holo"); return;
+        }
+
+        // a plain query → HOLO SEARCH: a same-origin results page ranked over YOUR κ-graph, loaded
+        // DIRECTLY (not through the /web seam — it's ours, no egress). A bare query never leaves the
+        // device to paint; the page itself offers a one-tap web escape for the long tail.
+        if (cls.kind === "search") { t.title = cls.query; renderTabs(); setOmni(cls.query); setVerify({ verified: true, scheme: "holo" }); loadFrame(BASE + "holo-search.html?q=" + encodeURIComponent(cls.query), t, t0, "holo"); return; }
+
+        // a recognized media watch URL (YouTube/Vimeo/Twitch/…) → project it through Holo Video via
+        // /sc/vstream instead of loading the platform's player. Same-origin holo:// route, fail-open.
+        if (cls.scheme === "https" || cls.scheme === "http") {
+          const mr = await mediaRouteFor(url);
+          if (mr) { t.title = "▶ " + mr.platform; renderTabs(); setVerify({ verified: true }); loadFrame(mr.route, t, t0, "holo"); return; }
+        }
 
         // a fleet app (holo://<appId>) → open its loader in the renderer (same-origin, no SW)
         if (cls.kind === "internal") {
@@ -417,9 +705,9 @@
         if (cls.scheme === "holo" || cls.scheme === "kappa") { loadFrame(VIEW + "h/" + cls.kappa, t, t0, "holo"); return; }
         // ipfs:// / ipns:// → the reused Holo IPFS gateway
         if (cls.scheme === "ipfs") { const cid = url.replace(/^ipfs:\/\//, ""); loadFrame(BASE + "ipfsview/" + cid, t, t0, "ipfs"); return; }
-        if (cls.scheme === "ipns") { toast("ipns:// resolution is best-effort (network)"); const n = url.replace(/^ipns:\/\//, ""); loadFrame(BASE + "ipfsview/" + n, t, t0, "ipns"); return; }
+        if (cls.scheme === "ipns") { const n = url.replace(/^ipns:\/\//, ""); loadFrame(BASE + "ipfsview/" + n, t, t0, "ipns"); return; }
         // ENS .eth → resolve to a content target (best-effort, network), else search
-        if (cls.kind === "ens") { toast("Resolving " + cls.name + " on-chain…"); const tgt = await resolveEns(cls.name).catch(() => null); if (tgt) return go(tgt, { record: false }); toast("ENS resolution unavailable searching"); return go(B.DEFAULT_SEARCH.url.replace("%s", encodeURIComponent(cls.name)), { record: false }); }
+        if (cls.kind === "ens") { toast("Looking up " + cls.name + "…"); const tgt = await resolveEns(cls.name).catch(() => null); if (tgt) return go(tgt, { record: false }); return go(GOOGLE.url.replace("%s", encodeURIComponent(cls.name)), { record: false }); }
         // live web (http/https/search) → fetch once, mint a κ, render (the SW does it)
         loadFrame(VIEW + "w/" + enc(url), t, t0, cls.scheme);
       }
@@ -430,7 +718,7 @@
       function unwrap(href) {
         try { const u = new URL(href, location.href); if (u.origin === location.origin && u.pathname.startsWith(VIEW)) { const rest = u.pathname.slice(VIEW.length); let m; if ((m = rest.match(/^w\/(.+)$/))) return decB64(m[1]); if ((m = rest.match(/^h\/([0-9a-f]{64})(\/.*)?$/i))) return "holo://" + m[1] + (m[2] || ""); } return href; } catch { return href; }
       }
-      function titleFor(cls) { try { if (cls.scheme === "holo") return short(cls.kappa, 8); if (cls.kind === "search") return "Search: " + cls.query; return new URL(cls.url).hostname || cls.display; } catch { return cls.display || "Loading…"; } }
+      function titleFor(cls) { try { if (cls.scheme === "holo") return short(cls.kappa, 8); if (cls.kind === "search") return cls.query; return new URL(cls.url).hostname || cls.display; } catch { return cls.display || "Loading…"; } }
 
       function loadFrame(viewUrl, tab, t0, scheme) {
         showNTP(false);
@@ -438,25 +726,38 @@
         // serves/verifies/mints it just like the iframe. Pass the tab id + absolute holo://os url.
         if (NATIVE_MW && invoke) {
           const abs = new URL(viewUrl, location.href).href;
-          invoke("tab_navigate", { id: tab.id, url: abs }).catch((e) => toast("native render failed: " + e));
-          const dt = Math.max(0, Math.round(performance.now() - t0)); $("lat").innerHTML = "<b>" + dt + "</b> ms";
+          invoke("tab_navigate", { id: tab.id, url: abs }).catch((e) => toast("Couldn't open that page"));
           tab.loading = false;
           if (scheme === "holo" && tab.lastKappa == null) setVerify({ verified: true, kappa: (B.classifyInput(tab.url).kappa || ""), minted: false, scheme: "holo" });
-          browser.recordVisit(tab.url, tab.title, tab.lastKappa); syncNav();
+          if (!/holo-search\.html/.test(tab.url || "") && tab.url !== HOME) { browser.recordVisit(tab.url, tab.title, tab.lastKappa); persistHistory(); } syncNav();
           return;
         }
         pendingByView.set(viewUrl, { tab, t0, input: viewUrl });
+        tab.ladderOn = false; if (tab === browser.activeTab) { const c = $("ladderchip"); if (c) c.classList.remove("lit"); paintLadderChip(); }   // fresh nav → glow off until the SW says it unlocked
         const f = $("renderer");
+        showLoading(scheme);                                    // calm shimmer, never a blank frame
         f.onload = () => {
-          const dt = Math.max(0, Math.round(performance.now() - t0)); $("lat").innerHTML = "<b>" + dt + "</b> ms";
+          hideLoading();
           // update the tab title from the rendered document when same-origin (the SW serves same-origin)
           try { const d = f.contentDocument; if (d && d.title) { tab.title = d.title; renderTabs(); } } catch {}
           tab.loading = false;
           if (scheme === "holo" && tab.lastKappa == null) { setVerify({ verified: true, kappa: (B.classifyInput(tab.url).kappa || ""), minted: false, scheme: "holo" }); }
-          browser.recordVisit(tab.url, tab.title, tab.lastKappa); syncNav();
+          if (!/holo-search\.html/.test(tab.url || "") && tab.url !== HOME) { browser.recordVisit(tab.url, tab.title, tab.lastKappa); persistHistory(); } syncNav();
         };
         f.src = viewUrl;
       }
+      // the loading veil — honest per-scheme status; a safety timeout hides it even if onload never fires.
+      let ldgTimer = null;
+      function showLoading(scheme) {
+        const el = $("ldg"); if (!el) return;
+        const label = scheme === "ipfs" || scheme === "ipns" ? "Resolving on IPFS"
+          : scheme === "holo" || scheme === "kappa" ? "Opening κ object"
+          : (scheme === "http" || scheme === "https") ? "Loading page" : "Resolving…";
+        const t = $("ldgT"); if (t) t.textContent = label + "…";
+        el.classList.add("on"); el.setAttribute("aria-hidden", "false");
+        clearTimeout(ldgTimer); ldgTimer = setTimeout(hideLoading, 30000);
+      }
+      function hideLoading() { const el = $("ldg"); if (el) { el.classList.remove("on"); el.setAttribute("aria-hidden", "true"); } clearTimeout(ldgTimer); }
 
       async function resolveEns(name) {
         const IPFS = await import("../../_shared/holo-ipfs.js");
@@ -466,8 +767,8 @@
       }
 
       // ── controls ───────────────────────────────────────────────────────────────────
-      function newTab(url = "chrome://newtab") { browser.newTab(url); renderTabs(); go(url); $("addr").focus(); }
-      function selectTab(i) { browser.selectTab(i); const t = browser.activeTab; renderTabs(); setOmni(t.url); setSecurity(); syncNav(); restore(t); }
+      function newTab(url = HOME) { browser.newTab(url); renderTabs(); go(url); }
+      function selectTab(i) { browser.selectTab(i); const t = browser.activeTab; renderTabs(); setOmni(t.url); setSecurity(); syncNav(); restore(t); const c = $("ladderchip"); if (c) { c.classList.toggle("lit", !!t.ladderOn); if (t.ladderOn) reflectLadder(t.ladderVia, true); else paintLadderChip(); } }
       function closeTab(i) {
         const closing = browser.tabs[i]; const cid = closing && closing.id;
         const a = browser.closeTab(i);
@@ -493,11 +794,15 @@
         const box = $("sugg");
         if (!q || !suggItems.length) { closeSugg(); return; }
         box.innerHTML = ""; suggSel = -1;
+        // Chromium-style row marks: a quiet icon, not a label — magnifier for searches, star for
+        // bookmarks, clock for history, globe for everything else.
+        const ICO_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+        const ICO_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.18 3.7 1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.46 4.73L18.18 21z"/></svg>';
+        const ICO_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
         suggItems.forEach((s, i) => {
           const row = document.createElement("div"); row.className = "sg"; row.setAttribute("role", "option");
-          const kind = s.contentAddressed ? "ca" : (s.type === "url" || s.scheme === "https" || s.scheme === "http" ? "web" : "");
-          row.innerHTML = `<span class="k ${kind}"></span><span class="t"></span><span class="u"></span>`;
-          row.querySelector(".k").textContent = s.contentAddressed ? "κ" : (s.type === "search" ? "🔍" : (s.scheme || s.type));
+          row.innerHTML = `<span class="k"></span><span class="t"></span><span class="u"></span>`;
+          row.querySelector(".k").innerHTML = s.type === "search" ? ICO_SEARCH : s.type === "bookmark" ? ICO_STAR : s.type === "history" ? ICO_CLOCK : ICON_GLOBE;
           row.querySelector(".t").textContent = s.title; row.querySelector(".u").textContent = s.target;
           row.onclick = () => { go(s.target); };
           box.appendChild(row);
@@ -509,46 +814,9 @@
 
       // ── wire DOM ─────────────────────────────────────────────────────────────────
       $("back").onclick = back; $("fwd").onclick = fwd; $("reload").onclick = reload;
-      $("home").onclick = () => { const t = browser.activeTab || browser.newTab(); t.nav.navigate("chrome://newtab", { transition: "auto" }); setOmni("chrome://newtab"); renderTabs(); syncNav(); showNTP(true); $("verify").className = ""; $("verify").textContent = "κ"; };
+      $("home").onclick = () => go(HOME);
       $("newtab").onclick = () => newTab();
       $("star").onclick = () => { const t = browser.activeTab; if (!t) return; browser.toggleBookmark(t.url, t.title); syncNav(); };
-      $("native").onclick = async () => { try { await navigator.clipboard.writeText(nativeCmd()); toast("Copied paste in your terminal to launch the native host"); } catch (e) { toast(nativeCmd()); } };
-
-      // ── Open in Hologram — hand off to the native host via the hologram:// deep link (exactly how
-      //    Slack/Zoom/VS Code "open in app" works). If a registered host catches it, the OS opens the
-      //    native window instantly — like a new browser window. If nothing catches it, surface the
-      //    one-time, content-verified install. We carry the current page (?go=) so it opens in place.
-      const NATIVE_OK = "holo.native.ok";
-      const nativePlatform = () => { const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || ""; return /win/i.test(p) ? "win" : (/mac|iphone|ipad/i.test(p) ? "mac" : "nix"); };
-      // where the bootstrap scripts live once published (GitHub raw — works the moment the repo is public).
-      const NATIVE_BOOT = "https://raw.githubusercontent.com/humuhumu33/hologram-apps/master/apps/tauri";
-      const nativeCmd = () => nativePlatform() === "win" ? ("irm " + NATIVE_BOOT + "/bootstrap.ps1 | iex") : ("curl -fsSL " + NATIVE_BOOT + "/bootstrap.sh | sh");
-      function bootNative() {
-        if (window.__TAURI__ || window.__TAURI_INTERNALS__) { toast("You're already in Hologram ✦"); return; }   // already native
-        const t = browser.activeTab; const addr = (t && t.url && !/^chrome:/.test(t.url)) ? t.url : "";
-        const deep = "hologram://open" + (addr ? "?go=" + encodeURIComponent(addr) : "");
-        // success signal = the page actually loses focus (the OS switched to the launched app).
-        // We watch for the blur/visibility EVENT during the wait — not the static hidden state, which
-        // is permanently true in headless/background contexts and would false-positive.
-        let switched = false;
-        const onSwitch = () => { switched = true; };
-        window.addEventListener("blur", onSwitch);
-        document.addEventListener("visibilitychange", onSwitch);
-        try { location.href = deep; } catch (e) {}                  // the OS routes the scheme to the app
-        setTimeout(() => {
-          window.removeEventListener("blur", onSwitch);
-          document.removeEventListener("visibilitychange", onSwitch);
-          if (switched) { localStorage.setItem(NATIVE_OK, "1"); $("gonative").classList.add("ok"); return; }  // app took over
-          $("nativecmd").textContent = nativeCmd(); $("nativepop").classList.add("on");                       // nothing caught it → install
-        }, 1300);
-      }
-      $("gonative").onclick = bootNative;
-      if (localStorage.getItem(NATIVE_OK)) $("gonative").classList.add("ok");
-      $("nativecopy").onclick = async () => { try { await navigator.clipboard.writeText(nativeCmd()); toast("Copied paste in your terminal"); } catch (e) { toast(nativeCmd()); } };
-      $("nativeclose").onclick = () => $("nativepop").classList.remove("on");
-      $("nativeretry").onclick = () => { $("nativepop").classList.remove("on"); bootNative(); };
-      $("nativeweb").onclick = (e) => { e.preventDefault(); $("nativepop").classList.remove("on"); if (window.HoloInstall && HoloInstall.offer) HoloInstall.offer(); else toast("Use your browser menu -> Install Hologram."); };
-      document.addEventListener("click", (e) => { const pop = $("nativepop"); if (pop && pop.classList.contains("on") && !pop.contains(e.target) && !$("gonative").contains(e.target)) pop.classList.remove("on"); });
       const onEnter = (val) => { closeSugg(); go(val); };
       $("addr").addEventListener("input", updateSugg);
       $("addr").addEventListener("keydown", (e) => {
@@ -598,7 +866,7 @@
         const welcome = '<!doctype html><html><head><meta charset="utf-8"><title>Welcome holo://κ</title><style>body{font:16px/1.6 system-ui;background:#0a0e14;color:#e8eef5;margin:0;display:grid;place-items:center;height:100vh}.b{max-width:560px;padding:2rem;text-align:center}h1{color:#4285f4}code{background:#11151c;padding:.15rem .4rem;border-radius:6px;color:#34a853}</style></head><body><div class="b"><h1 id="hi">Served from the κ-store</h1><p>This page came from <code>holo://&lt;κ&gt;</code>. Its bytes were re-derived against their content address in your browser before it rendered <b>Law L5</b>. The gateway is never trusted.</p><p>A live web page is fetched once and <b>minted</b> into a κ; every replay re-derives it.</p></div></body></html>';
         const bytes = toBytes(welcome); demoKappa = toHex(blake3(bytes));
         await kput(demoKappa, bytes, { contentType: "text/html; charset=utf-8", source: "holo://welcome" });
-        browser.newTab("chrome://newtab"); renderTabs(); setOmni("chrome://newtab"); setSecurity(); showNTP(true);
+        browser.newTab(HOME); renderTabs(); setSecurity(); go(HOME);
         window.HoloBrowser.ready = true;
         // deep link: ?go=<url>
         const q = new URLSearchParams(location.search).get("go"); if (q) go(q);
@@ -660,9 +928,15 @@
       const saveIndex = () => localStorage.setItem(LS_KEY, JSON.stringify(mgr.list().map((e) => ({ kappa: e.kappa, source: e.source, enabled: e.enabled }))));
 
       // ── project the enabled, κ-verified extensions onto the loading seam (browser-sw.js) ──
+      // Retry until the SW is ACTIVE: on a cold first load the worker may still be installing when we
+      // push, and a message to a non-active worker is dropped — which silently left ad-block off. The SW
+      // also persists what it receives, so this push seeds the store for every future (restarted) SW.
       async function pushSeam() {
         const b = mgr.seamBundle();
-        try { const reg = await navigator.serviceWorker.getRegistration(VIEW); const w = reg && (reg.active || reg.waiting); if (w) w.postMessage({ type: "setext", dnr: b.dnr, contentScripts: b.contentScripts }); } catch {}
+        for (let i = 0; i < 25; i++) {
+          try { const reg = await navigator.serviceWorker.getRegistration(VIEW); const w = reg && reg.active; if (w) { w.postMessage({ type: "setext", dnr: b.dnr, contentScripts: b.contentScripts }); return b; } } catch {}
+          await new Promise((r) => setTimeout(r, 150));
+        }
         return b;
       }
 
@@ -670,7 +944,7 @@
       async function installBytes(bytes, source) {
         const rec = await mgr.install(bytes, { source, enable: true });   // throws if it doesn't re-derive (Law L5)
         await idbPut(rec.kappa, bytes); saveIndex(); const b = await pushSeam(); render();
-        toast(`installed ${rec.name} κ ${rec.kappa.slice(0, 10)}…  (${b.dnr.length} rules, ${b.contentScripts.length} scripts active)`);
+        toast(`${rec.name} installed and verified`);
         return rec;
       }
       // ── content-addressed install — SERVERLESS, the Pages-native path. The CRX bytes come from the
@@ -679,30 +953,30 @@
       // κ is the trust — you run only bytes that re-derive (Law L5). Works on static GitHub Pages. ──
       async function installFromIpfs(cid) {
         const r = await fetch(BASE + "ipfsview/" + cid, { redirect: "follow" });   // the IPFS gateway SW re-derives every block
-        if (!r.ok) throw new Error("IPFS fetch failed (HTTP " + r.status + ") the gateway re-derives every block; check the CID");
+        if (!r.ok) throw new Error("couldn't fetch that extension — check the link");
         return installBytes(new Uint8Array(await r.arrayBuffer()), "ipfs:" + cid);
       }
       async function installFromKappa(kappa) {
         const bytes = await idbGet(kappa);
-        if (!bytes) throw new Error("holo://" + kappa.slice(0, 12) + "… is not in your κ-store yet publish it to IPFS for a shareable address");
+        if (!bytes) throw new Error("that extension isn't on this device yet");
         return installBytes(bytes, "holo:" + kappa);
       }
       // a CRX bundled with the OS as a content-addressed static asset → installs with NO server
       // (works on GitHub Pages). The expected κ pins it: a tampered byte fails re-derivation (Law L5).
       async function installFromPath(path, expectedKappa) {
         const r = await fetch(BASE + path, { redirect: "follow" });
-        if (!r.ok) throw new Error("bundled extension not found (HTTP " + r.status + "): " + path);
+        if (!r.ok) throw new Error("couldn't load that extension");
         const bytes = new Uint8Array(await r.arrayBuffer());
         const rec = await mgr.install(bytes, { expectedKappa, source: "bundled:" + path, enable: true });
         await idbPut(rec.kappa, bytes); saveIndex(); const b = await pushSeam(); render();
-        toast(`installed ${rec.name} κ ${rec.kappa.slice(0, 10)}…  (${b.dnr.length} rules active)`);
+        toast(`${rec.name} installed and verified`);
         return rec;
       }
       // the Chrome Web Store path needs the companion /web proxy (a server). On pure GitHub Pages there
       // is no server, so this degrades to an honest message — use ipfs://, holo://κ, a .crx, or the demo.
       async function installFromStore(id) {
         const r = await fetch(PROXY + encodeURIComponent(CRX.webStoreCrxUrl(id)), { redirect: "follow" }).catch(() => null);
-        if (!r || !r.ok) throw new Error("the Chrome Web Store needs the companion /web proxy (no server on GitHub Pages) install from a .crx, ipfs://CID, or holo://κ instead");
+        if (!r || !r.ok) throw new Error("Web Store installs aren't available here — load a .crx file or try the demo");
         return installBytes(new Uint8Array(await r.arrayBuffer()), "webstore:" + id);
       }
       // route any pasted address to the right install path (content-addressed first, store last).
@@ -719,7 +993,7 @@
         if (t.kind === "kappa") return installFromKappa(t.value);
         if (t.kind === "ipfs") return installFromIpfs(t.value);
         if (t.kind === "webstore") return installFromStore(t.value);
-        throw new Error("paste a holo://κ, ipfs://CID, or a Chrome Web Store id");
+        throw new Error("paste an extension link or a Web Store id");
       }
       // an always-offline, always-works demo: build + sign a κ-addressed adblock extension IN-BROWSER
       // (the same flow the witness drives), then install it by re-derivation. Proves the whole path
@@ -728,7 +1002,7 @@
         const manifest = { manifest_version: 3, name: "Holo Demo Blocker", version: "1.0", permissions: ["declarativeNetRequest"], host_permissions: ["<all_urls>"], action: { default_title: "Holo" }, declarative_net_request: { rule_resources: [{ id: "r", enabled: true, path: "rules.json" }] }, content_scripts: [{ matches: ["<all_urls>"], js: ["cs.js"], run_at: "document_idle" }] };
         const rules = [{ id: 1, priority: 1, action: { type: "block" }, condition: { urlFilter: "||doubleclick.net^" } }, { id: 2, priority: 1, action: { type: "block" }, condition: { urlFilter: "||googlesyndication.com^" } }];
         // a VISIBLE content script so the view-transform is obvious on any page (incl. holo://κ).
-        const csJs = "(function(){var id=(window.chrome&&chrome.runtime&&chrome.runtime.id)||'';var b=document.createElement('div');b.id='holo-cs-badge';b.textContent='\\uD83E\\uDDE9 \\u03BA-verified content script active';b.style.cssText='position:fixed;bottom:14px;right:14px;z-index:2147483647;background:#34a853;color:#fff;font:600 var(--holo-text-sm, 1rem)/1.2 system-ui;padding:9px 13px;border-radius:9px;box-shadow:0 6px 22px rgba(0,0,0,.45)';(document.body||document.documentElement).appendChild(b);console.info('[Holo Demo Blocker] \\u03BA-verified content script active on '+location.host+' (ext '+id+')');})()";
+        const csJs = "(function(){var id=(window.chrome&&chrome.runtime&&chrome.runtime.id)||'';var b=document.createElement('div');b.id='holo-cs-badge';b.textContent='\\uD83E\\uDDE9 Demo extension active';b.style.cssText='position:fixed;bottom:14px;right:14px;z-index:2147483647;background:#34a853;color:#fff;font:600 var(--holo-text-sm, 1rem)/1.2 system-ui;padding:9px 13px;border-radius:9px;box-shadow:0 6px 22px rgba(0,0,0,.45)';(document.body||document.documentElement).appendChild(b);console.info('[Holo Demo Blocker] active on '+location.host+' (ext '+id+')');})()";
         const { crx } = await CRX.buildCrx3({ "manifest.json": JSON.stringify(manifest), "rules.json": JSON.stringify(rules), "cs.js": csJs });
         return installBytes(crx, "demo:built-in-browser");
       }
@@ -752,10 +1026,10 @@
       // `path` ⇒ bundled with the OS as a content-addressed static asset → installs serverlessly on Pages.
       // `id`   ⇒ a Chrome Web Store id → needs the companion /web proxy (absent on static Pages). ──
       const CATALOG = [
-        { path: "ext/holo-shield.crx", kappa: "9e7ff8a7327405abe42758678114665e46e896126e6479e306097a209553b8d4", name: "Holo Shield", note: "47-host ad/tracker blocker ships with the OS, installs serverlessly (Pages-native)" },
-        { id: "ddkjiahejlhfcafbddmgiahcphecmpfh", name: "uBlock Origin Lite", note: "declarativeNetRequest content blocker runs in-OS (needs the /web proxy to fetch)" },
-        { id: "eimadpbcbfnmbkopoojfekhnkhdbieeh", name: "Dark Reader", note: "content-script dark mode runs in-OS (needs the /web proxy to fetch)" },
-        { id: "cjpalhdlnbpafiamejdnhcphjbkeiagm", name: "uBlock Origin (MV2)", note: "webRequest era needs the native CEF host" },
+        { path: "ext/holo-shield.crx", kappa: "9e7ff8a7327405abe42758678114665e46e896126e6479e306097a209553b8d4", name: "Holo Shield", note: "Blocks ads and trackers — built in, one tap" },
+        { id: "ddkjiahejlhfcafbddmgiahcphecmpfh", name: "uBlock Origin Lite", note: "Blocks ads and trackers" },
+        { id: "eimadpbcbfnmbkopoojfekhnkhdbieeh", name: "Dark Reader", note: "Dark mode for every site" },
+        { id: "cjpalhdlnbpafiamejdnhcphjbkeiagm", name: "uBlock Origin (MV2)", note: "Needs the desktop app" },
       ];
 
       // ── chrome (the drawer) ──────────────────────────────────────────────────────────
@@ -791,20 +1065,20 @@
         .he-cat .nm{font-weight:600;font-size: var(--holo-text-sm, 1rem)}.he-cat .ds{opacity:.55;font-size: var(--holo-text-sm, 1rem)}`;
       document.head.appendChild(css);
 
-      const fab = document.createElement("button"); fab.id = "he-fab"; fab.className = "navbtn"; fab.title = "Extensions κ-addressed (Law L5)"; fab.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M20 11h-2.6a2 2 0 0 1-2-2V6.4a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v2.2a2 2 0 0 0 2 2 1.6 1.6 0 1 1 0 3.2 2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h2.2a2 2 0 0 0 2-2 1.6 1.6 0 1 1 3.2 0 2 2 0 0 0 2 2H20a2 2 0 0 0 2-2v-2.6a2 2 0 0 0-2-2"/></svg><span class="badge">0</span>`;
+      const fab = document.createElement("button"); fab.id = "he-fab"; fab.className = "navbtn"; fab.title = "Extensions"; fab.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M20 11h-2.6a2 2 0 0 1-2-2V6.4a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v2.2a2 2 0 0 0 2 2 1.6 1.6 0 1 1 0 3.2 2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h2.2a2 2 0 0 0 2-2 1.6 1.6 0 1 1 3.2 0 2 2 0 0 0 2 2H20a2 2 0 0 0 2-2v-2.6a2 2 0 0 0-2-2"/></svg><span class="badge">0</span>`;
       const native = document.getElementById("native"); if (native && native.parentNode) native.parentNode.insertBefore(fab, native.nextSibling); else document.getElementById("navbar").appendChild(fab);
 
       const back = document.createElement("div"); back.id = "he-back";
       const drawer = document.createElement("div"); drawer.id = "he-drawer"; drawer.setAttribute("role", "dialog"); drawer.setAttribute("aria-label", "Extensions");
       drawer.innerHTML = `
-        <h2><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11h-2.6a2 2 0 0 1-2-2V6.4a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v2.2a2 2 0 0 0 2 2 1.6 1.6 0 1 1 0 3.2 2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h2.2a2 2 0 0 0 2-2 1.6 1.6 0 1 1 3.2 0 2 2 0 0 0 2 2H20a2 2 0 0 0 2-2v-2.6a2 2 0 0 0-2-2"/></svg> Extensions <span style="font-size: var(--holo-text-sm, 1rem);font-weight:500;opacity:.55">κ-addressed · Law L5</span><button class="x" title="Close" aria-label="Close">×</button></h2>
+        <h2><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11h-2.6a2 2 0 0 1-2-2V6.4a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v2.2a2 2 0 0 0 2 2 1.6 1.6 0 1 1 0 3.2 2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h2.2a2 2 0 0 0 2-2 1.6 1.6 0 1 1 3.2 0 2 2 0 0 0 2 2H20a2 2 0 0 0 2-2v-2.6a2 2 0 0 0-2-2"/></svg> Extensions<button class="x" title="Close" aria-label="Close">×</button></h2>
         <div id="he-body">
           <div class="he-card">
-            <div class="he-h">Install by content address</div>
-            <div class="he-row"><input class="he-in" id="he-url" placeholder="ipfs://CID · holo://κ · or Web Store id" spellcheck="false" autocomplete="off"><button class="he-btn" id="he-install">Install</button></div>
-            <div class="he-note" style="margin-top:8px">Serverless by design the bytes come from the substrate (<b>ipfs://</b> via the in-browser gateway, or a <b>holo://κ</b> you own), the κ is re-derived and the publisher signature verified before anything runs, and pinned forever. The store is a location; the κ is the trust. <i>Web Store ids need the optional /web proxy absent on static GitHub Pages.</i></div>
-            <div class="he-row" style="margin-top:10px"><button class="he-btn ghost" id="he-demo">Build a demo κ-extension</button><label class="he-btn ghost" style="cursor:pointer">Load .crx…<input id="he-file" type="file" accept=".crx" style="display:none"></label></div>
-            <div class="he-row" style="margin-top:8px"><button class="he-btn ghost" id="he-testpage" style="width:100%">Open a holo://κ test page →</button></div>
+            <div class="he-h">Add an extension</div>
+            <div class="he-row"><input class="he-in" id="he-url" placeholder="Paste an extension link or Web Store id" spellcheck="false" autocomplete="off"><button class="he-btn" id="he-install">Install</button></div>
+            <div class="he-note" style="margin-top:8px">Every extension is checked before it runs — nothing unverified ever touches your pages.</div>
+            <div class="he-row" style="margin-top:10px"><button class="he-btn ghost" id="he-demo">Try a demo extension</button><label class="he-btn ghost" style="cursor:pointer">Load .crx…<input id="he-file" type="file" accept=".crx" style="display:none"></label></div>
+            <div class="he-row" style="margin-top:8px"><button class="he-btn ghost" id="he-testpage" style="width:100%">Open a test page →</button></div>
           </div>
           <div>
             <div class="he-h">Installed</div>
@@ -812,7 +1086,6 @@
           </div>
           <div class="he-card">
             <div class="he-h">Catalog</div>
-            <div class="he-note" style="margin-bottom:6px">A federated index of Web Store metadata the store is never trusted. IPFS-pinned entries install serverlessly; bare Web Store ids need the companion proxy.</div>
             <div id="he-catalog"></div>
           </div>
         </div>`;
@@ -824,7 +1097,7 @@
       $$(".x", drawer).onclick = () => open(false);
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("on")) open(false); });
 
-      const PILL = { "runs-in-tab": ["ok", "runs in-OS"], "needs-native": ["native", "needs native host"], "partial": ["warn", "partial"] };
+      const PILL = { "runs-in-tab": ["ok", "ready"], "needs-native": ["native", "needs the desktop app"], "partial": ["warn", "partial"] };
       function render() {
         const list = $$("#he-list", drawer); const exts = mgr.list();
         list.innerHTML = exts.length ? "" : `<div class="he-note">No extensions yet. Build the demo, load a .crx, or install one from the catalog below.</div>`;
@@ -832,12 +1105,10 @@
           const s = mgr.summary(e); const [cls, label] = PILL[s.verdict] || ["warn", s.verdict];
           const row = document.createElement("div"); row.className = "he-card he-ext";
           row.innerHTML = `<div class="top"><span class="nm"></span><span class="ver"></span><span class="he-pill ${cls}"></span></div>
-            <div class="he-k" title="content address (blake3) re-derived on every load"></div>
             <div class="acts"><span class="he-note" style="opacity:.7"></span><button class="he-sw"></button><button class="he-sw he-rm">Remove</button></div>`;
           $$(".nm", row).textContent = s.name; $$(".ver", row).textContent = "v" + s.version;
           const pill = $$(".he-pill", row); pill.textContent = label; pill.title = s.reason;
-          $$(".he-k", row).textContent = "κ " + s.kappa;
-          $$(".he-note", row).textContent = s.signatureOk ? "publisher signature ✓" : "unsigned";
+          $$(".he-note", row).textContent = s.signatureOk ? "publisher verified ✓" : "publisher not verified";
           const sw = $$(".he-sw", row); sw.textContent = s.enabled ? "Enabled" : "Disabled"; sw.style.opacity = s.enabled ? "1" : ".5";
           sw.onclick = async () => { mgr.setEnabled(s.id, !s.enabled); saveIndex(); await pushSeam(); render(); };
           $$(".he-rm", row).onclick = async () => { mgr.remove(s.id); await idbDel(s.kappa); saveIndex(); await pushSeam(); render(); };
@@ -849,14 +1120,13 @@
           const row = document.createElement("div"); row.className = "he-cat";
           row.innerHTML = `<span style="min-width:0"><div class="nm"></div><div class="ds"></div></span><button class="he-btn ghost" style="margin-left:auto"></button>`;
           $$(".nm", row).textContent = c.name; $$(".ds", row).textContent = c.note;
-          if (c.path) { const t = document.createElement("span"); t.textContent = "serverless"; t.style.cssText = "font-size: var(--holo-text-sm, 1rem);font-weight:600;color:#5bd47e;background:rgba(52,168,83,.16);padding:1px 6px;border-radius:999px;margin-left:6px"; $$(".nm", row).appendChild(t); }
           const b = $$("button", row); b.textContent = installed ? "Installed" : "Install"; b.disabled = installed;
           // bundled (path) → serverless, Pages-native; IPFS-pinned (ipfs) → serverless; bare Web Store id → needs the proxy.
           b.onclick = () => guard(b, () => c.path ? installFromPath(c.path, c.kappa) : c.ipfs ? installFromIpfs(c.ipfs) : installFromStore(c.id));
           cat.appendChild(row);
         }
       }
-      async function guard(btn, fn) { const t = btn.textContent; btn.disabled = true; btn.textContent = "…"; try { await fn(); } catch (e) { toast("install refused: " + (e.message || e)); btn.disabled = false; btn.textContent = t; } }
+      async function guard(btn, fn) { const t = btn.textContent; btn.disabled = true; btn.textContent = "…"; try { await fn(); } catch (e) { toast("Couldn't install: " + (e.message || e)); btn.disabled = false; btn.textContent = t; } }
 
       $$("#he-install", drawer).onclick = () => guard($$("#he-install", drawer), () => installFromInput($$("#he-url", drawer).value.trim()));
       $$("#he-url", drawer).addEventListener("keydown", (e) => { if (e.key === "Enter") $$("#he-install", drawer).click(); });
@@ -865,12 +1135,12 @@
       // is visible on a CONTENT-ADDRESSED page: the κ verifies the source, the extension transforms the view.
       $$("#he-testpage", drawer).onclick = () => guard($$("#he-testpage", drawer), async () => {
         if (!window.HoloBrowser || !window.HoloBrowser.mint) throw new Error("browser engine not ready");
-        const html = '<!doctype html><html><head><meta charset="utf-8"><title>holo://κ test page</title><style>body{font:16px/1.7 system-ui;background:#0b0f15;color:#e8eef5;margin:0;min-height:100vh;display:grid;place-items:center}.c{max-width:560px;padding:2.5rem;text-align:center}h1{color:#4285f4}code{background:#11151c;padding:.15rem .45rem;border-radius:6px;color:#34a853}</style></head><body><div class="c"><h1>This is a holo://κ page</h1><p>Its bytes re-derive to their content address before it rendered <b>Law L5</b>. If you installed a κ-verified content-script extension, watch the bottom-right corner: the extension transforms the <i>view</i>, while the <i>source κ</i> still verifies.</p><p><code>holo://κ</code> · the gateway is never trusted</p></div></body></html>';
+        const html = '<!doctype html><html><head><meta charset="utf-8"><title>Test page</title><style>body{font:16px/1.7 system-ui;background:#0b0f15;color:#e8eef5;margin:0;min-height:100vh;display:grid;place-items:center}.c{max-width:560px;padding:2.5rem;text-align:center}h1{color:#4285f4}</style></head><body><div class="c"><h1>Test page</h1><p>This page was checked before it was shown. If you installed the demo extension, watch the bottom-right corner — it changes what you see, while the page itself stays verified.</p></div></body></html>';
         const k = await window.HoloBrowser.mint(html);
         open(false);
         window.HoloBrowser.navigate("holo://" + k);
       });
-      $$("#he-file", drawer).addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; try { await installBytes(new Uint8Array(await f.arrayBuffer()), "file:" + f.name); } catch (err) { toast("install refused: " + (err.message || err)); } e.target.value = ""; });
+      $$("#he-file", drawer).addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; try { await installBytes(new Uint8Array(await f.arrayBuffer()), "file:" + f.name); } catch (err) { toast("Couldn't install: " + (err.message || err)); } e.target.value = ""; });
 
       // live block counter from the seam (browser-sw.js broadcasts ext-blocked).
       let blocked = 0;
@@ -879,8 +1149,31 @@
       // toast — reuse the page's if present, else a minimal fallback.
       function toast(m) { const el = document.getElementById("toast"); if (el) { el.textContent = m; el.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 3200); } }
 
-      window.HoloExtensions = { manager: mgr, install: installBytes, installFromInput, installFromIpfs, installFromKappa, installFromPath, installFromStore, installDemo, catalog: CATALOG, seamBundle: () => mgr.seamBundle(), open: () => open(true), matchPattern };
-      render(); hydrate();
+      // Ad/tracker blocking ON by default for raw-page browsing: auto-install Holo Shield on first run so the
+      // open web is ad-free out of the box (the projected video path is already ad-free by construction). The
+      // bytes come from the OS as a content-addressed asset and are re-derived before anything runs (Law L5).
+      // Respects the user: a one-time flag means removing it STICKS — we never silently re-add it.
+      async function autoInstallShield() {
+        const FLAG = "holo.shield.autoinstall.v1";
+        try {
+          if (localStorage.getItem(FLAG)) return;                       // already auto-installed once, or user removed it
+          const shield = CATALOG.find((c) => c.path === "ext/holo-shield.crx");
+          if (!shield) return;
+          if (mgr.list().some((e) => e.kappa === shield.kappa)) { localStorage.setItem(FLAG, "1"); return; }  // already present
+          await installFromPath(shield.path, shield.kappa);             // re-derives + pushes DNR rules onto browser-sw.js (THROWS on failure)
+          localStorage.setItem(FLAG, "1");                              // flag ONLY after a proven install → a transient first-boot
+                                                                        // failure (slow SW, cold fetch) self-heals on the next boot,
+                                                                        // instead of disabling ad-block forever. A user REMOVAL still
+                                                                        // sticks: by then the flag was set on the successful install.
+        } catch { /* fail-open: leave the flag UNSET so ad-block returns the moment the asset loads; no shield is no worse than a normal browser */ }
+      }
+
+      window.HoloExtensions = { manager: mgr, install: installBytes, installFromInput, installFromIpfs, installFromKappa, installFromPath, installFromStore, installDemo, catalog: CATALOG, seamBundle: () => mgr.seamBundle(), open: () => open(true), matchPattern, autoInstallShield };
+      // hydrate restores installed extensions from IDB → auto-install the shield if it's the first run →
+      // ALWAYS push the seam to the SW. The unconditional push is the fix for ad-block silently dying on
+      // the 2nd+ visit: previously the seam was pushed ONLY during the one-time install, so a later load
+      // (flag already set, no install) left a freshly-started SW with an EMPTY ruleset and nothing blocked.
+      render(); hydrate().then(async () => { await autoInstallShield(); await pushSeam(); });
       } catch (err) { console.error("[holo-ext] store init failed:", err); }
     </script>
     <script src="/.holo/sha256/b4dbe84b9234d9b4672a632159fc7cbafb94c0af6da7cec9eedf2c325fe1667b.js" data-holo-shared="holo-theme.js"></script>

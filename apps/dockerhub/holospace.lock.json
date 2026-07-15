@@ -1,0 +1,122 @@
+{
+  "@context": {
+    "dcterms": "http://purl.org/dc/terms/",
+    "holo": "https://hologram.os/ns#"
+  },
+  "root": "did:holo:sha256:092e30d2ac5e2a23fdb8210ee09b7728030da40941ba2e46af106ba6d112055c",
+  "identifier": "org.hologram.HoloDockerHub",
+  "algo": "sha256",
+  "holo:within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+  "holo:atlasCoordinate": {
+    "space": "Φ-Atlas-12288",
+    "within": "did:holo:sha256:f82435dab0215aa6695797d5e9ef4809f1905c015c419f085b2d42346441aad0",
+    "cell": 1372,
+    "page": 5,
+    "byte": 92,
+    "r96": 92,
+    "phi": 1372
+  },
+  "files": 10,
+  "closure": {
+    "apps/dockerhub/bake.mjs": {
+      "blake3": "did:holo:blake3:a51c0d214ecd80c2709f9caa22ea38ea34cd1b645142b664c3171c09c012175c",
+      "kappa": "did:holo:sha256:f10920e2252c51cb3f3dcbabd4a0a2f5e9e8657a7a6b0ba1e07ab2202ad76b1f",
+      "sri": "sha256-8Qkg4iUsUcs/Pcur1KCi9enoZXp6awuh4HqyICrXax8=",
+      "multibase": "uEiDxCSDiJSxRyz89y6vUoKL16ehlenprC6HgerIgKtdrHw",
+      "bytes": 4582,
+      "alsoKnownAs": [
+        "did:holo:blake3:a51c0d214ecd80c2709f9caa22ea38ea34cd1b645142b664c3171c09c012175c"
+      ]
+    },
+    "apps/dockerhub/catalog.json": {
+      "blake3": "did:holo:blake3:4760f69cb527f9d8dd73ba7c3721e94382fce0df7872936b16449ff57e5fa717",
+      "kappa": "did:holo:sha256:5bdcbc1e108e6169dc34d8030022bad2b0d4db80b2af647fe5dfe9648c1d28da",
+      "sri": "sha256-W9y8HhCOYWncNNgDACK60rDU24Cyr2R/5d/pZIwdKNo=",
+      "multibase": "uEiBb3LweEI5hadw02AMAIrrSsNTbgLKvZH_l3-lkjB0o2g",
+      "bytes": 1681966,
+      "alsoKnownAs": [
+        "did:holo:blake3:4760f69cb527f9d8dd73ba7c3721e94382fce0df7872936b16449ff57e5fa717"
+      ]
+    },
+    "apps/dockerhub/holo-app-worker.mjs": {
+      "blake3": "did:holo:blake3:0efc17c59789fb4e0a5fdbcd5453a1cd048f46ecfdfbf7ea25adc10a2a726de5",
+      "kappa": "did:holo:sha256:a306b5ea1e31734b343d999feb281f89b71e8747b4e18496a0cc72f4321db0cd",
+      "sri": "sha256-owa16h4xc0s0PZmf6ygfibceh0e04YSWoMxy9DIdsM0=",
+      "multibase": "uEiCjBrXqHjFzSzQ9mZ_rKB-Jtx6HR7ThhJagzHL0Mh2wzQ",
+      "bytes": 14152,
+      "alsoKnownAs": [
+        "did:holo:blake3:0efc17c59789fb4e0a5fdbcd5453a1cd048f46ecfdfbf7ea25adc10a2a726de5"
+      ]
+    },
+    "apps/dockerhub/holo-app.html": {
+      "blake3": "did:holo:blake3:c29085b1ec8aff34793987caa8be513c1b610fa683766c90f98a46ecdf15fb25",
+      "kappa": "did:holo:sha256:034af704a3dd2ff264ae2eabbeb904b55f46ea5af148adf665541b215308ef58",
+      "sri": "sha256-A0r3BKPdL/Jkri6rvrkEtV9G6lrxSK32ZVQbIVMI71g=",
+      "multibase": "uEiADSvcEo90v8mSuLqu-uQS1X0bqWvFIrfZlVBshUwjvWA",
+      "bytes": 4060,
+      "alsoKnownAs": [
+        "did:holo:blake3:c29085b1ec8aff34793987caa8be513c1b610fa683766c90f98a46ecdf15fb25"
+      ]
+    },
+    "apps/dockerhub/hologram.svg": {
+      "blake3": "did:holo:blake3:5c53a724eb24925aa73cd9885f87ff167615b36ae6637dabf141b7ce5ce35e5e",
+      "kappa": "did:holo:sha256:1b8833073c87a2a92d8fbc7a445f02fc97688503475a0ba32f302b4b6c262d7c",
+      "sri": "sha256-G4gzBzyHoqktj7x6RF8C/JdohQNHWgujLzArS2wmLXw=",
+      "multibase": "uEiAbiDMHPIeiqS2PvHpEXwL8l2iFA0daC6MvMCtLbCYtfA",
+      "bytes": 3014,
+      "alsoKnownAs": [
+        "did:holo:blake3:5c53a724eb24925aa73cd9885f87ff167615b36ae6637dabf141b7ce5ce35e5e"
+      ]
+    },
+    "apps/dockerhub/holospace.json": {
+      "blake3": "did:holo:blake3:395f183ac01371b652169c5c99c528e04aead811464d0b2014cd49ca8986e569",
+      "kappa": "did:holo:sha256:41229cbc8e10e509381a39501f8befd7d4e0fd10cdfa885cb617e063e9250c35",
+      "sri": "sha256-QSKcvI4Q5Qk4GjlQH4vv19Tg/RDN+ohcthfgY+klDDU=",
+      "multibase": "uEiBBIpy8jhDlCTgaOVAfi-_X1OD9EM36iFy2F-Bj6SUMNQ",
+      "bytes": 1561,
+      "alsoKnownAs": [
+        "did:holo:blake3:395f183ac01371b652169c5c99c528e04aead811464d0b2014cd49ca8986e569"
+      ]
+    },
+    "apps/dockerhub/index.html": {
+      "blake3": "did:holo:blake3:991e240b3f0a63d504aff29699c92aaaaf2c3a898a89e4b218a0f45272942176",
+      "kappa": "did:holo:sha256:6b3d25abec2f623d3b44b6427b5caa43d42ad97daf3621254bd7d84b28cc9a82",
+      "sri": "sha256-az0lq+wvYj07RLZCe1yqQ9Qq2X2vNiElS9fYSyjMmoI=",
+      "multibase": "uEiBrPSWr7C9iPTtEtkJ7XKpD1CrZfa82ISVL19hLKMyagg",
+      "bytes": 30358,
+      "alsoKnownAs": [
+        "did:holo:blake3:991e240b3f0a63d504aff29699c92aaaaf2c3a898a89e4b218a0f45272942176"
+      ]
+    },
+    "apps/dockerhub/pkg/holospaces_web.js": {
+      "blake3": "did:holo:blake3:4788dedd059e8c91dde6ac933ec80dcdfe62f1b6b72e72d96b660375165b8149",
+      "kappa": "did:holo:sha256:bdde2bb0adbdd33f7755967fa063c5f4a626f6581851f0b565f9d58ae01a6eaa",
+      "sri": "sha256-vd4rsK290z93VZZ/oGPF9KYm9lgYUfC1ZfnViuAabqo=",
+      "multibase": "uEiC93iuwrb3TP3dVln-gY8X0pib2WBhR8LVl-dWK4Bpuqg",
+      "bytes": 150131,
+      "alsoKnownAs": [
+        "did:holo:blake3:4788dedd059e8c91dde6ac933ec80dcdfe62f1b6b72e72d96b660375165b8149"
+      ]
+    },
+    "apps/dockerhub/pkg/holospaces_web_bg.wasm": {
+      "blake3": "did:holo:blake3:6ca7817c05a3d0c0a17edf33151e8e1457e56058678ea0dcc791f8f87c83e1c3",
+      "kappa": "did:holo:sha256:86dc544155d71b8fb1bff5493275e1b02c3a8ceeb1f8f9f4774292867d3f1324",
+      "sri": "sha256-htxUQVXXG4+xv/VJMnXhsCw6jO6x+Pn0d0KShn0/EyQ=",
+      "multibase": "uEiCG3FRBVdcbj7G_9UkydeGwLDqM7rH4-fR3QpKGfT8TJA",
+      "bytes": 3320521,
+      "alsoKnownAs": [
+        "did:holo:blake3:6ca7817c05a3d0c0a17edf33151e8e1457e56058678ea0dcc791f8f87c83e1c3"
+      ]
+    },
+    "_shared/holo-conscience.js": {
+      "blake3": "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b",
+      "kappa": "did:holo:sha256:27416ca6efa96e495734ba64d72011df21b33239a7fe0e6d230e30cbb0a5cb45",
+      "sri": "sha256-J0Fspu+pbklXNLpk1yAR3yGzMjmn/g5tIw4wy7Cly0U=",
+      "multibase": "uEiAnQWym76luSVc0umTXIBHfIbMyOaf-Dm0jDjDLsKXLRQ",
+      "bytes": 18905,
+      "alsoKnownAs": [
+        "did:holo:blake3:b54db6c7e89e3bb0deb0345ce9af80a5289496e4b13e9adfebf436c4964a1c1b"
+      ]
+    }
+  }
+}

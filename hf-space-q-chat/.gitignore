@@ -1,0 +1,4 @@
+# The vendored voice runtime (~47MB of ORT wasm + kokoro + transformers) is an EXACT copy of
+# holo-os/system/os/usr/lib/holo/voice/vendor/{transformers,kokoro}. Kept out of git to stay lean;
+# restore in one command (see RECOVERY.md). Everything else here IS tracked → durable.
+/vendor/

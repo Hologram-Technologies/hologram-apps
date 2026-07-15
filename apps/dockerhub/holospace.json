@@ -1,0 +1,33 @@
+{
+  "id": "org.hologram.HoloDockerHub",
+  "name": "Holo Hub",
+  "type": [
+    "schema:SoftwareApplication",
+    "schema:WebApplication"
+  ],
+  "summary": "Docker Hub, streamable. Browse all 13M images with their real artwork, then stream any of them live in your tab on the holospaces runtime — 100% serverless, every byte verified before it paints.",
+  "entry": "index.html",
+  "icon": "hologram.svg",
+  "applicationCategory": "DeveloperApplication",
+  "conforms": {
+    "specs": [
+      "content-addressing",
+      "law-l4-no-cdn",
+      "law-l5"
+    ]
+  },
+  "capabilities": {
+    "storage": [
+      "org.hologram.HoloDockerHub"
+    ]
+  },
+  "shared": [],
+  "engines": [
+    "holospaces"
+  ],
+  "description": [
+    { "p": "A live resolver for Docker Hub, not a mirror. The index is baked fresh from Hub's own catalog with the original artwork inlined and κ-sealed, so the whole browse experience ships in the app: instant search across every category, zero network, no proxy, works in any browser." },
+    { "p": "Opening an image streams the real thing in your tab on the upstream holospaces runtime — the same wasm engine this bundle boots on. A Hologram node prepares the image once into the κ object-fabric; after that it resumes near-instantly, fault-lazy, for you and anyone you share it with. Every κ-object re-derives to its hash before use (Law L5)." },
+    { "p": "Golden-ratio layout, artwork-derived colour per card, a cinematic spotlight from the most-pulled feed. Built for people and AI agents alike on the open semantic web." }
+  ]
+}

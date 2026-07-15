@@ -125,7 +125,7 @@ export function planSpace(intent, catalog, max = 4) {
     layout,
     accent,
     mood,
-    members: apps.map((a, i) => ({ kind: "app", root: "did:holo:sha256:" + a.root, position: i })),
+    members: apps.map((a, i) => ({ kind: "app", root: "did:holo:blake3:" + a.root, position: i })),
   };
 }
 
@@ -157,7 +157,7 @@ export async function planWithQ(intent, catalog, q, max = 4) {
   const { mood, accent } = chooseMood(tokens(intent));
   return {
     name: titleFor(intent), layout: chooseLayout(intent, picked.length), accent, mood,
-    members: picked.map((a, i) => ({ kind: "app", root: "did:holo:sha256:" + a.root, position: i })),
+    members: picked.map((a, i) => ({ kind: "app", root: "did:holo:blake3:" + a.root, position: i })),
   };
 }
 
