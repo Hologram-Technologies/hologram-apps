@@ -1,0 +1,677 @@
+// holo-bonsai27-gpu.mjs — Bonsai-27B (arch qwen35, 64-layer HYBRID: 16 full-attention + 48 gated-delta
+// linear layers, ALL big weights binary q1) as an ON-GPU RESIDENT decoder. This EXTENDS the proven qwen35
+// 9B resident engine (holo-qwen35-resident.mjs — the ENTIRE per-token forward in ONE command submission,
+// argmax-only readback): same glue kernels (imported, not copied), same recLinear/recAttn/recMLP dispatch
+// order, but every matvec runs the NEW MATVECQ1_COOP kernel over the κ-object's packed q1 bytes
+// (signs+scales stay packed in VRAM — a dense f32 expansion of 27B would be ~100 GB and is never made).
+//
+//   const brain = await loadBonsai27Brain({ baseUrl, onProgress });   // κ-object dir (manifest.json + b/*.gz)
+//   for await (const delta of brain.generate(messages, { maxTokens })) ui.append(delta);
+//
+// Config is MANIFEST-DRIVEN end to end (no 9B hardcodes): per-layer kind from hybrid.full_layers, dims from
+// d/hd/n_heads/ff/vocab, SSM shape from hybrid.ssm, rope from rope_base + rope_sections (MRoPE: for TEXT all
+// three position components are equal, so theta_i = pos·base^(-2i/rdim) — byte-identical to the 9B's partial
+// NEOX tables; sections only matter for vision positions, which this decoder does not take).
+//
+// q1 format (oracle: Q/apps/q/qvac-gpu.js mmQ1Kernel + its bits===1 embed/parts paths — the PROVEN Bonsai-8B
+// engine): tensor blob = [signs N·K/8 bytes][f32 scales N·K/128·4 bytes]; weight j's sign bit is
+// (byte[j>>3]>>(j&7))&1 → +scale : −scale, one scale per 128 consecutive weights of a row (K%128==0 always).
+//
+// GGUF layout conventions carried over from the parity-proven 9B loader (holo-qwen35-gpu-real.mjs — same
+// prism `qwen35` conversion pipeline, engine == CPU oracle == HF):
+//   · full-attn attn_q packs [q|gate] PER HEAD (row block h = [q_h(hd) | gate_h(hd)]) → DEINTERLEAVE splits;
+//     wo consumes the gated context (K = nh·hd).
+//   · linear-layer v-ish tensors (qkv's v rows, lin_gate/z rows, ssm_alpha/beta rows, ssm_a, ssm_dt, the
+//     conv v channels, ssm_out's INPUT columns) are stored vi-major (HF v-head numbering: head = vi·ng + g);
+//     the engine works GROUP-major (head s = g·r + vi, so QK_EXPAND's k-group = s/r is contiguous) and
+//     permutes at load: engine slot s ← stored block vperm[s], vperm[s] = (s%r)·ng + ⌊s/r⌋. For the 9B
+//     (r=2, ng=16) this reduces EXACTLY to its proven evens/odds formula; the 27B is r=3, ng=16. ssm_out is
+//     left unpermuted and its ACTIVATION is permuted at runtime (PERMUTE_VHEAD, idx = vperm⁻¹).
+//   · ssm_a stores A = −exp(A_log) → engine keeps log(−a); norms are (1+w)-style → (w−1) baked.
+//   · ssm_dt.bias exists in the GGUF but was never enumerated into the κ-object → byte-true values ride in
+//     holo-bonsai27-ssm-dt.mjs (Range-fetched from the source GGUF, offsets κ-cross-verified).
+
+import { RMSNORM_1P_WGSL, CONV1D_STEP_WGSL, GATED_RMSNORM_WGSL, HEAD_NORM_ROPE_WGSL } from "./holo-qwen35-kernels.mjs";
+import { GATED_DELTA_STEP_WGSL } from "./holo-gated-delta-gpu.mjs";
+import { QK_EXPAND, DECAY_BETA, PERMUTE_VHEAD, DEINTERLEAVE, GATEMUL, CONVTAIL_BUILD, ARGMAX } from "./holo-qwen35-resident.mjs";
+import { SWIGLU, SAXPY, ATTN, MATVECF, G } from "./holo-gguf-gpu.mjs";
+import { SSM_DT_BIAS } from "./holo-bonsai27-ssm-dt.mjs";
+import { makeTokenizer } from "../gguf-forge-tokenizer.mjs";
+
+// ── MATVECQ1_TILE(R, L, U): binary ±1 matvec in qvac-gpu.js mmQ1Kernel's PROVEN V2 tile geometry —
+//    256-thread workgroups covering R rows × L lanes × U-word unroll (the 8B's decode kernel; big-tensor
+//    shape (16,16,4) measured 1.6-2× on FFN shapes there). Ported to the 27B resident engine's blob
+//    layout: rb = the tensor's VERBATIM κ-object blob as u32 — [signs N·K/32 words][f32-bit scales
+//    N·K/128 words] in ONE buffer (mmQ1Kernel splits qw/sc; here scale index = N·nw + n·K/128 + w>>2).
+//    Per word: 32 sign bits LSB-first (bit → +act : −act), vec4 act reads, ONE scale read per word.
+//    Scalar math oracle: qvac-gpu.js mmQ1Kernel dot32 — acc += x[k]·(bit?+1:−1)·scale — same select()
+//    unpack; only reduction geometry and f32 sum order differ, so parity vs the exact-dequant oracle
+//    stays ~1e-4 relative. NOTE: caller dispatches ceil(N/R) workgroups on a 2D grid (p.w = gx). ──
+//    The decode-perf pass replaced the old one-64-thread-workgroup-per-row COOP shape (4 tok/s: a full
+//    workgroup + 6 barriers per row was launch/reduction-bound, not bandwidth-bound).
+export const MATVECQ1_TILE = (R, L, U, add = false) => /* wgsl */`
+@group(0)@binding(0)var<storage,read>rb:array<u32>;@group(0)@binding(1)var<storage,read>act:array<vec4<f32>>;@group(0)@binding(2)var<storage,read_write>outv:array<f32>;@group(0)@binding(3)var<uniform>p:vec4<u32>;
+var<workgroup> red:array<f32,256>;
+fn dot32(w:u32, xo:u32)->f32{
+  var s=0.0;
+  for(var j=0u;j<8u;j=j+1u){
+    let v=act[xo+j]; let b=w>>(j*4u);
+    s=s+select(-v.x,v.x,(b&1u)!=0u)+select(-v.y,v.y,(b&2u)!=0u)+select(-v.z,v.z,(b&4u)!=0u)+select(-v.w,v.w,(b&8u)!=0u);
+  }
+  return s;
+}
+@compute @workgroup_size(256) fn main(@builtin(workgroup_id) wg:vec3<u32>,@builtin(local_invocation_id) lid:vec3<u32>){
+  let N=p.x; let K=p.y; let nw=K>>5u; let rr=lid.x/${L}u; let t=lid.x%${L}u;
+  let n0=(wg.x+wg.y*p.w)*${R}u+rr; let n=min(n0,N-1u);
+  let rowW=n*nw; let sBase=N*nw+n*(K>>7u); var acc=0.0; var w=t*${U}u;
+  loop{ if(w>=nw){break;}
+    ${Array.from({ length: U }, (_, u) => `if(w+${u}u<nw){ acc=acc+dot32(rb[rowW+w+${u}u],(w+${u}u)<<3u)*bitcast<f32>(rb[sBase+((w+${u}u)>>2u)]); }`).join("\n    ")}
+    w=w+${L * U}u; }
+  red[lid.x]=acc; workgroupBarrier();
+  var s=${L >> 1}u; loop{ if(s==0u){break;} if(t<s){ red[rr*${L}u+t]=red[rr*${L}u+t]+red[rr*${L}u+t+s]; } workgroupBarrier(); s=s/2u; }
+  if(t==0u && n0<N){ outv[p.z+n0]=${add ? "outv[p.z+n0]+" : ""}red[rr*${L}u]; }
+}`;
+export const MATVECQ1_COOP = MATVECQ1_TILE(4, 64, 1);           // back-compat name: the small-tensor tile
+
+// ── MATVECQ1_FUSED(T): T stacked q1 tensors (same K, e.g. qkv+gate+alpha+beta, or wq+wk+wv, or
+//    ffn gate+up) over ONE input in ONE dispatch, each tensor writing its OWN out buffer — qvac's
+//    mmT2FusedKernel move ("dispatch/encode tax measured ~35% of wall") ported to the resident graph,
+//    where each dependent dispatch costs ~0.1 ms of D3D12 barrier drain on this backend. Row n of the
+//    dispatch space maps to (tensor ti, local row lr) by the q=(N0..N3) cascade; per-tensor rowAcc
+//    inlines the same dot32 math as MATVECQ1_TILE. Geometry fixed (16 rows × 16 lanes × unroll 4 —
+//    the big-tensor tile; small members just ride along). Uniforms: p=(K,gx,0,0), q=(N0..N3). ──
+export const MATVECQ1_FUSED = (T, R = 16, L = 16, U = 4) => {
+  const rng = (n) => Array.from({ length: n }, (_, i) => i);
+  return /* wgsl */`
+${rng(T).map((i) => `@group(0)@binding(${i})var<storage,read>rb${i}:array<u32>;`).join("\n")}
+@group(0)@binding(${T})var<storage,read>act:array<vec4<f32>>;
+${rng(T).map((i) => `@group(0)@binding(${T + 1 + i})var<storage,read_write>out${i}:array<f32>;`).join("\n")}
+@group(0)@binding(${2 * T + 1})var<uniform>p:vec4<u32>;
+@group(0)@binding(${2 * T + 2})var<uniform>q:vec4<u32>;
+var<workgroup> red:array<f32,256>;
+${rng(T).map((i) => `fn rowAcc${i}(lr:u32,t:u32)->f32{
+  let K=p.x; let nw=K>>5u; let rowW=lr*nw; let sB=q[${i}]*nw+lr*(K>>7u); var acc=0.0; var w=t*${U}u;
+  loop{ if(w>=nw){break;}
+    ${rng(U).map((u) => `if(w+${u}u<nw){ let b=rb${i}[rowW+w+${u}u]; let xo=(w+${u}u)<<3u; var s=0.0;
+      for(var j=0u;j<8u;j=j+1u){ let v=act[xo+j]; let bb=b>>(j*4u);
+        s=s+select(-v.x,v.x,(bb&1u)!=0u)+select(-v.y,v.y,(bb&2u)!=0u)+select(-v.z,v.z,(bb&4u)!=0u)+select(-v.w,v.w,(bb&8u)!=0u); }
+      acc=acc+s*bitcast<f32>(rb${i}[sB+((w+${u}u)>>2u)]); }`).join("\n    ")}
+    w=w+${L * U}u; }
+  return acc;
+}`).join("\n")}
+@compute @workgroup_size(256) fn main(@builtin(workgroup_id) wg:vec3<u32>,@builtin(local_invocation_id) lid:vec3<u32>){
+  let rr=lid.x/${L}u; let t=lid.x%${L}u;
+  let n0=(wg.x+wg.y*p.y)*${R}u+rr;
+  var ln=n0; var ti=0u;
+  ${rng(T - 1).map((i) => `if(ti==${i}u && ln>=q[${i}]){ ln=ln-q[${i}]; ti=${i + 1}u; }`).join(" ")}
+  let over=ln>=q[ti]; let lr=select(ln,q[ti]-1u,over);
+  var acc=0.0;
+  ${rng(T).map((i) => `if(ti==${i}u){ acc=rowAcc${i}(lr,t); }`).join(" ")}
+  red[lid.x]=acc; workgroupBarrier();
+  var s=${L >> 1}u; loop{ if(s==0u){break;} if(t<s){ red[rr*${L}u+t]=red[rr*${L}u+t]+red[rr*${L}u+t+s]; } workgroupBarrier(); s=s/2u; }
+  if(t==0u && !over){ ${rng(T).map((i) => `if(ti==${i}u){ out${i}[lr]=red[rr*${L}u]; }`).join(" ")} }
+}`;
+};
+
+// ── GPU decode-head kernels (ported from qvac-gpu.js EMBED bits===1 / APPEND — the 8B's batched head).
+//    EMBED_Q1: gather one q1 embed row into the activation, reading the token id from a GPU seq-RING (not
+//    the CPU). eq = embed signs as u32 [vocab·d/32]; es = embed scales f32 [vocab·d/128]. gg = tok·d+i;
+//    bit=(eq[gg>>5]>>(gg&31))&1 → ±1 · es[gg>>7] — byte-identical to q1Row's host gather. This is what
+//    lets the forward chain stay GPU-resident: token N+1's input never round-trips through JS. ──
+export const EMBED_Q1 = /* wgsl */`
+@group(0)@binding(0)var<storage,read>ring:array<u32>;@group(0)@binding(1)var<storage,read>eq:array<u32>;@group(0)@binding(2)var<storage,read>es:array<f32>;@group(0)@binding(3)var<storage,read_write>x:array<f32>;@group(0)@binding(4)var<uniform>p:vec4<u32>;
+@compute @workgroup_size(256) fn main(@builtin(global_invocation_id) g:vec3<u32>){
+  let i=g.x; let d=p.y; if(i>=d){return;} let tok=ring[p.x]; let gg=tok*d+i;
+  let bit=(eq[gg>>5u]>>(gg&31u))&1u; x[i]=select(-1.0,1.0,bit==1u)*es[gg>>7u];
+}`;
+// APPEND: ring[idx] = argmax winner (a single u32 already on the GPU) — the greedy pick becomes the next
+// token WITHOUT a CPU hop, so the batch's next position embeds it directly.
+export const APPEND_RING = /* wgsl */`
+@group(0)@binding(0)var<storage,read_write>ring:array<u32>;@group(0)@binding(1)var<storage,read>w:array<u32>;@group(0)@binding(2)var<uniform>p:vec4<u32>;
+@compute @workgroup_size(1) fn main(){ ring[p.x]=w[0]; }`;
+
+// ── SSM-FUSION kernels (decode-perf pass 2): LOCAL fused variants of the shared holo-qwen35-kernels /
+//    holo-qwen35-resident small ops — the shared modules are NOT modified. Each fuses two adjacent
+//    dispatches of one linear layer into one, cutting the ~830-dispatch/token barrier-drain tax. Math is
+//    verbatim from the originals; only the dispatch geometry is merged. Parity-gated after each. ──
+
+// FUSION A — CONV1D_STEP + CONVTAIL_BUILD in one dispatch over (K-1)·C threads. Both read the OLD tail and
+// the current qkv; conv+silu writes B.conv (first C channels), tail-build writes the new tail. Disjoint
+// outputs, shared reads → one pass instead of two. (Originals: CONV1D_STEP_WGSL, CONVTAIL_BUILD.)
+export const CONV_STEP_TAIL_FUSED = /* wgsl */`
+struct P { C:u32, K:u32, _a:u32, _b:u32 };
+@group(0)@binding(0)var<storage,read>tail:array<f32>;   // [(K-1)*C] old tail
+@group(0)@binding(1)var<storage,read>cur:array<f32>;    // [C] current qkv (conv region = whole cd)
+@group(0)@binding(2)var<storage,read>cw:array<f32>;     // [K*C] tap-major conv weights
+@group(0)@binding(3)var<storage,read_write>outc:array<f32>; // [C] silu(conv) out
+@group(0)@binding(4)var<storage,read_write>newT:array<f32>; // [(K-1)*C] next tail
+@group(0)@binding(5)var<uniform>p:P;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) g:vec3<u32>){
+  let i=g.x; let C=p.C; let K=p.K; let tailLen=(K-1u)*C; if(i>=tailLen){return;}
+  let cut=(K-2u)*C; if(i<cut){ newT[i]=tail[i+C]; } else { newT[i]=cur[i-cut]; }   // CONVTAIL_BUILD
+  if(i<C){ var acc=0.0; for(var j=0u;j<K-1u;j++){ acc=acc+cw[j*C+i]*tail[j*C+i]; } acc=acc+cw[(K-1u)*C+i]*cur[i]; outc[i]=acc/(1.0+exp(-acc)); }  // CONV1D_STEP+SiLU
+}`;
+
+// FUSION B — QK_EXPAND + DECAY_BETA in one dispatch (one workgroup per v-head), mirroring the shared
+// QWEN_PREP_WGSL: per v-head, l2-norm+scale q/k into qE/kE AND decay=exp(-exp(A_log)·softplus(aP+dt)),
+// beta=sigmoid(bP). 10 storage bindings (= the engine's per-stage cap). (Originals: QK_EXPAND, DECAY_BETA.)
+export const QKE_DECAY_FUSED = /* wgsl */`
+struct P { nvh:u32, nkh:u32, hk:u32, _p:u32 };
+@group(0)@binding(0)var<storage,read>qS:array<f32>;@group(0)@binding(1)var<storage,read>kS:array<f32>;
+@group(0)@binding(2)var<storage,read>aP:array<f32>;@group(0)@binding(3)var<storage,read>bP:array<f32>;
+@group(0)@binding(4)var<storage,read>sA:array<f32>;@group(0)@binding(5)var<storage,read>sDt:array<f32>;
+@group(0)@binding(6)var<storage,read_write>qE:array<f32>;@group(0)@binding(7)var<storage,read_write>kE:array<f32>;
+@group(0)@binding(8)var<storage,read_write>decay:array<f32>;@group(0)@binding(9)var<storage,read_write>beta:array<f32>;
+@group(0)@binding(10)var<uniform>p:P;
+@compute @workgroup_size(1) fn main(@builtin(workgroup_id) wid:vec3<u32>){
+  let h=wid.x; if(h>=p.nvh){return;} let hk=p.hk; let grp=p.nvh/p.nkh; let kh=(h/grp)*hk; let oB=h*hk;
+  var ssq=0.0; var ssk=0.0; for(var i=0u;i<hk;i++){ssq=ssq+qS[kh+i]*qS[kh+i];ssk=ssk+kS[kh+i]*kS[kh+i];}
+  let qi=(1.0/sqrt(ssq+1e-6))*(1.0/sqrt(f32(hk))); let ki=1.0/sqrt(ssk+1e-6);
+  for(var i=0u;i<hk;i++){qE[oB+i]=qS[kh+i]*qi;kE[oB+i]=kS[kh+i]*ki;}
+  let s=aP[h]+sDt[h]; let sp=select(log(1.0+exp(s)),s,s>20.0);
+  decay[h]=exp(-exp(sA[h])*sp); beta[h]=1.0/(1.0+exp(-bP[h]));
+}`;
+
+// FUSION D — the full-attn layer's TWO HEAD_NORM_ROPE dispatches (q-norm+rope, k-norm+rope) in one:
+// nh+nkv workgroups, wid<nh runs the q path (→ qout), else the k path (→ the Kc cache row). Same cos/sin,
+// same hd/rdim/eps; per-head (1+w) RMSNorm then partial NEOX rope, verbatim from HEAD_NORM_ROPE_WGSL.
+export const HEAD_NORM_ROPE_QK_FUSED = /* wgsl */`
+struct P { nh:u32, nkv:u32, hd:u32, rdim:u32 };
+@group(0)@binding(0)var<storage,read>qraw:array<f32>;@group(0)@binding(1)var<storage,read>kraw:array<f32>;
+@group(0)@binding(2)var<storage,read>wq:array<f32>;@group(0)@binding(3)var<storage,read>wk:array<f32>;
+@group(0)@binding(4)var<storage,read>cs:array<f32>;@group(0)@binding(5)var<storage,read>sn:array<f32>;
+@group(0)@binding(6)var<storage,read_write>qout:array<f32>;@group(0)@binding(7)var<storage,read_write>kout:array<f32>;
+@group(0)@binding(8)var<uniform>p:P;@group(0)@binding(9)var<uniform>pe:vec4<u32>;
+@compute @workgroup_size(1) fn main(@builtin(workgroup_id) wid:vec3<u32>){
+  let g=wid.x; let hd=p.hd; let half=hd/2u; let eps=bitcast<f32>(pe.x);
+  var t:array<f32,256>;
+  var base:u32; var isQ=g<p.nh;
+  if(!isQ){ let kh=g-p.nh; if(kh>=p.nkv){return;} base=kh*hd; } else { base=g*hd; }
+  var ss=0.0;
+  if(isQ){ for(var i=0u;i<hd;i++){ss=ss+qraw[base+i]*qraw[base+i];} } else { for(var i=0u;i<hd;i++){ss=ss+kraw[base+i]*kraw[base+i];} }
+  let sc=1.0/sqrt(ss/f32(hd)+eps);
+  if(isQ){ for(var i=0u;i<hd;i++){ t[i]=qraw[base+i]*sc*(1.0+wq[i]); } } else { for(var i=0u;i<hd;i++){ t[i]=kraw[base+i]*sc*(1.0+wk[i]); } }
+  for(var i=0u;i<hd;i++){
+    var y:f32;
+    if(i<p.rdim){ let rot=select(t[i-half],-t[i+half],i<half); y=t[i]*cs[i]+rot*sn[i]; } else { y=t[i]; }
+    if(isQ){ qout[base+i]=y; } else { kout[base+i]=y; }
+  }
+}`;
+
+// FUSION C — GATED_RMSNORM + PERMUTE_VHEAD in one dispatch (one workgroup per OUTPUT v-head). For output
+// head gh it gated-norms the SOURCE head vpi[gh] straight into B.onG[gh] — the permute becomes the source
+// index, no separate gather pass. (Originals: GATED_RMSNORM_WGSL over group-major, then PERMUTE_VHEAD.)
+export const GNORM_PERM_FUSED = /* wgsl */`
+struct P { nvh:u32, hv:u32, _a:u32, epsBits:u32 };
+@group(0)@binding(0)var<storage,read>o:array<f32>;      // [nvh*hv] gated-delta out (group-major)
+@group(0)@binding(1)var<storage,read>w:array<f32>;      // [hv] ssm_norm
+@group(0)@binding(2)var<storage,read>z:array<f32>;      // [nvh*hv] gate (group-major)
+@group(0)@binding(3)var<storage,read>idx:array<u32>;    // [nvh] vpi (vperm^-1)
+@group(0)@binding(4)var<storage,read_write>outg:array<f32>; // [nvh*hv] vi-major (ssm_out cols)
+@group(0)@binding(5)var<uniform>p:P;
+@compute @workgroup_size(1) fn main(@builtin(workgroup_id) wid:vec3<u32>){
+  let gh=wid.x; if(gh>=p.nvh){return;} let src=idx[gh]; let base=src*p.hv; let eps=bitcast<f32>(p.epsBits);
+  var ss=0.0; for(var j=0u;j<p.hv;j++){ss=ss+o[base+j]*o[base+j];}
+  let sc=1.0/sqrt(ss/f32(p.hv)+eps);
+  let oB=gh*p.hv;
+  for(var j=0u;j<p.hv;j++){ let zz=z[base+j]; outg[oB+j]=o[base+j]*sc*w[j]*(zz/(1.0+exp(-zz))); }
+}`;
+
+// ── q1 host-side helpers (all mirror the qvac-gpu.js bits===1 reference math — the named oracle) ──
+// exact dequant of a q1 blob → dense f32 [N*K]. Global weight index g=n·K+k, bit=(signs[g>>3]>>(g&7))&1,
+// scale=scales[g>>7] (valid because K%128==0). This IS the parity oracle path for MATVECQ1_COOP.
+export function dequantQ1(bytes, N, K) {
+  const nsB = (N * K) >> 3;
+  const scales = new Float32Array(bytes.buffer, bytes.byteOffset + nsB, (N * K) >> 7);
+  const out = new Float32Array(N * K);
+  for (let g = 0; g < N * K; g++) out[g] = ((bytes[g >> 3] >> (g & 7)) & 1 ? 1 : -1) * scales[g >> 7];
+  return out;
+}
+// one row (the embed gather — CPU per token, same as the 9B resident's gather + qvac's q1 embed branch)
+export function q1Row(bytes, scales, n, K, out) {
+  const o = n * K;
+  for (let i = 0; i < K; i++) { const g = o + i; out[i] = ((bytes[g >> 3] >> (g & 7)) & 1 ? 1 : -1) * scales[g >> 7]; }
+  return out;
+}
+// permute row-blocks of a q1 blob (both the sign region AND the scale region move together — a q1 "row"
+// is K/8 sign bytes + K/128 scales). rowsPerBlock rows per permuted unit; dst block s ← src block perm[s].
+// Mirrors the 9B loadQ(blockRows) byte permute, extended to q1's two-region layout.
+export function permuteQ1Rows(bytes, N, K, rowsPerBlock, perm, rowOff = 0) {
+  const sRow = K >> 3, cRow = (K >> 7) << 2, nsB = (N * K) >> 3;
+  const out = Uint8Array.from(bytes);
+  const nBlk = perm.length, sBlk = rowsPerBlock * sRow, cBlk = rowsPerBlock * cRow;
+  const sOff = rowOff * sRow, cOff = nsB + rowOff * cRow;
+  for (let s = 0; s < nBlk; s++) {
+    out.set(bytes.subarray(sOff + perm[s] * sBlk, sOff + (perm[s] + 1) * sBlk), sOff + s * sBlk);
+    out.set(bytes.subarray(cOff + perm[s] * cBlk, cOff + (perm[s] + 1) * cBlk), cOff + s * cBlk);
+  }
+  return out;
+}
+
+const EOS_DEFAULT = [248046, 248044];   // qwen35 eos / pad (same family as the 9B; manifest vocab 248320)
+
+// ── loadBonsai27Brain: κ-object dir → resident engine. fetchTensor(name)→Uint8Array may be injected
+//    (holo-load2bit.loadKappaObject's κ-verified reader) or built from baseUrl (plain dev fetch+gunzip). ──
+export async function loadBonsai27Brain({ baseUrl, manifest, fetchTensor, tokenizerBytes, onProgress = () => {}, device: dev0, layersOnly = null } = {}) {
+  if (!navigator.gpu) throw new Error("WebGPU not available in this browser");
+  let device = dev0;
+  if (!device) {
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+    if (!adapter) throw new Error("no WebGPU adapter");
+    const L = adapter.limits;
+    device = await adapter.requestDevice({ requiredLimits: {
+      maxStorageBufferBindingSize: L.maxStorageBufferBindingSize, maxBufferSize: L.maxBufferSize,
+      maxStorageBuffersPerShaderStage: Math.min(10, L.maxStorageBuffersPerShaderStage),
+    } });
+    device.__limits = { maxStorageBufferBindingSize: L.maxStorageBufferBindingSize, maxBufferSize: L.maxBufferSize };
+  }
+  if (!manifest) manifest = await (await fetch(baseUrl + "/manifest.json")).json();
+  if (!fetchTensor) {                                        // dev reader (no κ-verify; production injects loadKappaObject's)
+    const gunzip = async (u8) => { const ds = new DecompressionStream("gzip"); const w = ds.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(ds.readable).arrayBuffer()); };
+    fetchTensor = async (name) => { const rec = manifest.tensors[name]; const gz = new Uint8Array(await (await fetch(baseUrl + "/b/" + rec.kappa.replace(":", "_") + ".gz")).arrayBuffer()); return gunzip(gz); };
+  }
+  if (!tokenizerBytes && baseUrl && !layersOnly) tokenizerBytes = new Uint8Array(await (await fetch(baseUrl + "/tokenizer.gguf")).arrayBuffer());
+
+  // ── dims: ALL from the manifest ──
+  const man = manifest, ssm = man.hybrid.ssm;
+  const rdim = 2 * man.rope_sections.reduce((a, b) => a + b, 0);   // MRoPE sections → rotated dims (text: plain partial NEOX)
+  const D = {
+    d_model: man.d, n_layer: man.n_layers, vocab: man.vocab, ffn: man.ff, eps: 1e-6,
+    head_k: ssm.state_size, num_k_heads: ssm.group_count, value_dim: ssm.inner_size, conv_k: ssm.conv_kernel,
+    n_head: man.n_heads, n_kv: man.n_kv_heads, head_dim: man.hd, rope_dim: rdim, rope_theta: man.rope_base,
+  };
+  D.head_v = D.head_k; D.num_v_heads = D.value_dim / D.head_v; D.key_dim = D.num_k_heads * D.head_k; D.conv_dim = 2 * D.key_dim + D.value_dim;
+  const dm = D.d_model, kd = D.key_dim, vd = D.value_dim, cd = D.conv_dim, nvh = D.num_v_heads, hk = D.head_k, hv = D.head_v;
+  const nh = D.n_head, nkv = D.n_kv, hd = D.head_dim, ffn = D.ffn, vocab = D.vocab;
+  const fullSet = new Set(man.hybrid.full_layers);
+  // group-major s = g·r+vi ↔ stored vi-major j = vi·ng+g (9B-proven formula generalized to r = nvh/ng)
+  const ng = D.num_k_heads, r = nvh / ng;
+  const vperm = new Int32Array(nvh); for (let s = 0; s < nvh; s++) vperm[s] = (s % r) * ng + ((s / r) | 0);
+  const vpi = new Uint32Array(nvh); for (let j = 0; j < nvh; j++) vpi[j] = (j % ng) * r + ((j / ng) | 0);   // vperm⁻¹ (runtime act permute for ssm_out)
+
+  // ── buffer helpers + VRAM meter ──
+  let gpuBytes = 0;
+  const sb = (n) => { gpuBytes += Math.max(16, n * 4); return device.createBuffer({ size: Math.max(16, n * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST }); };
+  const wF = (arr) => { gpuBytes += Math.max(16, arr.byteLength); const b = device.createBuffer({ size: Math.max(16, arr.byteLength), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); device.queue.writeBuffer(b, 0, arr); return b; };
+  const wRaw = (u8) => wF(new Uint32Array(u8.buffer, u8.byteOffset, u8.byteLength / 4));
+
+  // ── weight loading (q1 stays PACKED; f32 norms tiny) ──
+  const fRaw = async (name) => { const b = await fetchTensor(name); return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4); };
+  const norm1p = async (name) => wF((await fRaw(name)).map((x) => x - 1));   // (1+w) RMSNorm — bake w−1 (9B convention)
+  const loadQ1 = async (name) => { const rec = man.tensors[name]; return { buf: wRaw(await fetchTensor(name)), type: "q1", N: rec.N, K: rec.K }; };
+  const wantLayer = (i) => !layersOnly || layersOnly.includes(i);
+
+  onProgress("loading weights…", 0);
+  let embed = null, lmHead = null, outNorm = null;
+  if (!layersOnly) {
+    const eb = await fetchTensor("embed");                        // host-side: gathered per token on CPU (199 MB RAM, 0 VRAM)
+    embed = { bytes: eb, scales: new Float32Array(eb.buffer, eb.byteOffset + ((vocab * dm) >> 3), (vocab * dm) >> 7), K: dm };
+    onProgress("embed resident (host)", 0.03);
+    lmHead = await loadQ1("lm_head");
+    outNorm = await norm1p("final_norm");
+    onProgress("lm_head resident", 0.08);
+  }
+  const layers = [];
+  for (let i = 0; i < D.n_layer; i++) {
+    if (!wantLayer(i)) { layers.push(null); continue; }
+    const N = `l${i}.`, type = fullSet.has(i) ? "attn" : "linear", W = {};
+    W.attn_norm = await norm1p(N + "attn_norm");
+    W.post_attention_norm = await norm1p(N + "ffn_norm");
+    W.ffn_gate = await loadQ1(N + "w_gate"); W.ffn_up = await loadQ1(N + "w_up"); W.ffn_down = await loadQ1(N + "w_down");
+    if (type === "linear") {
+      // qkv: [q kd | k kd | v vd] rows — permute ONLY the v row-blocks (hv rows per v-head) vi-major→group-major
+      { const rec = man.tensors[N + "qkv"]; const raw = await fetchTensor(N + "qkv");
+        W.attn_qkv = { buf: wRaw(permuteQ1Rows(raw, rec.N, rec.K, hv, vperm, 2 * kd)), type: "q1", N: rec.N, K: rec.K }; }
+      { const rec = man.tensors[N + "lin_gate"]; const raw = await fetchTensor(N + "lin_gate");   // z gate: hv rows per v-head
+        W.attn_gate = { buf: wRaw(permuteQ1Rows(raw, rec.N, rec.K, hv, vperm)), type: "q1", N: rec.N, K: rec.K }; }
+      { const rec = man.tensors[N + "ssm_alpha"]; const raw = await fetchTensor(N + "ssm_alpha");  // 1 row per v-head
+        W.ssm_alpha = { buf: wRaw(permuteQ1Rows(raw, rec.N, rec.K, 1, vperm)), type: "q1", N: rec.N, K: rec.K }; }
+      { const rec = man.tensors[N + "ssm_beta"]; const raw = await fetchTensor(N + "ssm_beta");
+        W.ssm_beta = { buf: wRaw(permuteQ1Rows(raw, rec.N, rec.K, 1, vperm)), type: "q1", N: rec.N, K: rec.K }; }
+      W.ssm_out = await loadQ1(N + "ssm_out");                    // in-cols stay vi-major → activation permuted at runtime
+      const aRaw = await fRaw(N + "ssm_a");                       // A = −exp(A_log) → keep log(−a), permuted
+      const aP = new Float32Array(nvh); for (let s = 0; s < nvh; s++) aP[s] = Math.log(-aRaw[vperm[s]]);
+      W.ssm_a = wF(aP);
+      const dtRaw = SSM_DT_BIAS[i]; if (!dtRaw) throw new Error("missing ssm_dt.bias for layer " + i);
+      const dtP = new Float32Array(nvh); for (let s = 0; s < nvh; s++) dtP[s] = dtRaw[vperm[s]];
+      W.ssm_dt = wF(dtP);
+      W.ssm_norm = wF(await fRaw(N + "ssm_norm"));                // RMSNormGated: plain w
+      // conv: GGUF [K taps innermost] per channel (raw[c·Kk+j]) → tap-major conv[j·C+c]; permute v channels
+      { const cw = await fRaw(N + "ssm_conv"); const Kk = D.conv_k;
+        const conv = new Float32Array(Kk * cd); for (let c = 0; c < cd; c++) for (let j = 0; j < Kk; j++) conv[j * cd + c] = cw[c * Kk + j];
+        const convP = Float32Array.from(conv);
+        for (let j = 0; j < Kk; j++) for (let s = 0; s < nvh; s++) convP.set(conv.subarray(j * cd + 2 * kd + vperm[s] * hv, j * cd + 2 * kd + (vperm[s] + 1) * hv), j * cd + 2 * kd + s * hv);
+        W.ssm_conv1d = wF(convP); }
+    } else {
+      W.attn_q = await loadQ1(N + "wq");                          // [q_h | gate_h] per head — split by DEINTERLEAVE
+      W.attn_k = await loadQ1(N + "wk"); W.attn_v = await loadQ1(N + "wv"); W.attn_output = await loadQ1(N + "wo");
+      W.attn_q_norm = await norm1p(N + "q_norm"); W.attn_k_norm = await norm1p(N + "k_norm");
+    }
+    layers.push({ type, W });
+    onProgress(`layer ${i + 1}/${D.n_layer}`, 0.08 + 0.9 * (i + 1) / D.n_layer);
+  }
+
+  // RoPE tables (partial NEOX, rope_dim dims; MRoPE degenerates to this for text — equal position ids)
+  function ropeTables(T) { const rd = D.rope_dim, half = rd / 2, inv = new Float32Array(half); for (let i = 0; i < half; i++) inv[i] = 1 / Math.pow(D.rope_theta, (2 * i) / rd); const cos = [], sin = []; for (let t = 0; t < T; t++) { const c = new Float32Array(rd), s = new Float32Array(rd); for (let i = 0; i < half; i++) { const f = t * inv[i]; c[i] = c[i + half] = Math.cos(f); s[i] = s[i + half] = Math.sin(f); } cos.push(c); sin.push(s); } return { cos, sin }; }
+
+  const tok = tokenizerBytes ? makeTokenizer(tokenizerBytes) : null;
+  const ctx = { device, D, embed, lmHead, outNorm, layers, tok, vpi, ropeTables, sb, wF, gpuBytesRef: () => gpuBytes };
+  const engine = makeBonsai27Resident(ctx);
+  engine.gpuMB = () => Math.round(gpuBytes / 1e6);
+  engine.limits = device.__limits || null;
+  engine._ctx = ctx;
+  return engine;
+}
+
+// ── the resident decoder — mirrors holo-qwen35-resident.makeResident dispatch-for-dispatch, with the q1
+//    coop matvec and manifest dims. MAXCTX 1024 (ATTN's sc[] scratch caps at 2048; KV VRAM stays 4 MB/layer). ──
+export function makeBonsai27Resident(ctx) {
+  const { device, D, embed, lmHead, outNorm, layers, tok, vpi, ropeTables, sb, wF } = ctx;
+  const dev = device, MAXCTX = 1024;
+  const pipe = (c) => dev.createComputePipeline({ layout: "auto", compute: { module: dev.createShaderModule({ code: c }), entryPoint: "main" } });
+  const P = {
+    rms1p: pipe(RMSNORM_1P_WGSL), conv: pipe(CONV1D_STEP_WGSL), gnorm: pipe(GATED_RMSNORM_WGSL), hnr: pipe(HEAD_NORM_ROPE_WGSL),
+    gd: pipe(GATED_DELTA_STEP_WGSL), qke: pipe(QK_EXPAND), dcb: pipe(DECAY_BETA), perm: pipe(PERMUTE_VHEAD),
+    deint: pipe(DEINTERLEAVE), gmul: pipe(GATEMUL), ctb: pipe(CONVTAIL_BUILD), argmax: pipe(ARGMAX),
+    q1: pipe(MATVECQ1_COOP), q1b: pipe(MATVECQ1_TILE(16, 16, 4)),   // small / big (≥16M weights) tiles, qvac-proven shapes
+    q1a: pipe(MATVECQ1_TILE(4, 64, 1, true)), q1ba: pipe(MATVECQ1_TILE(16, 16, 4, true)),   // += variants (residual fold: h += Wx)
+    q1f2: pipe(MATVECQ1_FUSED(2)), q1f3: pipe(MATVECQ1_FUSED(3)), q1f4: pipe(MATVECQ1_FUSED(4)),
+    convft: pipe(CONV_STEP_TAIL_FUSED), qkedcb: pipe(QKE_DECAY_FUSED), gnperm: pipe(GNORM_PERM_FUSED),   // SSM fusions A/B/C
+    hnrqk: pipe(HEAD_NORM_ROPE_QK_FUSED),   // fusion D (full-attn q/k norm+rope)
+    f: pipe(MATVECF), saxpy: pipe(SAXPY), swiglu: pipe(SWIGLU), attn: pipe(ATTN),
+  };
+  const dm = D.d_model, vd = D.value_dim, kd = D.key_dim, cd = D.conv_dim, nvh = D.num_v_heads, hk = D.head_k, hv = D.head_v;
+  const nh = D.n_head, nkv = D.n_kv, hd = D.head_dim, ffn = D.ffn, vocab = D.vocab, rdim = D.rope_dim;
+  const B = {
+    h: sb(dm), norm: sb(dm), delta: sb(dm),
+    qkv: sb(cd), z: sb(vd), aP: sb(nvh), bP: sb(nvh), conv: sb(cd),
+    qE: sb(nvh * hk), kE: sb(nvh * hk), decay: sb(nvh), beta: sb(nvh), gdo: sb(vd), on: sb(vd), onG: sb(vd),
+    qg: sb(nh * 2 * hd), qraw: sb(nh * hd), gate: sb(nh * hd), qrope: sb(nh * hd), kraw: sb(nkv * hd), krope: sb(nkv * hd), attnctx: sb(nh * hd),
+    gp: sb(ffn), up: sb(ffn), hh: sb(ffn),
+    cos: sb(rdim), sin: sb(rdim),
+    logits: sb(vocab), argIdx: dev.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC }),
+    argRead: dev.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }),
+  };
+  { const tmp = dev.createBuffer({ size: nvh * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }); dev.queue.writeBuffer(tmp, 0, vpi); B.vpi = tmp; }
+
+  // uniform WRAPPING ring: ~1000 uniforms/token; the ring decode keeps 2 batches (BATCH tokens each) in
+  // flight, so a slot is only reused once its submit has drained. Size = 2·BATCH·PER_TOK·margin. step()
+  // and _stepLayer are single-submit-awaited, so their resetU() (ui←0) is equally safe.
+  const BATCH = 4, PER_TOK = 1300, UPOOL = 2 * BATCH * PER_TOK;   // ~1013 uniforms/token measured; margin ~2 tokens
+  const upool = []; for (let i = 0; i < UPOOL; i++) upool.push(dev.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }));
+  let ui = 0; const resetU = () => { ui = 0; };
+  const nextU = () => { const b = upool[ui]; ui = (ui + 1) % UPOOL; return b; };
+  const uU = (a) => { const b = nextU(); dev.queue.writeBuffer(b, 0, new Uint32Array([...a, 0, 0, 0, 0].slice(0, 4))); return b; };
+  const uF = (a) => { const b = nextU(); dev.queue.writeBuffer(b, 0, new Float32Array([...a, 0, 0, 0, 0].slice(0, 4))); return b; };
+  const uMix = (u3, f) => { const b = nextU(); const ab = new ArrayBuffer(16); new Uint32Array(ab, 0, 3).set([...u3, 0, 0, 0].slice(0, 3)); new Float32Array(ab, 12, 1)[0] = f; dev.queue.writeBuffer(b, 0, new Uint8Array(ab)); return b; };
+  const epsBits = new Uint32Array(new Float32Array([D.eps]).buffer)[0];
+
+  // ── pass merging (the decode-perf pass): the graph is ~1250 dispatches/token, and a one-dispatch
+  //    compute pass costs ~0.11 ms serialized on this backend (measured: a 0.04 MB matvec = 0.121 ms) —
+  //    pass-per-dispatch WAS the wall (~230 ms/tok). All dispatches share ONE open pass per encoder;
+  //    WebGPU auto-inserts hazard barriers between dispatches inside a pass, so this is perf-only.
+  //    copyBufferToBuffer cannot live inside a pass → passBreak() before every copy and before finish(). ──
+  let curPass = null, curEnc = null;
+  const passOn = (enc) => { if (curEnc !== enc || !curPass) { curPass = enc.beginComputePass(); curEnc = enc; } return curPass; };
+  const passBreak = () => { if (curPass) { curPass.end(); curPass = null; curEnc = null; } };
+  const res = (b) => (b instanceof GPUBuffer ? { buffer: b } : b);   // entries may be {buffer,offset,size} sub-range views
+  const d = (enc, pl, bufs, gx, gy = 1) => {
+    const bg = dev.createBindGroup({ layout: pl.getBindGroupLayout(0), entries: bufs.map((b, i) => ({ binding: i, resource: res(b) })) });
+    const pa = passOn(enc); pa.setPipeline(pl); pa.setBindGroup(0, bg); pa.dispatchWorkgroups(gx, gy);
+  };
+  // q1 matvec: tile kernel, R rows/workgroup (2D grid); add=true folds the residual (outv += Wx — kills the
+  // saxpy stage). f32 (the layer-parity oracle path) keeps MATVECF; its add rides through B.delta + saxpy,
+  // which is the SAME f32 add order as outv[n]+acc, so the q1-vs-f32 layer parity is untouched.
+  const mv = (enc, wq, act, out, add = false) => {
+    if (wq.type === "f32") {
+      if (!add) { d(enc, P.f, [wq.buf, act, out, uU([wq.N, wq.K, 0, 0])], G(wq.N)); return; }
+      d(enc, P.f, [wq.buf, act, B.delta, uU([wq.N, wq.K, 0, 0])], G(wq.N));
+      d(enc, P.saxpy, [B.delta, out, uF([1, wq.N])], G(wq.N)); return;
+    }
+    const big = wq.N * wq.K >= 16e6, pl = add ? (big ? P.q1ba : P.q1a) : (big ? P.q1b : P.q1), R = big ? 16 : 4;
+    const nWg = Math.ceil(wq.N / R), gx = Math.min(nWg, 32768), gy = Math.ceil(nWg / gx);
+    d(enc, pl, [wq.buf, act, out, uU([wq.N, wq.K, 0, gx])], gx, gy);
+  };
+  // fused stacked matvec: T q1 tensors (same K) over one act in ONE dispatch, each writing its own out.
+  // f32 members (parity oracle) fall back to per-tensor mv — identical rows, identical values.
+  const mvF = (enc, wqs, act, outs) => {
+    if (wqs.some((w) => w.type === "f32")) { for (let i = 0; i < wqs.length; i++) mv(enc, wqs[i], act, outs[i]); return; }
+    const Ntot = wqs.reduce((a, w) => a + w.N, 0);
+    const nWg = Math.ceil(Ntot / 16), gx = Math.min(nWg, 32768), gy = Math.ceil(nWg / gx);
+    d(enc, P["q1f" + wqs.length], [...wqs.map((w) => w.buf), act, ...outs,
+      uU([wqs[0].K, gx, 0, 0]), uU([wqs[0].N, wqs[1].N, wqs[2] ? wqs[2].N : 0, wqs[3] ? wqs[3].N : 0])], gx, gy);
+  };
+  const copy = (enc, src, so, dst, po, bytes) => { passBreak(); enc.copyBufferToBuffer(src, so, dst, po, bytes); };
+  const gatherBuf = new Float32Array(dm);
+  const gather = (id) => q1Row(embed.bytes, embed.scales, id, dm, gatherBuf);
+  const rope = ropeTables(MAXCTX);
+
+  function newState() {
+    return layers.map((l) => !l ? null : l.type === "linear"
+      ? { S: sb(nvh * hk * hv), convTail: sb((D.conv_k - 1) * cd), convTailB: sb((D.conv_k - 1) * cd) }   // zero-init; tail ping-pongs
+      : { Kc: sb(MAXCTX * nkv * hd), Vc: sb(MAXCTX * nkv * hd), len: 0 });
+  }
+
+  // one linear layer into the encoder (h += delta), advancing S/convTail on GPU — same math/order as the 9B
+  // recLinear, decode-perf shape: ONE fused matvec for qkv+gate+alpha+beta, qke/gd read B.conv sub-ranges
+  // (no split copies), convTail ping-pongs (no copy → the whole layer stays in one compute pass), and
+  // ssm_out folds the residual (+=). 9 dispatches, 0 copies (was 14 dispatches + 4 copies).
+  function recLinear(enc, W, st) {
+    d(enc, P.rms1p, [B.h, W.attn_norm, B.norm, uF([dm, D.eps])], 1);
+    mvF(enc, [W.attn_qkv, W.attn_gate, W.ssm_alpha, W.ssm_beta], B.norm, [B.qkv, B.z, B.aP, B.bP]);
+    d(enc, P.convft, [st.convTail, B.qkv, W.ssm_conv1d, B.conv, st.convTailB, uU([cd, D.conv_k])], G((D.conv_k - 1) * cd));   // FUSION A: conv+silu & tail-build
+    const t = st.convTail; st.convTail = st.convTailB; st.convTailB = t;   // ping-pong (next step reads the new tail)
+    d(enc, P.qkedcb, [{ buffer: B.conv, offset: 0, size: kd * 4 }, { buffer: B.conv, offset: kd * 4, size: kd * 4 }, B.aP, B.bP, W.ssm_a, W.ssm_dt, B.qE, B.kE, B.decay, B.beta, uU([nvh, D.num_k_heads, hk])], nvh);   // FUSION B: qk-expand + decay/beta
+    d(enc, P.gd, [st.S, B.qE, B.kE, { buffer: B.conv, offset: 2 * kd * 4, size: vd * 4 }, B.decay, B.beta, B.gdo, uU([nvh, hk, hv])], nvh);
+    d(enc, P.gnperm, [B.gdo, W.ssm_norm, B.z, B.vpi, B.onG, uU([nvh, hv, 0, epsBits])], nvh);   // FUSION C: gated-norm + v-head permute (per output head)
+    mv(enc, W.ssm_out, B.onG, B.h, true);
+  }
+  // one full-attn layer: [q|gate]-packed wq → deinterleave → per-head (1+w)-norm + partial rope → KV append
+  // → single-query GQA over the cache → sigmoid(gate)·ctx → wo. Same math/order as 9B recAttn; decode-perf
+  // shape: wq+wk+wv fused (v lands DIRECTLY in the Vc cache row — Vc needs no rope/norm), wo folds residual.
+  // rp (ring decode) supplies per-position cos/sin buffers (prewritten by the caller) so a whole BATCH of
+  // tokens records in ONE encoder without the shared B.cos/B.sin being clobbered; step()/parity pass rp=null
+  // and use the shared buffers written just-in-time. KV save is a KERNEL (kvsave) not a copy → no pass break.
+  function recAttn(enc, W, pos, st, rp) {
+    const cos = rp ? rp.cos : B.cos, sin = rp ? rp.sin : B.sin;
+    if (!rp) { dev.queue.writeBuffer(B.cos, 0, rope.cos[pos]); dev.queue.writeBuffer(B.sin, 0, rope.sin[pos]); }
+    d(enc, P.rms1p, [B.h, W.attn_norm, B.norm, uF([dm, D.eps])], 1);
+    mvF(enc, [W.attn_q, W.attn_k, W.attn_v], B.norm, [B.qg, B.kraw, { buffer: st.Vc, offset: pos * nkv * hd * 4, size: nkv * hd * 4 }]);
+    d(enc, P.deint, [B.qg, B.qraw, B.gate, uU([nh, hd])], G(nh * hd));
+    d(enc, P.hnrqk, [B.qraw, B.kraw, W.attn_q_norm, W.attn_k_norm, cos, sin, B.qrope, { buffer: st.Kc, offset: pos * nkv * hd * 4, size: nkv * hd * 4 }, uU([nh, nkv, hd, rdim]), uU([epsBits, 0, 0, 0])], nh + nkv);   // FUSION D: q+k norm+rope, K into cache row
+    d(enc, P.attn, [B.qrope, st.Kc, st.Vc, B.attnctx, uU([nh, hd, pos, nkv * hd]), uF([1 / Math.sqrt(hd), nh / nkv])], G(nh));
+    d(enc, P.gmul, [B.gate, B.attnctx, uU([nh * hd])], G(nh * hd));
+    mv(enc, W.attn_output, B.attnctx, B.h, true);
+    st.len = pos + 1;
+  }
+  function recMLP(enc, W) {
+    d(enc, P.rms1p, [B.h, W.post_attention_norm, B.norm, uF([dm, D.eps])], 1);
+    mvF(enc, [W.ffn_gate, W.ffn_up], B.norm, [B.gp, B.up]);
+    d(enc, P.swiglu, [B.gp, B.up, B.hh, uU([ffn])], G(ffn));
+    mv(enc, W.ffn_down, B.hh, B.h, true);
+  }
+
+  // one token → argmax token id (greedy). ONE submit; ONE 4-byte readback (the resident engine's whole point).
+  const perf = { steps: 0, encodeMs: 0, waitMs: 0, reset() { perf.steps = 0; perf.encodeMs = 0; perf.waitMs = 0; } };
+  async function step(id, pos, state) {
+    const tp0 = performance.now();
+    resetU();
+    dev.queue.writeBuffer(B.h, 0, gather(id));
+    const enc = dev.createCommandEncoder();
+    for (let L = 0; L < D.n_layer; L++) {
+      const { type, W } = layers[L];
+      if (type === "linear") recLinear(enc, W, state[L]); else recAttn(enc, W, pos, state[L]);
+      recMLP(enc, W);
+    }
+    d(enc, P.rms1p, [B.h, outNorm, B.norm, uF([dm, D.eps])], 1);
+    mv(enc, lmHead, B.norm, B.logits);
+    d(enc, P.argmax, [B.logits, B.argIdx, uU([vocab])], 1);
+    copy(enc, B.argIdx, 0, B.argRead, 0, 4);
+    dev.queue.submit([enc.finish()]);
+    const tp1 = performance.now();
+    await B.argRead.mapAsync(GPUMapMode.READ); const t = new Uint32Array(B.argRead.getMappedRange())[0]; B.argRead.unmap();
+    const tp2 = performance.now();
+    perf.steps++; perf.encodeMs += tp1 - tp0; perf.waitMs += tp2 - tp1;
+    return t;
+  }
+
+  const EOS = new Set(EOS_DEFAULT);
+  function frame(messages) { let s = ""; for (const m of messages) s += `<|im_start|>${m.role}\n${m.content}<|im_end|>\n`; return s + "<|im_start|>assistant\n"; }
+
+  // ── GPU decode head (ported from qvac-gpu.js decode(): token ids in a GPU seq-RING, embed/argmax/append
+  //    ON the gpu, BATCH tokens/submit, 2 batches pipelined so the 4-byte fence overlaps the next batch's
+  //    GPU work). Readbacks drop from 1/token to 1/BATCH, all off the critical path. The hybrid state
+  //    (full-attn KV rows, linear-layer SSM S + convTail) is SEQUENTIAL — each position's dispatches mutate
+  //    the persistent buffers in submission order, and WebGPU's in-pass hazard barriers serialize them, so
+  //    recording B positions back-to-back in one encoder advances the recurrence correctly. ──
+  let DEC = null;
+  function ensureDEC() {
+    if (DEC) return DEC;
+    if (!embed) throw new Error("decode head needs the resident embed table (full model)");
+    const signW = (vocab * dm) >> 5;                              // signs region only (u32 words) — scales ride in esB
+    const eqB = dev.createBuffer({ size: signW * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    dev.queue.writeBuffer(eqB, 0, new Uint32Array(embed.bytes.buffer, embed.bytes.byteOffset, signW));
+    const esB = dev.createBuffer({ size: embed.scales.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    dev.queue.writeBuffer(esB, 0, embed.scales);
+    DEC = {
+      emb: pipe(EMBED_Q1), app: pipe(APPEND_RING), eqB, esB,
+      ring: dev.createBuffer({ size: MAXCTX * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }),
+      rope: Array.from({ length: 2 * BATCH }, () => ({ cos: sb(rdim), sin: sb(rdim) })),   // per-slot rope (batched, no clobber)
+      stg: [0, 1].map(() => dev.createBuffer({ size: BATCH * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST })),
+    };
+    return DEC;
+  }
+  // record ONE token forward into an open pass: embed(ring[pos]) → hybrid layers → MLP (all in-place on B.h)
+  function recForward(enc, pos, state, rp) {
+    d(enc, DEC.emb, [DEC.ring, DEC.eqB, DEC.esB, B.h, uU([pos, dm, 0, 0])], Math.ceil(dm / 256));
+    for (let L = 0; L < D.n_layer; L++) {
+      const { type, W } = layers[L];
+      if (type === "linear") recLinear(enc, W, state[L]); else recAttn(enc, W, pos, state[L], rp);
+      recMLP(enc, W);
+    }
+  }
+  // final_norm → lm_head → greedy argmax → append winner into ring[pos+1] (next token, no CPU hop)
+  function recArgmaxAppend(enc, pos) {
+    d(enc, P.rms1p, [B.h, outNorm, B.norm, uF([dm, D.eps])], 1);
+    mv(enc, lmHead, B.norm, B.logits);
+    d(enc, P.argmax, [B.logits, B.argIdx, uU([vocab])], 1);
+    d(enc, DEC.app, [DEC.ring, B.argIdx, uU([pos + 1, 0, 0, 0])], 1);
+  }
+  const decStats = { readbacks: 0, tokens: 0, reset() { decStats.readbacks = 0; decStats.tokens = 0; } };
+
+  // ── CORE ring decode over ALREADY-FRAMED ids: yields each committed (non-EOS) token id one at a time.
+  //    Both the messages-based generate() and the ids-based generateIds() (the app bridge's entry) consume
+  //    this — one loop, no duplication. `signal` (AbortSignal) stops cleanly between committed tokens. ──
+  async function* ringDecodeIds(ids, maxNew, signal) {
+    ensureDEC();
+    if (ids.length >= MAXCTX) throw new Error(`ctx overflow: ${ids.length} >= ${MAXCTX}`);
+    maxNew = Math.max(0, Math.min(maxNew, MAXCTX - ids.length));
+    const state = newState();
+    const L0 = ids.length;
+    dev.queue.writeBuffer(DEC.ring, 0, new Uint32Array(ids));
+    decStats.reset();
+    const setRope = (slot, pos) => { dev.queue.writeBuffer(slot.cos, 0, rope.cos[pos]); dev.queue.writeBuffer(slot.sin, 0, rope.sin[pos]); };
+    try {
+      // PREFILL: forward ids[0..L0-2] (all but the last) to build KV/SSM state — no argmax. The last prompt
+      // token is forwarded by the FIRST decode step (so it is forwarded exactly once — the recurrence must
+      // not double-advance). Batched, bounded queue depth (prefill is one-time, not per-token latency).
+      for (let off = 0, par = 0; off < L0 - 1; off += BATCH, par ^= 1) {
+        const n = Math.min(BATCH, (L0 - 1) - off);
+        const enc = dev.createCommandEncoder();
+        for (let k = 0; k < n; k++) { const pos = off + k, slot = DEC.rope[par * BATCH + k]; setRope(slot, pos); recForward(enc, pos, state, slot); }
+        passBreak(); dev.queue.submit([enc.finish()]);
+        await dev.queue.onSubmittedWorkDone();
+      }
+      // DECODE: step j forwards ring[L0-1+j] @ pos (L0-1+j) → append ring[L0+j]; output token = ring[L0+j].
+      // Two batches kept in flight: batch N+1 is encoded+submitted before batch N's fence is read.
+      const submitBatch = (n, jStart, par) => {
+        const enc = dev.createCommandEncoder();
+        for (let k = 0; k < n; k++) {
+          const pos = L0 - 1 + jStart + k, slot = DEC.rope[par * BATCH + k];
+          setRope(slot, pos);
+          recForward(enc, pos, state, slot);
+          recArgmaxAppend(enc, pos);                               // ring[pos+1] = ring[L0 + jStart + k]
+        }
+        passBreak();
+        enc.copyBufferToBuffer(DEC.ring, (L0 + jStart) * 4, DEC.stg[par], 0, n * 4);
+        dev.queue.submit([enc.finish()]);
+      };
+      let done = false, j = 0, par = 0;
+      const inflight = [];
+      while (!done) {
+        while (!done && inflight.length < 2 && j < maxNew) {
+          const n = Math.min(BATCH, maxNew - j);
+          submitBatch(n, j, par); inflight.push({ n, jStart: j, par });
+          j += n; par ^= 1;
+        }
+        const b = inflight.shift(); if (!b) break;
+        await DEC.stg[b.par].mapAsync(GPUMapMode.READ);
+        const win = new Uint32Array(DEC.stg[b.par].getMappedRange().slice(0)).subarray(0, b.n); DEC.stg[b.par].unmap();
+        decStats.readbacks++;
+        for (let k = 0; k < b.n; k++) {
+          const t = win[k];
+          if (EOS.has(t)) { done = true; break; }
+          decStats.tokens++;
+          yield t;
+          if (signal && signal.aborted) { done = true; break; }
+        }
+      }
+    } finally {   // consumer break / abort calls generator.return() — free the per-conversation state either way
+      state.forEach((st) => { if (st) ["S", "convTail", "convTailB", "Kc", "Vc"].forEach((k) => st[k] && st[k].destroy()); });
+    }
+  }
+
+  // messages-based streaming generator (test harness / chat()): frames ChatML, yields text deltas.
+  async function* generate(messages, { maxTokens = 128, onToken, signal } = {}) {
+    const ids = tok.encode(frame(messages), { addSpecial: false, parseSpecial: true });
+    let text = "", gen = [];
+    for await (const t of ringDecodeIds(ids, maxTokens, signal)) {
+      gen.push(t); const full = tok.decode(gen), delta = full.slice(text.length); text = full;
+      if (onToken) { try { onToken(gen.length, full); } catch (e) {} }
+      yield delta;
+    }
+  }
+
+  // ids-based decode (the app bridge's contract): takes ALREADY-framed+tokenized ids (prompt + history),
+  // fires onToken({ outIds, text, stats:{ tokps } }) per committed token, resolves to the same shape.
+  // tokps = generated tokens / seconds since the FIRST committed token (decode rate, excludes prefill).
+  async function generateIds(ids, { maxNew = 128, onToken, signal } = {}) {
+    const outIds = []; let text = "", tFirst = 0;
+    for await (const t of ringDecodeIds(ids, maxNew, signal)) {
+      if (!tFirst) tFirst = performance.now();
+      outIds.push(t); text = tok.decode(outIds);
+      const dt = (performance.now() - tFirst) / 1000;
+      const tokps = dt > 0 ? outIds.length / dt : 0;
+      if (onToken) { try { onToken({ outIds: outIds.slice(), text, stats: { tokps } }); } catch (e) {} }
+    }
+    const dt = tFirst ? (performance.now() - tFirst) / 1000 : 0;
+    return { outIds, text, stats: { tokps: dt > 0 ? outIds.length / dt : 0 } };
+  }
+  async function chat(messages, o) { let s = ""; for await (const dt of generate(messages, o)) s += dt; return s.trim(); }
+
+  // ── debug/parity handles (the harness's oracle seams) ──
+  const _read = async (buf, n) => { const bytes = n * 4; const rd = dev.createBuffer({ size: bytes, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }); const e = dev.createCommandEncoder(); e.copyBufferToBuffer(typeof buf === "string" ? B[buf] : buf, 0, rd, 0, bytes); dev.queue.submit([e.finish()]); await rd.mapAsync(GPUMapMode.READ); const a = new Float32Array(rd.getMappedRange().slice(0)); rd.destroy(); return a; };
+  const _write = (name, arr) => dev.queue.writeBuffer(B[name], 0, arr);
+  // run exactly ONE layer (+ its MLP) from a given h vector and fresh/given state — the layer-parity unit
+  async function _stepLayer(L, hVec, state, pos = 0) {
+    resetU();
+    dev.queue.writeBuffer(B.h, 0, hVec);
+    const enc = dev.createCommandEncoder();
+    const { type, W } = layers[L];
+    if (type === "linear") recLinear(enc, W, state[L]); else recAttn(enc, W, pos, state[L]);
+    recMLP(enc, W);
+    passBreak(); dev.queue.submit([enc.finish()]);
+    return _read("h", dm);
+  }
+  // one bare matvec through the engine's mv() — the kernel-parity unit
+  async function _matvec(wq, xVec) {
+    resetU();
+    const xb = wF(xVec), yb = sb(wq.N);
+    const enc = dev.createCommandEncoder(); mv(enc, wq, xb, yb); passBreak(); dev.queue.submit([enc.finish()]);
+    const y = await _read(yb, wq.N); xb.destroy(); yb.destroy(); return y;
+  }
+  const _stepErr = async (id, pos, state) => { dev.pushErrorScope("validation"); dev.pushErrorScope("out-of-memory"); const t = await step(id, pos, state); const oom = await dev.popErrorScope(); const val = await dev.popErrorScope(); return { token: t, validation: val && val.message, oom: oom && oom.message }; };
+  return { D, tok, step, newState, generate, generateIds, chat, frame, EOS, layers, BATCH, _read, _write, _stepLayer, _matvec, _stepErr, _perf: perf, _decStats: decStats, _B: B, _dev: dev, _mv: mv, _passBreak: passBreak, _wF: wF, _sb: sb, info: () => ({ arch: "qwen35", model: "bonsai-27b", layers: D.n_layer, resident: true, quant: "q1" }) };
+}
+
+export default { MATVECQ1_COOP, MATVECQ1_TILE, loadBonsai27Brain, makeBonsai27Resident, dequantQ1, q1Row, permuteQ1Rows };
