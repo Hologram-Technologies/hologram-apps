@@ -8,6 +8,8 @@
 // `holo://os/…` exactly as it does over the browser dev server, but here there is no Chrome, no
 // CORS wall, and a real shell + filesystem underneath.
 
+mod prism_forward;
+
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
@@ -310,13 +312,38 @@ pub fn run() {
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     if let Some(url) = event.urls().first() {
+                        // holo://build is uor.foundation's "build me a Prism app" link: prism-code's, not a page.
+                        if prism_forward::is_build_link(url.as_str()) {
+                            if let Err(e) = prism_forward::forward(url.as_str()) {
+                                eprintln!("hologram: holo://build not forwarded: {e}");
+                            }
+                            return;
+                        }
                         if let Some(chrome) = handle.get_webview("chrome") {
                             let _ = chrome.navigate(target_for(url.as_str()).parse().unwrap());
                         }
                     }
                 });
-                // COLD: a link launched us → open straight to that object (no home flash).
-                match app.deep_link().get_current() { Ok(Some(urls)) => urls.first().map(|u| target_for(u.as_str())), _ => None }
+                // COLD: a link launched us → open straight to that object (no home flash). A holo://build
+                // link goes to prism-code and Hologram quits without a window; if prism-code is not set
+                // up, Hologram opens home as it would with no link.
+                match app.deep_link().get_current() {
+                    Ok(Some(urls)) => match urls.first() {
+                        Some(u) if prism_forward::is_build_link(u.as_str()) => match prism_forward::forward(u.as_str()) {
+                            Ok(()) => {
+                                app.handle().exit(0);
+                                return Ok(());
+                            }
+                            Err(e) => {
+                                eprintln!("hologram: holo://build not forwarded: {e}");
+                                None
+                            }
+                        },
+                        Some(u) => Some(target_for(u.as_str())),
+                        None => None,
+                    },
+                    _ => None,
+                }
             };
             #[cfg(not(desktop))]
             let initial: Option<String> = None;
