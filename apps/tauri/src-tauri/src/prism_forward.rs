@@ -1,6 +1,6 @@
 // ── holo://build → prism-code ─────────────────────────────────────────────────────────────────────────
 // uor.foundation's Build button writes `holo://build?agent=<id>&q=<sentence>`: "build me a Prism app that …",
-// handed to the agent the visitor uses. Hologram owns holo://, so `npx prism-code setup` leaves the OS
+// handed to the agent the visitor uses. Hologram owns holo://, so `npx prism-code@latest setup` leaves the OS
 // registration to Hologram and records its own handler in `$PRISM_HOME/handler.json` (default `~/.prism`,
 // schema `prism/handler/1`). Hologram hands such a link to that handler as `node <entry> <link>`: two
 // arguments, no shell, no console window. The handler checks the link itself (the host, the agent, the
@@ -37,7 +37,7 @@ pub fn prism_home() -> Option<PathBuf> {
 /// Refuses a record that is not prism-code's, or that names files no longer there.
 pub fn forward_command(url: &str, prism_home: &Path) -> Result<(PathBuf, Vec<OsString>), String> {
     let path = prism_home.join("handler.json");
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}; run `npx prism-code setup` once", path.display()))?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}; run `npx prism-code@latest setup` once", path.display()))?;
     let record: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("{} is not JSON: {e}", path.display()))?;
     let field = |name: &str| record.get(name).and_then(|v| v.as_str());
     if field("schema") != Some(RECORD_SCHEMA) || field("scheme") != Some("holo") || field("host") != Some("build") {
@@ -53,7 +53,7 @@ pub fn forward_command(url: &str, prism_home: &Path) -> Result<(PathBuf, Vec<OsS
     }
     for file in [&node, &entry] {
         if !file.is_file() {
-            return Err(format!("{} does not exist; run `npx prism-code setup` again", file.display()));
+            return Err(format!("{} does not exist; run `npx prism-code@latest setup` again", file.display()));
         }
     }
     Ok((node, vec![entry.into_os_string(), OsString::from(url)]))
@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn without_prism_code_set_up_nothing_runs() {
         let dir = scratch("missing");
-        assert!(forward_command(LINK, &dir).unwrap_err().contains("npx prism-code setup"));
+        assert!(forward_command(LINK, &dir).unwrap_err().contains("npx prism-code@latest setup"));
         std::fs::write(dir.join("handler.json"), "not json").unwrap();
         assert!(forward_command(LINK, &dir).unwrap_err().contains("is not JSON"));
         std::fs::write(dir.join("handler.json"), r#"{"schema":"other/1","scheme":"holo","host":"build","node":"n","entry":"handler.mjs"}"#).unwrap();
